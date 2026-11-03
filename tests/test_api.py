@@ -188,7 +188,9 @@ def test_uploaded_voice_rename_category_delete(client, tmp_path):
     (tmp_path / 'voices' / 'names.json').write_text('{"%s": "Old name"}' % key)  # legacy format
     assert client.get('/api/voices').json()[0]['filename'] == 'Old name'
     client.patch(f'/api/voices/{key}', json={'name': 'Homer', 'category': 'Cartoon'})
-    assert client.get('/api/voices').json()[0] == {'voice_id': key, 'filename': 'Homer', 'category': 'Cartoon'}
+    voice = client.get('/api/voices').json()[0]
+    assert (voice['voice_id'], voice['filename'], voice['category']) == (key, 'Homer', 'Cartoon')
+    assert voice['duration'] and voice['sample_rate']
     assert client.delete(f'/api/voices/{key}').status_code == 200
     assert client.get('/api/voices').json() == []
 
