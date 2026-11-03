@@ -144,3 +144,67 @@ def test_engine_detection_reports_missing_interpreter(monkeypatch, tmp_path):
     monkeypatch.setattr(engines, '_resolved', {})
     assert engines.candidates('qwen') == [tmp_path / 'nope']
     assert engines.python_for('qwen') is None
+
+
+def make_voice(client, name='V', **extra):
+    voice = client.post('/api/designed-voices', json={'name': name, 'description': 'd', 'characteristics': SLIDERS, **extra}).json()
+    client.post(f"/api/designed-voices/{voice['id']}/versions/1/attach-preview", json={'job_id': preview(client, 'd'), 'approve': True})
+    return voice
+
+
+def test_categories_and_extra_traits(client):
+    voice = make_voice(client, category='Narrators')
+    assert narration_voice(client, voice['id'])['category'] == 'Narrators'
+    client.patch(f"/api/designed-voices/{voice['id']}", json={'category': 'Villains'})
+    assert narration_voice(client, voice['id'])['category'] == 'Villains'
+    r = client.post('/api/designed-voices', json={'name': 'X', 'description': 'd',
+                                                  'characteristics': {**SLIDERS, 'age': 90, 'energy': 10}})
+    assert r.status_code == 201
+    from backend.voice_library import build_instruction
+    text = build_instruction('d', {**SLIDERS, 'age': 90, 'energy': 10})
+    assert 'older' in text and 'low energy' in text
+    assert client.post('/api/designed-voices', json={'name': 'X', 'description': 'd',
+                                                     'characteristics': {**SLIDERS, 'bogus': 5}}).status_code == 422
+
+
+def test_delete_version_falls_back_and_keeps_last(client):
+    voice = make_voice(client)
+    client.post(f"/api/designed-voices/{voice['id']}/versions", json={'description': 'e', 'characteristics': SLIDERS})
+    sample = client.module.library.latest_approved(voice['id'])['path']
+    r = client.delete(f"/api/designed-voices/{voice['id']}/versions/2")
+    assert r.status_code == 200 and r.json()['active_version'] == 1
+    assert client.delete(f"/api/designed-voices/{voice['id']}/versions/1").status_code == 409
+    client.post(f"/api/designed-voices/{voice['id']}/versions", json={'description': 'f', 'characteristics': SLIDERS})
+    client.delete(f"/api/designed-voices/{voice['id']}/versions/1")
+    assert not sample.exists()
+    assert narration_voice(client, voice['id'])['narration_version'] is None
+
+
+def test_uploaded_voice_rename_category_delete(client, tmp_path):
+    key = 'c' * 32
+    sf.write(str(tmp_path / 'voices' / f'{key}.wav'), np.zeros(2400, dtype='float32'), 24000)
+    (tmp_path / 'voices' / 'names.json').write_text('{"%s": "Old name"}' % key)  # legacy format
+    assert client.get('/api/voices').json()[0]['filename'] == 'Old name'
+    client.patch(f'/api/voices/{key}', json={'name': 'Homer', 'category': 'Cartoon'})
+    assert client.get('/api/voices').json()[0] == {'voice_id': key, 'filename': 'Homer', 'category': 'Cartoon'}
+    assert client.delete(f'/api/voices/{key}').status_code == 200
+    assert client.get('/api/voices').json() == []
+
+
+@pytest.mark.skipif(not shutil.which('ffmpeg'), reason='ffmpeg not installed')
+def test_audio_edit_trims_and_creates_new_voice(client, tmp_path):
+    key = 'd' * 32
+    tone = np.sin(np.linspace(0, 2000, 24000 * 4)).astype('float32') * 0.3
+    sf.write(str(tmp_path / 'voices' / f'{key}.wav'), tone, 24000)
+    r = client.post('/api/audio/edit', json={'source': f'upload:{key}', 'start': 1, 'end': 3, 'fade_in': 0.2,
+                                             'fade_out': 0.2, 'normalize': True, 'denoise': True, 'highpass': True})
+    assert r.status_code == 200, r.text
+    new = r.json()
+    audio, rate = sf.read(tmp_path / 'voices' / f"{new['voice_id']}.wav")
+    assert rate == 24000 and abs(len(audio) / rate - 2) < 0.05
+    assert len(sf.read(tmp_path / 'voices' / f'{key}.wav')[0]) == 24000 * 4  # original untouched
+    assert client.post('/api/audio/edit', json={'source': f'upload:{key}', 'start': 3, 'end': 2}).status_code == 422
+    job = client.post('/api/narrations', json={'format': 'wav', 'blocks': [{'text': 'Hi.', 'voice_key': 'upload:' + key}]}).json()
+    wait(client, job)
+    edited = client.post('/api/audio/edit', json={'source': f"output:{job['job_id']}", 'speed': 1.5, 'trim_silence': True, 'fade_out': 0.1})
+    assert edited.status_code == 200 and edited.json()['status'] == 'complete'

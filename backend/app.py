@@ -13,9 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from backend import engines
 from backend.engine import export_mp3
+from backend.audio_edit import AudioEdit, render
 from backend.jobs import JobStore
 from backend.qwen_engine import DEFAULT_MODEL
-from backend.voice_library import VoiceLibrary, build_instruction
+from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path(os.environ.get('VOICE_STUDIO_DATA', ROOT / 'data'))
@@ -50,6 +51,10 @@ class GenerateRequest(BaseModel):
     designed_version: int | None = None
     designed_mode: str = 'auto'  # auto, design, or reference
 
+class RenameInput(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    category: str | None = Field(default=None, max_length=60)
+
 @app.get('/api/health')
 def health():
     installed = engines.available('chatterbox')
@@ -63,11 +68,46 @@ def unload_engine():
     engines.pool.shutdown()
     return {'resident_engine':None}
 
-@app.get('/api/voices')
-def list_voices():
+def voice_meta():
+    """Uploaded voice names and categories; names.json holds plain names from older versions."""
     names_path = DATA/'voices'/'names.json'
     names = json.loads(names_path.read_text()) if names_path.exists() else {}
-    return [{'voice_id':p.stem, 'filename':names.get(p.stem,p.name)} for p in sorted((DATA/'voices').glob('*.wav'))]
+    return {k:(v if isinstance(v,dict) else {'name':v,'category':''}) for k,v in names.items()}
+
+def save_voice_meta(meta):
+    (DATA/'voices'/'names.json').write_text(json.dumps(meta,indent=2))
+
+def upload_path(voice_id):
+    if not voice_id.isalnum(): raise HTTPException(400,'Invalid voice')
+    path = DATA/'voices'/f'{voice_id}.wav'
+    if not path.is_file(): raise HTTPException(404,'Voice not found')
+    return path
+
+@app.get('/api/voices')
+def list_voices():
+    meta = voice_meta()
+    return [{'voice_id':p.stem, 'filename':meta.get(p.stem,{}).get('name',p.name), 'category':meta.get(p.stem,{}).get('category','')}
+            for p in sorted((DATA/'voices').glob('*.wav'))]
+
+@app.get('/api/voices/{voice_id}/audio')
+def voice_audio(voice_id: str):
+    return FileResponse(upload_path(voice_id), media_type='audio/wav')
+
+@app.patch('/api/voices/{voice_id}')
+def update_voice(voice_id: str, request: RenameInput):
+    upload_path(voice_id)
+    meta = voice_meta()
+    entry = meta.setdefault(voice_id, {'name':voice_id,'category':''})
+    if request.name: entry['name'] = request.name.strip()
+    if request.category is not None: entry['category'] = request.category.strip()
+    save_voice_meta(meta)
+    return {'voice_id':voice_id, 'filename':entry['name'], 'category':entry['category']}
+
+@app.delete('/api/voices/{voice_id}')
+def delete_voice(voice_id: str):
+    upload_path(voice_id).unlink()
+    meta = voice_meta(); meta.pop(voice_id, None); save_voice_meta(meta)
+    return {'deleted':True}
 
 @app.post('/api/voices')
 async def upload_voice(file: UploadFile = File(...)):
@@ -89,14 +129,14 @@ async def upload_voice(file: UploadFile = File(...)):
         raise HTTPException(400, 'Could not decode voice recording')
     finally:
         source.unlink(missing_ok=True)
-    names_path = DATA/'voices'/'names.json'
-    names = json.loads(names_path.read_text()) if names_path.exists() else {}
-    names[key] = Path(file.filename or 'Imported voice').stem
-    names_path.write_text(json.dumps(names,indent=2))
-    return {'voice_id':key, 'filename':names[key]}
+    meta = voice_meta()
+    meta[key] = {'name':Path(file.filename or 'Imported voice').stem, 'category':''}
+    save_voice_meta(meta)
+    return {'voice_id':key, 'filename':meta[key]['name'], 'category':''}
 
 class DesignedVoiceInput(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+    category: str = Field(default='', max_length=60)
     description: str = Field(min_length=1, max_length=1200)
     characteristics: dict[str, int] = Field(default_factory=lambda: {'pitch':50,'rasp':50,'pace':50,'warmth':50})
 
@@ -104,8 +144,6 @@ class DesignedVersionInput(BaseModel):
     description: str = Field(min_length=1, max_length=1200)
     characteristics: dict[str, int]
 
-class RenameInput(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
 
 class DraftPreviewInput(BaseModel):
     text: str = Field(min_length=1, max_length=600)
@@ -121,8 +159,8 @@ class PreviewInput(BaseModel):
     version: int | None = None
 
 def check_characteristics(c):
-    if set(c) != {'pitch','rasp','pace','warmth'} or any(type(v) is not int or not 0 <= v <= 100 for v in c.values()):
-        raise HTTPException(422, 'Characteristics must contain pitch, rasp, pace and warmth, each an integer from 0 to 100')
+    if not set(FIELDS) <= set(c) <= set(TRAITS) or any(type(v) is not int or not 0 <= v <= 100 for v in c.values()):
+        raise HTTPException(422, f'Characteristics must include pitch, rasp, pace and warmth (optional: {", ".join(TRAITS[4:])}), each an integer from 0 to 100')
 
 @app.get('/api/designed-voices')
 def designed_voices():
@@ -139,7 +177,7 @@ def designed_voices():
 @app.post('/api/designed-voices', status_code=201)
 def create_designed_voice(request: DesignedVoiceInput):
     check_characteristics(request.characteristics)
-    return library.create(request.name.strip(),request.description.strip(),request.characteristics,DEFAULT_MODEL)
+    return library.create(request.name.strip(),request.description.strip(),request.characteristics,DEFAULT_MODEL,request.category.strip())
 
 @app.get('/api/designed-voices/{voice_id}')
 def get_designed_voice(voice_id: str):
@@ -159,7 +197,20 @@ def activate_designed_version(voice_id: str, version: int):
 
 @app.patch('/api/designed-voices/{voice_id}')
 def rename_designed_voice(voice_id: str, request: RenameInput):
-    return library.rename(voice_id,request.name.strip()) or _missing_voice()
+    library.get(voice_id) or _missing_voice()
+    return library.rename(voice_id, request.name.strip() if request.name else None,
+                          request.category.strip() if request.category is not None else None)
+
+@app.delete('/api/designed-voices/{voice_id}/versions/{version}')
+def delete_designed_version(voice_id: str, version: int):
+    library.get(voice_id) or _missing_voice()
+    try:
+        return library.delete_version(voice_id, version) or _missing_version()
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
+
+def _missing_version():
+    raise HTTPException(404, 'Voice version not found')
 
 @app.delete('/api/designed-voices/{voice_id}')
 def delete_designed_voice(voice_id: str):
@@ -170,7 +221,7 @@ def delete_designed_voice(voice_id: str):
 def duplicate_designed_voice(voice_id: str):
     voice = library.get(voice_id) or _missing_voice()
     version = next(v for v in voice['versions'] if v['version']==voice['active_version'])
-    return library.create(voice['name']+' (copy)',version['description'],version['characteristics'],version['model_id'])
+    return library.create(voice['name']+' (copy)',version['description'],version['characteristics'],version['model_id'],voice.get('category',''))
 
 @app.post('/api/designed-voices/draft-preview')
 def draft_preview(request: DraftPreviewInput):
@@ -461,3 +512,47 @@ def rendered_video(filename: str):
 @app.post('/api/youtube/import')
 def youtube_import():
     raise HTTPException(501, 'Authorized YouTube import is planned, not yet implemented.')
+
+class AudioEditRequest(AudioEdit):
+    source: str = Field(pattern=r'^(output|upload|sample):[0-9a-f]{32}$')
+    save_as: str = Field(default='new', pattern=r'^(new|replace)$')
+    name: str = Field(default='', max_length=120)
+
+@app.post('/api/audio/edit')
+def edit_audio(request: AudioEditRequest):
+    """Apply trims, fades and cleanup to a recording, writing a new file.
+
+    Narration outputs become a new output (usable in Video Studio). Uploaded references
+    become a new uploaded voice, or replace the original when save_as is 'replace'.
+    Designed-voice samples always become a new uploaded voice.
+    """
+    if not shutil.which('ffmpeg'): raise HTTPException(503,'FFmpeg is required')
+    kind, key = request.source.split(':')
+    if kind == 'output':
+        source = DATA/'outputs'/f'{key}.wav'
+    elif kind == 'upload':
+        source = upload_path(key)
+    else:
+        source = library.sample_file(key)
+    if not source or not source.is_file(): raise HTTPException(404,'Audio not found')
+    new_id = uuid4().hex
+    target = (DATA/'outputs' if kind == 'output' else DATA/'voices')/f'{new_id}.wav'
+    try:
+        render(source, target, request)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except subprocess.CalledProcessError as exc:
+        target.unlink(missing_ok=True)
+        raise HTTPException(400, f'Audio edit failed: {(exc.stderr or "").strip()[-300:]}')
+    if kind == 'output':
+        jobs[new_id] = {'status':'complete','progress':100,'message':'Edited narration ready',
+                        'download_url':f'/api/outputs/{new_id}.wav','edited_from':key}
+        return jobs[new_id]
+    meta = voice_meta()
+    if kind == 'upload' and request.save_as == 'replace':
+        target.replace(source)
+        return {'voice_id':key, 'filename':meta.get(key,{}).get('name',key), 'category':meta.get(key,{}).get('category','')}
+    base = meta.get(key,{}) if kind == 'upload' else {'name':'Edited sample','category':''}
+    meta[new_id] = {'name':request.name.strip() or base.get('name','Voice')+' (edited)', 'category':base.get('category','')}
+    save_voice_meta(meta)
+    return {'voice_id':new_id, 'filename':meta[new_id]['name'], 'category':meta[new_id]['category']}

@@ -7,6 +7,16 @@ from pathlib import Path
 from uuid import uuid4
 
 FIELDS = ('pitch', 'rasp', 'pace', 'warmth')
+# Optional sliders; neutral (35-65) values add nothing to the instruction.
+EXTRA_CUES = (
+    ('age', 'Sound youthful.', 'Sound mature and older.'),
+    ('breathiness', 'Keep the voice firm, with little breath.', 'Use a soft, breathy voice.'),
+    ('depth', 'Keep the resonance light and forward.', 'Use a deep, chesty resonance.'),
+    ('energy', 'Deliver calmly with low energy.', 'Deliver with high energy and enthusiasm.'),
+    ('clarity', 'Use relaxed, casual articulation.', 'Articulate crisply and precisely.'),
+    ('expressiveness', 'Keep the delivery flat and even.', 'Use a lively, expressive, varied intonation.'),
+)
+TRAITS = FIELDS + tuple(k for k, _, _ in EXTRA_CUES)
 
 def now():
     return datetime.now(timezone.utc).isoformat()
@@ -36,6 +46,9 @@ class VoiceLibrary:
                 FOREIGN KEY(voice_id, version) REFERENCES designed_versions(voice_id, version) ON DELETE CASCADE,
                 FOREIGN KEY(sample_id) REFERENCES designed_samples(id) ON DELETE CASCADE);
             """)
+            columns = [r[1] for r in c.execute('PRAGMA table_info(designed_voices)')]
+            if 'category' not in columns:
+                c.execute("ALTER TABLE designed_voices ADD COLUMN category TEXT NOT NULL DEFAULT ''")
 
     @contextmanager
     def connect(self):
@@ -71,10 +84,11 @@ class VoiceLibrary:
                         (voice_id, version)).fetchone()
         return row['sample_id'] if row else None
 
-    def create(self, name, description, characteristics, model_id):
+    def create(self, name, description, characteristics, model_id, category=''):
         voice_id, stamp = uuid4().hex, now()
         with self.connect() as c:
-            c.execute('INSERT INTO designed_voices VALUES(?,?,?,?,?)', (voice_id,name,1,stamp,stamp))
+            c.execute('INSERT INTO designed_voices(id,name,active_version,created_at,updated_at,category) VALUES(?,?,?,?,?,?)',
+                      (voice_id,name,1,stamp,stamp,category))
             c.execute('INSERT INTO designed_versions VALUES(?,?,?,?,?,?)', (voice_id,1,description,json.dumps(characteristics),model_id,stamp))
         return self.get(voice_id)
 
@@ -95,9 +109,33 @@ class VoiceLibrary:
             c.execute('UPDATE designed_voices SET active_version=?,updated_at=? WHERE id=?', (version,now(),voice_id))
         return self.get(voice_id)
 
-    def rename(self, voice_id, name):
+    def rename(self, voice_id, name=None, category=None):
         with self.connect() as c:
-            c.execute('UPDATE designed_voices SET name=?,updated_at=? WHERE id=?', (name,now(),voice_id))
+            if name is not None:
+                c.execute('UPDATE designed_voices SET name=?,updated_at=? WHERE id=?', (name,now(),voice_id))
+            if category is not None:
+                c.execute('UPDATE designed_voices SET category=?,updated_at=? WHERE id=?', (category,now(),voice_id))
+        return self.get(voice_id)
+
+    def delete_version(self, voice_id, version):
+        """Remove one version and its samples. The last remaining version cannot be deleted."""
+        with self.connect() as c:
+            versions = [r[0] for r in c.execute('SELECT version FROM designed_versions WHERE voice_id=? ORDER BY version', (voice_id,))]
+            if version not in versions:
+                return None
+            if len(versions) == 1:
+                raise ValueError('A voice needs at least one version; delete the voice instead')
+            files = [r[0] for r in c.execute('SELECT filename FROM designed_samples WHERE voice_id=? AND version=?', (voice_id,version))]
+            c.execute('DELETE FROM designed_approved_samples WHERE voice_id=? AND version=?', (voice_id,version))
+            c.execute('DELETE FROM designed_samples WHERE voice_id=? AND version=?', (voice_id,version))
+            c.execute('DELETE FROM designed_versions WHERE voice_id=? AND version=?', (voice_id,version))
+            active = c.execute('SELECT active_version FROM designed_voices WHERE id=?', (voice_id,)).fetchone()[0]
+            if active == version:
+                # Fall back to the newest remaining version.
+                remaining = max(v for v in versions if v != version)
+                c.execute('UPDATE designed_voices SET active_version=?,updated_at=? WHERE id=?', (remaining,now(),voice_id))
+        for name in files:
+            (self.samples / name).unlink(missing_ok=True)
         return self.get(voice_id)
 
     def delete(self, voice_id):
@@ -173,4 +211,8 @@ def build_instruction(description, characteristics):
     elif values['pace'] > 60: cues.append('Speak at a brisk pace.')
     if values['warmth'] < 35: cues.append('Use a cooler, restrained vocal tone.')
     elif values['warmth'] > 65: cues.append('Use a warm, rounded vocal tone.')
+    for key, low, high in EXTRA_CUES:
+        if key in values:
+            if values[key] < 35: cues.append(low)
+            elif values[key] > 65: cues.append(high)
     return ' '.join([description.strip(), *cues])
