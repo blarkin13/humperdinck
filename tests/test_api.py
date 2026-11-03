@@ -208,3 +208,17 @@ def test_audio_edit_trims_and_creates_new_voice(client, tmp_path):
     wait(client, job)
     edited = client.post('/api/audio/edit', json={'source': f"output:{job['job_id']}", 'speed': 1.5, 'trim_silence': True, 'fade_out': 0.1})
     assert edited.status_code == 200 and edited.json()['status'] == 'complete'
+
+
+@pytest.mark.skipif(not shutil.which('ffmpeg'), reason='ffmpeg not installed')
+def test_microphone_recording_upload(client, tmp_path):
+    # Browsers record WebM/Opus; it must be converted to a 24 kHz mono reference.
+    clip = tmp_path / 'My voice.webm'
+    subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=220:duration=3', '-ac', '2',
+                    '-c:a', 'libopus', str(clip)], check=True)
+    with clip.open('rb') as f:
+        r = client.post('/api/voices', files={'file': ('My voice.webm', f, 'audio/webm')})
+    assert r.status_code == 200, r.text
+    assert r.json()['filename'] == 'My voice'
+    audio, rate = sf.read(tmp_path / 'voices' / f"{r.json()['voice_id']}.wav")
+    assert rate == 24000 and audio.ndim == 1 and abs(len(audio) / rate - 3) < 0.1
