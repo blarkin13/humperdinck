@@ -4,6 +4,7 @@ import './style.css';
 import DropZone from './DropZone.jsx';
 import AudioEditor from './AudioEditor.jsx';
 import VoiceGrid from './VoiceGrid.jsx';
+import Updates from './Updates.jsx';
 const defaults={pitch:50,rasp:50,pace:50,warmth:50,age:50,breathiness:50,depth:50,energy:50,clarity:50,expressiveness:50};
 // Slider labels: [name, low end, high end]
 const traitLabels={pitch:['Pitch','Low','High'],rasp:['Rasp','Smooth','Gravelly'],pace:['Pace','Slow','Fast'],warmth:['Warmth','Cool','Warm'],age:['Age','Young','Mature'],breathiness:['Breathiness','Firm','Breathy'],depth:['Depth','Light','Deep'],energy:['Energy','Calm','Energetic'],clarity:['Articulation','Casual','Crisp'],expressiveness:['Expressiveness','Flat','Lively']};
@@ -84,7 +85,7 @@ function App(){
  function changeBlock(id,field,value){setBlocks(old=>old.map(b=>b.id===id?{...b,[field]:value}:b))}
  async function generateNarration(){try{if(blocks.some(b=>!b.text.trim()||!b.voice_key))throw Error('Every block needs text and an approved voice');const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:b.text,voice_key:b.voice_key})),format}));setNarrationJob(j);setStatus('Generating narration...')}catch(e){setStatus(e.message)}}
  async function renderVideo(){try{if(!video||narrationJob?.status!=='complete')throw Error('Upload a video and generate narration first');const j=await api('video-renders',json('POST',{video_id:video.video_id,narration_job_id:narrationJob.job_id,start_seconds:Number(offset),keep_original_audio:mix}));setVideoJob(j);setStatus('Rendering video...')}catch(e){setStatus(e.message)}}
- return <main><header><div><h1>Voice Studio</h1><small>Create voices. Tell stories. Add narration to video.</small></div><span className="local">LOCAL WORKSPACE</span></header>
+ return <main><header><div><h1>Voice Studio</h1><small>Create voices. Tell stories. Add narration to video.</small></div><div className="header-actions"><Updates/><span className="local">LOCAL WORKSPACE</span></div></header>
  <nav>{[['voices','Voice Library'],['narration','Narration Studio'],['video','Video Studio']].map(([id,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</nav>
  {tab==='voices'&&<section><div className="heading"><div><h2>Voice Library</h2><p>Create a voice once, then use it in any narration.</p></div><button onClick={newVoice}>+ New voice</button></div>
  <VoiceGrid items={[...designed.map(v=>({key:'d'+v.id,name:v.name,category:v.category,selected:selected===v.id,subtitle:(v.narration_sample_id?'Ready for narration · Approved v'+v.narration_version:'Draft')+' · Current version '+v.active_version,onOpen:()=>openVoice(v.id),onDelete:()=>deleteDesigned(v.id,v.name)})),...uploads.map(v=>({key:'u'+v.voice_id,name:v.filename,category:v.category,selected:uploadSel===v.voice_id,subtitle:'Uploaded · Ready for narration',onOpen:()=>openUpload(v.voice_id),onDelete:()=>deleteUpload(v.voice_id,v.filename)}))]}/>

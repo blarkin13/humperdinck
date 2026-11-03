@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from backend import engines
 from backend.engine import export_mp3
+from backend import updater
 from backend.audio_edit import AudioEdit, render
 from backend.jobs import JobStore
 from backend.qwen_engine import DEFAULT_MODEL
@@ -556,3 +557,36 @@ def edit_audio(request: AudioEditRequest):
     meta[new_id] = {'name':request.name.strip() or base.get('name','Voice')+' (edited)', 'category':base.get('category','')}
     save_voice_meta(meta)
     return {'voice_id':new_id, 'filename':meta[new_id]['name'], 'category':meta[new_id]['category']}
+
+
+class UpdateInstallRequest(BaseModel):
+    commit_sha: str = Field(pattern=r'^[0-9a-f]{40}$')
+
+@app.get('/api/updates/check')
+def check_updates():
+    try:
+        result = updater.check()
+    except updater.UpdateError as exc:
+        raise HTTPException(503, str(exc))
+    result.pop('file_hashes', None)
+    result['can_install'] = bool(os.environ.get('VOICE_STUDIO_LAUNCHER_PID'))
+    return result
+
+@app.post('/api/updates/install')
+def install_update(request: UpdateInstallRequest):
+    """Download and verify the approved commit, then ask the launcher to install and restart."""
+    if not os.environ.get('VOICE_STUDIO_LAUNCHER_PID'):
+        raise HTTPException(409, 'Start Voice Studio with start.sh (or start.ps1) to install updates from the app')
+    if engines.pool.busy:
+        raise HTTPException(409, 'Wait for the current generation to finish before updating')
+    try:
+        update = updater.check()
+        if update['commit_sha'] != request.commit_sha:
+            raise HTTPException(409, 'A newer update was published; check again to review it')
+        if not update['available']:
+            return {'installing': False, 'message': 'Already up to date'}
+        updater.stage(update)
+    except updater.UpdateError as exc:
+        raise HTTPException(503, str(exc))
+    (updater.STATE / 'restart').touch()  # the launcher polls for this, stops the servers and installs
+    return {'installing': True, 'message': 'Update downloaded and verified. Installing and restarting...'}

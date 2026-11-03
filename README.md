@@ -99,3 +99,20 @@ The main `bash install.sh` installs and verifies `mlx-audio` automatically on Ap
 .venv/bin/python -m pip install -r backend/requirements-dev.txt
 .venv/bin/python -m pytest -q tests
 ```
+
+## Updates
+
+Each time you run `bash start.sh` (or `start.ps1`), Voice Studio checks the latest commit on
+`main` at `blarkin13/voice-studio-starter`:
+
+1. It compares GitHub's git file hashes with the files on your computer.
+2. If anything differs, it lists the changed files and asks whether to install.
+3. If you approve, it downloads the snapshot at that exact commit, verifies every file's
+   hash, backs up the files it will replace to `.update/backups/`, installs, reinstalls
+   dependencies if `requirements.txt` or `package.json` changed, and relaunches.
+
+The **Check updates** button in the app does the same, then restarts and reloads the page.
+Only code is managed: `data/`, the `.venv*` environments and `node_modules` are never touched.
+Offline, the check is skipped and the installed version starts. Private repositories use your
+`gh` login (or `VOICE_STUDIO_GITHUB_TOKEN`). Skip the startup check with
+`VOICE_STUDIO_SKIP_STARTUP_UPDATE=1`.
