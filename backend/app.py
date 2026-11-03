@@ -100,6 +100,7 @@ def list_voices():
         except Exception:
             duration = rate = channels = None
         return {'voice_id':p.stem, 'filename':meta.get(p.stem,{}).get('name',p.name), 'category':meta.get(p.stem,{}).get('category',''),
+                'origin':meta.get(p.stem,{}).get('origin','uploaded'),
                 'duration':duration, 'sample_rate':rate, 'channels':channels, 'size_kb':round(p.stat().st_size/1024),
                 'added_at':datetime.fromtimestamp(p.stat().st_mtime, timezone.utc).isoformat()}
     return [info(p) for p in sorted((DATA/'voices').glob('*.wav'))]
@@ -146,7 +147,8 @@ async def upload_voice(file: UploadFile = File(...)):
     finally:
         source.unlink(missing_ok=True)
     meta = voice_meta()
-    meta[key] = {'name':Path(file.filename or 'Imported voice').stem, 'category':''}
+    meta[key] = {'name':Path(file.filename or 'Imported voice').stem, 'category':'',
+                 'origin':'recorded' if suffix in ('.webm','.ogg','.mp4') else 'uploaded'}
     save_voice_meta(meta)
     return {'voice_id':key, 'filename':meta[key]['name'], 'category':''}
 
@@ -155,6 +157,7 @@ class DesignedVoiceInput(BaseModel):
     category: str = Field(default='', max_length=60)
     description: str = Field(min_length=1, max_length=1200)
     characteristics: dict[str, int] = Field(default_factory=lambda: {'pitch':50,'rasp':50,'pace':50,'warmth':50})
+    method: str = Field(default='', pattern='^(|sliders|prompt)$')  # how the voice was designed, shown on its card
 
 class DesignedVersionInput(BaseModel):
     description: str = Field(min_length=1, max_length=1200)
@@ -201,7 +204,7 @@ def designed_voices():
 @app.post('/api/designed-voices', status_code=201)
 def create_designed_voice(request: DesignedVoiceInput):
     check_characteristics(request.characteristics)
-    return library.create(request.name.strip(),request.description.strip(),request.characteristics,settings.load()['design']['model'],request.category.strip())
+    return library.create(request.name.strip(),request.description.strip(),request.characteristics,settings.load()['design']['model'],request.category.strip(),request.method)
 
 @app.get('/api/designed-voices/{voice_id}')
 def get_designed_voice(voice_id: str):
@@ -591,7 +594,7 @@ def edit_audio(request: AudioEditRequest):
         target.replace(source)
         return {'voice_id':key, 'filename':meta.get(key,{}).get('name',key), 'category':meta.get(key,{}).get('category','')}
     base = meta.get(key,{}) if kind == 'upload' else {'name':'Edited sample','category':''}
-    meta[new_id] = {'name':request.name.strip() or base.get('name','Voice')+' (edited)', 'category':base.get('category','')}
+    meta[new_id] = {'name':request.name.strip() or base.get('name','Voice')+' (edited)', 'category':base.get('category',''), 'origin':'edited'}
     save_voice_meta(meta)
     return {'voice_id':new_id, 'filename':meta[new_id]['name'], 'category':meta[new_id]['category']}
 

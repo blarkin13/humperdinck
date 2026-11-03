@@ -49,6 +49,8 @@ class VoiceLibrary:
             columns = [r[1] for r in c.execute('PRAGMA table_info(designed_voices)')]
             if 'category' not in columns:
                 c.execute("ALTER TABLE designed_voices ADD COLUMN category TEXT NOT NULL DEFAULT ''")
+            if 'method' not in columns:
+                c.execute("ALTER TABLE designed_voices ADD COLUMN method TEXT NOT NULL DEFAULT ''")
 
     @contextmanager
     def connect(self):
@@ -84,11 +86,11 @@ class VoiceLibrary:
                         (voice_id, version)).fetchone()
         return row['sample_id'] if row else None
 
-    def create(self, name, description, characteristics, model_id, category=''):
+    def create(self, name, description, characteristics, model_id, category='', method=''):
         voice_id, stamp = uuid4().hex, now()
         with self.connect() as c:
-            c.execute('INSERT INTO designed_voices(id,name,active_version,created_at,updated_at,category) VALUES(?,?,?,?,?,?)',
-                      (voice_id,name,1,stamp,stamp,category))
+            c.execute('INSERT INTO designed_voices(id,name,active_version,created_at,updated_at,category,method) VALUES(?,?,?,?,?,?,?)',
+                      (voice_id,name,1,stamp,stamp,category,method))
             c.execute('INSERT INTO designed_versions VALUES(?,?,?,?,?,?)', (voice_id,1,description,json.dumps(characteristics),model_id,stamp))
         return self.get(voice_id)
 

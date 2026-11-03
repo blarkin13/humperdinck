@@ -9,12 +9,17 @@ import '@fontsource/inter/600.css';
 import './style.css';
 import DropZone from './DropZone.jsx';
 import AudioEditor from './AudioEditor.jsx';
-import VoiceGrid from './VoiceGrid.jsx';
+import VoiceGrid,{ago} from './VoiceGrid.jsx';
 import Updates from './Updates.jsx';
 import Recorder from './Recorder.jsx';
 import Models from './Models.jsx';
-// Short words for a voice's strongest traits, shown on its card.
-function cardTraits(c={}){return Object.entries(c).flatMap(([k,v])=>typeof v==='string'?(v&&k!=='gender'?[v]:[]):traitLabels[k]&&(v<35||v>65)?[traitLabels[k][v<35?1:2]+(['pitch','pace'].includes(k)?' '+k:'')]:[])}
+// A one-line description of a voice's strongest traits for its card, falling back to the written description.
+function voiceSummary(v){
+ const words=Object.entries(v.characteristics||{}).filter(([k,n])=>traitLabels[k]&&(n<35||n>65)).sort((a,b)=>Math.abs(b[1]-50)-Math.abs(a[1]-50))
+  .map(([k,n])=>(n<20||n>80?'very ':'')+traitLabels[k][n<35?1:2].toLowerCase()+(['pitch','pace'].includes(k)?' '+k:''));
+ const text=words.length?words.slice(0,5).join(', '):'';
+ return text?text[0].toUpperCase()+text.slice(1)+'.':(v.description||'').replace(/\s+/g,' ').trim();
+}
 const defaults={pitch:50,rasp:50,pace:50,warmth:50,age:50,breathiness:50,depth:50,energy:50,clarity:50,expressiveness:50};
 // Slider labels: [name, low end, high end]
 const traitLabels={pitch:['Pitch','Low','High'],rasp:['Rasp','Smooth','Gravelly'],pace:['Pace','Slow','Fast'],warmth:['Warmth','Cool','Warm'],age:['Age','Young','Mature'],breathiness:['Breathiness','Firm','Breathy'],depth:['Depth','Light','Deep'],energy:['Energy','Calm','Energetic'],clarity:['Articulation','Casual','Crisp'],expressiveness:['Expressiveness','Flat','Lively']};
@@ -54,7 +59,7 @@ function App(){
    const changed=!isExisting||!current||current.description!==prompt||!sameTraits(current.characteristics,settings);
    let d;
    if(!isExisting){
-    d=await api('designed-voices',json('POST',{name,category,description:prompt,characteristics:settings}));
+    d=await api('designed-voices',json('POST',{name,category,description:prompt,characteristics:settings,method:method==='controls'?'sliders':'prompt'}));
    }else if(changed){
     d=await api('designed-voices/'+selected+'/versions',json('POST',{description:prompt,characteristics:settings}));
    }else{
@@ -73,7 +78,7 @@ function App(){
  function nextName(n){const m=n.match(/^(.*?)(\d+)$/);return m?m[1]+(+m[2]+1):n+' 2'}
  async function saveCandidateAsNew(c){
   const voiceName=window.prompt('Name for the new voice',name);if(!voiceName)return;
-  try{const d=await api('designed-voices',json('POST',{name:voiceName.trim(),category,description:voicePrompt(),characteristics:settings}));
+  try{const d=await api('designed-voices',json('POST',{name:voiceName.trim(),category,description:voicePrompt(),characteristics:settings,method:method==='controls'?'sliders':'prompt'}));
    await api(`designed-voices/${d.id}/versions/1/attach-preview`,json('POST',{job_id:c.job_id,approve:true}));
    setSavedJobs(old=>[...old,c.job_id]);await refresh();setStatus(`Saved "${voiceName}" as a new voice.`)}catch(e){setStatus('Save failed: '+e.message)}}
  async function deleteVersion(version){
@@ -95,14 +100,18 @@ function App(){
  function changeBlock(id,field,value){setBlocks(old=>old.map(b=>b.id===id?{...b,[field]:value}:b))}
  async function generateNarration(){try{if(blocks.some(b=>!b.text.trim()||!b.voice_key))throw Error('Every block needs text and an approved voice');const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:b.text,voice_key:b.voice_key})),format}));setNarrationJob(j);setStatus('Generating narration...')}catch(e){setStatus(e.message)}}
  async function renderVideo(){try{if(!video||narrationJob?.status!=='complete')throw Error('Upload a video and generate narration first');const j=await api('video-renders',json('POST',{video_id:video.video_id,narration_job_id:narrationJob.job_id,start_seconds:Number(offset),keep_original_audio:mix}));setVideoJob(j);setStatus('Rendering video...')}catch(e){setStatus(e.message)}}
- return <main><header><div className="brand"><img src="/icon.png" alt="" className="brand-mark"/><div><h1>Humperdinck</h1><small>A modern vintage recording studio</small></div></div><div className="header-actions"><Updates/><span className="local"><i className="fa-solid fa-circle"/> On air · local</span></div></header>
+ return <main><header><div className="brand"><img src="/brand-mark.png" alt="" className="brand-mark"/><div><h1>Humperdinck</h1><small>A modern vintage recording studio</small></div></div><div className="header-actions"><Updates/><span className="local"><i className="fa-solid fa-circle"/> On air · local</span></div></header>
  <nav>{[['voices','Voice Library','fa-record-vinyl'],['narration','Narration Studio','fa-sliders'],['video','Video Studio','fa-film'],['models','Models','fa-microchip']].map(([id,label,icon])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><i className={'fa-solid '+icon}/> {label}</button>)}</nav>
  {tab==='voices'&&<section><div className="heading"><div><h2>Voice Library</h2><p>Create a voice once, then use it in any narration.</p></div><button className="primary" onClick={newVoice}><i className="fa-solid fa-plus"/> New voice</button></div>
- <VoiceGrid items={[...designed.map(v=>({key:'d'+v.id,kind:'designed',name:v.name,category:v.category,selected:selected===v.id,ready:!!v.narration_sample_id,
-  status:v.narration_sample_id?'Ready for narration · approved v'+v.narration_version:'Draft · version '+v.active_version,description:v.description,traits:cardTraits(v.characteristics),
-  model:v.model_id,versions:v.version_count,takes:v.sample_count,date:v.updated_at,previewUrl:v.preview_sample_id&&'/api/designed-samples/'+v.preview_sample_id,onOpen:()=>openVoice(v.id),onDelete:()=>deleteDesigned(v.id,v.name)})),
-  ...uploads.map(v=>({key:'u'+v.voice_id,kind:'upload',name:v.filename,category:v.category,selected:uploadSel===v.voice_id,ready:true,status:'Ready for narration',
-  duration:v.duration,sampleRate:v.sample_rate,date:v.added_at,traits:[v.channels===1?'Mono':v.channels?'Stereo':'',v.size_kb?Math.round(v.size_kb/102.4)/10+' MB':''].filter(Boolean),
+ <VoiceGrid items={[...designed.map(v=>({key:'d'+v.id,method:v.method||'designed',name:v.name,category:v.category,selected:selected===v.id,ready:!!v.narration_sample_id,
+  status:v.narration_sample_id?'Ready · v'+v.narration_version+' approved':'Draft · v'+v.active_version,summary:voiceSummary(v),
+  meters:['pitch','rasp','pace','warmth'].map(k=>[traitLabels[k][0],v.characteristics?.[k]??50,traitLabels[k][1],traitLabels[k][2]]),
+  specs:[['fa-solid fa-code-branch',v.version_count,'Versions'],['fa-solid fa-compact-disc',v.sample_count,'Preview takes'],['fa-regular fa-calendar',ago(v.updated_at),'Last changed']],
+  previewUrl:v.preview_sample_id&&'/api/designed-samples/'+v.preview_sample_id,onOpen:()=>openVoice(v.id),onDelete:()=>deleteDesigned(v.id,v.name)})),
+  ...uploads.map(v=>({key:'u'+v.voice_id,method:v.origin||'uploaded',name:v.filename,category:v.category,selected:uploadSel===v.voice_id,ready:true,status:'Ready for narration',
+  summary:`${v.duration?v.duration+'-second ':''}${v.channels===2?'stereo':'mono'} reference clip used to clone this voice.${v.duration&&v.duration<10?' Longer clips (10–30 s) clone more reliably.':''}`,
+  traits:[v.sample_rate&&(v.sample_rate/1000).toFixed(1)+' kHz',v.size_kb&&Math.round(v.size_kb/102.4)/10+' MB'].filter(Boolean),
+  specs:[v.duration&&['fa-regular fa-clock',v.duration+'s','Length'],['fa-regular fa-calendar',ago(v.added_at),'Added']],
   previewUrl:'/api/voices/'+v.voice_id+'/audio',onOpen:()=>openUpload(v.voice_id),onDelete:()=>deleteUpload(v.voice_id,v.filename)}))]}/>
  <datalist id="categories">{[...new Set([...designed,...uploads].map(v=>v.category).filter(Boolean))].map(c=><option key={c} value={c}/>)}</datalist>
  <h3>Create a voice</h3><div className="method-grid">{[['upload','Upload Audio','Clone from a recording','fa-file-audio'],['record','Record with Mic','Record your own voice','fa-microphone'],['controls','Design with Sliders','Choose vocal characteristics','fa-sliders'],['prompt','Describe a Voice','Write what you want to hear','fa-feather-pointed']].map(([id,title,subtitle,icon])=><button className={'method '+(method===id?'active':'')} key={id} onClick={()=>{setMethod(id);setCandidates([]);setChosen('')}}><i className={'fa-solid method-icon '+icon}/><strong>{title}</strong><small>{subtitle}</small></button>)}</div>
