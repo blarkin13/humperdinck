@@ -4,6 +4,8 @@ from pathlib import Path
 from uuid import uuid4
 from threading import Thread, Lock
 import json
+from datetime import datetime, timezone
+import soundfile as sf
 import shutil
 import subprocess
 import os
@@ -91,8 +93,16 @@ def upload_path(voice_id):
 @app.get('/api/voices')
 def list_voices():
     meta = voice_meta()
-    return [{'voice_id':p.stem, 'filename':meta.get(p.stem,{}).get('name',p.name), 'category':meta.get(p.stem,{}).get('category','')}
-            for p in sorted((DATA/'voices').glob('*.wav'))]
+    def info(p):
+        try:
+            details = sf.info(str(p))
+            duration, rate, channels = round(details.duration, 1), details.samplerate, details.channels
+        except Exception:
+            duration = rate = channels = None
+        return {'voice_id':p.stem, 'filename':meta.get(p.stem,{}).get('name',p.name), 'category':meta.get(p.stem,{}).get('category',''),
+                'duration':duration, 'sample_rate':rate, 'channels':channels, 'size_kb':round(p.stat().st_size/1024),
+                'added_at':datetime.fromtimestamp(p.stat().st_mtime, timezone.utc).isoformat()}
+    return [info(p) for p in sorted((DATA/'voices').glob('*.wav'))]
 
 @app.get('/api/voices/{voice_id}/audio')
 def voice_audio(voice_id: str):
@@ -178,6 +188,14 @@ def designed_voices():
         usable = library.latest_approved(item['id'])
         item['narration_version'] = usable['version'] if usable else None
         item['narration_sample_id'] = usable['sample_id'] if usable else None
+        # Card details: the active recipe plus library totals.
+        item['description'] = active['description'] if active else ''
+        item['characteristics'] = active['characteristics'] if active else {}
+        item['model_id'] = active['model_id'] if active else ''
+        item['version_count'] = len(detail['versions'])
+        item['sample_count'] = sum(len(v['samples']) for v in detail['versions'])
+        item['preview_sample_id'] = item['approved_sample_id'] or item['narration_sample_id'] or next(
+            (s['id'] for v in detail['versions'] if v['version'] == item['active_version'] for s in v['samples']), None)
     return result
 
 @app.post('/api/designed-voices', status_code=201)
