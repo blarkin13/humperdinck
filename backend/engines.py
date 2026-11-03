@@ -5,7 +5,7 @@ so their ML dependencies never conflict. Older installs that put everything in
 .venv keep working because the main environment is used as a fallback.
 
 A worker stays running between jobs so the model is loaded once. Only one engine is
-resident at a time, and an idle worker exits after VOICE_STUDIO_IDLE_TIMEOUT_S
+resident at a time, and an idle worker exits after HUMPERDINCK_IDLE_TIMEOUT_S
 seconds, which returns all of its memory to the OS.
 """
 import json
@@ -23,7 +23,7 @@ ENGINES = ('qwen', 'chatterbox')
 
 
 def setting(name, default):
-    return float(os.environ.get(f'VOICE_STUDIO_{name}', default))
+    return float(os.environ.get(f'HUMPERDINCK_{name}', default))
 
 
 def _venv_python(venv: Path):
@@ -31,7 +31,7 @@ def _venv_python(venv: Path):
 
 
 def candidates(engine):
-    override = os.environ.get(f'VOICE_STUDIO_{engine.upper()}_PYTHON')
+    override = os.environ.get(f'HUMPERDINCK_{engine.upper()}_PYTHON')
     if override:
         return [Path(override)]
     return [p for p in (_venv_python(ROOT / f'.venv-{engine}'), _venv_python(ROOT / '.venv'), Path(sys.executable)) if p.exists()]
@@ -42,9 +42,9 @@ _resolved = {}
 
 def worker_env():
     # Offline by default: models load from the local cache without contacting Hugging Face.
-    # Set VOICE_STUDIO_ONLINE=1 to allow downloading a model that is not cached yet.
+    # Set HUMPERDINCK_ONLINE=1 to allow downloading a model that is not cached yet.
     env = dict(os.environ)
-    if env.get('VOICE_STUDIO_ONLINE') != '1':
+    if env.get('HUMPERDINCK_ONLINE') != '1':
         env.setdefault('HF_HUB_OFFLINE', '1')
         env.setdefault('TRANSFORMERS_OFFLINE', '1')
     return env

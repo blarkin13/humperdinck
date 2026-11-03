@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Start Voice Studio: check GitHub for updates, then run the API and UI servers.
+"""Start Humperdinck: check GitHub for updates, then run the API and UI servers.
 
 The in-app "Check updates" button stages a verified download and asks this launcher
 to restart (via .update/restart). The launcher stops the servers, installs the
@@ -23,12 +23,12 @@ if not py.exists():
 
 
 def say(message):
-    print(f'[Voice Studio] {message}', flush=True)
+    print(f'[Humperdinck] {message}', flush=True)
 
 
 def restart(note):
     say(note)
-    os.environ['VOICE_STUDIO_SKIP_STARTUP_UPDATE'] = '1'
+    os.environ['HUMPERDINCK_SKIP_STARTUP_UPDATE'] = '1'
     os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve())])
 
 
@@ -58,7 +58,7 @@ def reinstall_dependencies():
 
 
 def check_on_launch():
-    if os.environ.get('VOICE_STUDIO_SKIP_STARTUP_UPDATE') == '1':
+    if os.environ.get('HUMPERDINCK_SKIP_STARTUP_UPDATE') == '1':
         return
     say(f'Checking GitHub ({updater.REPO}, {updater.BRANCH}) for updates...')
     try:
@@ -98,12 +98,12 @@ reinstall_dependencies()
 check_on_launch()
 restart_flag = updater.STATE/'restart'
 restart_flag.unlink(missing_ok=True)
-env = dict(os.environ, VOICE_STUDIO_LAUNCHER_PID=str(os.getpid()))
+env = dict(os.environ, HUMPERDINCK_LAUNCHER_PID=str(os.getpid()))
 processes = []
 try:
     processes.append(subprocess.Popen([str(py), '-m', 'uvicorn', 'backend.app:app', '--host', '127.0.0.1', '--port', '8000'], cwd=root, env=env))
     processes.append(subprocess.Popen([npm, 'run', 'dev'], cwd=root/'frontend', env=env))
-    if os.environ.get('VOICE_STUDIO_RELAUNCHED') != '1':
+    if os.environ.get('HUMPERDINCK_RELAUNCHED') != '1':
         time.sleep(2)
         webbrowser.open('http://127.0.0.1:5173')  # after an in-app update the page reloads itself
     say('Running at http://127.0.0.1:5173 — Ctrl+C to stop')
@@ -122,7 +122,7 @@ finally:
 
 if restart_flag.exists():
     restart_flag.unlink()
-    os.environ['VOICE_STUDIO_RELAUNCHED'] = '1'
+    os.environ['HUMPERDINCK_RELAUNCHED'] = '1'
     if updater.staged():
         install_staged()
     restart('Restarting...')

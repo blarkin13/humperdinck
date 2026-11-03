@@ -4,9 +4,9 @@ import os
 import re
 from pathlib import Path
 
-# The 8-bit model fits an 8 GB Mac comfortably; set VOICE_STUDIO_QWEN_MODEL to try a
+# The 8-bit model fits an 8 GB Mac comfortably; set HUMPERDINCK_QWEN_MODEL to try a
 # less compressed variant (more detail, about twice the memory).
-DEFAULT_MODEL = os.environ.get('VOICE_STUDIO_QWEN_MODEL', 'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit')
+DEFAULT_MODEL = os.environ.get('HUMPERDINCK_QWEN_MODEL', 'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit')
 
 
 def voice_segments(text, limit=600):

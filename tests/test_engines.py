@@ -8,7 +8,7 @@ from backend import engines
 
 @pytest.fixture
 def pool(monkeypatch):
-    monkeypatch.setenv('VOICE_STUDIO_FAKE_ENGINE', '1')
+    monkeypatch.setenv('HUMPERDINCK_FAKE_ENGINE', '1')
     monkeypatch.setattr(engines, '_resolved', {})
     p = engines.Pool()
     yield p
@@ -39,7 +39,7 @@ def test_switching_engine_stops_the_other_one(pool, tmp_path):
 
 
 def test_idle_worker_exits(pool, tmp_path, monkeypatch):
-    monkeypatch.setenv('VOICE_STUDIO_IDLE_TIMEOUT_S', '0.3')
+    monkeypatch.setenv('HUMPERDINCK_IDLE_TIMEOUT_S', '0.3')
     run(pool, 'chatterbox', tmp_path)
     worker = pool.worker
     for _ in range(50):
@@ -50,7 +50,7 @@ def test_idle_worker_exits(pool, tmp_path, monkeypatch):
 
 
 def test_stalled_job_is_killed_and_next_job_recovers(pool, tmp_path, monkeypatch):
-    monkeypatch.setenv('VOICE_STUDIO_STALL_TIMEOUT_S', '0.5')
+    monkeypatch.setenv('HUMPERDINCK_STALL_TIMEOUT_S', '0.5')
     run(pool, 'chatterbox', tmp_path)  # loaded, so the stall budget applies
     with pytest.raises(RuntimeError, match='stopped responding'):
         run(pool, 'chatterbox', tmp_path, 'sleep:5')

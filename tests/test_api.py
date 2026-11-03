@@ -24,7 +24,7 @@ def fake_synthesize(engine, output, text, *, description='', reference=None, on_
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv('VOICE_STUDIO_DATA', str(tmp_path))
+    monkeypatch.setenv('HUMPERDINCK_DATA', str(tmp_path))
     monkeypatch.setattr(engines, 'available', lambda engine: True)
     monkeypatch.setattr(engines, 'synthesize', fake_synthesize)
     fake_synthesize.calls = []
@@ -140,7 +140,7 @@ def test_video_render_after_restart(client, tmp_path):
 
 
 def test_engine_detection_reports_missing_interpreter(monkeypatch, tmp_path):
-    monkeypatch.setenv('VOICE_STUDIO_QWEN_PYTHON', str(tmp_path / 'nope'))
+    monkeypatch.setenv('HUMPERDINCK_QWEN_PYTHON', str(tmp_path / 'nope'))
     monkeypatch.setattr(engines, '_resolved', {})
     assert engines.candidates('qwen') == [tmp_path / 'nope']
     assert engines.python_for('qwen') is None

@@ -19,7 +19,7 @@ def emit(**message):
 
 
 class FakeEngine:
-    """Test stand-in, enabled with VOICE_STUDIO_FAKE_ENGINE=1; text 'sleep:N' stalls N seconds."""
+    """Test stand-in, enabled with HUMPERDINCK_FAKE_ENGINE=1; text 'sleep:N' stalls N seconds."""
 
     def synthesize(self, text, voice, output, on_progress=None):
         import numpy as np
@@ -38,7 +38,7 @@ engines = {}
 
 def engine_for(name):
     if name not in engines:
-        if os.environ.get('VOICE_STUDIO_FAKE_ENGINE') == '1':
+        if os.environ.get('HUMPERDINCK_FAKE_ENGINE') == '1':
             engines[name] = FakeEngine()
         elif name == 'qwen':
             from backend.qwen_engine import QwenVoiceDesigner
@@ -54,7 +54,7 @@ def engine_for(name):
 def handle(request):
     if request.get('check'):
         # Import probe used by the backend to report which engines are installed.
-        if os.environ.get('VOICE_STUDIO_FAKE_ENGINE') != '1':
+        if os.environ.get('HUMPERDINCK_FAKE_ENGINE') != '1':
             if request['engine'] == 'qwen':
                 import mlx_audio  # noqa: F401
             else:

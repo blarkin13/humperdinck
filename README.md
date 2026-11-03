@@ -1,4 +1,6 @@
-# Voice Studio (local prototype)
+<p align="center"><img src="docs/assets/humperdinck-logo.png" alt="Humperdinck" width="360"></p>
+
+# Humperdinck
 
 Cross-platform local web application for cloning a **consenting speaker's** voice and turning text into downloadable WAV or MP3 audio. Voiceover timeline and YouTube import are future milestones.
 
@@ -83,13 +85,13 @@ The main `bash install.sh` installs and verifies `mlx-audio` automatically on Ap
 
 - Each speech engine runs in its own short-lived worker process (`backend/worker.py`), using
   `.venv-qwen` or `.venv-chatterbox` when present and falling back to `.venv`. Model memory is
-  returned to the OS when the worker stops. Override an interpreter with `VOICE_STUDIO_QWEN_PYTHON` /
-  `VOICE_STUDIO_CHATTERBOX_PYTHON`.
+  returned to the OS when the worker stops. Override an interpreter with `HUMPERDINCK_QWEN_PYTHON` /
+  `HUMPERDINCK_CHATTERBOX_PYTHON`.
 - The worker stays running between jobs so the model loads once. Only one engine is kept in
   memory at a time. Settings (environment variables, in seconds):
-  `VOICE_STUDIO_IDLE_TIMEOUT_S` (default 300) stops an idle worker to free memory;
-  `VOICE_STUDIO_STALL_TIMEOUT_S` (default 600) fails a job that stops reporting progress;
-  `VOICE_STUDIO_LOAD_TIMEOUT_S` (default 1800) allows for first-time model downloads.
+  `HUMPERDINCK_IDLE_TIMEOUT_S` (default 300) stops an idle worker to free memory;
+  `HUMPERDINCK_STALL_TIMEOUT_S` (default 600) fails a job that stops reporting progress;
+  `HUMPERDINCK_LOAD_TIMEOUT_S` (default 1800) allows for first-time model downloads.
   `POST /api/engine/unload` frees the model immediately; `/api/health` shows `resident_engine`.
 - Job status is stored in `data/jobs.sqlite3`, so finished narrations can still be used in
   Video Studio after a restart. Jobs that were running during a restart are marked failed.
@@ -102,8 +104,8 @@ The main `bash install.sh` installs and verifies `mlx-audio` automatically on Ap
 
 ## Updates
 
-Each time you run `bash start.sh` (or `start.ps1`), Voice Studio checks the latest commit on
-`main` at `blarkin13/voice-studio-starter`:
+Each time you run `bash start.sh` (or `start.ps1`), Humperdinck checks the latest commit on
+`main` at `blarkin13/humperdinck`:
 
 1. It compares GitHub's git file hashes with the files on your computer.
 2. If anything differs, it lists the changed files and asks whether to install.
@@ -114,5 +116,5 @@ Each time you run `bash start.sh` (or `start.ps1`), Voice Studio checks the late
 The **Check updates** button in the app does the same, then restarts and reloads the page.
 Only code is managed: `data/`, the `.venv*` environments and `node_modules` are never touched.
 Offline, the check is skipped and the installed version starts. Private repositories use your
-`gh` login (or `VOICE_STUDIO_GITHUB_TOKEN`). Skip the startup check with
-`VOICE_STUDIO_SKIP_STARTUP_UPDATE=1`.
+`gh` login (or `HUMPERDINCK_GITHUB_TOKEN`). Skip the startup check with
+`HUMPERDINCK_SKIP_STARTUP_UPDATE=1`.

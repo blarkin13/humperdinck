@@ -35,7 +35,7 @@ class VoiceEngine:
             return self.model
         import torch
         from chatterbox.tts import ChatterboxTTS
-        self.device = os.environ.get('VOICE_STUDIO_CHATTERBOX_DEVICE') or self.pick_device(torch)
+        self.device = os.environ.get('HUMPERDINCK_CHATTERBOX_DEVICE') or self.pick_device(torch)
         self.model = ChatterboxTTS.from_pretrained(device=self.device)
         return self.model
 

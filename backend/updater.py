@@ -1,4 +1,4 @@
-"""Update Voice Studio from the main branch on GitHub.
+"""Update Humperdinck from the main branch on GitHub.
 
 1. check(): fetch the latest commit on main and compare GitHub's git blob hashes
    with the files on disk (timestamps and line endings don't matter).
@@ -26,7 +26,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-REPO = os.environ.get('VOICE_STUDIO_UPDATE_REPO', 'blarkin13/voice-studio-starter')
+REPO = os.environ.get('HUMPERDINCK_UPDATE_REPO', 'blarkin13/humperdinck')
 BRANCH = 'main'
 API = 'https://api.github.com'
 STATE = ROOT / '.update'            # staged download, backups, dependency marker
@@ -88,7 +88,7 @@ def token() -> str:
     """A GitHub token for private repositories: env var first, else the gh CLI login."""
     global _token
     if _token is None:
-        _token = os.environ.get('VOICE_STUDIO_GITHUB_TOKEN') or os.environ.get('GITHUB_TOKEN') or ''
+        _token = os.environ.get('HUMPERDINCK_GITHUB_TOKEN') or os.environ.get('GITHUB_TOKEN') or ''
         if not _token and shutil.which('gh'):
             try:
                 _token = subprocess.run(['gh', 'auth', 'token'], capture_output=True, text=True, timeout=5).stdout.strip()
@@ -98,7 +98,7 @@ def token() -> str:
 
 
 def headers() -> dict:
-    result = {'Accept': 'application/vnd.github+json', 'User-Agent': 'VoiceStudio-Updater', 'X-GitHub-Api-Version': '2022-11-28'}
+    result = {'Accept': 'application/vnd.github+json', 'User-Agent': 'Humperdinck-Updater', 'X-GitHub-Api-Version': '2022-11-28'}
     if token():
         result['Authorization'] = f'Bearer {token()}'
     return result
@@ -162,7 +162,7 @@ def download(sha: str, target: Path):
 
 def read_archive(archive: Path) -> dict[str, bytes]:
     """Return managed files from a GitHub zipball, rejecting unsafe entries."""
-    owner_repo = REPO.replace('/', '-').lower() + '-'
+    owner_prefix = REPO.split('/')[0].lower() + '-'
     files = {}
     try:
         with zipfile.ZipFile(archive) as z:
@@ -175,7 +175,7 @@ def read_archive(archive: Path) -> dict[str, bytes]:
                     raise UpdateError('Unsafe path in update archive')
                 if (info.external_attr >> 16) & 0o170000 == 0o120000:
                     raise UpdateError('Update archive contains a symbolic link')
-                if len(parts) < 2 or not parts[0].lower().startswith(owner_repo):
+                if len(parts) < 2 or not parts[0].lower().startswith(owner_prefix):
                     raise UpdateError('Unexpected update archive layout')
                 name = '/'.join(parts[1:])
                 if not managed(name):

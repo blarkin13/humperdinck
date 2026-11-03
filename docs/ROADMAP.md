@@ -1,4 +1,4 @@
-# Development roadmap
+# Humperdinck roadmap
 
 ## Where we are (November 2026)
 
@@ -76,6 +76,6 @@ design, sized for this codebase and for low-memory Macs.
 
 ## Housekeeping
 
-- Rename the app before sharing it: "VoiceStudio" is already a widely used open-source project.
+- ~~Rename the app before sharing it~~ Done: the app is now **Humperdinck**.
 - Review each model's licence before redistribution or commercial use. Only clone voices with
   permission.

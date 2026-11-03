@@ -1,4 +1,4 @@
-"""Local-only Voice Studio API."""
+"""Local-only Humperdinck API."""
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
@@ -20,7 +20,7 @@ from backend.qwen_engine import DEFAULT_MODEL
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = Path(os.environ.get('VOICE_STUDIO_DATA', ROOT / 'data'))
+DATA = Path(os.environ.get('HUMPERDINCK_DATA', ROOT / 'data'))
 for folder in ('voices', 'outputs', 'videos', 'projects'):
     (DATA / folder).mkdir(parents=True, exist_ok=True)
 @asynccontextmanager
@@ -28,7 +28,7 @@ async def lifespan(app):
     yield
     engines.pool.shutdown()  # free the warm model when the backend stops
 
-app = FastAPI(title='Local Voice Studio', version='0.2.0', lifespan=lifespan)
+app = FastAPI(title='Humperdinck', version='0.2.0', lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=['http://localhost:5173','http://127.0.0.1:5173'], allow_methods=['*'], allow_headers=['*'])
 engine_lock = Lock()
 jobs = JobStore(DATA / 'jobs.sqlite3')
@@ -60,7 +60,7 @@ class RenameInput(BaseModel):
 def health():
     installed = engines.available('chatterbox')
     qwen = engines.available('qwen')
-    return {'status':'ok', 'engine':'chatterbox' if installed else 'not installed', 'qwen_mlx_installed':qwen, 'qwen_model':DEFAULT_MODEL, 'version':'0.3.0', 'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status()}
+    return {'status':'ok', 'application':'humperdinck', 'engine':'chatterbox' if installed else 'not installed', 'qwen_mlx_installed':qwen, 'qwen_model':DEFAULT_MODEL, 'version':'0.3.0', 'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status()}
 
 @app.post('/api/engine/unload')
 def unload_engine():
@@ -570,14 +570,14 @@ def check_updates():
     except updater.UpdateError as exc:
         raise HTTPException(503, str(exc))
     result.pop('file_hashes', None)
-    result['can_install'] = bool(os.environ.get('VOICE_STUDIO_LAUNCHER_PID'))
+    result['can_install'] = bool(os.environ.get('HUMPERDINCK_LAUNCHER_PID'))
     return result
 
 @app.post('/api/updates/install')
 def install_update(request: UpdateInstallRequest):
     """Download and verify the approved commit, then ask the launcher to install and restart."""
-    if not os.environ.get('VOICE_STUDIO_LAUNCHER_PID'):
-        raise HTTPException(409, 'Start Voice Studio with start.sh (or start.ps1) to install updates from the app')
+    if not os.environ.get('HUMPERDINCK_LAUNCHER_PID'):
+        raise HTTPException(409, 'Start Humperdinck with start.sh (or start.ps1) to install updates from the app')
     if engines.pool.busy:
         raise HTTPException(409, 'Wait for the current generation to finish before updating')
     try:

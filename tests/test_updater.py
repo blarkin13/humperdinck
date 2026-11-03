@@ -27,7 +27,7 @@ def project(tmp_path, monkeypatch):
     del remote['backend/gone.py']
     monkeypatch.setattr(updater, 'ROOT', local)
     monkeypatch.setattr(updater, 'STATE', local / '.update')
-    monkeypatch.setattr(updater, 'REPO', 'blarkin13/voice-studio-starter')
+    monkeypatch.setattr(updater, 'REPO', 'blarkin13/humperdinck')
     state = {'archive': dict(remote)}
 
     def fake_json(path):
@@ -42,7 +42,7 @@ def project(tmp_path, monkeypatch):
         assert sha == SHA
         with zipfile.ZipFile(target, 'w') as z:
             for name, raw in state['archive'].items():
-                z.writestr(f'blarkin13-voice-studio-starter-aaaaaaa/{name}', raw)
+                z.writestr(f'blarkin13-humperdinck-aaaaaaa/{name}', raw)
 
     monkeypatch.setattr(updater, 'github_json', fake_json)
     monkeypatch.setattr(updater, 'download', fake_download)
@@ -93,7 +93,7 @@ def test_tampered_download_is_rejected_and_nothing_changes(project):
 def test_unsafe_archive_paths_are_rejected(project, tmp_path):
     bad = tmp_path / 'bad.zip'
     with zipfile.ZipFile(bad, 'w') as z:
-        z.writestr('blarkin13-voice-studio-starter-a/../../evil.py', b'x')
+        z.writestr('blarkin13-humperdinck-a/../../evil.py', b'x')
     with pytest.raises(updater.UpdateError, match='Unsafe'):
         updater.read_archive(bad)
 

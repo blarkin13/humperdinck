@@ -1,1 +1,1 @@
-{"name":"voice-studio-ui","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"vite --host 127.0.0.1","build":"vite build"},"dependencies":{"vite":"^6.0.0","react":"^19.0.0","react-dom":"^19.0.0"},"devDependencies":{}}
+{"name":"humperdinck-ui","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"vite --host 127.0.0.1","build":"vite build"},"dependencies":{"vite":"^6.0.0","react":"^19.0.0","react-dom":"^19.0.0"},"devDependencies":{}}
