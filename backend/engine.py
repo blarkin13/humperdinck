@@ -35,14 +35,22 @@ class VoiceEngine:
             return self.model
         import torch
         from chatterbox.tts import ChatterboxTTS
-        if torch.cuda.is_available():
-            self.device = 'cuda'
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            self.device = 'mps'
-        else:
-            self.device = 'cpu'
+        self.device = os.environ.get('VOICE_STUDIO_CHATTERBOX_DEVICE') or self.pick_device(torch)
         self.model = ChatterboxTTS.from_pretrained(device=self.device)
         return self.model
+
+    @staticmethod
+    def pick_device(torch):
+        if torch.cuda.is_available():
+            return 'cuda'
+        if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            # On an 8 GB M2, MPS kept ~3.5 GB of GPU buffers on top of the model and
+            # swapped heavily: 2 s of speech took 33 s, then 109-265 s on later takes.
+            # CPU stayed at about 2.5 GB and 17 s once warm, so prefer it on small Macs.
+            memory = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+            if memory > 16 * 2**30:
+                return 'mps'
+        return 'cpu'
 
     def synthesize(self, text, voice_path, wav_path, on_progress=None):
         import numpy as np

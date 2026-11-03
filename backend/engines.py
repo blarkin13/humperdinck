@@ -40,11 +40,21 @@ def candidates(engine):
 _resolved = {}
 
 
+def worker_env():
+    # Offline by default: models load from the local cache without contacting Hugging Face.
+    # Set VOICE_STUDIO_ONLINE=1 to allow downloading a model that is not cached yet.
+    env = dict(os.environ)
+    if env.get('VOICE_STUDIO_ONLINE') != '1':
+        env.setdefault('HF_HUB_OFFLINE', '1')
+        env.setdefault('TRANSFORMERS_OFFLINE', '1')
+    return env
+
+
 def _call(python, request, timeout=None):
     """Run a one-shot worker, used for the import probe."""
     # stderr goes to a file: ML libraries log heavily and a full pipe would block the worker.
     with tempfile.TemporaryFile('w+') as errors:
-        process = subprocess.run([str(python), '-m', 'backend.worker'], cwd=ROOT, input=json.dumps(request),
+        process = subprocess.run([str(python), '-m', 'backend.worker'], cwd=ROOT, env=worker_env(), input=json.dumps(request),
                                  stdout=subprocess.PIPE, stderr=errors, text=True, timeout=timeout)
         errors.seek(0)
         stderr = errors.read()
@@ -83,7 +93,7 @@ class Worker:
     def __init__(self, engine, python):
         self.engine = engine
         self.errors = tempfile.TemporaryFile('w+')
-        self.process = subprocess.Popen([str(python), '-m', 'backend.worker', '--serve'], cwd=ROOT,
+        self.process = subprocess.Popen([str(python), '-m', 'backend.worker', '--serve'], cwd=ROOT, env=worker_env(),
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errors,
                                         text=True, bufsize=1)
         self.messages = queue.Queue()
