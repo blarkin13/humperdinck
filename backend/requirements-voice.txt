@@ -1,0 +1,5 @@
+# Optional, large ML dependencies. Install after core setup.
+# Requires compatible Python/PyTorch and a supported OS/device.
+chatterbox-tts>=0.1,<1
+soundfile>=0.12,<1
+numpy>=1.24,<3
