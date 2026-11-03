@@ -1,9 +1,12 @@
 """Experimental MLX-Audio Qwen3 VoiceDesign adapter (Apple Silicon)."""
 import gc
+import os
 import re
 from pathlib import Path
 
-DEFAULT_MODEL = 'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit'
+# The 8-bit model fits an 8 GB Mac comfortably; set VOICE_STUDIO_QWEN_MODEL to try a
+# less compressed variant (more detail, about twice the memory).
+DEFAULT_MODEL = os.environ.get('VOICE_STUDIO_QWEN_MODEL', 'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit')
 
 
 def voice_segments(text, limit=600):
