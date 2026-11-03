@@ -7,6 +7,7 @@ import json
 import shutil
 import subprocess
 import os
+import sys
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,7 +17,7 @@ from backend.engine import export_mp3
 from backend import updater
 from backend.audio_edit import AudioEdit, render
 from backend.jobs import JobStore
-from backend.qwen_engine import DEFAULT_MODEL
+from backend import catalog
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,6 +34,7 @@ app.add_middleware(CORSMiddleware, allow_origins=['http://localhost:5173','http:
 engine_lock = Lock()
 jobs = JobStore(DATA / 'jobs.sqlite3')
 library = VoiceLibrary(DATA)
+settings = catalog.Settings(DATA / 'settings.json')
 
 class Sentence(BaseModel):
     text: str
@@ -58,9 +60,11 @@ class RenameInput(BaseModel):
 
 @app.get('/api/health')
 def health():
-    installed = engines.available('chatterbox')
-    qwen = engines.available('qwen')
-    return {'status':'ok', 'application':'humperdinck', 'engine':'chatterbox' if installed else 'not installed', 'qwen_mlx_installed':qwen, 'qwen_model':DEFAULT_MODEL, 'version':'0.3.0', 'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status()}
+    choice = settings.load()
+    return {'status':'ok', 'application':'humperdinck', 'version':'0.4.0', 'platform':catalog.platform_name(),
+            'models':choice, 'design_ready':engines.available(choice['design']['engine']),
+            'clone_ready':engines.available(choice['clone']['engine']),
+            'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status()}
 
 @app.post('/api/engine/unload')
 def unload_engine():
@@ -179,7 +183,7 @@ def designed_voices():
 @app.post('/api/designed-voices', status_code=201)
 def create_designed_voice(request: DesignedVoiceInput):
     check_characteristics(request.characteristics)
-    return library.create(request.name.strip(),request.description.strip(),request.characteristics,DEFAULT_MODEL,request.category.strip())
+    return library.create(request.name.strip(),request.description.strip(),request.characteristics,settings.load()['design']['model'],request.category.strip())
 
 @app.get('/api/designed-voices/{voice_id}')
 def get_designed_voice(voice_id: str):
@@ -191,7 +195,7 @@ def _missing_voice():
 @app.post('/api/designed-voices/{voice_id}/versions', status_code=201)
 def create_designed_version(voice_id: str, request: DesignedVersionInput):
     check_characteristics(request.characteristics)
-    return library.version(voice_id,request.description.strip(),request.characteristics,DEFAULT_MODEL) or _missing_voice()
+    return library.version(voice_id,request.description.strip(),request.characteristics,settings.load()['design']['model']) or _missing_voice()
 
 @app.post('/api/designed-voices/{voice_id}/versions/{version}/activate')
 def activate_designed_version(voice_id: str, version: int):
@@ -310,16 +314,21 @@ def run_generation(job_id, request):
     try:
         with engine_lock:
             job.update(status='running', message='Loading model (first run may download weights)')
+            progress = lambda done,total: job.update(progress=round(done/total*100), message=f'Generated {done}/{total} segments')
+            choice = settings.load()
             if request.engine == 'qwen-design':
-                engines.synthesize('qwen', wav, request.text, description=request.voice_description,
-                    on_progress=lambda done,total: job.update(progress=round(done/total*100), message=f'Generated {done}/{total} segments'))
+                engines.design(choice['design'], wav, request.text, request.voice_description, progress)
             else:
-                reference = (library.approved_sample(request.designed_voice_id, request.designed_version)
-                             if request.engine == 'designed-reference' else DATA/'voices'/f'{request.voice_id}.wav')
+                ref_text = None
+                if request.engine == 'designed-reference':
+                    sample_id = library.approved_sample_id(request.designed_voice_id, request.designed_version)
+                    reference = library.approved_sample(request.designed_voice_id, request.designed_version)
+                    ref_text = library.sample_text(sample_id) if sample_id else None
+                else:
+                    reference = DATA/'voices'/f'{request.voice_id}.wav'
                 if not reference or not reference.is_file():
                     raise ValueError('Approved reference audio is missing')
-                engines.synthesize('chatterbox', wav, request.text, reference=reference,
-                    on_progress=lambda done,total: job.update(progress=round(done/total*100), message=f'Generated {done}/{total} segments'))
+                engines.clone(choice['clone'], wav, request.text, reference, ref_text, progress)
             if request.designed_voice_id and request.engine == 'qwen-design':
                 job['sample'] = library.sample(request.designed_voice_id,request.designed_version,request.text,wav)
             if request.format == 'mp3':
@@ -352,11 +361,7 @@ def generate(request: GenerateRequest):
         raise HTTPException(400, 'Voice description too long')
     if request.engine == 'chatterbox' and (not request.voice_id.isalnum() or not (DATA/'voices'/f'{request.voice_id}.wav').is_file()):
         raise HTTPException(404, 'Voice profile not found')
-    if request.engine == 'qwen-design':
-        if not engines.available('qwen'):
-            raise HTTPException(503, 'Qwen MLX engine missing: run bash install-qwen-mac.sh')
-    elif not engines.available('chatterbox'):
-        raise HTTPException(503, 'Chatterbox engine missing: run the voice-engine installation step')
+    require_engine('design' if request.engine == 'qwen-design' else 'clone')
     if request.format == 'mp3' and not shutil.which('ffmpeg'):
         raise HTTPException(503, 'FFmpeg is required for MP3 export')
     job_id = uuid4().hex
@@ -389,22 +394,34 @@ class MultiNarrationRequest(BaseModel):
     format: str = 'mp3'
     name: str = Field(default='Narration', max_length=120)
 
+def require_engine(role):
+    choice = settings.load()[role]
+    label = catalog.ENGINES[choice['engine']]['label']
+    if not engines.available(choice['engine']):
+        raise HTTPException(503, f'{label} is not installed. Open the Models tab to install it or choose another model.')
+    # Engines run offline, so a model that was never downloaded cannot load.
+    if os.environ.get('HUMPERDINCK_ONLINE') != '1' and not catalog.downloaded(choice['model']):
+        raise HTTPException(503, f"{choice['model']} has not been downloaded. Open the Models tab and click Download.")
+
 def resolve_voice_key(key):
+    """Return (reference audio, its transcript or None) for a narration voice."""
     # Saved designed voices have approved audio; uploads are already normalized WAV.
     if key.startswith('design:'):
         identifier = key[7:]
         voice = library.get(identifier) or _missing_voice()
         approved = library.latest_approved(identifier)
         path = approved['path'] if approved else None
+        text = approved['text'] if approved else None
     elif key.startswith('upload:'):
         identifier = key[7:]
         if not identifier.isalnum(): raise HTTPException(400,'Invalid voice')
         path = DATA/'voices'/f'{identifier}.wav'
+        text = None
     else:
         raise HTTPException(400,'Unknown voice selection')
     if not path or not path.is_file():
         raise HTTPException(400,'Voice needs an approved reference recording')
-    return path
+    return path, text
 
 def run_multi(job_id, request, references):
     job = jobs[job_id]
@@ -414,10 +431,11 @@ def run_multi(job_id, request, references):
         with engine_lock:
             job.update(status='running',message='Generating narration')
             clips=[]; target_rate=24000
-            for index,(block,reference) in enumerate(zip(request.blocks,references)):
+            choice=settings.load()['clone']
+            for index,(block,(reference,ref_text)) in enumerate(zip(request.blocks,references)):
                 temp=DATA/'outputs'/f'{job_id}-{index}.wav'
                 try:
-                    engines.synthesize('chatterbox',temp,block.text,reference=reference)
+                    engines.clone(choice,temp,block.text,reference,ref_text)
                     audio,rate=sf.read(temp,dtype='float32',always_2d=False)
                     if audio.ndim==2: audio=audio.mean(axis=1)
                     if rate!=target_rate:
@@ -442,7 +460,7 @@ def create_narration(request: MultiNarrationRequest):
     if request.format not in ('wav','mp3'): raise HTTPException(400,'Unsupported format')
     if request.format=='mp3' and not shutil.which('ffmpeg'): raise HTTPException(503,'FFmpeg is required')
     references=[resolve_voice_key(b.voice_key) for b in request.blocks]
-    if not engines.available('chatterbox'): raise HTTPException(503,'Install the Chatterbox narration engine')
+    require_engine('clone')
     job_id=uuid4().hex
     jobs[job_id]={'job_id':job_id,'status':'queued','progress':0,'message':'Waiting for narration engine'}
     Thread(target=run_multi,args=(job_id,request,references),daemon=True).start()
@@ -591,3 +609,81 @@ def install_update(request: UpdateInstallRequest):
         raise HTTPException(503, str(exc))
     (updater.STATE / 'restart').touch()  # the launcher polls for this, stops the servers and installs
     return {'installing': True, 'message': 'Update downloaded and verified. Installing and restarting...'}
+
+
+class ModelChoice(BaseModel):
+    role: str = Field(pattern=r'^(design|clone)$')
+    engine: str
+    model: str
+
+class ModelInstall(BaseModel):
+    engine: str
+    model: str | None = None
+
+install_lock = Lock()
+
+@app.get('/api/models')
+def list_models():
+    """Every engine and model, whether it runs here, and what is installed and selected."""
+    memory = catalog.total_memory_gb()
+    engines_out = []
+    for engine_id, engine in catalog.ENGINES.items():
+        supported = catalog.supported(engine_id)
+        engines_out.append({
+            'id': engine_id, 'label': engine['label'], 'roles': engine['roles'], 'note': engine['note'],
+            'supported': supported, 'installed': supported and engines.available(engine_id),
+            'platforms': [{'darwin': 'macOS', 'win32': 'Windows', 'linux': 'Linux'}[p] for p in engine['platforms']],
+            'requires_apple_silicon': bool(engine.get('requires_apple_silicon')),
+            'models': [{'id': model_id, **info, 'downloaded': catalog.downloaded(model_id),
+                        'tight': bool(memory and info['memory_gb'] > memory * 0.6)}
+                       for model_id, info in engine['models'].items()]})
+    return {'platform': catalog.platform_name(), 'memory_gb': round(memory, 1) if memory else None,
+            'selected': settings.load(), 'engines': engines_out,
+            'installing': next((j for j in [jobs.get(installing.get('job'))] if j and j.get('status') in ('queued','running')), None)}
+
+@app.put('/api/models/selection')
+def choose_model(request: ModelChoice):
+    try:
+        return settings.save(request.role, request.engine, request.model)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+installing = {}
+
+def run_install(job_id, command):
+    job = jobs[job_id]
+    log = []
+    try:
+        job.update(status='running', message='Starting installer')
+        process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in process.stdout:
+            line = line.rstrip()
+            log.append(line); del log[:-40]
+            if line.startswith('STEP '):
+                job.update(message=line[5:])
+        process.wait()
+        if process.returncode:
+            raise RuntimeError(next((l for l in reversed(log) if l.strip()), f'exit code {process.returncode}'))
+        job.update(status='complete', progress=100, message='Installed and ready', log=log[-15:])
+    except Exception as exc:
+        job.update(status='failed', message=f'Install failed: {exc}', log=log[-15:])
+    finally:
+        install_lock.release()
+
+@app.post('/api/models/install')
+def install_model(request: ModelInstall):
+    """Install an engine and/or download a model. Needs internet; runs in the background."""
+    if request.engine not in catalog.ENGINES or not catalog.supported(request.engine):
+        raise HTTPException(422, 'That engine is not available on this computer')
+    if request.model and request.model not in catalog.ENGINES[request.engine]['models']:
+        raise HTTPException(422, 'Unknown model for this engine')
+    if not install_lock.acquire(blocking=False):
+        raise HTTPException(409, 'Another installation is already running')
+    command = [sys.executable, str(ROOT/'scripts'/'install_engine.py'), request.engine]
+    if request.model:
+        command += ['--model', request.model]
+    job_id = uuid4().hex
+    jobs[job_id] = {'status':'queued','progress':0,'message':'Waiting to install','engine':request.engine,'model':request.model}
+    installing['job'] = job_id
+    Thread(target=run_install, args=(job_id, command), daemon=True).start()
+    return jobs[job_id]

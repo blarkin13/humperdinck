@@ -34,6 +34,24 @@ The core installer creates `.venv` and installs the frontend. The **separate voi
 
 Open http://127.0.0.1:5173. Upload a clean voice recording under Voice Library, select it in Audio Studio, paste text, click Generate, then preview/download WAV or MP3. Each long text is segmented and concatenated with short pauses.
 
+## Platforms and models
+
+Humperdinck runs on macOS, Windows and Linux. Open the **Models** tab to pick the model for each job, install engines and download models.
+
+| Engine | Jobs | Platforms | Notes |
+|---|---|---|---|
+| Qwen3-TTS (MLX) | Voice design | macOS on Apple Silicon | Fastest on M-series Macs. 4/6/8-bit and bf16 models |
+| Qwen3-TTS (PyTorch) | Voice design, cloning | macOS, Windows, Linux | Uses an NVIDIA GPU (CUDA) when one is present, otherwise the CPU |
+| Chatterbox | Cloning and narration | macOS, Windows, Linux | Default narrator |
+
+Install from the command line:
+
+```
+python scripts/install_engine.py qwen-torch --model Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+```
+
+Installs and downloads need the internet once. After that everything runs offline (set `HUMPERDINCK_ONLINE=1` to allow downloads at run time). Choices are saved in `data/settings.json`.
+
 ## Current limits
 
 - Jobs run in a single background thread per request, serialized through one model lock; **jobs are not persisted** across restarts. Completed audio files remain under `data/outputs`.

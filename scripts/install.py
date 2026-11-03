@@ -20,15 +20,9 @@ if not venv_dir.exists(): venv.create(venv_dir,with_pip=True)
 python=venv_dir/('Scripts/python.exe' if sys.platform=='win32' else 'bin/python')
 subprocess.run([str(python),'-m','pip','install','-r',str(root/'backend/requirements.txt')],check=True)
 subprocess.run(['npm.cmd' if sys.platform=='win32' else 'npm','install'],cwd=root/'frontend',check=True)
-# Qwen gets its own environment so MLX-Audio never conflicts with Chatterbox's PyTorch stack.
-if sys.platform == 'darwin' and platform.machine() == 'arm64':
-    print('\nApple Silicon detected: installing Qwen MLX voice engine into .venv-qwen...')
-    qwen_dir=root/'.venv-qwen'
-    if not qwen_dir.exists(): venv.create(qwen_dir,with_pip=True)
-    qwen_python=qwen_dir/'bin/python'
-    subprocess.run([str(qwen_python), '-m', 'pip', 'install', 'mlx-audio', 'soundfile>=0.12', 'numpy>=1.24,<3'], check=True)
-    subprocess.run([str(qwen_python), '-c', 'import mlx_audio; from mlx_audio.tts.utils import load_model'], check=True)
-    print('Qwen MLX dependencies verified. Model weights download on first generation.')
-else:
-    print('Qwen MLX is available only on Apple Silicon; other voice engines require platform-specific installation.')
+# Voice design engine for this platform, in its own environment (see backend/catalog.py).
+engine = 'qwen-mlx' if sys.platform == 'darwin' and platform.machine() == 'arm64' else 'qwen-torch'
+print(f'\nInstalling the {engine} voice design engine...')
+subprocess.run([str(python), str(root/'scripts/install_engine.py'), engine], check=True)
+print('Download model weights from the Models tab in the app (needs internet once).')
 print('\nInstallation complete. Run start.sh (or start.ps1 on Windows).')

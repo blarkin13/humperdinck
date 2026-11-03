@@ -47,8 +47,8 @@ class VoiceEngine:
             # On an 8 GB M2, MPS kept ~3.5 GB of GPU buffers on top of the model and
             # swapped heavily: 2 s of speech took 33 s, then 109-265 s on later takes.
             # CPU stayed at about 2.5 GB and 17 s once warm, so prefer it on small Macs.
-            memory = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
-            if memory > 16 * 2**30:
+            from backend.catalog import total_memory_gb
+            if (total_memory_gb() or 0) > 16:
                 return 'mps'
         return 'cpu'
 

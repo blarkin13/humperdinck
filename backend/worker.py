@@ -33,40 +33,53 @@ class FakeEngine:
             on_progress(1, 1)
 
 
-engines = {}
+current = {}  # the one loaded engine: {'key': (engine, model), 'engine': adapter}
 
 
-def engine_for(name):
-    if name not in engines:
+def engine_for(name, model):
+    if current.get('key') != (name, model):
+        current.clear()  # keep a single model in memory
         if os.environ.get('HUMPERDINCK_FAKE_ENGINE') == '1':
-            engines[name] = FakeEngine()
-        elif name == 'qwen':
+            adapter = FakeEngine()
+        elif name == 'qwen-mlx':
             from backend.qwen_engine import QwenVoiceDesigner
-            engines[name] = QwenVoiceDesigner()
-            engines[name].load()
-        else:
+            adapter = QwenVoiceDesigner(model)
+        elif name == 'qwen-torch':
+            from backend.qwen_torch_engine import QwenTorchEngine
+            adapter = QwenTorchEngine(model)
+        elif name == 'chatterbox':
             from backend.engine import VoiceEngine
-            engines[name] = VoiceEngine()
-            engines[name].load()
-    return engines[name]
+            adapter = VoiceEngine()
+        else:
+            raise ValueError(f'Unknown engine {name}')
+        if hasattr(adapter, 'load'):
+            adapter.load()
+        current.update(key=(name, model), engine=adapter)
+    return current['engine']
 
 
 def handle(request):
     if request.get('check'):
         # Import probe used by the backend to report which engines are installed.
         if os.environ.get('HUMPERDINCK_FAKE_ENGINE') != '1':
-            if request['engine'] == 'qwen':
-                import mlx_audio  # noqa: F401
-            else:
-                import chatterbox.tts  # noqa: F401
+            import importlib
+            from backend.catalog import ENGINES
+            for module in ENGINES[request['engine']]['imports']:
+                importlib.import_module(module)
         emit(ok=True)
         return
-    engine = engine_for(request['engine'])
+    engine = engine_for(request['engine'], request.get('model'))
     emit(loaded=True)
     progress = lambda done, total: emit(progress=[done, total])
     output = Path(request['output'])
-    voice = request['description'] if request['engine'] == 'qwen' else Path(request['reference'])
-    engine.synthesize(request['text'], voice, output, on_progress=progress)
+    if request['engine'] == 'qwen-torch':
+        if request['mode'] == 'design':
+            engine.design(request['text'], request['description'], output, on_progress=progress)
+        else:
+            engine.clone(request['text'], Path(request['reference']), output, request.get('ref_text'), on_progress=progress)
+    else:
+        voice = request['description'] if request['mode'] == 'design' else Path(request['reference'])
+        engine.synthesize(request['text'], voice, output, on_progress=progress)
     emit(ok=True)
 
 

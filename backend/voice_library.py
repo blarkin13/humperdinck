@@ -180,7 +180,7 @@ class VoiceLibrary:
         A draft edit must not make an already-approved voice disappear from narration.
         """
         with self.connect() as c:
-            rows = c.execute('''SELECT a.version, a.sample_id, s.filename
+            rows = c.execute('''SELECT a.version, a.sample_id, s.filename, s.text
                 FROM designed_approved_samples AS a
                 JOIN designed_samples AS s ON s.id = a.sample_id
                 JOIN designed_voices AS v ON v.id = a.voice_id
@@ -191,8 +191,18 @@ class VoiceLibrary:
         for row in rows:
             file = self.samples / row['filename']
             if file.is_file():
-                return {'version': row['version'], 'sample_id': row['sample_id'], 'path': file}
+                return {'version': row['version'], 'sample_id': row['sample_id'], 'path': file, 'text': row['text']}
         return None
+
+    def sample_text(self, sample_id):
+        """The words spoken in a sample; cloning engines use it as the reference transcript."""
+        with self.connect() as c:
+            row = c.execute('SELECT text FROM designed_samples WHERE id=?', (sample_id,)).fetchone()
+        return row['text'] if row else None
+
+    def approved_sample_id(self, voice_id, version):
+        with self.connect() as c:
+            return self._approved_id(c, voice_id, version)
 
     def sample_file(self, sample_id):
         with self.connect() as c:

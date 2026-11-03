@@ -14,10 +14,11 @@ from backend import engines
 SLIDERS = {'pitch': 50, 'rasp': 50, 'pace': 50, 'warmth': 50}
 
 
-def fake_synthesize(engine, output, text, *, description='', reference=None, on_progress=None):
+def fake_synthesize(engine, output, text, *, model, mode, description='', reference=None, ref_text=None, on_progress=None):
     # A distinct tone per call lets tests tell which reference/recipe produced audio.
     sf.write(str(output), np.sin(np.linspace(0, 440, 24000)).astype('float32') * 0.1, 24000)
-    fake_synthesize.calls.append({'engine': engine, 'text': text, 'description': description, 'reference': reference})
+    fake_synthesize.calls.append({'engine': engine, 'model': model, 'mode': mode, 'text': text,
+                                 'description': description, 'reference': reference, 'ref_text': ref_text})
     if on_progress:
         on_progress(1, 1)
 
@@ -27,6 +28,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv('HUMPERDINCK_DATA', str(tmp_path))
     monkeypatch.setattr(engines, 'available', lambda engine: True)
     monkeypatch.setattr(engines, 'synthesize', fake_synthesize)
+    monkeypatch.setattr('backend.catalog.downloaded', lambda model: True)
     fake_synthesize.calls = []
     import backend.app
     app_module = importlib.reload(backend.app)
@@ -103,7 +105,7 @@ def test_multi_voice_narration_uses_each_reference(client, tmp_path):
         {'text': 'One.', 'voice_key': 'design:' + voice['id']},
         {'text': 'Two.', 'voice_key': 'upload:' + 'a' * 32}]}).json()
     assert wait(client, job)['status'] == 'complete'
-    references = [c['reference'] for c in fake_synthesize.calls if c['engine'] == 'chatterbox']
+    references = [c['reference'] for c in fake_synthesize.calls if c['mode'] == 'clone']
     assert references[1] == upload and references[0] != upload
     audio, rate = sf.read(tmp_path / 'outputs' / f"{job['job_id']}.wav")
     assert rate == 24000 and len(audio) == 24000 * 2 + int(24000 * .3)
@@ -140,10 +142,10 @@ def test_video_render_after_restart(client, tmp_path):
 
 
 def test_engine_detection_reports_missing_interpreter(monkeypatch, tmp_path):
-    monkeypatch.setenv('HUMPERDINCK_QWEN_PYTHON', str(tmp_path / 'nope'))
+    monkeypatch.setenv('HUMPERDINCK_QWEN_MLX_PYTHON', str(tmp_path / 'nope'))
     monkeypatch.setattr(engines, '_resolved', {})
-    assert engines.candidates('qwen') == [tmp_path / 'nope']
-    assert engines.python_for('qwen') is None
+    assert engines.candidates('qwen-mlx') == [tmp_path / 'nope']
+    assert engines.python_for('qwen-mlx') is None
 
 
 def make_voice(client, name='V', **extra):

@@ -17,7 +17,7 @@ def pool(monkeypatch):
 
 def run(pool, engine, tmp_path, text='Hello.'):
     output = tmp_path / f'{engine}-{time.monotonic_ns()}.wav'
-    pool.synthesize(engine, {'engine': engine, 'text': text, 'description': 'd',
+    pool.synthesize(engine, {'engine': engine, 'model': 'm', 'mode': 'design' if engine == 'qwen-mlx' else 'clone', 'text': text, 'description': 'd',
                              'reference': str(tmp_path / 'ref.wav'), 'output': str(output)})
     assert output.is_file()
 
@@ -33,9 +33,9 @@ def test_worker_is_reused_between_jobs(pool, tmp_path):
 def test_switching_engine_stops_the_other_one(pool, tmp_path):
     run(pool, 'chatterbox', tmp_path)
     first = pool.worker
-    run(pool, 'qwen', tmp_path)
+    run(pool, 'qwen-mlx', tmp_path)
     assert not first.alive()
-    assert pool.worker.engine == 'qwen'
+    assert pool.worker.engine == 'qwen-mlx'
 
 
 def test_idle_worker_exits(pool, tmp_path, monkeypatch):

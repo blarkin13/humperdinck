@@ -18,8 +18,9 @@ import time
 from pathlib import Path
 from threading import Lock, Thread
 
+from backend import catalog
+
 ROOT = Path(__file__).resolve().parent.parent
-ENGINES = ('qwen', 'chatterbox')
 
 
 def setting(name, default):
@@ -30,11 +31,15 @@ def _venv_python(venv: Path):
     return venv / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
 
 
+def venv_dir(engine):
+    return ROOT / f".venv-{catalog.ENGINES[engine]['venv']}"
+
+
 def candidates(engine):
-    override = os.environ.get(f'HUMPERDINCK_{engine.upper()}_PYTHON')
+    override = os.environ.get(f"HUMPERDINCK_{engine.upper().replace('-', '_')}_PYTHON")
     if override:
         return [Path(override)]
-    return [p for p in (_venv_python(ROOT / f'.venv-{engine}'), _venv_python(ROOT / '.venv'), Path(sys.executable)) if p.exists()]
+    return [p for p in (_venv_python(venv_dir(engine)), _venv_python(ROOT / '.venv'), Path(sys.executable)) if p.exists()]
 
 
 _resolved = {}
@@ -72,7 +77,7 @@ def _call(python, request, timeout=None):
 def python_for(engine):
     """Return the first interpreter that can import the engine, or None."""
     # Only successes are cached, so an engine installed later is found without a restart.
-    if engine not in _resolved:
+    if engine not in _resolved and catalog.supported(engine):
         for python in candidates(engine):
             try:
                 _call(python, {'engine': engine, 'check': True}, timeout=120)
@@ -90,8 +95,9 @@ def available(engine):
 class Worker:
     """A long-lived `backend.worker --serve` process for one engine."""
 
-    def __init__(self, engine, python):
+    def __init__(self, engine, model, python):
         self.engine = engine
+        self.model = model
         self.errors = tempfile.TemporaryFile('w+')
         self.process = subprocess.Popen([str(python), '-m', 'backend.worker', '--serve'], cwd=ROOT, env=worker_env(),
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errors,
@@ -185,23 +191,23 @@ class Pool:
                     self.worker = None
                     worker.stop()
 
-    def _acquire(self, engine):
+    def _acquire(self, engine, model):
         with self.lock:
             worker = self.worker
-            if worker and (worker.engine != engine or not worker.alive()):
-                # Only one model in memory at a time: stop the other engine first.
+            if worker and (worker.engine != engine or worker.model != model or not worker.alive()):
+                # Only one model in memory at a time: stop the other one first.
                 self.worker = None
                 worker.stop()
             if self.worker is None:
                 python = python_for(engine)
                 if python is None:
                     raise RuntimeError(f'{engine} engine is not installed')
-                self.worker = Worker(engine, python)
+                self.worker = Worker(engine, model, python)
             self.busy = True
             return self.worker
 
     def synthesize(self, engine, request, on_progress=None):
-        worker = self._acquire(engine)
+        worker = self._acquire(engine, request.get('model'))
         try:
             worker.run(request, on_progress)
         finally:
@@ -215,7 +221,7 @@ class Pool:
             worker = self.worker
             if not worker or not worker.alive():
                 return None
-            return {'engine': worker.engine, 'loaded': worker.loaded, 'busy': self.busy,
+            return {'engine': worker.engine, 'model': worker.model, 'loaded': worker.loaded, 'busy': self.busy,
                     'idle_seconds': 0 if self.busy else round(time.monotonic() - worker.last_used)}
 
     def shutdown(self):
@@ -228,6 +234,18 @@ class Pool:
 pool = Pool()
 
 
-def synthesize(engine, output, text, *, description='', reference=None, on_progress=None):
-    pool.synthesize(engine, {'engine': engine, 'text': text, 'description': description,
-                             'reference': str(reference) if reference else None, 'output': str(output)}, on_progress)
+def synthesize(engine, output, text, *, model, mode, description='', reference=None, ref_text=None, on_progress=None):
+    pool.synthesize(engine, {'engine': engine, 'model': model, 'mode': mode, 'text': text, 'description': description,
+                             'reference': str(reference) if reference else None, 'ref_text': ref_text,
+                             'output': str(output)}, on_progress)
+
+
+def design(choice, output, text, description, on_progress=None):
+    """Generate a preview from a voice description with the chosen design model."""
+    synthesize(choice['engine'], output, text, model=choice['model'], mode='design', description=description, on_progress=on_progress)
+
+
+def clone(choice, output, text, reference, ref_text=None, on_progress=None):
+    """Speak text in the voice of a reference clip with the chosen cloning model."""
+    synthesize(choice['engine'], output, text, model=choice['model'], mode='clone', reference=reference,
+               ref_text=ref_text, on_progress=on_progress)
