@@ -30,6 +30,11 @@ class VoiceLibrary:
                 id TEXT PRIMARY KEY, voice_id TEXT NOT NULL, version INTEGER NOT NULL,
                 text TEXT NOT NULL, filename TEXT NOT NULL, created_at TEXT NOT NULL,
                 FOREIGN KEY(voice_id, version) REFERENCES designed_versions(voice_id, version) ON DELETE CASCADE);
+            CREATE TABLE IF NOT EXISTS designed_approved_samples (
+                voice_id TEXT NOT NULL, version INTEGER NOT NULL, sample_id TEXT NOT NULL,
+                PRIMARY KEY(voice_id, version),
+                FOREIGN KEY(voice_id, version) REFERENCES designed_versions(voice_id, version) ON DELETE CASCADE,
+                FOREIGN KEY(sample_id) REFERENCES designed_samples(id) ON DELETE CASCADE);
             """)
 
     @contextmanager
@@ -62,11 +67,6 @@ class VoiceLibrary:
             return result
 
     def _approved_id(self, c, voice_id, version):
-        c.execute('''CREATE TABLE IF NOT EXISTS designed_approved_samples (
-            voice_id TEXT NOT NULL, version INTEGER NOT NULL, sample_id TEXT NOT NULL,
-            PRIMARY KEY(voice_id, version),
-            FOREIGN KEY(voice_id, version) REFERENCES designed_versions(voice_id, version) ON DELETE CASCADE,
-            FOREIGN KEY(sample_id) REFERENCES designed_samples(id) ON DELETE CASCADE)''')
         row = c.execute('SELECT sample_id FROM designed_approved_samples WHERE voice_id=? AND version=?',
                         (voice_id, version)).fetchone()
         return row['sample_id'] if row else None
@@ -126,22 +126,12 @@ class VoiceLibrary:
                               (sample_id, voice_id, version)).fetchone()
             if not match:
                 return None
-            c.execute('''CREATE TABLE IF NOT EXISTS designed_approved_samples (
-                voice_id TEXT NOT NULL, version INTEGER NOT NULL, sample_id TEXT NOT NULL,
-                PRIMARY KEY(voice_id, version),
-                FOREIGN KEY(voice_id, version) REFERENCES designed_versions(voice_id, version) ON DELETE CASCADE,
-                FOREIGN KEY(sample_id) REFERENCES designed_samples(id) ON DELETE CASCADE)''')
             c.execute('INSERT OR REPLACE INTO designed_approved_samples VALUES(?,?,?)',
                       (voice_id, version, sample_id))
         return {'voice_id':voice_id, 'version':version, 'sample_id':sample_id}
 
     def approved_sample(self, voice_id, version):
         with self.connect() as c:
-            c.execute('''CREATE TABLE IF NOT EXISTS designed_approved_samples (
-                voice_id TEXT NOT NULL, version INTEGER NOT NULL, sample_id TEXT NOT NULL,
-                PRIMARY KEY(voice_id, version),
-                FOREIGN KEY(voice_id, version) REFERENCES designed_versions(voice_id, version) ON DELETE CASCADE,
-                FOREIGN KEY(sample_id) REFERENCES designed_samples(id) ON DELETE CASCADE)''')
             row = c.execute('SELECT sample_id FROM designed_approved_samples WHERE voice_id=? AND version=?',
                             (voice_id, version)).fetchone()
         return self.sample_file(row['sample_id']) if row else None
@@ -152,19 +142,15 @@ class VoiceLibrary:
         A draft edit must not make an already-approved voice disappear from narration.
         """
         with self.connect() as c:
-            c.execute('''CREATE TABLE IF NOT EXISTS designed_approved_samples (
-                voice_id TEXT NOT NULL, version INTEGER NOT NULL, sample_id TEXT NOT NULL,
-                PRIMARY KEY(voice_id, version),
-                FOREIGN KEY(voice_id, version) REFERENCES designed_versions(voice_id, version) ON DELETE CASCADE,
-                FOREIGN KEY(sample_id) REFERENCES designed_samples(id) ON DELETE CASCADE)''')
-            row = c.execute('''SELECT a.version, a.sample_id, s.filename
+            rows = c.execute('''SELECT a.version, a.sample_id, s.filename
                 FROM designed_approved_samples AS a
                 JOIN designed_samples AS s ON s.id = a.sample_id
                 JOIN designed_voices AS v ON v.id = a.voice_id
                 WHERE a.voice_id = ?
                 ORDER BY (a.version = v.active_version) DESC, a.version DESC
-                LIMIT 1''', (voice_id,)).fetchone()
-        if row:
+                ''', (voice_id,)).fetchall()
+        # Skip approvals whose audio file was removed so an older usable one still works.
+        for row in rows:
             file = self.samples / row['filename']
             if file.is_file():
                 return {'version': row['version'], 'sample_id': row['sample_id'], 'path': file}

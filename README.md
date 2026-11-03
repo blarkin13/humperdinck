@@ -78,3 +78,18 @@ In Audio Studio, choose **Design a synthetic voice (Qwen MLX)**, describe the vo
 ### Apple Silicon automatic voice engine setup
 
 The main `bash install.sh` installs and verifies `mlx-audio` automatically on Apple Silicon. The separate `install-qwen-mac.sh` is retained only for repair/reinstallation. Qwen model weights are fetched at first generation, and actual model inference is not verified by installation. An 8 GB Mac may encounter memory pressure.
+
+## Engine isolation, jobs and tests
+
+- Each speech engine runs in its own short-lived worker process (`backend/worker.py`), using
+  `.venv-qwen` or `.venv-chatterbox` when present and falling back to `.venv`. Model memory is
+  returned to the OS after every job. Override an interpreter with `VOICE_STUDIO_QWEN_PYTHON` /
+  `VOICE_STUDIO_CHATTERBOX_PYTHON`.
+- Job status is stored in `data/jobs.sqlite3`, so finished narrations can still be used in
+  Video Studio after a restart. Jobs that were running during a restart are marked failed.
+- Run the smoke tests (fake engine, temporary data folder):
+
+```bash
+.venv/bin/python -m pip install -r backend/requirements-dev.txt
+.venv/bin/python -m pytest -q tests
+```

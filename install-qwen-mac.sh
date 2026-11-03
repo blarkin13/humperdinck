@@ -9,7 +9,9 @@ if [[ ! -x .venv/bin/python ]]; then
   echo 'Run bash install.sh first.' >&2
   exit 1
 fi
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install 'mlx-audio' 'soundfile>=0.12' 'numpy>=1.24,<3'
+# Separate environment so MLX-Audio cannot conflict with Chatterbox's dependencies.
+[[ -x .venv-qwen/bin/python ]] || .venv/bin/python -m venv .venv-qwen
+.venv-qwen/bin/python -m pip install --upgrade pip
+.venv-qwen/bin/python -m pip install 'mlx-audio' 'soundfile>=0.12' 'numpy>=1.24,<3'
 echo 'Qwen MLX dependencies installed. Model weights download on first generation.'
 echo 'An 8 GB Mac may run out of unified memory; start with a single short sentence.'

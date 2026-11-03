@@ -5,25 +5,25 @@ from threading import Thread, Lock
 import json
 import shutil
 import subprocess
-import math
+import os
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from backend.engine import VoiceEngine, export_mp3
-from backend.qwen_engine import QwenVoiceDesigner, DEFAULT_MODEL
+from backend import engines
+from backend.engine import export_mp3
+from backend.jobs import JobStore
+from backend.qwen_engine import DEFAULT_MODEL
 from backend.voice_library import VoiceLibrary, build_instruction
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / 'data'
+DATA = Path(os.environ.get('VOICE_STUDIO_DATA', ROOT / 'data'))
 for folder in ('voices', 'outputs', 'videos', 'projects'):
     (DATA / folder).mkdir(parents=True, exist_ok=True)
 app = FastAPI(title='Local Voice Studio', version='0.2.0')
 app.add_middleware(CORSMiddleware, allow_origins=['http://localhost:5173','http://127.0.0.1:5173'], allow_methods=['*'], allow_headers=['*'])
-engine = VoiceEngine()
 engine_lock = Lock()
-jobs = {}
-voices = {}
+jobs = JobStore(DATA / 'jobs.sqlite3')
 library = VoiceLibrary(DATA)
 
 class Sentence(BaseModel):
@@ -46,16 +46,8 @@ class GenerateRequest(BaseModel):
 
 @app.get('/api/health')
 def health():
-    try:
-        import chatterbox.tts
-        installed = True
-    except ImportError:
-        installed = False
-    try:
-        import mlx_audio
-        qwen = True
-    except ImportError:
-        qwen = False
+    installed = engines.available('chatterbox')
+    qwen = engines.available('qwen')
     return {'status':'ok', 'engine':'chatterbox' if installed else 'not installed', 'qwen_mlx_installed':qwen, 'qwen_model':DEFAULT_MODEL, 'version':'0.3.0', 'ffmpeg':bool(shutil.which('ffmpeg'))}
 
 @app.get('/api/voices')
@@ -253,14 +245,14 @@ def run_generation(job_id, request):
         with engine_lock:
             job.update(status='running', message='Loading model (first run may download weights)')
             if request.engine == 'qwen-design':
-                QwenVoiceDesigner().synthesize(request.text, request.voice_description, wav,
+                engines.synthesize('qwen', wav, request.text, description=request.voice_description,
                     on_progress=lambda done,total: job.update(progress=round(done/total*100), message=f'Generated {done}/{total} segments'))
             else:
                 reference = (library.approved_sample(request.designed_voice_id, request.designed_version)
                              if request.engine == 'designed-reference' else DATA/'voices'/f'{request.voice_id}.wav')
                 if not reference or not reference.is_file():
                     raise ValueError('Approved reference audio is missing')
-                engine.synthesize(request.text, reference, wav,
+                engines.synthesize('chatterbox', wav, request.text, reference=reference,
                     on_progress=lambda done,total: job.update(progress=round(done/total*100), message=f'Generated {done}/{total} segments'))
             if request.designed_voice_id and request.engine == 'qwen-design':
                 job['sample'] = library.sample(request.designed_voice_id,request.designed_version,request.text,wav)
@@ -295,15 +287,10 @@ def generate(request: GenerateRequest):
     if request.engine == 'chatterbox' and (not request.voice_id.isalnum() or not (DATA/'voices'/f'{request.voice_id}.wav').is_file()):
         raise HTTPException(404, 'Voice profile not found')
     if request.engine == 'qwen-design':
-        try:
-            import mlx_audio
-        except ImportError:
+        if not engines.available('qwen'):
             raise HTTPException(503, 'Qwen MLX engine missing: run bash install-qwen-mac.sh')
-    else:
-        try:
-            import chatterbox.tts
-        except ImportError:
-            raise HTTPException(503, 'Chatterbox engine missing: run the voice-engine installation step')
+    elif not engines.available('chatterbox'):
+        raise HTTPException(503, 'Chatterbox engine missing: run the voice-engine installation step')
     if request.format == 'mp3' and not shutil.which('ffmpeg'):
         raise HTTPException(503, 'FFmpeg is required for MP3 export')
     job_id = uuid4().hex
@@ -364,7 +351,7 @@ def run_multi(job_id, request, references):
             for index,(block,reference) in enumerate(zip(request.blocks,references)):
                 temp=DATA/'outputs'/f'{job_id}-{index}.wav'
                 try:
-                    engine.synthesize(block.text,reference,temp)
+                    engines.synthesize('chatterbox',temp,block.text,reference=reference)
                     audio,rate=sf.read(temp,dtype='float32',always_2d=False)
                     if audio.ndim==2: audio=audio.mean(axis=1)
                     if rate!=target_rate:
@@ -389,8 +376,7 @@ def create_narration(request: MultiNarrationRequest):
     if request.format not in ('wav','mp3'): raise HTTPException(400,'Unsupported format')
     if request.format=='mp3' and not shutil.which('ffmpeg'): raise HTTPException(503,'FFmpeg is required')
     references=[resolve_voice_key(b.voice_key) for b in request.blocks]
-    try: import chatterbox.tts
-    except ImportError: raise HTTPException(503,'Install the Chatterbox narration engine')
+    if not engines.available('chatterbox'): raise HTTPException(503,'Install the Chatterbox narration engine')
     job_id=uuid4().hex
     jobs[job_id]={'job_id':job_id,'status':'queued','progress':0,'message':'Waiting for narration engine'}
     Thread(target=run_multi,args=(job_id,request,references),daemon=True).start()
@@ -439,9 +425,12 @@ def create_video_render(request: VideoRenderRequest):
     if len(video_id)!=32 or not all(c in '0123456789abcdef' for c in video_id): raise HTTPException(400,'Invalid video ID')
     video=next(iter((DATA/'videos').glob(video_id+'.*')),None)
     if not video: raise HTTPException(404,'Video not found')
-    source_job=jobs.get(request.narration_job_id)
-    if not source_job or source_job.get('status')!='complete': raise HTTPException(400,'Generate narration first')
-    audio=DATA/'outputs'/f'{request.narration_job_id}.wav'
+    narration_id=request.narration_job_id
+    if len(narration_id)!=32 or not all(c in '0123456789abcdef' for c in narration_id): raise HTTPException(400,'Invalid narration ID')
+    source_job=jobs.get(narration_id)
+    audio=DATA/'outputs'/f'{narration_id}.wav'
+    # A finished narration on disk is usable even if its job record predates job tracking.
+    if source_job and source_job.get('status')!='complete': raise HTTPException(400,'Narration is not finished yet')
     if not audio.is_file(): raise HTTPException(404,'Narration audio not found')
     job_id=uuid4().hex
     jobs[job_id]={'job_id':job_id,'status':'queued','progress':0,'message':'Waiting to render video'}
