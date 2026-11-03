@@ -21,11 +21,11 @@ design, sized for this codebase and for low-memory Macs.
 
 ### 1. Reliability (next)
 
-- **Keep a warm engine with an idle timeout.** Today every job starts a new worker and reloads
+- ~~**Keep a warm engine with an idle timeout.**~~ Done; see README for settings. Today every job starts a new worker and reloads
   the model (Chatterbox took minutes on first run). Keep one worker alive between jobs and stop
   it after N idle minutes (default 5; lower on 8 GB). Only one engine resident at a time:
   starting Qwen stops an idle Chatterbox worker first.
-- **Generation time budget.** Kill a worker that reports no progress for a set time and mark the
+- ~~**Generation time budget.**~~ Done (stall and load timeouts). Kill a worker that reports no progress for a set time and mark the
   job failed with a clear message, instead of hanging.
 - **Cache reference encodings.** Store whatever the engine derives from an approved reference
   (keyed by sample id + engine version) so reused voices start faster.

@@ -83,8 +83,14 @@ The main `bash install.sh` installs and verifies `mlx-audio` automatically on Ap
 
 - Each speech engine runs in its own short-lived worker process (`backend/worker.py`), using
   `.venv-qwen` or `.venv-chatterbox` when present and falling back to `.venv`. Model memory is
-  returned to the OS after every job. Override an interpreter with `VOICE_STUDIO_QWEN_PYTHON` /
+  returned to the OS when the worker stops. Override an interpreter with `VOICE_STUDIO_QWEN_PYTHON` /
   `VOICE_STUDIO_CHATTERBOX_PYTHON`.
+- The worker stays running between jobs so the model loads once. Only one engine is kept in
+  memory at a time. Settings (environment variables, in seconds):
+  `VOICE_STUDIO_IDLE_TIMEOUT_S` (default 300) stops an idle worker to free memory;
+  `VOICE_STUDIO_STALL_TIMEOUT_S` (default 600) fails a job that stops reporting progress;
+  `VOICE_STUDIO_LOAD_TIMEOUT_S` (default 1800) allows for first-time model downloads.
+  `POST /api/engine/unload` frees the model immediately; `/api/health` shows `resident_engine`.
 - Job status is stored in `data/jobs.sqlite3`, so finished narrations can still be used in
   Video Studio after a restart. Jobs that were running during a restart are marked failed.
 - Run the smoke tests (fake engine, temporary data folder):

@@ -1,4 +1,5 @@
 """Local-only Voice Studio API."""
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 from threading import Thread, Lock
@@ -20,7 +21,12 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = Path(os.environ.get('VOICE_STUDIO_DATA', ROOT / 'data'))
 for folder in ('voices', 'outputs', 'videos', 'projects'):
     (DATA / folder).mkdir(parents=True, exist_ok=True)
-app = FastAPI(title='Local Voice Studio', version='0.2.0')
+@asynccontextmanager
+async def lifespan(app):
+    yield
+    engines.pool.shutdown()  # free the warm model when the backend stops
+
+app = FastAPI(title='Local Voice Studio', version='0.2.0', lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=['http://localhost:5173','http://127.0.0.1:5173'], allow_methods=['*'], allow_headers=['*'])
 engine_lock = Lock()
 jobs = JobStore(DATA / 'jobs.sqlite3')
@@ -48,7 +54,14 @@ class GenerateRequest(BaseModel):
 def health():
     installed = engines.available('chatterbox')
     qwen = engines.available('qwen')
-    return {'status':'ok', 'engine':'chatterbox' if installed else 'not installed', 'qwen_mlx_installed':qwen, 'qwen_model':DEFAULT_MODEL, 'version':'0.3.0', 'ffmpeg':bool(shutil.which('ffmpeg'))}
+    return {'status':'ok', 'engine':'chatterbox' if installed else 'not installed', 'qwen_mlx_installed':qwen, 'qwen_model':DEFAULT_MODEL, 'version':'0.3.0', 'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status()}
+
+@app.post('/api/engine/unload')
+def unload_engine():
+    """Stop the warm engine worker now to free its memory; the next job reloads it."""
+    if engines.pool.busy: raise HTTPException(409, 'An engine is generating; try again when it finishes')
+    engines.pool.shutdown()
+    return {'resident_engine':None}
 
 @app.get('/api/voices')
 def list_voices():

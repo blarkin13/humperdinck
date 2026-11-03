@@ -40,18 +40,24 @@ def voice_segments(text, limit=600):
 class QwenVoiceDesigner:
     def __init__(self, model_id=DEFAULT_MODEL):
         self.model_id = model_id
+        self.model = None
+
+    def load(self):
+        # A long-lived worker keeps the model between jobs; the worker exiting frees it.
+        if self.model is None:
+            from mlx_audio.tts.utils import load_model
+            self.model = load_model(self.model_id)
+        return self.model
 
     def synthesize(self, text: str, description: str, destination: Path, on_progress=None):
         import numpy as np
         import soundfile as sf
-        from mlx_audio.tts.utils import load_model
         if not description.strip():
             raise ValueError('A voice description is required')
         chunks = voice_segments(text)
         if not chunks:
             raise ValueError('No text supplied')
-        # Only load this model while actively generating, to conserve 8 GB unified RAM.
-        model = load_model(self.model_id)
+        model = self.load()
         samples = []
         sample_rate = None
         try:
@@ -81,6 +87,7 @@ class QwenVoiceDesigner:
         finally:
             del model
             gc.collect()
+            # Drop MLX's buffer cache between jobs; the weights stay loaded.
             try:
                 import mlx.core as mx
                 mx.clear_cache()

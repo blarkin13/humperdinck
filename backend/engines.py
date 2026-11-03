@@ -3,16 +3,27 @@
 Each engine may have its own virtual environment (.venv-qwen, .venv-chatterbox),
 so their ML dependencies never conflict. Older installs that put everything in
 .venv keep working because the main environment is used as a fallback.
+
+A worker stays running between jobs so the model is loaded once. Only one engine is
+resident at a time, and an idle worker exits after VOICE_STUDIO_IDLE_TIMEOUT_S
+seconds, which returns all of its memory to the OS.
 """
 import json
 import os
+import queue
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
+from threading import Lock, Thread
 
 ROOT = Path(__file__).resolve().parent.parent
 ENGINES = ('qwen', 'chatterbox')
+
+
+def setting(name, default):
+    return float(os.environ.get(f'VOICE_STUDIO_{name}', default))
 
 
 def _venv_python(venv: Path):
@@ -29,32 +40,21 @@ def candidates(engine):
 _resolved = {}
 
 
-def _call(python, request, on_progress=None, timeout=None):
+def _call(python, request, timeout=None):
+    """Run a one-shot worker, used for the import probe."""
     # stderr goes to a file: ML libraries log heavily and a full pipe would block the worker.
     with tempfile.TemporaryFile('w+') as errors:
-        process = subprocess.Popen([str(python), '-m', 'backend.worker'], cwd=ROOT,
-                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors, text=True)
-        process.stdin.write(json.dumps(request))
-        process.stdin.close()
-        result = None
-        for line in process.stdout:
-            try:
-                message = json.loads(line)
-            except json.JSONDecodeError:
-                continue  # libraries sometimes print to stdout
-            if not isinstance(message, dict):
-                continue
-            if 'progress' in message and on_progress:
-                on_progress(*message['progress'])
-            elif 'ok' in message or 'error' in message:
-                result = message
-        process.wait(timeout=timeout)
+        process = subprocess.run([str(python), '-m', 'backend.worker'], cwd=ROOT, input=json.dumps(request),
+                                 stdout=subprocess.PIPE, stderr=errors, text=True, timeout=timeout)
         errors.seek(0)
         stderr = errors.read()
-    if result and result.get('ok') and process.returncode == 0:
-        return
-    if result and result.get('error'):
-        raise RuntimeError(result['error'])
+    for line in process.stdout.splitlines():
+        try:
+            message = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(message, dict) and message.get('ok') and process.returncode == 0:
+            return
     tail = stderr.strip().splitlines()[-1:] or ['no output']
     raise RuntimeError(f'{request["engine"]} worker exited with code {process.returncode}: {tail[0]}')
 
@@ -77,9 +77,147 @@ def available(engine):
     return python_for(engine) is not None
 
 
+class Worker:
+    """A long-lived `backend.worker --serve` process for one engine."""
+
+    def __init__(self, engine, python):
+        self.engine = engine
+        self.errors = tempfile.TemporaryFile('w+')
+        self.process = subprocess.Popen([str(python), '-m', 'backend.worker', '--serve'], cwd=ROOT,
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errors,
+                                        text=True, bufsize=1)
+        self.messages = queue.Queue()
+        self.loaded = False
+        self.last_used = time.monotonic()
+        Thread(target=self._read, daemon=True).start()
+
+    def _read(self):
+        for line in self.process.stdout:
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError:
+                continue  # libraries sometimes print to stdout
+            if isinstance(message, dict):
+                self.messages.put(message)
+        self.messages.put(None)  # stdout closed: the process exited
+
+    def alive(self):
+        return self.process.poll() is None
+
+    def stop(self):
+        if self.alive():
+            try:
+                self.process.stdin.close()  # asks the worker to finish and exit
+                self.process.wait(timeout=10)
+            except (OSError, subprocess.TimeoutExpired):
+                self.process.kill()
+                self.process.wait()
+        self.errors.close()
+
+    def kill(self):
+        self.process.kill()
+        self.process.wait()
+        self.errors.close()
+
+    def last_error(self):
+        try:
+            self.errors.seek(0)
+            lines = self.errors.read().strip().splitlines()
+        except (OSError, ValueError):
+            lines = []
+        return lines[-1] if lines else 'no output'
+
+    def run(self, request, on_progress=None):
+        self.process.stdin.write(json.dumps(request) + '\n')
+        self.process.stdin.flush()
+        # Loading can include a first-time model download, so it gets a longer budget.
+        while True:
+            budget = setting('STALL_TIMEOUT_S', 600) if self.loaded else setting('LOAD_TIMEOUT_S', 1800)
+            try:
+                message = self.messages.get(timeout=budget)
+            except queue.Empty:
+                self.kill()
+                stage = 'progress' if self.loaded else 'loading the model'
+                raise RuntimeError(f'{self.engine} engine stopped responding ({stage} took over {int(budget)} s). '
+                                   'It was restarted; please try again.')
+            if message is None:
+                self.process.wait()
+                raise RuntimeError(f'{self.engine} engine exited unexpectedly (code {self.process.returncode}): '
+                                   f'{self.last_error()}')
+            if message.get('loaded'):
+                self.loaded = True
+            elif 'progress' in message:
+                if on_progress:
+                    on_progress(*message['progress'])
+            elif message.get('ok'):
+                self.last_used = time.monotonic()
+                return
+            elif 'error' in message:
+                self.last_used = time.monotonic()
+                raise RuntimeError(message['error'])
+
+
+class Pool:
+    """Keeps at most one warm worker and stops it after a period of inactivity."""
+
+    def __init__(self):
+        self.lock = Lock()
+        self.worker = None
+        self.busy = False
+        Thread(target=self._reap, daemon=True).start()
+
+    def _reap(self):
+        while True:
+            time.sleep(min(5, max(0.05, setting('IDLE_TIMEOUT_S', 300) / 4)))
+            with self.lock:
+                worker = self.worker
+                if worker and not self.busy and time.monotonic() - worker.last_used > setting('IDLE_TIMEOUT_S', 300):
+                    self.worker = None
+                    worker.stop()
+
+    def _acquire(self, engine):
+        with self.lock:
+            worker = self.worker
+            if worker and (worker.engine != engine or not worker.alive()):
+                # Only one model in memory at a time: stop the other engine first.
+                self.worker = None
+                worker.stop()
+            if self.worker is None:
+                python = python_for(engine)
+                if python is None:
+                    raise RuntimeError(f'{engine} engine is not installed')
+                self.worker = Worker(engine, python)
+            self.busy = True
+            return self.worker
+
+    def synthesize(self, engine, request, on_progress=None):
+        worker = self._acquire(engine)
+        try:
+            worker.run(request, on_progress)
+        finally:
+            with self.lock:
+                self.busy = False
+                if self.worker is worker and not worker.alive():
+                    self.worker = None
+
+    def status(self):
+        with self.lock:
+            worker = self.worker
+            if not worker or not worker.alive():
+                return None
+            return {'engine': worker.engine, 'loaded': worker.loaded, 'busy': self.busy,
+                    'idle_seconds': 0 if self.busy else round(time.monotonic() - worker.last_used)}
+
+    def shutdown(self):
+        with self.lock:
+            if self.worker:
+                self.worker.stop()
+                self.worker = None
+
+
+pool = Pool()
+
+
 def synthesize(engine, output, text, *, description='', reference=None, on_progress=None):
-    python = python_for(engine)
-    if python is None:
-        raise RuntimeError(f'{engine} engine is not installed')
-    _call(python, {'engine': engine, 'text': text, 'description': description,
-                   'reference': str(reference) if reference else None, 'output': str(output)}, on_progress)
+    pool.synthesize(engine, {'engine': engine, 'text': text, 'description': description,
+                             'reference': str(reference) if reference else None, 'output': str(output)}, on_progress)
