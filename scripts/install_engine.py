@@ -19,7 +19,8 @@ root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 from backend.catalog import ENGINES, supported  # noqa: E402
 
-CUDA_INDEX = 'https://download.pytorch.org/whl/cu124'
+# Newest first: the first index that has a CUDA build of the PyTorch version the engine needs is used.
+CUDA_INDEXES = [f'https://download.pytorch.org/whl/{tag}' for tag in ('cu130', 'cu129', 'cu128', 'cu126', 'cu124', 'cu121')]
 
 
 def step(message):
@@ -28,6 +29,40 @@ def step(message):
 
 def python_in(env_dir):
     return env_dir / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
+
+
+# Prints e.g. "torch==2.6.0 torchaudio==2.6.0" for the PyTorch packages that are installed.
+VERSIONS_PROBE = """
+import importlib.metadata as m
+for name in ('torch', 'torchaudio'):
+    try:
+        print(name + '==' + m.version(name).split('+')[0])
+    except m.PackageNotFoundError:
+        pass
+"""
+
+
+def use_cuda(python):
+    """Swap in the CUDA build of the PyTorch version the engine installed.
+
+    pip installs the CPU-only PyTorch from PyPI on Windows, and an extra CUDA index does not
+    help because pip prefers PyPI's newer version number. So reinstall the same versions
+    explicitly from PyTorch's CUDA index.
+    """
+    probe = 'import torch; print(torch.cuda.is_available())'
+    if subprocess.run([str(python), '-c', probe], capture_output=True, text=True).stdout.strip() == 'True':
+        step('NVIDIA GPU ready (CUDA PyTorch already installed)')
+        return
+    versions = subprocess.run([str(python), '-c', VERSIONS_PROBE], capture_output=True, text=True).stdout.split()
+    step('NVIDIA GPU detected: installing the GPU (CUDA) build of PyTorch, about 2.5 GB')
+    for index in CUDA_INDEXES:
+        if subprocess.run([str(python), '-m', 'pip', 'install', '--force-reinstall', '--no-deps', *versions,
+                           '--index-url', index]).returncode == 0:
+            break
+    ok = subprocess.run([str(python), '-c', 'import torch; print(torch.cuda.is_available() and torch.cuda.get_device_name(0))'],
+                        capture_output=True, text=True).stdout.strip()
+    step(f'Using GPU: {ok}' if ok and ok != 'False' else
+         'Could not enable the NVIDIA GPU; the engine will run on the CPU. Updating the NVIDIA driver usually fixes this.')
 
 
 def main():
@@ -51,12 +86,10 @@ def main():
     step('Updating pip')
     subprocess.run([str(python), '-m', 'pip', 'install', '-q', '--upgrade', 'pip'], check=True)
     command = [str(python), '-m', 'pip', 'install', *engine['packages']]
-    if engine.get('torch') and sys.platform in ('win32', 'linux') and shutil.which('nvidia-smi'):
-        # Let pip choose the CUDA build of PyTorch when an NVIDIA GPU is present.
-        step('NVIDIA GPU detected: using CUDA-enabled PyTorch')
-        command += ['--extra-index-url', CUDA_INDEX]
     step(f"Installing {engine['label']} packages (this can take several minutes)")
     subprocess.run(command, check=True)
+    if engine.get('torch') and sys.platform in ('win32', 'linux') and shutil.which('nvidia-smi'):
+        use_cuda(python)
     step('Checking the installation')
     imports = '; '.join(f'import {m}' for m in engine['imports'])
     subprocess.run([str(python), '-c', imports], check=True)
