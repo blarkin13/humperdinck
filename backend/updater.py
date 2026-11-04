@@ -65,7 +65,23 @@ def normalize(raw: bytes) -> bytes:
 
 def local_hash(path: str) -> str | None:
     file = ROOT / path
-    return blob_hash(normalize(file.read_bytes())) if file.is_file() else None
+    return blob_hash(file.read_bytes()) if file.is_file() else None
+
+
+def local_matches(path: str, expected_sha: str) -> bool:
+    """Compare local file bytes to GitHub's blob.
+
+    Some committed Windows batch files have CRLF line endings, while other
+    files are committed with LF and checked out as CRLF on Windows.
+    Check the exact bytes first, then allow normalization of a local CRLF
+    checkout against a remotely stored LF blob. Always normalizing was wrong:
+    it made remotely committed CRLF .cmd files look perpetually modified.
+    """
+    file = ROOT / path
+    if not file.is_file():
+        return False
+    raw = file.read_bytes()
+    return blob_hash(raw) == expected_sha or blob_hash(normalize(raw)) == expected_sha
 
 
 def local_files() -> set[str]:
@@ -135,7 +151,7 @@ def check() -> dict:
     missing = sorted(REQUIRED - remote.keys())
     if missing:
         raise UpdateError('GitHub main is missing required files: ' + ', '.join(missing))
-    changed = sorted(p for p, digest in remote.items() if local_hash(p) != digest)
+    changed = sorted(p for p, digest in remote.items() if not local_matches(p, digest))
     removed = sorted(local_files() - remote.keys())
     message = (commit.get('commit') or {}).get('message', '').splitlines()
     return {'available': bool(changed or removed), 'commit_sha': sha, 'latest': sha[:8],
@@ -229,7 +245,7 @@ def apply() -> dict:
         if blob_hash(files.get(name, b'')) != digest:
             raise UpdateError(f'Checksum mismatch for {name}; update not installed')
     backup = STATE / 'backups' / time.strftime('%Y%m%d-%H%M%S')
-    changed = [n for n in sorted(files) if local_hash(n) != update['file_hashes'][n]]
+    changed = [n for n in sorted(files) if not local_matches(n, update['file_hashes'][n])]
     removed = sorted(local_files() - files.keys())
     done = []
     try:
