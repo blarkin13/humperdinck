@@ -31,3 +31,8 @@ jobs:
           test -s frontend/KokoroWorker.js
           test -d website/studio/assets
           grep -q '/studio/assets/' website/studio/index.html
+          test -s website/build.json
+          test -s website/_headers
+          grep -q 'Cache-Control: no-store' website/_headers
+          grep -q 'PUBLIC_VOICES=' frontend/src.jsx
+          ! grep -q 'PublicStudio' frontend/src.jsx
