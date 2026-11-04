@@ -106,6 +106,13 @@ def ensure_backend_packages():
 reinstall_dependencies()
 ensure_backend_packages()
 check_on_launch()
+# New and upgraded installs receive CPU narration voices automatically once.
+# Never prevent the app from opening when first-time downloads are unavailable.
+if os.environ.get('HUMPERDINCK_SKIP_PRESET_BOOTSTRAP') != '1':
+    try:
+        subprocess.run([str(py), str(root/'scripts/bootstrap_presets.py')], check=True)
+    except subprocess.CalledProcessError:
+        say('Built-in voice setup could not finish; retry on next launch or use Models to install voices.')
 restart_flag = updater.STATE/'restart'
 restart_flag.unlink(missing_ok=True)
 env = dict(os.environ, HUMPERDINCK_LAUNCHER_PID=str(os.getpid()))
