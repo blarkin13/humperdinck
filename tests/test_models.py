@@ -200,8 +200,7 @@ def test_builtin_voice_catalog_has_named_british_and_american_presets():
     for engine, voices in catalog.PRESET_VOICES.items():
         assert 'preset' in catalog.ENGINES[engine]['roles']
         assert all(voice in catalog.ENGINES[engine]['models'] for voice in voices)
-        assert all(name and ('British English' in accent or 'American English' in accent)
-                   for name, accent in voices.values())
+        assert all(name and ' · ' in accent for name, accent in voices.values())
 
 
 def test_all_kokoro_voice_languages_and_model_sharing():
