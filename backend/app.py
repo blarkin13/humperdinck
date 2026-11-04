@@ -670,7 +670,8 @@ def install_update(request: UpdateInstallRequest):
 
 
 class ModelChoice(BaseModel):
-    role: str = Field(pattern=r'^(design|clone|preset)    engine: str
+    role: str = Field(pattern=r'^(design|clone|preset)$')
+    engine: str
     model: str
 
 class ModelInstall(BaseModel):
