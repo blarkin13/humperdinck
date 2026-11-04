@@ -71,7 +71,15 @@ def _call(python, request, timeout=None):
         if isinstance(message, dict) and message.get('ok') and process.returncode == 0:
             return
     tail = stderr.strip().splitlines()[-1:] or ['no output']
-    raise RuntimeError(f'{request["engine"]} worker exited with code {process.returncode}: {tail[0]}')
+    raise RuntimeError(explain(f'{request["engine"]} worker exited with code {process.returncode}: {tail[0]}'))
+
+
+def explain(error):
+    """Turn known library errors into instructions."""
+    if 'OfflineModeIsEnabled' in error or 'offline mode' in error.lower() or 'LocalEntryNotFoundError' in error:
+        return ('This model is not fully downloaded, and Humperdinck runs offline. Open the Models tab and click '
+                'Download for the selected model (needs internet once).')
+    return error
 
 
 def python_for(engine):
@@ -197,7 +205,7 @@ class Worker:
                 return
             elif 'error' in message:
                 self.last_used = time.monotonic()
-                raise RuntimeError(message['error'])
+                raise RuntimeError(explain(message['error']))
 
 
 class Pool:

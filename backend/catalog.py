@@ -124,8 +124,15 @@ def hf_cache():
 
 def downloaded(model_id):
     """True when the model's files are already in the local Hugging Face cache."""
-    snapshots = hf_cache() / ('models--' + model_id.replace('/', '--')) / 'snapshots'
-    return snapshots.is_dir() and any(any(s.iterdir()) for s in snapshots.iterdir() if s.is_dir())
+    repo = hf_cache() / ('models--' + model_id.replace('/', '--'))
+    snapshots = repo / 'snapshots'
+    if not snapshots.is_dir():
+        return False
+    # An interrupted download leaves *.incomplete blobs and no weights; it must not count as downloaded.
+    if any((repo / 'blobs').glob('*.incomplete')):
+        return False
+    weights = ('.safetensors', '.bin', '.pt', '.pth', '.npz', '.gguf')
+    return any(f.name.endswith(weights) for s in snapshots.iterdir() if s.is_dir() for f in s.rglob('*'))
 
 
 def total_memory_gb():

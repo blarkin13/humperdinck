@@ -6,5 +6,6 @@ root=Path(__file__).resolve().parent.parent
 python=root/'.venv'/('Scripts/python.exe' if sys.platform=='win32' else 'bin/python')
 if not python.exists():
     sys.exit('Run install.cmd (Windows) or install.sh first.')
-subprocess.run([str(python),str(root/'scripts/install_engine.py'),'chatterbox'],check=True)
-print('Voice engine installed. First generation will download model weights.')
+# Download the model now: Humperdinck runs offline, so it cannot fetch it on first use.
+subprocess.run([str(python),str(root/'scripts/install_engine.py'),'chatterbox','--model','ResembleAI/chatterbox'],check=True)
+print('Voice engine and model installed.')
