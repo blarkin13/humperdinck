@@ -24,5 +24,7 @@ subprocess.run(['npm.cmd' if sys.platform=='win32' else 'npm','install'],cwd=roo
 engine = 'qwen-mlx' if sys.platform == 'darwin' and platform.machine() == 'arm64' else 'qwen-torch'
 print(f'\nInstalling the {engine} voice design engine...')
 subprocess.run([str(python), str(root/'scripts/install_engine.py'), engine], check=True)
-print('Download model weights from the Models tab in the app (needs internet once).')
+print('Installing bundled narration voices for offline CPU use...')
+subprocess.run([str(python), str(root/'scripts/bootstrap_presets.py')], check=True)
+print('Additional Qwen model weights can be downloaded in the Models tab.')
 print('\nInstallation complete. Run start.sh (or double-click start.cmd on Windows).')
