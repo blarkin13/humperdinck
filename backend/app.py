@@ -130,7 +130,7 @@ async def upload_voice(file: UploadFile = File(...)):
     suffix = Path(file.filename or '').suffix.lower()
     # .webm/.ogg/.mp4 are what browsers produce when recording from the microphone.
     if suffix not in ('.wav','.mp3','.flac','.m4a','.webm','.ogg','.mp4'):
-        raise HTTPException(400, 'Supported formats: WAV, MP3, FLAC, M4A (or a browser recording)')
+        raise HTTPException(400, 'Supported formats: WAV, MP3, FLAC, M4A, OGG (or a browser recording)')
     if not shutil.which('ffmpeg'):
         raise HTTPException(503, 'FFmpeg is required to normalize voice recordings')
     raw = await file.read(30 * 1024 * 1024 + 1)
