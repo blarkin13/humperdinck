@@ -54,3 +54,19 @@ The site intentionally uses root-relative `/assets/`, `/styles.css` and `/script
 To add an actual Kokoro audio demo, generate properly licensed example clips using the local model, add the files under `website/assets/samples`, and wire up an accessible `<audio>` player. No AI backend is required for playback of prerecorded clips.
 
 To add account registration, plan authentication, database, rate limiting, and data protection explicitly before enabling public forms.
+
+## Website branding refresh
+
+The website hero uses the **high-resolution silver H-and-microphone logo**. The browser favicon and Apple touch icon use the **teal-and-gold retro microphone emblem**. The social sharing preview uses an original 1200×630 JPG card based on the silver emblem.
+
+To finish this change, upload these five binary images to `website/assets/` **on branch `website/high-res-brand-and-social-preview` before merging**:
+
+- `hero-logo.webp` — 1024×1024 transparent silver logo for the large homepage hero
+- `favicon-32.png` — small browser tab icon
+- `favicon-192.png` — high-resolution browser icon
+- `apple-touch-icon.png` — iOS home-screen icon
+- `og-image.jpg` — 1200×630 social preview card for Open Graph and Twitter
+
+The assets are packaged separately as `humperdinck-branding-assets.zip` in the ChatGPT conversation where these changes were made. Extract that ZIP and add its five files through GitHub's **Add file → Upload files** into the branch's `website/assets/` folder. The source HTML in this branch already references these filenames. **Do not merge until all five files are present.**
+
+The current Open Graph absolute URL points to `https://humperdinck.larki-brian.workers.dev/assets/og-image.jpg`. Update the share URL when adding a custom domain. Social platforms may cache a previous share preview; re-scrape the URL after deployment if necessary.
