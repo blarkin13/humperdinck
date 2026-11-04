@@ -2,7 +2,7 @@
 """Install a speech engine into its own environment and optionally download a model.
 
     python scripts/install_engine.py qwen-torch
-    python scripts/install_engine.py chatterbox --model ResembleAI/chatterbox
+    python scripts/install_engine.py qwen-torch --model Qwen/Qwen3-TTS-12Hz-0.6B-Base
 
 Works on macOS, Windows and Linux. On Windows/Linux with an NVIDIA GPU, PyTorch is
 installed with CUDA support. Lines starting with "STEP " are progress for the app.
