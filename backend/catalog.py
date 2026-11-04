@@ -19,7 +19,48 @@ from pathlib import Path
 MAC_ARM = sys.platform == 'darwin' and platform.machine() == 'arm64'
 ALL = ('darwin', 'win32', 'linux')
 
+# Preset voices are not voice-cloning models. They are selected by voice ID in
+# Narration Studio and retain their own known accent and speaker identity.
+PRESET_VOICES = {
+    'kokoro': {
+        'bm_george': ('George', 'British English · male'),
+        'bm_fable': ('Fable', 'British English · male'),
+        'bf_emma': ('Emma', 'British English · female'),
+        'bf_isabella': ('Isabella', 'British English · female'),
+        'am_michael': ('Michael', 'American English · male'),
+        'af_heart': ('Heart', 'American English · female'),
+    },
+    'piper': {
+        'en_GB-alan-medium': ('Alan', 'British English · male'),
+        'en_GB-cori-medium': ('Cori', 'British English · female'),
+        'en_US-lessac-medium': ('Lessac', 'American English · female'),
+        'en_US-ryan-medium': ('Ryan', 'American English · male'),
+    },
+}
+
+def preset_path(engine, voice):
+    if engine == 'kokoro':
+        return Path(__file__).resolve().parent.parent / 'data' / 'models' / 'kokoro'
+    if engine == 'piper':
+        return Path(__file__).resolve().parent.parent / 'data' / 'models' / 'piper'
+    raise ValueError('Unknown preset engine')
+
+
 ENGINES = {
+    'kokoro': {
+        'label': 'Kokoro (CPU preset voices)', 'venv': 'kokoro', 'roles': ('preset',), 'platforms': ALL,
+        'imports': ('kokoro_onnx',), 'packages': ['kokoro-onnx>=0.6,<1', 'soundfile>=0.12'],
+        'note': 'Fast ONNX text-to-speech with American and British preset voices. Does not clone custom voices.',
+        'models': {voice: {'label': label, 'size_gb': 0.35, 'memory_gb': 0.8, 'roles': ('preset',), 'note': accent}
+                   for voice, (label, accent) in PRESET_VOICES['kokoro'].items()},
+    },
+    'piper': {
+        'label': 'Piper (CPU preset voices)', 'venv': 'piper', 'roles': ('preset',), 'platforms': ALL,
+        'imports': ('piper',), 'packages': ['piper-tts>=1.3,<2'],
+        'note': 'Lightweight CPU text-to-speech. Each voice has separate model files; review its model license before commercial redistribution.',
+        'models': {voice: {'label': label, 'size_gb': 0.1, 'memory_gb': 0.3, 'roles': ('preset',), 'note': accent}
+                   for voice, (label, accent) in PRESET_VOICES['piper'].items()},
+    },
     'qwen-mlx': {
         'label': 'Qwen3-TTS (MLX)', 'venv': 'qwen', 'roles': ('design',), 'platforms': ('darwin',),
         'requires_apple_silicon': True, 'imports': ('mlx_audio',),
@@ -62,7 +103,8 @@ def defaults():
     design = ('qwen-mlx', 'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit') if MAC_ARM else \
              ('qwen-torch', 'Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign')
     return {'design': {'engine': design[0], 'model': design[1]},
-            'clone': {'engine': 'chatterbox', 'model': 'ResembleAI/chatterbox'}}
+            'clone': {'engine': 'chatterbox', 'model': 'ResembleAI/chatterbox'},
+            'preset': {'engine': 'kokoro', 'model': 'bm_george'}}
 
 
 def model_info(engine_id, model_id):
@@ -124,6 +166,14 @@ def hf_cache():
 
 def downloaded(model_id):
     """True when the model's files are already in the local Hugging Face cache."""
+    if model_id in PRESET_VOICES['kokoro']:
+        folder = preset_path('kokoro', model_id)
+        return all((folder / name).is_file() and (folder / name).stat().st_size > 100000
+                   for name in ('kokoro-v1.0.onnx', 'voices-v1.0.bin'))
+    if model_id in PRESET_VOICES['piper']:
+        folder = preset_path('piper', model_id)
+        return all((folder / (model_id + ext)).is_file() and (folder / (model_id + ext)).stat().st_size > 100
+                   for ext in ('.onnx', '.onnx.json'))
     repo = hf_cache() / ('models--' + model_id.replace('/', '--'))
     snapshots = repo / 'snapshots'
     if not snapshots.is_dir():
