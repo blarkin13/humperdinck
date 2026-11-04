@@ -1,5 +1,5 @@
 # HTML is always fetched fresh; Vite gives JS/CSS fingerprinted filenames.
-/ 
+/
   Cache-Control: no-store, max-age=0
 /studio/
   Cache-Control: no-store, max-age=0
