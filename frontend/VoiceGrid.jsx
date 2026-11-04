@@ -60,13 +60,13 @@ function VoiceShelf({name,count,children}){
 export default function VoiceGrid({items,onCreate}){
  const [query,setQuery]=useState(''),[playing,setPlaying]=useState(null),[previewJobs,setPreviewJobs]=useState({}),audio=useRef(null);
  useEffect(()=>()=>audio.current?.pause(),[]);
- function playAudio(v,url){
+ function playAudio(v,url,kind='generated'){
   audio.current?.pause();
   const a=new Audio(url);
   a.onended=()=>setPlaying(null);
   a.play().catch(()=>{setPlaying(null);setPreviewJobs(old=>({...old,[v.key]:{status:'failed',message:'Could not play preview audio.'}}))});
   audio.current=a;
-  setPlaying(v.key);
+  setPlaying(v.key+':'+kind);
  }
  async function play(e,v,generate=false){
   e.stopPropagation();
@@ -74,11 +74,11 @@ export default function VoiceGrid({items,onCreate}){
   // Audition the user's own reference audio immediately. A real cloned
   // same-script comparison is still available as a separate explicit action.
   if(uploaded&&!generate&&v.previewUrl){
-   if(playing===v.key){audio.current?.pause();setPlaying(null);return}
-   playAudio(v,v.previewUrl);
+   if(playing===v.key+':original'){audio.current?.pause();setPlaying(null);return}
+   playAudio(v,v.previewUrl,'original');
    return;
   }
-  if(playing===v.key){audio.current?.pause();setPlaying(null);return}
+  if(playing===v.key+':generated'){audio.current?.pause();setPlaying(null);return}
   if(previewJobs[v.key]?.status==='queued'||previewJobs[v.key]?.status==='running')return;
   try{
    const r=await fetch('/api/voice-previews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice_key:v.voiceKey})});
@@ -115,7 +115,7 @@ export default function VoiceGrid({items,onCreate}){
   {names.map(name=>{const list=groups[name];
    return <div className="voice-group" key={name}>
     {names.length>1||name!=='Uncategorized'?<h4><i className="fa-solid fa-layer-group"/> {name} <small>{list.length} {list.length===1?'voice':'voices'}</small></h4>:null}
-    <VoiceShelf name={name} count={list.length}>{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing===v.key,preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
+    <VoiceShelf name={name} count={list.length}>{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing?.startsWith(v.key+':'),preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
      return <article key={v.key} className={'voice-card'+(v.selected?' selected':'')+(v.ready?' ready':'')} role="button" tabIndex={0} aria-label={'Open '+v.name} onClick={v.onOpen} onKeyDown={e=>e.key==='Enter'&&v.onOpen()}>
      {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
      <div className="card-top">
@@ -134,7 +134,7 @@ export default function VoiceGrid({items,onCreate}){
       <span className="voice-comparison-caption">Play auditions your original recording instantly.</span>
       <button type="button" className="voice-comparison-button" disabled={working}
        onClick={e=>play(e,v,true)} title="Use the cloning model to speak the same sentence as every built-in voice">
-       <i className={'fa-solid '+(working?'fa-spinner fa-spin':'fa-waveform-lines')}/>
+       <i className={'fa-solid '+(working?'fa-spinner fa-spin':'fa-wave-square')}/>
        {working?'Generating comparison…':preview?.status==='complete'?'Play generated comparison':'Generate same-script sample'}
       </button>
       {working&&<small role="status">Cloning on CPU may take several minutes. {preview?.message||''}</small>}
