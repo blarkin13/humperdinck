@@ -31,6 +31,19 @@ const traitLabels={pitch:['Pitch','Low','High'],rasp:['Rasp','Smooth','Gravelly'
 // Accent first and in detail: a bare "Irish accent" at the end of the prompt was followed only loosely.
 const accentPrompts={American:'a General American accent, as heard in US national broadcasting',British:'a natural British English accent from southern England (modern Received Pronunciation), with non-rhotic pronunciation',Australian:'a broad Australian accent, with Australian vowel sounds and rising intonation',Irish:'a natural Irish accent from Dublin, with a soft lilt, Irish vowel sounds and rolled r sounds',Scottish:'a Scottish accent from Glasgow, with rolled r sounds and clipped Scottish vowels',['Southern US']:'a Southern American drawl from Georgia, with stretched vowels and a relaxed rhythm',Canadian:'a Canadian English accent, with Canadian vowel raising',Indian:'an Indian English accent, with syllable-timed rhythm and Indian English intonation',['South African']:'a South African English accent, with clipped vowels and South African intonation',['New Zealand']:'a New Zealand accent, with Kiwi vowel sounds such as centralized short i'};
 const accents=['',...Object.keys(accentPrompts)];
+// Do not stack an accent preset on top of the same accent already stated by the user.
+const accentMentions={
+ American:/\b(american|general american|us accent)\b/i,
+ British:/\b(british|received pronunciation|southern english|english accent)\b/i,
+ Australian:/\b(australian|aussie)\b/i,
+ Irish:/\b(irish|dublin accent)\b/i,
+ Scottish:/\b(scottish|glasgow accent)\b/i,
+ 'Southern US':/\b(southern (us|american)|southern drawl|georgia accent)\b/i,
+ Canadian:/\bcanadian\b/i,
+ Indian:/\bindian\b/i,
+ 'South African':/\bsouth african\b/i,
+ 'New Zealand':/\b(new zealand|kiwi accent)\b/i,
+};
 const styles=['','Audiobook narrator','Documentary','Conversational','News anchor','Storyteller','Commercial','Character / animated','Meditation / calm','Trailer / dramatic'];
 const sameTraits=(a,b)=>Object.keys(defaults).every(k=>(a?.[k]??50)===(b?.[k]??50));
 const starter='Good evening. I have been waiting a long time to tell you this story.';
@@ -52,7 +65,8 @@ function App(){
   function voicePrompt(){
     const base=description.trim();
     if(method==='prompt')return base;
-    const lead=accent?`A native speaker of English with ${accentPrompts[accent]}. `:'';
+    const describedAccent=accent&&accentMentions[accent]?.test(base);
+    const lead=accent&&!describedAccent?`Speak with ${accentPrompts[accent]}. `:'';
     return `${lead}A ${gender}-presenting adult voice${style?` in a ${style.toLowerCase()} style`:''}. ${base}`.trim();
   }
  function newVoice(){setSelected('');setUploadSel('');setDetail(null);setName('New voice');setDescription('');setGender('masculine');setSettings({...defaults});setAccent('');setStyle('');setCategory('');setCandidates([]);setChosen('');setSavedJobs([]);setSavedReference(false)}
