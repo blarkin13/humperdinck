@@ -50,7 +50,7 @@ class GenerateRequest(BaseModel):
     text: str = Field(min_length=1, max_length=100000)
     voice_id: str = ''
     voice_description: str = ''
-    engine: str = 'chatterbox'
+    engine: str = 'qwen-clone'
     format: str = 'mp3'
     designed_voice_id: str = ''
     designed_version: int | None = None
@@ -366,7 +366,7 @@ def run_generation(job_id, request):
 def generate(request: GenerateRequest):
     if request.format not in ('wav','mp3'):
         raise HTTPException(400, 'Format must be wav or mp3')
-    if request.engine not in ('chatterbox', 'qwen-design', 'designed-reference'):
+    if request.engine not in ('qwen-clone', 'qwen-design', 'designed-reference'):
         raise HTTPException(400, 'Unsupported engine')
     if request.designed_voice_id:
         if request.engine not in ('qwen-design','designed-reference'): raise HTTPException(400, 'Unsupported designed voice engine')
@@ -383,7 +383,7 @@ def generate(request: GenerateRequest):
         raise HTTPException(400, 'Voice description required')
     if request.engine == 'qwen-design' and len(request.voice_description) > 1200:
         raise HTTPException(400, 'Voice description too long')
-    if request.engine == 'chatterbox' and (not request.voice_id.isalnum() or not (DATA/'voices'/f'{request.voice_id}.wav').is_file()):
+    if request.engine == 'qwen-clone' and (not request.voice_id.isalnum() or not (DATA/'voices'/f'{request.voice_id}.wav').is_file()):
         raise HTTPException(404, 'Voice profile not found')
     require_engine('design' if request.engine == 'qwen-design' else 'clone')
     if request.format == 'mp3' and not shutil.which('ffmpeg'):
