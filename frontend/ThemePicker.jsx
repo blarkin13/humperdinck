@@ -4,15 +4,15 @@ import './themes.css';
 const STORAGE_KEY='humperdinck-theme';
 const THEMES=[
  {id:'vintage',name:'Vintage',subtitle:'Warm brass and midnight teal',icon:'fa-record-vinyl'},
- {id:'modern',name:'Modern',subtitle:'Airy, clean and understated',icon:'fa-layer-group'},
- {id:'ultra',name:'Ultra Modern',subtitle:'Pure black, white and graphite',icon:'fa-circle-half-stroke'},
+ {id:'modern',name:'Modern',subtitle:'Black, white and graphite',icon:'fa-circle-half-stroke'},
 ];
 const valid=new Set(THEMES.map(t=>t.id));
 
 function initialTheme(){
  try {
   const stored=window.localStorage.getItem(STORAGE_KEY);
-  return valid.has(stored)?stored:'vintage';
+  // Migrate installations using the former Ultra Modern theme.
+  return stored==='ultra'?'modern':valid.has(stored)?stored:'vintage';
  }catch{return 'vintage'}
 }
 export default function ThemePicker(){
