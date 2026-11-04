@@ -42,12 +42,12 @@ export default function Models(){
     <div className="engine-head"><strong>{e.label}</strong><small>{e.supported?(e.installed?'Installed':'Not installed'):`Not available on ${data.platform}${e.requires_apple_silicon?' (needs an Apple Silicon Mac)':''}`} · {e.platforms.join(', ')}</small>
      {e.supported&&!e.installed&&<button disabled={running} onClick={()=>install(e.id)}>Install engine</button>}</div>
     <small>{e.note}</small>
-    {e.models.filter(m=>m.roles.includes(role)).map(m=>{const sel=role!=='preset'&&data.selected[role].engine===e.id&&data.selected[role].model===m.id,usable=e.supported&&e.installed&&m.downloaded;
+    <div className="engine-model-scroll" role="region" aria-label={e.label+' models'} tabIndex={0}>{e.models.filter(m=>m.roles.includes(role)).map(m=>{const sel=role!=='preset'&&data.selected[role].engine===e.id&&data.selected[role].model===m.id,usable=e.supported&&e.installed&&m.downloaded;
      return <div className={'model-row'+(sel?' chosen':'')} key={m.id}>
       <label className="check">{role!=='preset'&&<input type="radio" name={role} checked={sel} disabled={!usable} onChange={()=>choose(role,e.id,m.id)}/>} <span><strong>{m.label}</strong>{m.note&&<small> · {m.note}</small>}<br/><small className="mono">{m.id}</small></span></label>
       <small className="model-meta">{e.id==='kokoro'?'Shared ~0.35 GB voice bundle':e.id==='piper'?'Separate voice download':m.size_gb+' GB download'} · ~{m.memory_gb} GB RAM{m.gpu_memory_gb?` (or ${m.gpu_memory_gb} GB on an NVIDIA GPU)`:''}{m.tight&&<b className="warn"> · may be too large for this computer</b>}</small>
       {e.supported&&(m.downloaded?<><small className="ok">{repaired(e.id,m.id)?'Files verified · repair complete':'Downloaded'}{sel?' · In use':''}</small>{e.id==='qwen-mlx'&&<button disabled={running} title="Recheck model files, update the MLX engine and download any missing files" onClick={()=>install(e.id,m.id,m.size_gb)}>{repaired(e.id,m.id)?'Repair again':'Repair / update'}</button>}<button className="danger" disabled={running} title={e.id==='kokoro'?'Delete the shared Kokoro model and all Kokoro presets':'Delete only this model’s downloaded weights'} onClick={()=>removeModel(e.id,m.id,e.id==='kokoro',sel)}>Delete model</button></>:<button disabled={running||!e.installed} title={e.installed?'':'Install the engine first'} onClick={()=>install(e.id,m.id,m.size_gb)}>Download</button>)}
-     </div>})}
+     </div>})}</div>
    </div>)}
   </div>)}
   <p className="hint">Downloads and installs need internet once; after that every model works offline. Larger models usually sound better but need more memory and run slower.</p>
