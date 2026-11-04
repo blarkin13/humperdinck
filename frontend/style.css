@@ -115,3 +115,10 @@ button.active small,.primary small{color:#3a3122}
 @media(max-width:850px){.voice-shelf-track .voice-grid{grid-auto-columns:62%}}
 @media(max-width:640px){.voice-shelf-track .voice-grid{grid-auto-columns:87%}.voice-shelf-window::after{width:22px}.voice-shelf-nav button{width:42px;height:38px}}
 @media(prefers-reduced-motion:reduce){.voice-shelf-track{scroll-behavior:auto}.voice-shelf-nav button{transition:none}}
+
+/* Uploaded voices allow immediate source auditions and an optional synthesized comparison. */
+.voice-comparison{display:flex;flex-direction:column;align-items:flex-start;gap:7px;margin:5px 0 10px}
+.voice-comparison-caption{font-size:11px;color:var(--muted);line-height:1.4}
+.voice-comparison-button{font-family:var(--label);font-size:11px;letter-spacing:.2px;line-height:1.2;max-width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--brass-hi);text-align:left}
+.voice-comparison-button i{margin-right:6px}
+.voice-comparison small{font-size:11px;color:var(--muted)}
