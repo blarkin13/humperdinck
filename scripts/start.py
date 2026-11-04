@@ -94,7 +94,17 @@ def check_on_launch():
         restart('Relaunching the updated application...')
 
 
+def ensure_backend_packages():
+    # Catches installs that predate a new requirement (e.g. code pulled with git but install not rerun).
+    probe = 'import fastapi, uvicorn, multipart, pydantic, soundfile, numpy'
+    if subprocess.run([str(py), '-c', probe], capture_output=True).returncode == 0:
+        return
+    say('Installing missing Python packages...')
+    subprocess.run([str(py), '-m', 'pip', 'install', '-q', '-r', str(root/'backend/requirements.txt')], check=True)
+
+
 reinstall_dependencies()
+ensure_backend_packages()
 check_on_launch()
 restart_flag = updater.STATE/'restart'
 restart_flag.unlink(missing_ok=True)
