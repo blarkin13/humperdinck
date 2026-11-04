@@ -69,8 +69,8 @@ function ConfirmDialog({config,onDone}){
  const inputRef=useRef(null);
  const cancel=()=>onDone(isInput?null:false);
  useEffect(()=>{
-  inputRef.current?.focus();
   const previous=document.activeElement;
+  inputRef.current?.focus();
   return()=>previous?.focus?.();
  },[]);
  function submit(e){e.preventDefault();onDone(isInput?value.trim():true)}
