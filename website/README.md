@@ -139,3 +139,9 @@ The public build uses `VITE_PUBLIC_STUDIO=1`, preventing desktop FastAPI request
 - Verify Cloudflare deployed the same SHA as GitHub by opening `https://humperdinck.larki-brian.workers.dev/build.json` and comparing with the version in the public Studio banner. `build.json` does **not** exist in Git; it is generated at deploy time.
 
 The static homepage remains a separate marketing website. The statement about matching the desktop applies only to the /studio/ app shell and shared components; browser preview restrictions necessarily change some controls, and production visual comparison on Safari/Chrome should be done after deployment before claiming pixel-for-pixel parity.
+
+## Browser voice previews and engine loading (November 4)
+
+The browser Voice Library **no longer fetches any Hangry Labs MP3 sample**. Clicking a built-in voice's preview/test icon selects that voice and opens Narration Studio for real speech generation using visitor-entered text; the existing 500-character limit remains. The marketing homepage no longer embeds MP3s or the sample attribution paragraph. Apache-2.0 notices for the actual runtime/model remain available at `/THIRD_PARTY_NOTICES.txt` rather than occupying UI space.
+
+Browser model initialization had reported `Load failed` under Safari, but the generic error could mean a blocked third-party download or ONNX WASM loading. The public build now copies the installed `ort-wasm-simd-threaded.jsep.wasm` binary into `/studio/wasm/`, and `frontend/KokoroWorker.js` sets the official `kokoro-js` `env.wasmPaths` override to load it from Humperdinck's own domain. It also diagnoses Hugging Face `config.json` and quantized ONNX HEAD status on failure; the model weights still come from Hugging Face, so network blocking of that host can still prevent generation. Real Safari/browser inference must be checked after deployment.
