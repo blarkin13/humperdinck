@@ -88,3 +88,12 @@ def test_mlx_qwen_reports_missing_speech_tokenizer(monkeypatch):
         assert 'Models' in str(exc)
     else:
         raise AssertionError('Model loaded without its speech tokenizer')
+
+
+def test_english_accent_language_hint():
+    from backend.qwen_engine import design_language
+    assert design_language('A native British English speaker, calm and natural.') == 'english'
+    assert design_language('A Scottish man with an Edinburgh accent.') == 'english'
+    assert design_language('An Australian woman with a relaxed voice.') == 'english'
+    assert design_language('A warm narrator with an unhurried voice.') == 'auto'
+    assert design_language('Une voix française douce.') == 'auto'
