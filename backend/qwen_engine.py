@@ -49,7 +49,20 @@ class QwenVoiceDesigner:
         # A long-lived worker keeps the model between jobs; the worker exiting frees it.
         if self.model is None:
             from mlx_audio.tts.utils import load_model
-            self.model = load_model(self.model_id)
+            model = load_model(self.model_id)
+            # Some mlx-audio versions log a decoder-loading error but return a
+            # partially initialized model. Detect it here rather than failing
+            # later with the cryptic "Speech tokenizer not loaded" exception.
+            if getattr(model, 'speech_tokenizer', None) is None:
+                raise RuntimeError(
+                    f'Qwen MLX speech tokenizer is missing or failed to initialize for {self.model_id}. '
+                    'In Humperdinck > Models, download this model again to repair missing '
+                    'speech_tokenizer/config.json and speech_tokenizer/model.safetensors. '
+                    'If the model is fully downloaded, update/reinstall the Qwen MLX engine '
+                    'in Models and restart Humperdinck. The terminal output may show the '
+                    'underlying decoder load error.'
+                )
+            self.model = model
         return self.model
 
     def synthesize(self, text: str, description: str, destination: Path, on_progress=None):
