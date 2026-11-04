@@ -98,7 +98,7 @@ def preset_path(engine, voice):
 ENGINES = {
     'kokoro': {
         'label': 'Kokoro (CPU preset voices)', 'venv': 'kokoro', 'roles': ('preset',), 'platforms': ALL,
-        'imports': ('kokoro_onnx',), 'packages': ['kokoro-onnx>=0.6,<1', 'soundfile>=0.12'],
+        'imports': ('kokoro_onnx',), 'packages': ['kokoro-onnx>=0.6,<1', 'soundfile>=0.12', 'misaki-fork[ja,zh]'],
         'note': 'Fast ONNX text-to-speech with American and British preset voices. Does not clone custom voices.',
         'models': {voice: {'label': label, 'size_gb': 0.35, 'memory_gb': 0.8, 'roles': ('preset',), 'note': accent}
                    for voice, (label, accent) in PRESET_VOICES['kokoro'].items()},
