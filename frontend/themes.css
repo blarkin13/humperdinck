@@ -169,3 +169,8 @@
 
 
 :root[data-theme="modern"] .model-row .ok{color:#ddd}
+
+/* Header brand is theme-specific; both logos retain the same square footprint. */
+.brand-mark-modern{display:none}
+:root[data-theme="modern"] .brand-mark-vintage{display:none}
+:root[data-theme="modern"] .brand-mark-modern{display:block;object-fit:contain}
