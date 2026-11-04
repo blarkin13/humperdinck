@@ -212,19 +212,47 @@ class VoiceLibrary:
         return self.samples / row['filename'] if row else None
 
 def build_instruction(description, characteristics):
-    # Neutral slider settings should not alter the user's written description.
-    cues=[]
-    values = characteristics
-    if values['pitch'] < 35: cues.append('Use a lower vocal pitch.')
-    elif values['pitch'] > 65: cues.append('Use a higher vocal pitch.')
-    if values['rasp'] < 35: cues.append('Keep the vocal texture smooth and clear.')
-    elif values['rasp'] > 60: cues.append('Use a noticeable but controlled gravelly texture.')
-    if values['pace'] < 40: cues.append('Speak at a relaxed, unhurried pace.')
-    elif values['pace'] > 60: cues.append('Speak at a brisk pace.')
-    if values['warmth'] < 35: cues.append('Use a cooler, restrained vocal tone.')
-    elif values['warmth'] > 65: cues.append('Use a warm, rounded vocal tone.')
-    for key, low, high in EXTRA_CUES:
-        if key in values:
-            if values[key] < 35: cues.append(low)
-            elif values[key] > 65: cues.append(high)
-    return ' '.join([description.strip(), *cues])
+    """Turn slider settings into graded directions for the text-conditioned designer.
+
+    These are instructions, not DSP controls: the model may still ignore some traits.
+    Older saved voices may already contain the former frontend slider recipe; do not
+    stack a second set of contradictory instructions on those descriptions.
+    """
+    description = description.strip()
+    if ' pitch, ' in description and ' texture, ' in description and ' pace and ' in description:
+        return description
+
+    directions = {
+        'pitch': ('Use a very low speaking pitch.', 'Use a somewhat low speaking pitch.',
+                  'Use a somewhat high speaking pitch.', 'Use a very high speaking pitch.'),
+        'rasp': ('Use a very smooth, clean vocal texture.', 'Keep the voice mostly smooth.',
+                 'Use a slightly gravelly vocal texture.', 'Use a pronounced gravelly rasp.'),
+        'pace': ('Speak very slowly and deliberately.', 'Speak at a relaxed, unhurried pace.',
+                 'Speak at a brisk pace.', 'Speak quickly and energetically.'),
+        'warmth': ('Use a cool, detached vocal tone.', 'Use a slightly restrained, cool tone.',
+                   'Use a gently warm, rounded tone.', 'Use a very warm, inviting tone.'),
+        'age': ('Sound distinctly youthful.', 'Sound somewhat youthful.',
+                'Sound mature and older.', 'Sound distinctly older and seasoned.'),
+        'breathiness': ('Use a firm voice without audible breathiness.', 'Keep breathiness minimal.',
+                        'Use a soft, slightly breathy voice.', 'Use a distinctly breathy voice.'),
+        'depth': ('Use light, forward resonance.', 'Keep the resonance relatively light.',
+                  'Use deeper chest resonance.', 'Use a very deep, chesty resonance.'),
+        'energy': ('Deliver with very low energy.', 'Deliver calmly with low energy.',
+                   'Deliver with noticeable enthusiasm.', 'Deliver with very high energy.'),
+        'clarity': ('Use very loose, casual articulation.', 'Use relaxed articulation.',
+                    'Articulate clearly and distinctly.', 'Articulate with exceptional precision.'),
+        'expressiveness': ('Use a very flat and even delivery.', 'Keep the intonation subdued.',
+                           'Use lively, expressive intonation.', 'Use highly varied, expressive intonation.'),
+    }
+    cues = []
+    for trait in TRAITS:
+        value = characteristics.get(trait, 50)
+        if value <= 15:
+            cues.append(directions[trait][0])
+        elif value < 35:
+            cues.append(directions[trait][1])
+        elif value > 85:
+            cues.append(directions[trait][3])
+        elif value > 65:
+            cues.append(directions[trait][2])
+    return ' '.join([description, *cues]).strip()
