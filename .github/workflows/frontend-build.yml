@@ -21,3 +21,10 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+      - name: Build public Cloudflare studio preview
+        run: bash scripts/build-public-studio.sh
+      - name: Check staged studio assets
+        run: |
+          test -s website/studio/index.html
+          test -d website/studio/assets
+          grep -q '/studio/assets/' website/studio/index.html
