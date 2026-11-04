@@ -107,11 +107,14 @@ def test_cpu_preset_catalog_and_downloads(tmp_path, monkeypatch):
     piper.mkdir()
     assert not catalog.downloaded('bm_george')
     assert not catalog.downloaded('en_GB-alan-medium')
-    (kokoro / 'kokoro-v1.0.onnx').write_bytes(b'x' * 100001)
-    (kokoro / 'voices-v1.0.bin').write_bytes(b'x' * 100001)
+    with (kokoro / 'kokoro-v1.0.onnx').open('wb') as output:
+        output.truncate(50_000_000)
+    with (kokoro / 'voices-v1.0.bin').open('wb') as output:
+        output.truncate(1_000_000)
     assert catalog.downloaded('bm_george')
     assert catalog.downloaded('bf_emma')  # Kokoro presets share the voicepack.
-    (piper / 'en_GB-alan-medium.onnx').write_bytes(b'x' * 100001)
+    with (piper / 'en_GB-alan-medium.onnx').open('wb') as output:
+        output.truncate(1_000_000)
     (piper / 'en_GB-alan-medium.onnx.json').write_text('{"voice": "Alan", "padding": "' + 'x' * 200 + '"}')
     assert catalog.downloaded('en_GB-alan-medium')
     assert not catalog.downloaded('en_GB-cori-medium')
