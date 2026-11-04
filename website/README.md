@@ -70,3 +70,26 @@ To finish this change, upload these five binary images to `website/assets/` **on
 The assets are packaged separately as `humperdinck-branding-assets.zip` in the ChatGPT conversation where these changes were made. Extract that ZIP and add its five files through GitHub's **Add file → Upload files** into the branch's `website/assets/` folder. The source HTML in this branch already references these filenames. **Do not merge until all five files are present.**
 
 The current Open Graph absolute URL points to `https://humperdinck.larki-brian.workers.dev/assets/og-image.jpg`. Update the share URL when adding a custom domain. Social platforms may cache a previous share preview; re-scrape the URL after deployment if necessary.
+
+## Interactive browser studio (React preview)
+
+The public homepage links to `/studio/`, which uses the actual desktop React source code, fonts, themes and voice-card component in **public preview mode** (`VITE_PUBLIC_STUDIO=1`). Visitors can navigate tabs, browse a representative set of Kokoro presets, configure sliders, and draft narration; the preview does **not** call the Python backend. Audio generation, preview playback, voice upload, saving, installs and video rendering stay greyed out with desktop download guidance.
+
+Do not expose `/api/` or deploy `backend/` in Cloudflare. For the public site we only compile the React frontend into static assets.
+
+### Cloudflare Workers Builds settings
+
+The old no-build deploy command is insufficient once the studio is introduced. In **Workers & Pages → humperdinck → Settings → Builds**, set:
+
+- Build command: leave blank
+- **Deploy command:** `bash scripts/build-public-studio.sh && npx wrangler deploy --assets ./website --name humperdinck --compatibility-date 2026-11-03`
+- Root directory / Path: `/`
+- Preview command: keep its existing setting
+
+The shell script runs `npm ci` from `frontend/package-lock.json`, produces a Vite bundle with base `/studio/`, then copies it into `website/studio/` for the existing Wrangler asset upload. It does not touch the desktop app's normal build. This script is also suitable as a standalone local build command from the repository root:
+
+```bash
+bash scripts/build-public-studio.sh
+```
+
+**Update the Cloudflare deploy command before attempting to use `/studio/`**. The public site still works as a landing page until the new build command is applied. Never commit `website/studio` generated assets; they are deployment artifacts.
