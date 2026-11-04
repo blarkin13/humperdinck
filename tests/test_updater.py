@@ -63,6 +63,36 @@ def test_crlf_files_match(project):
     assert 'frontend/src.jsx' not in updater.check()['changed_files']
 
 
+def test_committed_crlf_windows_launchers_do_not_repeat_updates(project):
+    local, state = project
+    # GitHub stores these launcher files with CRLF, not normalized LF.
+    launchers = {
+        'start.cmd': b'@echo off\r\necho Starting Humperdinck\r\n',
+        'install.cmd': b'@echo off\r\necho Installing Humperdinck\r\n',
+        'install-voice.cmd': b'@echo off\r\necho Installing voice\r\n',
+    }
+    for name, contents in launchers.items():
+        state['archive'][name] = contents
+        (local / name).write_bytes(contents)
+
+    initial = updater.check()
+    assert not any(name in initial['changed_files'] for name in launchers)
+
+    # Install another update, then confirm CRLF files do not reappear.
+    updater.stage(initial)
+    updater.apply()
+    after = updater.check()
+    assert not after['available']
+    assert not any(name in after['changed_files'] for name in launchers)
+
+
+def test_changed_crlf_windows_launcher_is_detected(project):
+    local, state = project
+    state['archive']['start.cmd'] = b'@echo off\r\necho New code\r\n'
+    (local / 'start.cmd').write_bytes(b'@echo off\r\necho Old code\r\n')
+    assert 'start.cmd' in updater.check()['changed_files']
+
+
 def test_stage_and_apply_preserves_data(project):
     local, _ = project
     updater.stage(updater.check())
