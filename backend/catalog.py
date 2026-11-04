@@ -169,12 +169,12 @@ def downloaded(model_id):
     """True when the model's files are already in the local Hugging Face cache."""
     if model_id in PRESET_VOICES['kokoro']:
         folder = preset_path('kokoro', model_id)
-        return all((folder / name).is_file() and (folder / name).stat().st_size > 100000
-                   for name in ('kokoro-v1.0.onnx', 'voices-v1.0.bin'))
+        return all((folder / name).is_file() and (folder / name).stat().st_size >= minimum
+                   for name, minimum in (('kokoro-v1.0.onnx', 50_000_000), ('voices-v1.0.bin', 1_000_000)))
     if model_id in PRESET_VOICES['piper']:
         folder = preset_path('piper', model_id)
-        return all((folder / (model_id + ext)).is_file() and (folder / (model_id + ext)).stat().st_size > 100
-                   for ext in ('.onnx', '.onnx.json'))
+        return all((folder / (model_id + ext)).is_file() and (folder / (model_id + ext)).stat().st_size >= minimum
+                   for ext, minimum in (('.onnx', 1_000_000), ('.onnx.json', 100)))
     repo = hf_cache() / ('models--' + model_id.replace('/', '--'))
     snapshots = repo / 'snapshots'
     if not snapshots.is_dir():
