@@ -1,6 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
 
-const LIMIT=6;
 const PALETTES=[['#193A3E','#C6A46A','#F0E5CF'],['#A3544C','#F0E5CF','#C6A46A'],['#C6A46A','#101B23','#193A3E'],['#24494d','#A3544C','#F0E5CF'],['#F0E5CF','#193A3E','#A3544C']];
 
 function hash(text){let h=2166136261;for(const c of text)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0}
@@ -24,7 +23,7 @@ export function ago(iso){if(!iso)return '';const d=(Date.now()-new Date(iso))/86
 // Voice cards grouped by category, each group collapsed to LIMIT cards with a "Show more" toggle.
 // items: [{key,method,name,category,ready,status,summary,meters:[[label,0-100,low,high]],traits,specs:[[icon,text,title]],previewUrl,selected,onOpen,onDelete}]
 export default function VoiceGrid({items,onCreate}){
- const [open,setOpen]=useState({}),[query,setQuery]=useState(''),[playing,setPlaying]=useState(null),[previewJobs,setPreviewJobs]=useState({}),audio=useRef(null);
+ const [query,setQuery]=useState(''),[playing,setPlaying]=useState(null),[previewJobs,setPreviewJobs]=useState({}),audio=useRef(null);
  useEffect(()=>()=>audio.current?.pause(),[]);
  function playAudio(v,url){
   audio.current?.pause();
@@ -61,14 +60,19 @@ export default function VoiceGrid({items,onCreate}){
  const q=query.trim().toLowerCase();
  const shown=items.filter(v=>!q||[v.name,v.category,v.summary].some(t=>(t||'').toLowerCase().includes(q)));
  const groups={};shown.forEach(v=>(groups[v.category||'Uncategorized']=groups[v.category||'Uncategorized']||[]).push(v));
- const names=Object.keys(groups).sort((a,b)=>a==='Uncategorized'?1:b==='Uncategorized'?-1:a.localeCompare(b));
+ const names=Object.keys(groups).sort((a,b)=>{
+  const custom=name=>name==='My Voices'||name.startsWith('My Voices · ');
+  if(custom(a)!==custom(b))return custom(a)?-1:1;
+  if(a==='Uncategorized'||b==='Uncategorized')return a==='Uncategorized'?1:-1;
+  return a.localeCompare(b);
+ });
  return <div className="library">
   {items.length>LIMIT&&<div className="search-wrap"><i className="fa-solid fa-magnifying-glass"/><input className="search" placeholder="Search voices, categories or descriptions" value={query} onChange={e=>setQuery(e.target.value)}/></div>}
   {!items.length&&<div className="notice"><i className="fa-solid fa-record-vinyl"/> No voices yet. <button className="link" onClick={onCreate}>Create one in Voice Creator.</button></div>}
-  {names.map(name=>{const list=groups[name],expanded=open[name]||!!q,visible=expanded?list:list.slice(0,LIMIT);
+  {names.map(name=>{const list=groups[name];
    return <div className="voice-group" key={name}>
     {names.length>1||name!=='Uncategorized'?<h4><i className="fa-solid fa-layer-group"/> {name} <small>{list.length} {list.length===1?'voice':'voices'}</small></h4>:null}
-    <div className="voice-grid">{visible.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing===v.key,preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
+    <div className="voice-group-scroll" role="region" aria-label={name+' voices'} tabIndex={0}><div className="voice-grid">{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing===v.key,preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
      return <article key={v.key} className={'voice-card'+(v.selected?' selected':'')+(v.ready?' ready':'')} role="button" tabIndex={0} aria-label={'Open '+v.name} onClick={v.onOpen} onKeyDown={e=>e.key==='Enter'&&v.onOpen()}>
      {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
      <div className="card-top">
@@ -90,8 +94,7 @@ export default function VoiceGrid({items,onCreate}){
       <span className={'status'+(v.ready?' ok':'')}><i className={'fa-solid '+(v.ready?'fa-circle-check':'fa-pen-ruler')}/>{v.status}</span>
       <span className="specs">{v.specs.filter(Boolean).map(([icon,text,title])=><span key={title} title={title}><i className={icon}/>{text}</span>)}</span>
      </div>
-    </article>})}</div>
-    {list.length>LIMIT&&!q&&<button className="link" onClick={()=>setOpen(o=>({...o,[name]:!expanded}))}><i className={'fa-solid '+(expanded?'fa-chevron-up':'fa-chevron-down')}/> {expanded?'Show less':`Show ${list.length-LIMIT} more`}</button>}
+    </article>})}</div></div>
    </div>})}
  </div>;
 }

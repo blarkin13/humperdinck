@@ -55,3 +55,38 @@ button.link{color:var(--brass);text-decoration:none;font-family:var(--label);tex
 @media(prefers-reduced-motion:reduce){.vu i,.local i{animation:none}.voice-card{transition:none}}
 @media(max-width:640px){.voice-grid{grid-template-columns:1fr}nav button{padding:10px 10px;letter-spacing:1px;font-size:11px}h1{font-size:30px}.card-x{opacity:1}.meters{grid-template-columns:1fr}}
 button.active small,.primary small{color:#3a3122}
+
+
+/* Catalog groups scroll independently rather than producing very long pages.
+   At desktop card dimensions ~800px exposes about two and a half rows. */
+.voice-group-scroll{
+  max-height:802px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  padding:0 9px 9px 0;
+  margin-top:10px;
+  border-radius:5px;
+}
+.voice-group-scroll .voice-grid{margin:0;align-content:start}
+.voice-group-scroll:focus-visible,.engine-model-scroll:focus-visible{
+  outline:2px solid var(--brass,#C6A46A);
+  outline-offset:3px;
+}
+.engine-model-scroll{
+  max-height:440px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  padding:0 9px 9px 0;
+  margin-top:8px;
+  border-radius:5px;
+}
+.voice-group-scroll,.engine-model-scroll{scrollbar-width:thin;scrollbar-color:#8a6f42 #14252c}
+.voice-group-scroll::-webkit-scrollbar,.engine-model-scroll::-webkit-scrollbar{width:9px}
+.voice-group-scroll::-webkit-scrollbar-thumb,.engine-model-scroll::-webkit-scrollbar-thumb{background:#8a6f42;border-radius:9px}
+.voice-group-scroll::-webkit-scrollbar-track,.engine-model-scroll::-webkit-scrollbar-track{background:#14252c}
+@media(max-width:640px){
+  .voice-group-scroll{max-height:795px}
+  .engine-model-scroll{max-height:410px}
+}
