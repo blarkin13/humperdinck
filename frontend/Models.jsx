@@ -31,7 +31,7 @@ export default function Models(){
      return <div className={'model-row'+(sel?' chosen':'')} key={m.id}>
       <label className="check"><input type="radio" name={role} checked={sel} disabled={!usable} onChange={()=>choose(role,e.id,m.id)}/> <span><strong>{m.label}</strong>{m.note&&<small> · {m.note}</small>}<br/><small className="mono">{m.id}</small></span></label>
       <small className="model-meta">{m.size_gb} GB download · ~{m.memory_gb} GB RAM{m.gpu_memory_gb?` (or ${m.gpu_memory_gb} GB on an NVIDIA GPU)`:''}{m.tight&&<b className="warn"> · may be too large for this computer</b>}</small>
-      {e.supported&&(m.downloaded?<small className="ok">Downloaded{sel?' · In use':''}</small>:<button disabled={running||!e.installed} title={e.installed?'':'Install the engine first'} onClick={()=>install(e.id,m.id,m.size_gb)}>Download</button>)}
+      {e.supported&&(m.downloaded?<><small className="ok">Downloaded{sel?' · In use':''}</small>{e.id==='qwen-mlx'&&<button disabled={running} title="Reinstall the MLX engine and check the model files" onClick={()=>install(e.id,m.id,m.size_gb)}>Repair / update</button>}</>:<button disabled={running||!e.installed} title={e.installed?'':'Install the engine first'} onClick={()=>install(e.id,m.id,m.size_gb)}>Download</button>)}
      </div>})}
    </div>)}
   </div>)}
