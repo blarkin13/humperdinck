@@ -14,6 +14,7 @@ import Updates from './Updates.jsx';
 import Recorder from './Recorder.jsx';
 import Models from './Models.jsx';
 import ThemePicker from './ThemePicker.jsx';
+import PublicStudio from './PublicStudio.jsx';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 // An audio player that says so (with a download link) when the browser cannot play the clip.
 function Player({src}){const [failed,setFailed]=useState(false);
@@ -174,4 +175,4 @@ function App(){
  {tab==='models'&&<Models/>}
  </main>
 }
-createRoot(document.getElementById('root')).render(<NotificationProvider><App/></NotificationProvider>);
+createRoot(document.getElementById('root')).render(import.meta.env.VITE_PUBLIC_STUDIO==='1'?<PublicStudio/>:<NotificationProvider><App/></NotificationProvider>);
