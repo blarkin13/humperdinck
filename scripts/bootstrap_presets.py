@@ -31,15 +31,21 @@ def bootstrap():
         if not catalog.supported(engine):
             continue
         voices = list(catalog.PRESET_VOICES[engine])
-        # Installing the engine with the first voice also downloads its model.
-        # Further Kokoro voices share that same bundle.
-        for voice in voices[:1] if engine == 'kokoro' else voices:
-            if catalog.downloaded(voice):
-                # Still install missing engine dependencies even when the
-                # model files were copied from another computer.
-                pass
-            subprocess.run([str(python), str(ROOT / 'scripts' / 'install_engine.py'),
-                            engine, '--model', voice], check=True)
+        # Install the engine once. Kokoro presets share one voicepack; each
+        # Piper voice has its own ONNX/config files.
+        first = voices[0]
+        subprocess.run([str(python), str(ROOT / 'scripts' / 'install_engine.py'),
+                        engine, '--model', first], check=True)
+        if engine == 'piper':
+            voice_python = ROOT / '.venv-piper' / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
+            folder = catalog.preset_path('piper', '')
+            for voice in voices[1:]:
+                if not catalog.downloaded(voice):
+                    print(f'[Humperdinck] Downloading built-in voice {voice}...', flush=True)
+                    subprocess.run([str(voice_python), '-m', 'piper.download_voices', voice,
+                                    '--download-dir', str(folder)], check=True)
+        if not all(catalog.downloaded(voice) for voice in voices):
+            raise RuntimeError(f'{engine} voice files are incomplete')
     marker.write_text('Kokoro and Piper defaults installed\n', encoding='utf-8')
     print('[Humperdinck] Built-in voices are ready in Voice Library.', flush=True)
 
