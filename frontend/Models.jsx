@@ -17,7 +17,7 @@ export default function Models(){
  async function install(engine,model,size){
   const what=model?`download ${model} (about ${size} GB)`:'install this engine (several minutes, a few GB of packages)';
   if(!await askConfirm(`This needs an internet connection and will ${what}. Continue?`,{title:'Install AI model',confirmLabel:'Install'}))return;
-  try{const r=await fetch('/api/models/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine,model})}),j=await r.json();if(!r.ok)throw Error(j.detail);setJob(j)}catch(e){setMsg(e.message)}}
+  try{const r=await fetch('/api/models/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine,model})}),j=await r.json();if(!r.ok)throw Error(j.detail);setJob(j);notify('Model installation started.','info')}catch(e){setMsg(e.message);notify(e.message,'error')}}
  async function removeModel(engine,model,shared,selected){
   const impact=shared?'This removes the shared Kokoro model and disables ALL Kokoro voices.':'This removes only the downloaded weights for this model.';
   const inUse=selected?' It is currently selected for a job type; that job will not work until you download it again or choose another model.':'';
