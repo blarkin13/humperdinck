@@ -23,7 +23,7 @@ export function ago(iso){if(!iso)return '';const d=(Date.now()-new Date(iso))/86
 
 // Voice cards grouped by category, each group collapsed to LIMIT cards with a "Show more" toggle.
 // items: [{key,method,name,category,ready,status,summary,meters:[[label,0-100,low,high]],traits,specs:[[icon,text,title]],previewUrl,selected,onOpen,onDelete}]
-export default function VoiceGrid({items}){
+export default function VoiceGrid({items,onCreate}){
  const [open,setOpen]=useState({}),[query,setQuery]=useState(''),[playing,setPlaying]=useState(null),audio=useRef(null);
  useEffect(()=>()=>audio.current?.pause(),[]);
  function play(e,v){e.stopPropagation();
@@ -35,7 +35,7 @@ export default function VoiceGrid({items}){
  const names=Object.keys(groups).sort((a,b)=>a==='Uncategorized'?1:b==='Uncategorized'?-1:a.localeCompare(b));
  return <div className="library">
   {items.length>LIMIT&&<div className="search-wrap"><i className="fa-solid fa-magnifying-glass"/><input className="search" placeholder="Search voices, categories or descriptions" value={query} onChange={e=>setQuery(e.target.value)}/></div>}
-  {!items.length&&<div className="notice"><i className="fa-solid fa-record-vinyl"/> No voices yet. Create one in Voice Creator.</div>}
+  {!items.length&&<div className="notice"><i className="fa-solid fa-record-vinyl"/> No voices yet. <button className="link" onClick={onCreate}>Create one in Voice Creator.</button></div>}
   {names.map(name=>{const list=groups[name],expanded=open[name]||!!q,visible=expanded?list:list.slice(0,LIMIT);
    return <div className="voice-group" key={name}>
     {names.length>1||name!=='Uncategorized'?<h4><i className="fa-solid fa-layer-group"/> {name} <small>{list.length} {list.length===1?'voice':'voices'}</small></h4>:null}
