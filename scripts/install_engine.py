@@ -71,9 +71,9 @@ def download_kokoro():
     folder = preset_path('kokoro', '')
     folder.mkdir(parents=True, exist_ok=True)
     base = 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/'
-    for name in ('kokoro-v1.0.onnx', 'voices-v1.0.bin'):
+    for name, minimum in (('kokoro-v1.0.onnx', 50_000_000), ('voices-v1.0.bin', 1_000_000)):
         target = folder / name
-        if target.is_file() and target.stat().st_size > 100000:
+        if target.is_file() and target.stat().st_size >= minimum:
             continue
         step(f'Downloading Kokoro {name}')
         temp = folder / (name + '.part')
@@ -83,7 +83,7 @@ def download_kokoro():
                 expected = response.headers.get('Content-Length')
                 if expected and output.tell() != int(expected):
                     raise RuntimeError(f'Incomplete download of {name}')
-            if temp.stat().st_size < 100000:
+            if temp.stat().st_size < minimum:
                 raise RuntimeError(f'Kokoro file {name} is incomplete')
             temp.replace(target)
         finally:
