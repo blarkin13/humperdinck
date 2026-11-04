@@ -17,7 +17,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
-from backend.catalog import ENGINES, supported  # noqa: E402
+from backend.catalog import ENGINES, supported, preset_path  # noqa: E402
 
 # Newest first: the first index that has a CUDA build of the PyTorch version the engine needs is used.
 CUDA_INDEXES = [f'https://download.pytorch.org/whl/{tag}' for tag in ('cu130', 'cu129', 'cu128', 'cu126', 'cu124', 'cu121')]
@@ -68,7 +68,7 @@ def use_cuda(python):
 def download_kokoro():
     """Fetch pinned ONNX + voicepack release files atomically into protected data/."""
     import urllib.request
-    folder = root / 'data' / 'models' / 'kokoro'
+    folder = preset_path('kokoro', '')
     folder.mkdir(parents=True, exist_ok=True)
     base = 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/'
     for name in ('kokoro-v1.0.onnx', 'voices-v1.0.bin'):
@@ -91,7 +91,7 @@ def download_kokoro():
 
 
 def download_piper(python, voice):
-    folder = root / 'data' / 'models' / 'piper'
+    folder = preset_path('piper', voice)
     folder.mkdir(parents=True, exist_ok=True)
     step(f'Downloading Piper voice {voice}')
     subprocess.run([str(python), '-m', 'piper.download_voices', voice,
