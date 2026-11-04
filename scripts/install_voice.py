@@ -5,6 +5,6 @@ import subprocess, sys
 root=Path(__file__).resolve().parent.parent
 python=root/'.venv'/('Scripts/python.exe' if sys.platform=='win32' else 'bin/python')
 if not python.exists():
-    sys.exit('Run install.ps1 or install.sh first.')
+    sys.exit('Run install.cmd (Windows) or install.sh first.')
 subprocess.run([str(python),str(root/'scripts/install_engine.py'),'chatterbox'],check=True)
 print('Voice engine installed. First generation will download model weights.')

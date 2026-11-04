@@ -20,7 +20,7 @@ Windows: double-click these in the Humperdinck folder, in order:
 2. `install-voice.cmd`
 3. `start.cmd` (use this to open Humperdinck from now on)
 
-Windows blocks downloaded PowerShell scripts by default. The `.cmd` launchers run the matching `.ps1` with the block lifted for that one launch only; no system setting is changed. If SmartScreen shows "Windows protected your PC", click **More info → Run anyway**. The installer finds Python 3.11 or 3.12 and, if they are missing, installs Python 3.11, Node.js and FFmpeg with winget (your other Python versions are untouched).
+These are plain batch files; no PowerShell is used. If SmartScreen shows "Windows protected your PC", click **More info → Run anyway**. The installer finds Python 3.11 or 3.12 and, if they are missing, installs Python 3.11, Node.js and FFmpeg with winget (your other Python versions are untouched).
 
 macOS/Linux:
 

@@ -616,7 +616,7 @@ def check_updates():
 def install_update(request: UpdateInstallRequest):
     """Download and verify the approved commit, then ask the launcher to install and restart."""
     if not os.environ.get('HUMPERDINCK_LAUNCHER_PID'):
-        raise HTTPException(409, 'Start Humperdinck with start.sh (or start.ps1) to install updates from the app')
+        raise HTTPException(409, 'Start Humperdinck with start.sh (or start.cmd) to install updates from the app')
     if engines.pool.busy:
         raise HTTPException(409, 'Wait for the current generation to finish before updating')
     try:
