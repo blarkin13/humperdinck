@@ -60,17 +60,25 @@ function VoiceShelf({name,count,children}){
 export default function VoiceGrid({items,onCreate}){
  const [query,setQuery]=useState(''),[playing,setPlaying]=useState(null),[previewJobs,setPreviewJobs]=useState({}),audio=useRef(null);
  useEffect(()=>()=>audio.current?.pause(),[]);
- function playAudio(v,url){
+ function playAudio(v,url,kind='generated'){
   audio.current?.pause();
   const a=new Audio(url);
   a.onended=()=>setPlaying(null);
   a.play().catch(()=>{setPlaying(null);setPreviewJobs(old=>({...old,[v.key]:{status:'failed',message:'Could not play preview audio.'}}))});
   audio.current=a;
-  setPlaying(v.key);
+  setPlaying(v.key+':'+kind);
  }
- async function play(e,v){
+ async function play(e,v,generate=false){
   e.stopPropagation();
-  if(playing===v.key){audio.current?.pause();setPlaying(null);return}
+  const uploaded=v.method==='uploaded'||v.method==='recorded'||v.method==='edited';
+  // Audition the user's own reference audio immediately. A real cloned
+  // same-script comparison is still available as a separate explicit action.
+  if(uploaded&&!generate&&v.previewUrl){
+   if(playing===v.key+':original'){audio.current?.pause();setPlaying(null);return}
+   playAudio(v,v.previewUrl,'original');
+   return;
+  }
+  if(playing===v.key+':generated'){audio.current?.pause();setPlaying(null);return}
   if(previewJobs[v.key]?.status==='queued'||previewJobs[v.key]?.status==='running')return;
   try{
    const r=await fetch('/api/voice-previews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice_key:v.voiceKey})});
@@ -107,12 +115,12 @@ export default function VoiceGrid({items,onCreate}){
   {names.map(name=>{const list=groups[name];
    return <div className="voice-group" key={name}>
     {names.length>1||name!=='Uncategorized'?<h4><i className="fa-solid fa-layer-group"/> {name} <small>{list.length} {list.length===1?'voice':'voices'}</small></h4>:null}
-    <VoiceShelf name={name} count={list.length}>{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing===v.key,preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
+    <VoiceShelf name={name} count={list.length}>{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing?.startsWith(v.key+':'),preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
      return <article key={v.key} className={'voice-card'+(v.selected?' selected':'')+(v.ready?' ready':'')} role="button" tabIndex={0} aria-label={'Open '+v.name} onClick={v.onOpen} onKeyDown={e=>e.key==='Enter'&&v.onOpen()}>
      {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
      <div className="card-top">
       <div className="sleeve"><SleeveArt seed={v.key+v.name}/>
-       <button className={'play'+(on?' on':'')} disabled={working} title={working?'Generating the common preview sentence':preview?.status==='failed'?preview.message:on?'Stop preview':'Play the standard comparison sentence'} aria-label={(on?'Stop ':'Play ')+v.name} onClick={e=>play(e,v)}><i className={'fa-solid '+(working?'fa-spinner fa-spin':on?'fa-stop':'fa-play')}/></button>
+       <button className={'play'+(on?' on':'')} disabled={working&&!(v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited'))} title={v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')?'Play original recording immediately':working?'Generating the common preview sentence':preview?.status==='failed'?preview.message:on?'Stop preview':'Play the standard comparison sentence'} aria-label={(on?'Stop ':'Play ')+v.name} onClick={e=>play(e,v)}><i className={'fa-solid '+(on?'fa-stop':working&&!(v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited'))?'fa-spinner fa-spin':'fa-play')}/></button>
        {on&&<span className="vu" aria-hidden="true"><i/><i/><i/><i/><i/></span>}
       </div>
       <div className="card-title">
@@ -122,6 +130,15 @@ export default function VoiceGrid({items,onCreate}){
       </div>
      </div>
      <p className={'voice-desc'+(v.summary?'':' muted')}>{v.summary||'No description yet.'}</p>
+     {(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')&&<div className="voice-comparison">
+      <span className="voice-comparison-caption">Play auditions your original recording instantly.</span>
+      <button type="button" className="voice-comparison-button" disabled={working}
+       onClick={e=>play(e,v,true)} title="Use the cloning model to speak the same sentence as every built-in voice">
+       <i className={'fa-solid '+(working?'fa-spinner fa-spin':'fa-wave-square')}/>
+       {working?'Generating comparison…':preview?.status==='complete'?'Play generated comparison':'Generate same-script sample'}
+      </button>
+      {working&&<small role="status">Cloning on CPU may take several minutes. {preview?.message||''}</small>}
+     </div>}
      {preview?.status==='failed'&&<small className="warn">{preview.message}</small>}
      {v.meters?<div className="meters">{v.meters.map(([label,value,low,high])=><div key={label} title={`${label}: ${value} (${low} – ${high})`}><span>{label}</span><b><i style={{width:value+'%'}}/></b></div>)}</div>
       :!!v.traits?.length&&<div className="traits">{v.traits.map(t=><span key={t}>{t}</span>)}</div>}
