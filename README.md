@@ -14,13 +14,13 @@ Cross-platform local web application for cloning a **consenting speaker's** voic
 
 ## Install
 
-Windows PowerShell:
+Windows: double-click these in the Humperdinck folder, in order:
 
-```powershell
-./install.ps1
-./install-voice.ps1
-./start.ps1
-```
+1. `install.cmd`
+2. `install-voice.cmd`
+3. `start.cmd` (use this to open Humperdinck from now on)
+
+Windows blocks downloaded PowerShell scripts by default. The `.cmd` launchers run the matching `.ps1` with the block lifted for that one launch only; no system setting is changed. If SmartScreen shows "Windows protected your PC", click **More info → Run anyway**. Needs [Python 3.11](https://www.python.org/downloads/) (tick "Add python.exe to PATH") and FFmpeg (`winget install ffmpeg`).
 
 macOS/Linux:
 
@@ -59,7 +59,7 @@ Installs and downloads need the internet once. After that everything runs offlin
 - No voice authentication or deletion UI yet. Delete voice WAV files in `data/voices` manually.
 - Generated speech can contain pronunciation errors and may vary between segments.
 - This release does not implement video timing, YouTube download, or video export.
-- Dependencies have not been installed or tested on Windows, macOS, or Linux in this build environment. Syntax checks and engine-independent tests were performed.
+- Tested on macOS (Apple Silicon). Windows and Linux are supported but have not yet been tested on real machines.
 - Check Chatterbox model and dependency licenses before redistribution or commercial use.
 
 See `docs/REQUIREMENTS.md` and `docs/ROADMAP.md` for further plans.
@@ -122,7 +122,7 @@ The main `bash install.sh` installs and verifies `mlx-audio` automatically on Ap
 
 ## Updates
 
-Each time you run `bash start.sh` (or `start.ps1`), Humperdinck checks the latest commit on
+Each time you run `bash start.sh` (or `start.cmd` on Windows), Humperdinck checks the latest commit on
 `main` at `blarkin13/humperdinck`:
 
 1. It compares GitHub's git file hashes with the files on your computer.

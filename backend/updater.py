@@ -35,7 +35,7 @@ MAX_FILES = 2000
 
 # Folders whose files the updater manages, plus individual top-level files.
 MANAGED_DIRS = ('backend/', 'frontend/', 'scripts/', 'tests/', 'docs/')
-MANAGED_TOP = re.compile(r'[^/]+\.(sh|ps1|bat|md|txt)|\.gitignore')
+MANAGED_TOP = re.compile(r'[^/]+\.(sh|ps1|bat|cmd|md|txt)|\.gitignore')
 # Never replaced or deleted, even inside a managed folder.
 PROTECTED = re.compile(r'(^|/)(__pycache__|node_modules|\.pytest_cache)(/|$)|^frontend/dist/|\.pyc$|(^|/)\.DS_Store$')
 REQUIRED = {'backend/app.py', 'backend/updater.py', 'frontend/src.jsx', 'scripts/start.py', 'start.sh'}
