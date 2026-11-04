@@ -14,13 +14,13 @@ printf '{\"revision\":\"%s\",\"studio\":\"/studio/?v=%s\"}\\n' "$BUILD_ID" "$BUI
 cp -R frontend/dist/. website/studio/
 # Copy the runtime-matched ONNX WASM binary to our own static origin. The
 # browser worker sets env.wasmPaths to this file instead of relying on a CDN.
-WASM_FILE="$(find frontend/node_modules/@huggingface/transformers frontend/node_modules/onnxruntime-web -type f -name 'ort-wasm-simd-threaded.jsep.wasm' -print -quit 2>/dev/null || true)"
-if [[ -z "$WASM_FILE" || ! -s "$WASM_FILE" ]]; then
-  echo 'ONNX WebAssembly binary was not found in installed npm dependencies' >&2
+WASM_DIR="$(find frontend/node_modules/@huggingface/transformers frontend/node_modules/onnxruntime-web -type f -name 'ort-wasm-simd-threaded.jsep.wasm' -print -quit 2>/dev/null | xargs -r dirname)"
+if [[ -z "$WASM_DIR" || ! -s "$WASM_DIR/ort-wasm-simd-threaded.jsep.wasm" ]]; then
+  echo 'ONNX WebAssembly binaries not found in installed npm dependencies' >&2
   exit 1
 fi
 mkdir -p website/studio/wasm
-cp "$WASM_FILE" website/studio/wasm/ort-wasm-simd-threaded.jsep.wasm
+find "$WASM_DIR" -maxdepth 1 -type f -name 'ort-wasm*.wasm' -exec cp {} website/studio/wasm/ \;
 test -s website/studio/index.html
 test -s website/studio/assets/$(find website/studio/assets -maxdepth 1 -name '*.js' -printf '%f\n' | head -n 1)
 echo "Public studio built at website/studio/"
