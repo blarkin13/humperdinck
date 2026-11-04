@@ -47,6 +47,12 @@ def engine_for(name, model):
         elif name == 'qwen-torch':
             from backend.qwen_torch_engine import QwenTorchEngine
             adapter = QwenTorchEngine(model)
+        elif name == 'kokoro':
+            from backend.kokoro_engine import KokoroEngine
+            adapter = KokoroEngine(model)
+        elif name == 'piper':
+            from backend.piper_engine import PiperEngine
+            adapter = PiperEngine(model)
         elif name == 'chatterbox':
             from backend.engine import VoiceEngine
             adapter = VoiceEngine()
@@ -72,7 +78,11 @@ def handle(request):
     emit(loaded=True)
     progress = lambda done, total: emit(progress=[done, total])
     output = Path(request['output'])
-    if request['engine'] == 'qwen-torch':
+    if request['mode'] == 'preset':
+        if request['engine'] not in ('kokoro', 'piper'):
+            raise ValueError('Preset voices require Kokoro or Piper')
+        engine.synthesize(request['text'], request['preset_voice'], output, on_progress=progress)
+    elif request['engine'] == 'qwen-torch':
         if request['mode'] == 'design':
             engine.design(request['text'], request['description'], output, on_progress=progress)
         else:
