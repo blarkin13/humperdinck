@@ -241,3 +241,32 @@ def test_slider_prompt_strength_and_legacy_recipe():
     assert 'very low speaking pitch' in build_instruction('Voice.', {**neutral, 'pitch': 5})
     legacy = 'A masculine-presenting adult voice with midrange pitch, slightly textured texture, conversational pace and balanced resonance.'
     assert build_instruction(legacy, {**neutral, 'rasp': 100}) == legacy
+
+
+def test_installed_preset_voices_are_available_and_render_without_cloning(client):
+    available = client.get('/api/preset-voices')
+    assert available.status_code == 200
+    voices = available.json()
+    assert any(v['key'] == 'preset:kokoro:bm_george' for v in voices)
+    assert any(v['key'] == 'preset:piper:en_GB-alan-medium' for v in voices)
+
+    job = client.post('/api/narrations', json={
+        'blocks': [{'text': 'Good evening from London.', 'voice_key': 'preset:kokoro:bm_george'},
+                   {'text': 'Good morning from Edinburgh.', 'voice_key': 'preset:piper:en_GB-alan-medium'}],
+        'format': 'wav',
+    })
+    assert job.status_code == 200, job.text
+    complete = wait(client, job.json())
+    assert complete['status'] == 'complete', complete
+    calls = fake_synthesize.calls
+    assert [c['engine'] for c in calls] == ['kokoro', 'piper']
+    assert [c['mode'] for c in calls] == ['preset', 'preset']
+    assert all(c['reference'] is None for c in calls)
+
+
+def test_bad_preset_voice_is_rejected(client):
+    r = client.post('/api/narrations', json={
+        'blocks': [{'text': 'Hello.', 'voice_key': 'preset:kokoro:no-such-voice'}],
+        'format': 'wav',
+    })
+    assert r.status_code == 400
