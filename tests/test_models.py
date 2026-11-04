@@ -112,7 +112,7 @@ def test_cpu_preset_catalog_and_downloads(tmp_path, monkeypatch):
     assert catalog.downloaded('bm_george')
     assert catalog.downloaded('bf_emma')  # Kokoro presets share the voicepack.
     (piper / 'en_GB-alan-medium.onnx').write_bytes(b'x' * 100001)
-    (piper / 'en_GB-alan-medium.onnx.json').write_text('{"voice": "Alan"}')
+    (piper / 'en_GB-alan-medium.onnx.json').write_text('{"voice": "Alan", "padding": "' + 'x' * 200 + '"}')
     assert catalog.downloaded('en_GB-alan-medium')
     assert not catalog.downloaded('en_GB-cori-medium')
     assert 'bm_george' in catalog.ENGINES['kokoro']['models']
