@@ -51,3 +51,40 @@ def test_partial_download_is_not_downloaded(tmp_path, monkeypatch):
     assert not catalog.downloaded('Org/Voice')  # still downloading or interrupted
     (repo / 'blobs' / 'deadbeef.incomplete').unlink()
     assert catalog.downloaded('Org/Voice')
+
+
+
+def test_mlx_qwen_requires_speech_tokenizer_files(tmp_path, monkeypatch):
+    monkeypatch.setattr(catalog, 'hf_cache', lambda: tmp_path)
+    model = 'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit'
+    snapshot = tmp_path / ('models--' + model.replace('/', '--')) / 'snapshots' / 'abc'
+    snapshot.mkdir(parents=True)
+    (snapshot / 'model.safetensors').write_text('weights')
+    assert not catalog.downloaded(model)
+    speech = snapshot / 'speech_tokenizer'
+    speech.mkdir()
+    (speech / 'config.json').write_text('{}')
+    assert not catalog.downloaded(model)
+    (speech / 'model.safetensors').write_text('decoder weights')
+    assert catalog.downloaded(model)
+
+
+def test_mlx_qwen_reports_missing_speech_tokenizer(monkeypatch):
+    import sys
+    import types
+    from backend.qwen_engine import QwenVoiceDesigner
+
+    fake_package = types.ModuleType('mlx_audio')
+    fake_tts = types.ModuleType('mlx_audio.tts')
+    fake_utils = types.ModuleType('mlx_audio.tts.utils')
+    fake_utils.load_model = lambda model_id: types.SimpleNamespace(speech_tokenizer=None)
+    monkeypatch.setitem(sys.modules, 'mlx_audio', fake_package)
+    monkeypatch.setitem(sys.modules, 'mlx_audio.tts', fake_tts)
+    monkeypatch.setitem(sys.modules, 'mlx_audio.tts.utils', fake_utils)
+    try:
+        QwenVoiceDesigner('mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit').load()
+    except RuntimeError as exc:
+        assert 'speech tokenizer' in str(exc)
+        assert 'Models' in str(exc)
+    else:
+        raise AssertionError('Model loaded without its speech tokenizer')
