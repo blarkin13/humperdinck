@@ -39,10 +39,11 @@ PRESET_VOICES = {
 }
 
 def preset_path(engine, voice):
+    data = Path(os.environ.get('HUMPERDINCK_DATA') or (Path(__file__).resolve().parent.parent / 'data'))
     if engine == 'kokoro':
-        return Path(__file__).resolve().parent.parent / 'data' / 'models' / 'kokoro'
+        return data / 'models' / 'kokoro'
     if engine == 'piper':
-        return Path(__file__).resolve().parent.parent / 'data' / 'models' / 'piper'
+        return data / 'models' / 'piper'
     raise ValueError('Unknown preset engine')
 
 
