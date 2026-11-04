@@ -24,11 +24,40 @@ export function ago(iso){if(!iso)return '';const d=(Date.now()-new Date(iso))/86
 // Voice cards grouped by category, each group collapsed to LIMIT cards with a "Show more" toggle.
 // items: [{key,method,name,category,ready,status,summary,meters:[[label,0-100,low,high]],traits,specs:[[icon,text,title]],previewUrl,selected,onOpen,onDelete}]
 export default function VoiceGrid({items,onCreate}){
- const [open,setOpen]=useState({}),[query,setQuery]=useState(''),[playing,setPlaying]=useState(null),audio=useRef(null);
+ const [open,setOpen]=useState({}),[query,setQuery]=useState(''),[playing,setPlaying]=useState(null),[previewJobs,setPreviewJobs]=useState({}),audio=useRef(null);
  useEffect(()=>()=>audio.current?.pause(),[]);
- function play(e,v){e.stopPropagation();
+ function playAudio(v,url){
+  audio.current?.pause();
+  const a=new Audio(url);
+  a.onended=()=>setPlaying(null);
+  a.play().catch(()=>{setPlaying(null);setPreviewJobs(old=>({...old,[v.key]:{status:'failed',message:'Could not play preview audio.'}}))});
+  audio.current=a;
+  setPlaying(v.key);
+ }
+ async function play(e,v){
+  e.stopPropagation();
   if(playing===v.key){audio.current?.pause();setPlaying(null);return}
-  audio.current?.pause();const a=new Audio(v.previewUrl);a.onended=()=>setPlaying(null);a.play().catch(()=>setPlaying(null));audio.current=a;setPlaying(v.key)}
+  if(previewJobs[v.key]?.status==='queued'||previewJobs[v.key]?.status==='running')return;
+  try{
+   const r=await fetch('/api/voice-previews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice_key:v.voiceKey})});
+   const job=await r.json();
+   if(!r.ok)throw Error(job.detail||'Could not generate preview');
+   if(job.status==='complete'){playAudio(v,job.download_url);return}
+   setPreviewJobs(old=>({...old,[v.key]:job}));
+   if(!job.job_id)throw Error('Preview job was not created');
+   // Poll only after the user asks for a preview; synthesis can be slow on CPU.
+   for(let i=0;i<1800;i++){
+    await new Promise(resolve=>setTimeout(resolve,1000));
+    const response=await fetch('/api/jobs/'+job.job_id);
+    const current=await response.json();
+    if(!response.ok)throw Error(current.detail||'Preview job lost');
+    setPreviewJobs(old=>({...old,[v.key]:current}));
+    if(current.status==='complete'){playAudio(v,current.download_url);return}
+    if(current.status==='failed')throw Error(current.message||'Preview generation failed');
+   }
+   throw Error('Preview is taking too long. Try again later.');
+  }catch(err){setPreviewJobs(old=>({...old,[v.key]:{status:'failed',message:err.message}}))}
+ }
  const q=query.trim().toLowerCase();
  const shown=items.filter(v=>!q||[v.name,v.category,v.summary].some(t=>(t||'').toLowerCase().includes(q)));
  const groups={};shown.forEach(v=>(groups[v.category||'Uncategorized']=groups[v.category||'Uncategorized']||[]).push(v));
@@ -39,13 +68,12 @@ export default function VoiceGrid({items,onCreate}){
   {names.map(name=>{const list=groups[name],expanded=open[name]||!!q,visible=expanded?list:list.slice(0,LIMIT);
    return <div className="voice-group" key={name}>
     {names.length>1||name!=='Uncategorized'?<h4><i className="fa-solid fa-layer-group"/> {name} <small>{list.length} {list.length===1?'voice':'voices'}</small></h4>:null}
-    <div className="voice-grid">{visible.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing===v.key;
+    <div className="voice-grid">{visible.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing===v.key,preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
      return <article key={v.key} className={'voice-card'+(v.selected?' selected':'')+(v.ready?' ready':'')} role="button" tabIndex={0} aria-label={'Open '+v.name} onClick={v.onOpen} onKeyDown={e=>e.key==='Enter'&&v.onOpen()}>
      {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
      <div className="card-top">
       <div className="sleeve"><SleeveArt seed={v.key+v.name}/>
-       <button className={'play'+(on?' on':'')+(v.previewUrl?'':' none')} title={v.previewUrl?(on?'Stop':'Play preview'):v.method==='preset'?'Use this voice in Narration Studio':'No preview yet: open the voice to generate one'} aria-label={(on?'Stop ':'Play ')+v.name}
-        onClick={e=>v.previewUrl?play(e,v):(e.stopPropagation(),v.onOpen())}><i className={'fa-solid '+(on?'fa-stop':v.previewUrl?'fa-play':v.method==='preset'?'fa-arrow-right':'fa-wand-magic-sparkles')}/></button>
+       <button className={'play'+(on?' on':'')} disabled={working} title={working?'Generating the common preview sentence':preview?.status==='failed'?preview.message:on?'Stop preview':'Play the standard comparison sentence'} aria-label={(on?'Stop ':'Play ')+v.name} onClick={e=>play(e,v)}><i className={'fa-solid '+(working?'fa-spinner fa-spin':on?'fa-stop':'fa-play')}/></button>
        {on&&<span className="vu" aria-hidden="true"><i/><i/><i/><i/><i/></span>}
       </div>
       <div className="card-title">
@@ -55,6 +83,7 @@ export default function VoiceGrid({items,onCreate}){
       </div>
      </div>
      <p className={'voice-desc'+(v.summary?'':' muted')}>{v.summary||'No description yet.'}</p>
+     {preview?.status==='failed'&&<small className="warn">{preview.message}</small>}
      {v.meters?<div className="meters">{v.meters.map(([label,value,low,high])=><div key={label} title={`${label}: ${value} (${low} – ${high})`}><span>{label}</span><b><i style={{width:value+'%'}}/></b></div>)}</div>
       :!!v.traits?.length&&<div className="traits">{v.traits.map(t=><span key={t}>{t}</span>)}</div>}
      <div className="card-foot">
