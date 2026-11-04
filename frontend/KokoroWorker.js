@@ -1,7 +1,15 @@
 // Kokoro runs in a browser Web Worker: model weights and synthesis stay on the visitor's device.
 // Compiled by Vite into a same-origin worker so Safari never needs to import an ESM
 // package directly from a cross-origin CDN. Model weights load from Hugging Face.
-import { KokoroTTS } from 'kokoro-js';
+import { KokoroTTS, env } from 'kokoro-js';
+
+// Override Transformers.js's CDN default with the exact ONNX WebAssembly
+// binary staged from the installed npm dependency during the website build.
+// This avoids Safari/Firefox/Chrome failures when external CDN scripts fail.
+if(typeof self!=='undefined'&&self.location?.origin){
+ env.wasmPaths={wasm:new URL('/studio/wasm/ort-wasm-simd-threaded.jsep.wasm',self.location.origin).href};
+}
+
 
 const MODEL='onnx-community/Kokoro-82M-v1.0-ONNX';
 let modelPromise=null;
