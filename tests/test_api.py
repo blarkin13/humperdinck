@@ -270,3 +270,58 @@ def test_bad_preset_voice_is_rejected(client):
         'format': 'wav',
     })
     assert r.status_code == 400
+
+
+def test_standard_preview_is_shared_across_builtin_and_uploaded_voices(client, tmp_path):
+    sentence = 'Good evening. I have been waiting a long time to tell you this story.'
+    # All library cards request the same spoken text; output is cached per identity.
+    first = client.post('/api/voice-previews', json={'voice_key': 'preset:kokoro:bm_george'})
+    assert first.status_code == 200, first.text
+    finished = wait(client, first.json())
+    assert finished['status'] == 'complete', finished
+    assert finished['download_url'].endswith('.wav')
+    assert client.get(finished['download_url']).status_code == 200
+    assert fake_synthesize.calls[-1]['text'] == sentence
+    assert fake_synthesize.calls[-1]['engine'] == 'kokoro'
+    assert fake_synthesize.calls[-1]['mode'] == 'preset'
+
+    previous_count = len(fake_synthesize.calls)
+    cached = client.post('/api/voice-previews', json={'voice_key': 'preset:kokoro:bm_george'})
+    assert cached.json()['status'] == 'complete'
+    assert cached.json()['download_url'] == finished['download_url']
+    assert len(fake_synthesize.calls) == previous_count
+
+    voice_id = 'a' * 32
+    sf.write(str(tmp_path / 'voices' / f'{voice_id}.wav'), np.zeros(2400, dtype='float32'), 24000)
+    uploaded = client.post('/api/voice-previews', json={'voice_key': 'upload:' + voice_id})
+    done = wait(client, uploaded.json())
+    assert done['status'] == 'complete', done
+    assert fake_synthesize.calls[-1]['text'] == sentence
+    assert fake_synthesize.calls[-1]['mode'] == 'clone'
+
+
+def test_standard_designed_voice_preview_uses_approved_reference(client):
+    voice = client.post('/api/designed-voices', json={
+        'name': 'Standard test voice', 'description': 'A calm narrator.',
+        'characteristics': SLIDERS}).json()
+    first = client.post('/api/voice-previews', json={'voice_key': 'design:' + voice['id']})
+    done = wait(client, first.json())
+    assert done['status'] == 'complete', done
+    assert fake_synthesize.calls[-1]['mode'] == 'design'
+    assert fake_synthesize.calls[-1]['text'] == client.module.VOICE_PREVIEW_TEXT
+
+    approved_job_id = preview(client, 'A calm narrator.')
+    attach = client.post(f"/api/designed-voices/{voice['id']}/versions/1/attach-preview",
+                         json={'job_id': approved_job_id, 'approve': True})
+    assert attach.status_code == 200
+    new = client.post('/api/voice-previews', json={'voice_key': 'design:' + voice['id']})
+    done = wait(client, new.json())
+    assert done['status'] == 'complete', done
+    assert fake_synthesize.calls[-1]['mode'] == 'clone'
+    assert fake_synthesize.calls[-1]['text'] == client.module.VOICE_PREVIEW_TEXT
+
+
+def test_standard_preview_rejects_invalid_voice_keys(client):
+    assert client.post('/api/voice-previews', json={'voice_key': 'preset:kokoro:missing'}).status_code == 400
+    assert client.post('/api/voice-previews', json={'voice_key': 'upload:doesnotexist'}).status_code == 400
+    assert client.get('/api/voice-previews/../something.wav').status_code in (400, 404)
