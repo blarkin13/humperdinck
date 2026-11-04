@@ -122,3 +122,11 @@ button.active small,.primary small{color:#3a3122}
 .voice-comparison-button{font-family:var(--label);font-size:11px;letter-spacing:.2px;line-height:1.2;max-width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--brass-hi);text-align:left}
 .voice-comparison-button i{margin-right:6px}
 .voice-comparison small{font-size:11px;color:var(--muted)}
+
+/* Browser version uses the same layout and components as the installed app. */
+.public-app-banner{border:1px solid var(--line,#444);background:var(--teal,#191919);color:var(--ivory,#eee);padding:12px 16px;margin-bottom:20px;border-radius:9px;font-size:12px;line-height:1.6}
+.public-app-banner a{color:var(--brass-hi,#fff);margin-left:10px;text-decoration:underline}
+.public-build-version{font-family:ui-monospace,monospace;font-size:11px;opacity:.8;float:right;margin-left:14px}
+.public-app-download,.public-app-home{font-size:12px;color:var(--brass-hi,#fff);border:1px solid var(--line,#555);border-radius:7px;padding:8px 11px;text-decoration:none;white-space:nowrap}
+.public-app-download:hover,.public-app-home:hover{border-color:var(--brass-hi,#aaa)}
+@media(max-width:700px){.public-build-version{float:none;display:block;margin-left:0;margin-top:5px}.public-app-banner{margin-top:0}.header-actions{flex-wrap:wrap}}

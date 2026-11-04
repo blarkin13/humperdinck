@@ -123,3 +123,19 @@ The public Studio keeps **Voice Library** separate from **Narration Studio**. Th
 The prior public release imported the voice engine directly from jsDelivr in a cross-origin module worker. This can fail during module initialization, leaving only a generic "Load failed" error. The new code imports the pinned `kokoro-js@1.2.1` npm dependency from `frontend/KokoroWorker.js`; Vite bundles it as a same-origin worker referenced through `new URL(..., import.meta.url)`. The browser still obtains model weights from Hugging Face. Error messages include download/model initialization vs synthesis stage, to distinguish model failures from worker startup failures.
 
 This change updates `frontend/package.json`. The Cloudflare build script and CI temporarily use `npm install` rather than `npm ci` so the existing lockfile can be reconciled during builds. Once network-enabled npm access is available, regenerate and commit `frontend/package-lock.json`, then return both build steps to `npm ci` for reproducibility. Do not assume CI compilation guarantees inference works on Safari: test a short generation on the real deployed site.
+
+## Single-source Studio parity and cache busting (November 2026)
+
+The public /studio/ app now **uses the same React `App` component** as the desktop app (`frontend/src.jsx`) rather than maintaining a separate `PublicStudio.jsx` copy. Both routes use the same header, main navigation, theme picker, VoiceGrid, Voice Creator controls, and other shared styling. In the web build, only **six Kokoro voices** are offered, and custom voice generation, uploads, model installation and video processing are locked. Browser narration generation stays under **Narration Studio**, not Voice Library.
+
+The public build uses `VITE_PUBLIC_STUDIO=1`, preventing desktop FastAPI requests; the installed desktop app continues using the ordinary `App` component with all of its functionality. The website's main landing page is separate from the app UI; it is the public **/studio/** route that shares the desktop UI source.
+
+### Cache invalidation and diagnosing stale deployments
+
+- Vite generates fingerprinted JavaScript/CSS assets under `website/studio/assets/` on each changed bundle.
+- Workers static assets honor `website/_headers`: HTML pages, the site script, and `build.json` are `Cache-Control: no-store`. Fingerprinted assets may be cached for one year because their URLs change as content changes.
+- The build embeds the Git commit short SHA in the Studio preview banner, and writes `website/build.json` for a machine-readable live deployment revision. The homepage footer shows that revision.
+- `scripts/build-public-studio.sh` stamps every `/studio/` link in the homepage with `?v=<sha>`, forcing a fresh navigation URL after deployment.
+- Verify Cloudflare deployed the same SHA as GitHub by opening `https://humperdinck.larki-brian.workers.dev/build.json` and comparing with the version in the public Studio banner. `build.json` does **not** exist in Git; it is generated at deploy time.
+
+The static homepage remains a separate marketing website. The statement about matching the desktop applies only to the /studio/ app shell and shared components; browser preview restrictions necessarily change some controls, and production visual comparison on Safari/Chrome should be done after deployment before claiming pixel-for-pixel parity.
