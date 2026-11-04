@@ -70,12 +70,12 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false}){
  }
  async function play(e,v,generate=false){
   e.stopPropagation();
-  if(previewDisabled)return;
   if(v.sampleUrl&&!generate){
    if(playing===v.key+':sample'){audio.current?.pause();setPlaying(null);return}
    playAudio(v,v.sampleUrl,'sample');
    return;
   }
+  if(previewDisabled)return;
   const uploaded=v.method==='uploaded'||v.method==='recorded'||v.method==='edited';
   // Audition the user's own reference audio immediately. A real cloned
   // same-script comparison is still available as a separate explicit action.
