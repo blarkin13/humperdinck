@@ -5,6 +5,12 @@ import './PublicStudio.css';
 
 // Public presentation of the same UI, without connecting visitor actions to the
 // private FastAPI server. No model download, synthesis, upload or account writes.
+// Publicly available Kokoro-generated reference samples, hosted by Hangry Labs.
+// These are recorded examples, not speech generated from visitor-entered text.
+// Source and attribution: https://github.com/hangry-labs/kokoroTTS/tree/main/examples
+const sampleHost='https://raw.githubusercontent.com/hangry-labs/kokoroTTS/main/examples/';
+const sampleUrl=voice=>sampleHost+'kokorotts-'+voice+'.mp3';
+
 const presetVoices=[
  ['af_heart','Heart','American English · female'],
  ['af_bella','Bella','American English · female'],
@@ -47,8 +53,8 @@ export default function PublicStudio(){
  const [chosenVoice,setChosenVoice]=useState(null);
  const voices=presetVoices.map(([id,name,accent])=>({
   key:id,voiceKey:id,method:'preset',name,category:'Built-in · '+accent.split(' · ')[0],
-  ready:false,status:'Install app to generate',summary:accent,
-  traits:[accent],specs:[],onOpen:()=>setChosenVoice(id),
+  ready:true,status:'Sample available',summary:accent,
+  traits:[accent],specs:[],sampleUrl:sampleUrl(id),onOpen:()=>setChosenVoice(id),
  }));
  const updateBlock=(id,k,value)=>setBlocks(previous=>previous.map(b=>b.id===id?{...b,[k]:value}:b));
  const selectedVoice=presetVoices.find(v=>v[0]===chosenVoice);
@@ -66,9 +72,10 @@ export default function PublicStudio(){
   </header>
   <nav aria-label="Studio sections">{tabs.map(([id,label,icon])=><button type="button" key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><i className={'fa-solid '+icon} aria-hidden="true"/> {label}</button>)}</nav>
   {tab==='voices'&&<section>
-   <div className="heading"><div><h2>Voice Library</h2><p>Browse built-in Kokoro voices. Their audio previews require installed models in the desktop application.</p></div><button className="primary" onClick={()=>setTab('creator')}><i className="fa-solid fa-plus" aria-hidden="true"/> New voice</button></div>
-   {selectedVoice&&<div className="notice"><strong>{selectedVoice[1]}</strong> · {selectedVoice[2]} <span className="public-muted"> — Install the desktop app to generate or play a voice sample.</span><button className="link" onClick={()=>setChosenVoice(null)}>Close</button></div>}
+   <div className="heading"><div><h2>Voice Library</h2><p>Play actual Kokoro voice samples here—no installation needed. To generate speech from your own text, install Humperdinck.</p></div><button className="primary" onClick={()=>setTab('creator')}><i className="fa-solid fa-plus" aria-hidden="true"/> New voice</button></div>
+   {selectedVoice&&<div className="notice"><strong>{selectedVoice[1]}</strong> · {selectedVoice[2]} <span className="public-muted"> — Press Play on this voice's card to hear its Kokoro sample. Generating your own text requires the downloaded app.</span><button className="link" onClick={()=>setChosenVoice(null)}>Close</button></div>}
    <VoiceGrid items={voices} onCreate={()=>setTab('creator')} previewDisabled/>
+   <p className="public-muted">Voice samples are externally hosted examples from <a href="https://github.com/hangry-labs/kokoroTTS/tree/main/examples" target="_blank" rel="noopener noreferrer">Hangry Labs KokoroTTS</a>. Playback needs an internet connection. Sample text is fixed; custom text-to-speech remains desktop-only.</p>
   </section>}
   {tab==='creator'&&<section>
    <div className="heading"><div><h2>Voice Creator</h2><p>Explore the voice designer. The sliders and text inputs work here; producing or saving audio needs the desktop app.</p></div><span className="tag">Design a voice</span></div>
