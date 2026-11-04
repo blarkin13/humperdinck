@@ -5,7 +5,7 @@ const STORAGE_KEY='humperdinck-theme';
 const THEMES=[
  {id:'vintage',name:'Vintage',subtitle:'Warm brass and midnight teal',icon:'fa-record-vinyl'},
  {id:'modern',name:'Modern',subtitle:'Airy, clean and understated',icon:'fa-layer-group'},
- {id:'ultra',name:'Ultra Modern',subtitle:'Midnight glass and electric light',icon:'fa-bolt'},
+ {id:'ultra',name:'Ultra Modern',subtitle:'Pure black, white and graphite',icon:'fa-circle-half-stroke'},
 ];
 const valid=new Set(THEMES.map(t=>t.id));
 
