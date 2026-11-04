@@ -29,7 +29,8 @@ const accents=['',...Object.keys(accentPrompts)];
 const styles=['','Audiobook narrator','Documentary','Conversational','News anchor','Storyteller','Commercial','Character / animated','Meditation / calm','Trailer / dramatic'];
 const sameTraits=(a,b)=>Object.keys(defaults).every(k=>(a?.[k]??50)===(b?.[k]??50));
 const starter='Good evening. I have been waiting a long time to tell you this story.';
-async function api(path,options){const r=await fetch('/api/'+path,options);const j=await r.json();if(!r.ok)throw Error(typeof j.detail==='string'?j.detail:JSON.stringify(j.detail||j));return j}
+// An empty or non-JSON reply means the backend is not running (it crashed or is still starting).
+async function api(path,options){const r=await fetch('/api/'+path,options);let j;try{j=await r.json()}catch{throw Error('Humperdinck\'s backend is not responding. Check the start.cmd / start.sh window for an error, then restart it.')}if(!r.ok)throw Error(typeof j.detail==='string'?j.detail:JSON.stringify(j.detail||j));return j}
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function App(){
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
