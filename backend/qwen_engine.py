@@ -47,7 +47,7 @@ def design_language(description: str) -> str:
     instruction. This selects the language, not a guaranteed regional accent.
     """
     import re
-    english_accents = r'\\b(british|english accent|received pronunciation|scottish|irish|australian|canadian|american|new zealand|south african)\\b'
+    english_accents = r'\b(british|english accent|received pronunciation|scottish|irish|australian|canadian|american|new zealand|south african)\b'
     return 'english' if re.search(english_accents, description, re.IGNORECASE) else 'auto'
 
 
