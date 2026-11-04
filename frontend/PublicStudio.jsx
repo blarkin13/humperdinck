@@ -60,7 +60,7 @@ export default function PublicStudio(){
  const updateBlock=(id,k,value)=>setBlocks(previous=>previous.map(b=>b.id===id?{...b,[k]:value}:b));
  const selectedVoice=presetVoices.find(v=>v[0]===chosenVoice);
  return <main className="public-studio">
-  <div className="public-banner"><i className="fa-solid fa-globe" aria-hidden="true"/> You're exploring the real Humperdinck interface. Voice generation, imports, saves and installs require the downloadable app.
+  <div className="public-banner"><i className="fa-solid fa-globe" aria-hidden="true"/> You're exploring Humperdinck. Built-in voice narration is available here; advanced voice creation, uploads, video rendering, and model management require the desktop app.
    <a href={download}>Download information <i className="fa-solid fa-arrow-right" aria-hidden="true"/></a>
   </div>
   <header>
@@ -73,10 +73,10 @@ export default function PublicStudio(){
   </header>
   <nav aria-label="Studio sections">{tabs.map(([id,label,icon])=><button type="button" key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><i className={'fa-solid '+icon} aria-hidden="true"/> {label}</button>)}</nav>
   {tab==='voices'&&<section>
-   <div className="heading"><div><h2>Voice Library</h2><p>Choose a Kokoro voice and generate speech from your own text right in the browser, up to 500 characters per request. No desktop app required.</p></div><button className="primary" onClick={()=>setTab('creator')}><i className="fa-solid fa-plus" aria-hidden="true"/> New voice</button></div>
-   <BrowserKokoro voices={presetVoices} voice={chosenVoice} onVoiceChange={setChosenVoice}/>
+   <div className="heading"><div><h2>Voice Library</h2><p>Explore built-in voices and listen to their samples. Select a voice, then use it in Narration Studio.</p></div><button className="primary" onClick={()=>setTab('creator')}><i className="fa-solid fa-plus" aria-hidden="true"/> New voice</button></div>
+   <div className="public-library-toolbar"><span>Selected voice: <strong>{presetVoices.find(v=>v[0]===chosenVoice)?.[1]||'Heart'}</strong></span><button className="primary" onClick={()=>setTab('narration')}>Use in Narration Studio <i className="fa-solid fa-arrow-right" aria-hidden="true"/></button></div>
    <VoiceGrid items={voices} onCreate={()=>setTab('creator')} previewDisabled/>
-   <p className="public-muted">Voice samples are externally hosted examples from <a href="https://github.com/hangry-labs/kokoroTTS/tree/main/examples" target="_blank" rel="noopener noreferrer">Hangry Labs KokoroTTS</a>. The Play buttons use fixed prerecorded samples. The live generator above produces your entered text locally in your browser; Qwen voice cloning remains desktop-only.</p>
+   <p className="public-muted">Voice samples are externally hosted examples from <a href="https://github.com/hangry-labs/kokoroTTS/tree/main/examples" target="_blank" rel="noopener noreferrer">Hangry Labs KokoroTTS</a>. The Play buttons use fixed voice samples. To create narration from your own words, open Narration Studio. Custom voice cloning is desktop-only.</p>
   </section>}
   {tab==='creator'&&<section>
    <div className="heading"><div><h2>Voice Creator</h2><p>Explore the voice designer. The sliders and text inputs work here; producing or saving audio needs the desktop app.</p></div><span className="tag">Design a voice</span></div>
@@ -89,9 +89,11 @@ export default function PublicStudio(){
    </div>
   </section>}
   {tab==='narration'&&<section>
-   <div className="heading"><div><h2>Narration Studio</h2><p>Explore the full multi-voice narration workflow. For short, single-voice Kokoro speech up to 500 characters, use the live browser generator in Voice Library.</p></div><span className="tag">Single or multi-voice</span></div>
+   <div className="heading"><div><h2>Narration Studio</h2><p>Turn your text into speech using built-in voices. The browser demo supports up to 500 characters per generation. Multi-voice projects require the desktop app.</p></div><span className="tag">Single or multi-voice</span></div>
+   <BrowserKokoro voices={presetVoices} voice={chosenVoice} onVoiceChange={setChosenVoice}/>
+   <div className="public-multivoice-divider"><h3>Multi-voice projects</h3><span className="public-badge"><i className="fa-solid fa-lock"/> DESKTOP APP</span></div>
    {blocks.map((b,index)=><div className="script-block" key={b.id}><div className="block-head"><strong>Part {index+1}</strong><select aria-label={'Voice for part '+(index+1)} value={b.voice} onChange={e=>updateBlock(b.id,'voice',e.target.value)}>{presetVoices.map(v=><option value={v[0]} key={v[0]}>{v[1]} · {v[2]}</option>)}</select>{blocks.length>1&&<button onClick={()=>setBlocks(old=>old.filter(x=>x.id!==b.id))}>Remove</button>}</div><textarea aria-label={'Narration text part '+(index+1)} placeholder="Paste or type narration here..." value={b.text} onChange={e=>updateBlock(b.id,'text',e.target.value)}/></div>)}
-   <div className="actions"><button onClick={()=>setBlocks(old=>[...old,{id:Date.now(),text:'',voice:old[old.length-1]?.voice||'af_heart'}])}>+ Add another voice / part</button><label className="inline">Export <select value={exportFormat} onChange={e=>setExportFormat(e.target.value)}><option value="mp3">MP3</option><option value="wav">WAV</option></select></label><button className="primary" disabled><i className="fa-solid fa-lock" aria-hidden="true"/> Generate Audio</button></div><p className="public-muted">Multi-voice rendering requires the desktop app. Text entered here stays in this browser session and isn't uploaded. <button className="link" onClick={()=>setTab('voices')}>Open live Kokoro generator</button></p>
+   <div className="actions"><button onClick={()=>setBlocks(old=>[...old,{id:Date.now(),text:'',voice:old[old.length-1]?.voice||'af_heart'}])}>+ Add another voice / part</button><label className="inline">Export <select value={exportFormat} onChange={e=>setExportFormat(e.target.value)}><option value="mp3">MP3</option><option value="wav">WAV</option></select></label><button className="primary" disabled><i className="fa-solid fa-lock" aria-hidden="true"/> Generate Audio</button></div><p className="public-muted">The multi-voice editor is a desktop-only workflow. Text entered here stays in this browser session and isn't uploaded.</p>
   </section>}
   {tab==='video'&&<section><h2>Video Studio</h2><p>Use locally generated narration to create video voiceovers in the desktop application.</p>
    <div className="panel"><h3>Upload your video</h3><DownloadGate><div className="dropzone"><strong>Drop a video</strong><small>MP4, MOV, MKV or WEBM</small><span className="dropzone-cta">Drag a file here or click to browse</span></div></DownloadGate></div>
@@ -100,6 +102,6 @@ export default function PublicStudio(){
   {tab==='models'&&<section><div className="heading"><div><h2>Models</h2><p>Manage local AI models in the desktop app. Online visitors cannot install AI engines to Cloudflare.</p></div><span className="tag">Local models</span></div>
    {[['Kokoro ONNX','Fast built-in voice narration','CPU friendly voice presets'],['Piper','Lightweight voice presets','Individual voices installed locally'],['Qwen3-TTS','Voice design and cloning','Model weights and compatible hardware required']].map(([name,description,note])=><div className="panel" key={name}><div className="engine-head"><strong>{name}</strong><small>{description}</small><button disabled><i className="fa-solid fa-lock" aria-hidden="true"/> Install / Download</button></div><p className="public-muted">{note}</p></div>)}
   </section>}
-  <div className="public-bottom-cta"><div><strong>Ready to make audio?</strong><p>The desktop app unlocks voice generation, audio upload, saving, model downloads, and rendering.</p></div><a href={download}>Get Humperdinck <i className="fa-solid fa-arrow-right" aria-hidden="true"/></a></div>
+  <div className="public-bottom-cta"><div><strong>Ready to make audio?</strong><p>The desktop app unlocks custom voice creation, uploads, model management, multi-voice projects and video rendering.</p></div><a href={download}>Get Humperdinck <i className="fa-solid fa-arrow-right" aria-hidden="true"/></a></div>
  </main>;
 }
