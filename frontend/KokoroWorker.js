@@ -13,9 +13,11 @@ if(typeof self!=='undefined'&&self.location?.origin){
   wasm:new URL('ort-wasm-simd-threaded.jsep.wasm',wasmRoot).href
  };
  // Configure the actual Transformers.js downloader, not kokoro-js's
- // limited env wrapper. Model and tokenizer files stay on our origin.
+ // limited env wrapper. Transformers.js appends file names to this path,
+ // so the template MUST end in a slash and MUST NOT contain {file}.
+ // Model and tokenizer files stay on our origin.
  transformersEnv.remoteHost=new URL('/model/',self.location.origin).href;
- transformersEnv.remotePathTemplate='{model}/resolve/{revision}/{file}';
+ transformersEnv.remotePathTemplate='{model}/resolve/{revision}/';
 }
 
 
