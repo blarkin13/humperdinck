@@ -65,6 +65,39 @@ def use_cuda(python):
          'Could not enable the NVIDIA GPU; the engine will run on the CPU. Updating the NVIDIA driver usually fixes this.')
 
 
+def download_kokoro():
+    """Fetch pinned ONNX + voicepack release files atomically into protected data/."""
+    import urllib.request
+    folder = root / 'data' / 'models' / 'kokoro'
+    folder.mkdir(parents=True, exist_ok=True)
+    base = 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/'
+    for name in ('kokoro-v1.0.onnx', 'voices-v1.0.bin'):
+        target = folder / name
+        if target.is_file() and target.stat().st_size > 100000:
+            continue
+        step(f'Downloading Kokoro {name}')
+        temp = folder / (name + '.part')
+        try:
+            with urllib.request.urlopen(base + name, timeout=60) as response, temp.open('wb') as output:
+                shutil.copyfileobj(response, output)
+                expected = response.headers.get('Content-Length')
+                if expected and output.tell() != int(expected):
+                    raise RuntimeError(f'Incomplete download of {name}')
+            if temp.stat().st_size < 100000:
+                raise RuntimeError(f'Kokoro file {name} is incomplete')
+            temp.replace(target)
+        finally:
+            temp.unlink(missing_ok=True)
+
+
+def download_piper(python, voice):
+    folder = root / 'data' / 'models' / 'piper'
+    folder.mkdir(parents=True, exist_ok=True)
+    step(f'Downloading Piper voice {voice}')
+    subprocess.run([str(python), '-m', 'piper.download_voices', voice,
+                    '--download-dir', str(folder)], check=True)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('engine', choices=sorted(ENGINES))
@@ -100,10 +133,15 @@ def main():
     subprocess.run([str(python), '-c', imports], check=True)
 
     if args.model:
-        step(f'Downloading {args.model} (about {engine["models"][args.model]["size_gb"]} GB)')
-        env = {k: v for k, v in os.environ.items() if k not in ('HF_HUB_OFFLINE', 'TRANSFORMERS_OFFLINE')}
-        subprocess.run([str(python), '-c', 'import sys; from huggingface_hub import snapshot_download; '
-                        'snapshot_download(sys.argv[1])', args.model], check=True, env=env)
+        if args.engine == 'kokoro':
+            download_kokoro()
+        elif args.engine == 'piper':
+            download_piper(python, args.model)
+        else:
+            step(f'Downloading {args.model} (about {engine["models"][args.model]["size_gb"]} GB)')
+            env = {k: v for k, v in os.environ.items() if k not in ('HF_HUB_OFFLINE', 'TRANSFORMERS_OFFLINE')}
+            subprocess.run([str(python), '-c', 'import sys; from huggingface_hub import snapshot_download; '
+                            'snapshot_download(sys.argv[1])', args.model], check=True, env=env)
     step('Done')
 
 
