@@ -71,6 +71,11 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false}){
  async function play(e,v,generate=false){
   e.stopPropagation();
   if(previewDisabled)return;
+  if(v.sampleUrl&&!generate){
+   if(playing===v.key+':sample'){audio.current?.pause();setPlaying(null);return}
+   playAudio(v,v.sampleUrl,'sample');
+   return;
+  }
   const uploaded=v.method==='uploaded'||v.method==='recorded'||v.method==='edited';
   // Audition the user's own reference audio immediately. A real cloned
   // same-script comparison is still available as a separate explicit action.
@@ -121,7 +126,7 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false}){
      {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
      <div className="card-top">
       <div className="sleeve"><SleeveArt seed={v.key+v.name}/>
-       <button className={'play'+(on?' on':'')} disabled={previewDisabled||(working&&!(v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')))} title={previewDisabled?'Voice audio requires the downloaded app':v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')?'Play original recording immediately':working?'Generating the common preview sentence':preview?.status==='failed'?preview.message:on?'Stop preview':'Play the standard comparison sentence'} aria-label={(on?'Stop ':'Play ')+v.name} onClick={e=>play(e,v)}><i className={'fa-solid '+(on?'fa-stop':working&&!(v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited'))?'fa-spinner fa-spin':'fa-play')}/></button>
+       <button className={'play'+(on?' on':'')} disabled={(previewDisabled&&!v.sampleUrl)||(working&&!v.sampleUrl&&!(v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')))} title={v.sampleUrl?'Play a real Kokoro voice sample':previewDisabled?'Voice audio requires the downloaded app':v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')?'Play original recording immediately':working?'Generating the common preview sentence':preview?.status==='failed'?preview.message:on?'Stop preview':'Play the standard comparison sentence'} aria-label={(on?'Stop ':'Play ')+v.name} onClick={e=>play(e,v)}><i className={'fa-solid '+(on?'fa-stop':working&&!v.sampleUrl&&!(v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited'))?'fa-spinner fa-spin':'fa-play')}/></button>
        {on&&<span className="vu" aria-hidden="true"><i/><i/><i/><i/><i/></span>}
       </div>
       <div className="card-title">
@@ -140,7 +145,7 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false}){
       </button>
       {working&&<small role="status">Cloning on CPU may take several minutes. {preview?.message||''}</small>}
      </div>}
-     {previewDisabled&&<small className="voice-disabled-label"><i className="fa-solid fa-lock"/> Voice playback requires the desktop app</small>}
+     {previewDisabled&&<small className="voice-disabled-label">{v.sampleUrl?<><i className="fa-solid fa-volume-high"/> Play the Kokoro audio sample. Custom text requires the app.</>:<><i className="fa-solid fa-lock"/> Voice playback requires the desktop app</>}</small>}
      {preview?.status==='failed'&&<small className="warn">{preview.message}</small>}
      {v.meters?<div className="meters">{v.meters.map(([label,value,low,high])=><div key={label} title={`${label}: ${value} (${low} – ${high})`}><span>{label}</span><b><i style={{width:value+'%'}}/></b></div>)}</div>
       :!!v.traits?.length&&<div className="traits">{v.traits.map(t=><span key={t}>{t}</span>)}</div>}
