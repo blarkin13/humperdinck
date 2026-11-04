@@ -23,8 +23,11 @@ jobs:
         run: npm run build
       - name: Build public Cloudflare studio preview
         run: bash scripts/build-public-studio.sh
+      - name: Check browser Kokoro worker syntax
+        run: node --check website/kokoro-worker.mjs
       - name: Check staged studio assets
         run: |
           test -s website/studio/index.html
+          test -s website/kokoro-worker.mjs
           test -d website/studio/assets
           grep -q '/studio/assets/' website/studio/index.html
