@@ -395,6 +395,8 @@ def job_status(job_id: str):
     if job_id not in jobs: raise HTTPException(404, 'Job not found')
     return jobs[job_id]
 
+MEDIA_TYPES = {'.wav':'audio/wav', '.mp3':'audio/mpeg', '.mp4':'video/mp4', '.mov':'video/quicktime', '.webm':'video/webm', '.m4v':'video/mp4'}
+
 @app.get('/api/outputs/{filename}')
 def download_output(filename: str):
     if len(filename.split('.')[0]) != 32 or not all(c in '0123456789abcdef' for c in filename.split('.')[0]):
@@ -403,7 +405,9 @@ def download_output(filename: str):
         raise HTTPException(400, 'Invalid format')
     path = DATA/'outputs'/filename
     if not path.is_file(): raise HTTPException(404, 'Not found')
-    return FileResponse(path, filename=filename)
+    # Explicit types: Windows guesses from the registry, which can break in-page playback.
+    # Inline so <audio>/<video> players can stream it; the download links still save it with this name.
+    return FileResponse(path, media_type=MEDIA_TYPES[path.suffix], filename=filename, content_disposition_type='inline')
 
 
 class NarrationBlock(BaseModel):
@@ -499,7 +503,7 @@ def get_video(video_id: str):
         raise HTTPException(400,'Invalid video ID')
     matches=list((DATA/'videos').glob(video_id+'.*'))
     if not matches: raise HTTPException(404,'Video not found')
-    return FileResponse(matches[0])
+    return FileResponse(matches[0], media_type=MEDIA_TYPES.get(matches[0].suffix.lower(), 'application/octet-stream'))
 
 def run_video_render(job_id,video_path,audio_path,request):
     job=jobs[job_id]
