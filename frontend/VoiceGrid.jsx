@@ -20,7 +20,42 @@ const METHODS={preset:['Built-in voice','fa-compact-disc'],sliders:['Designed wi
 
 export function ago(iso){if(!iso)return '';const d=(Date.now()-new Date(iso))/864e5;return d<1?'Today':d<2?'Yesterday':d<30?`${Math.floor(d)} days ago`:new Date(iso).toLocaleDateString()}
 
-// Voice cards are grouped into independently scrollable sections.
+// Horizontal voice shelves: the main page retains exclusive vertical scrolling.
+function VoiceShelf({name,count,children}){
+ const track=useRef(null),[position,setPosition]=useState(0),[atEnd,setAtEnd]=useState(count<=2);
+ function update(){
+  const el=track.current;
+  if(!el)return;
+  const card=el.querySelector('.voice-card');
+  const step=card?card.getBoundingClientRect().width+16:320;
+  setPosition(Math.min(count-1,Math.round(el.scrollLeft/step)));
+  setAtEnd(el.scrollLeft+el.clientWidth>=el.scrollWidth-3);
+ }
+ useEffect(()=>{update()},[count]);
+ function move(direction){
+  const el=track.current;
+  if(!el)return;
+  const card=el.querySelector('.voice-card');
+  const step=card?card.getBoundingClientRect().width+16:320;
+  el.scrollBy({left:direction*step*2,behavior:'smooth'});
+ }
+ return <div className="voice-shelf">
+  <div className="voice-shelf-controls">
+   <span className="voice-shelf-count">{String(position+1).padStart(2,'0')} <span>/</span> {String(count).padStart(2,'0')}</span>
+   <div className="voice-shelf-nav">
+    <button type="button" onClick={()=>move(-1)} disabled={position===0} aria-label={'Previous '+name+' voices'} title="Previous voices"><i className="fa-solid fa-chevron-left"/></button>
+    <button type="button" onClick={()=>move(1)} disabled={atEnd} aria-label={'Next '+name+' voices'} title="Next voices"><i className="fa-solid fa-chevron-right"/></button>
+   </div>
+  </div>
+  <div className="voice-shelf-window">
+   <div className="voice-shelf-track" role="region" aria-label={name+' voices'} tabIndex={0} ref={track} onScroll={update}>
+    <div className="voice-grid">{children}</div>
+   </div>
+  </div>
+ </div>;
+}
+
+// Voice cards grouped by category in horizontally browsable shelves.
 // items: [{key,method,name,category,ready,status,summary,meters:[[label,0-100,low,high]],traits,specs:[[icon,text,title]],previewUrl,selected,onOpen,onDelete}]
 export default function VoiceGrid({items,onCreate}){
  const [query,setQuery]=useState(''),[playing,setPlaying]=useState(null),[previewJobs,setPreviewJobs]=useState({}),audio=useRef(null);
@@ -72,7 +107,7 @@ export default function VoiceGrid({items,onCreate}){
   {names.map(name=>{const list=groups[name];
    return <div className="voice-group" key={name}>
     {names.length>1||name!=='Uncategorized'?<h4><i className="fa-solid fa-layer-group"/> {name} <small>{list.length} {list.length===1?'voice':'voices'}</small></h4>:null}
-    <div className="voice-group-scroll" role="region" aria-label={name+' voices'} tabIndex={0}><div className="voice-grid">{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing===v.key,preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
+    <VoiceShelf name={name} count={list.length}>{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing===v.key,preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
      return <article key={v.key} className={'voice-card'+(v.selected?' selected':'')+(v.ready?' ready':'')} role="button" tabIndex={0} aria-label={'Open '+v.name} onClick={v.onOpen} onKeyDown={e=>e.key==='Enter'&&v.onOpen()}>
      {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
      <div className="card-top">
@@ -94,7 +129,7 @@ export default function VoiceGrid({items,onCreate}){
       <span className={'status'+(v.ready?' ok':'')}><i className={'fa-solid '+(v.ready?'fa-circle-check':'fa-pen-ruler')}/>{v.status}</span>
       <span className="specs">{v.specs.filter(Boolean).map(([icon,text,title])=><span key={title} title={title}><i className={icon}/>{text}</span>)}</span>
      </div>
-    </article>})}</div></div>
+    </article>})}</VoiceShelf>
    </div>})}
  </div>;
 }
