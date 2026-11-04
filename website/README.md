@@ -101,3 +101,17 @@ The landing page and /studio/ Voice Library now play **real Kokoro-generated pre
 This feature requires an Internet connection to retrieve sample files from raw.githubusercontent.com. It does not load Kokoro models, allow arbitrary text-to-speech, or send user text to Hangry Labs; demo clips contain fixed text. If the external samples become unavailable, the players report an audio playback error; move to Humperdinck-owned voice recordings after verifying redistribution rights and generating the samples.
 
 To enable **live typed-text Kokoro generation** in the public site, add a separately tested Kokoro inference mechanism (browser-side Kokoro ONNX/Transformers.js, with an initial model download, or a secured hosted TTS service). Don't silently route this through the desktop FastAPI backend.
+
+## Live Kokoro browser inference (limited public demo)
+
+The Studio Voice Library includes a live Kokoro text-to-speech demonstration implemented in `frontend/BrowserKokoro.jsx` and `website/kokoro-worker.mjs`. It is **not** powered by a Cloudflare inference service: visitors download a quantized Kokoro ONNX model and generate audio locally in a WebAssembly Web Worker. The model library is pinned to `kokoro-js@1.2.1`, loaded as an ESM CDN module from jsDelivr, and model weights come from Hugging Face.
+
+- Maximum **500 Unicode characters per generation**, enforced both in the text field and by the Worker.
+- One model is shared for repeated requests on the page (no repeated model loads until the page is closed).
+- Select any of 12 built-in Kokoro voice IDs, click Generate, then play or download WAV from a browser object URL.
+- Progress reporting during the initial model download, and a Stop/reset action to terminate the Worker if a device struggles.
+- Voice cloning, model installation, uploads, full multi-voice rendering, and video editing remain desktop-only.
+- First use can download hundreds of MB; expect slower inference on devices without WebGPU. This implementation explicitly uses q8 + WASM for broad browser support. It is a performance-sensitive beta: browser RAM, networking, CDN blocking, device OS and model load errors will vary. For a production release, bundle and self-host the JavaScript dependencies and test multiple browsers.
+- User-generated text and audio never go to Humperdinck's server or Cloudflare API; loading the browser code/model requires third-party CDN/model-host access. No usage quotas or visitor tracking are imposed here because inference is local. **500 characters is a per-request limit, not a per-day limit.**
+
+Cloudflare's existing production build/deploy command is unchanged. The static worker file is deployed directly from `website/` and the React UI is bundled by `scripts/build-public-studio.sh`.

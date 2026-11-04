@@ -1,10 +1,11 @@
 import React,{useState} from 'react';
 import VoiceGrid from './VoiceGrid.jsx';
 import ThemePicker from './ThemePicker.jsx';
+import BrowserKokoro from './BrowserKokoro.jsx';
 import './PublicStudio.css';
 
-// Public presentation of the same UI, without connecting visitor actions to the
-// private FastAPI server. No model download, synthesis, upload or account writes.
+// Public React studio. Kokoro inference happens locally in a browser Web Worker;
+// no requests are made to the desktop FastAPI backend.
 // Publicly available Kokoro-generated reference samples, hosted by Hangry Labs.
 // These are recorded examples, not speech generated from visitor-entered text.
 // Source and attribution: https://github.com/hangry-labs/kokoroTTS/tree/main/examples
@@ -50,7 +51,7 @@ export default function PublicStudio(){
  const [voiceName,setVoiceName]=useState('New voice');
  const [blocks,setBlocks]=useState([{id:1,text:'',voice:'af_heart'}]);
  const [exportFormat,setExportFormat]=useState('mp3');
- const [chosenVoice,setChosenVoice]=useState(null);
+ const [chosenVoice,setChosenVoice]=useState('af_heart');
  const voices=presetVoices.map(([id,name,accent])=>({
   key:id,voiceKey:id,method:'preset',name,category:'Built-in · '+accent.split(' · ')[0],
   ready:true,status:'Sample available',summary:accent,
@@ -72,10 +73,10 @@ export default function PublicStudio(){
   </header>
   <nav aria-label="Studio sections">{tabs.map(([id,label,icon])=><button type="button" key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><i className={'fa-solid '+icon} aria-hidden="true"/> {label}</button>)}</nav>
   {tab==='voices'&&<section>
-   <div className="heading"><div><h2>Voice Library</h2><p>Play actual Kokoro voice samples here—no installation needed. To generate speech from your own text, install Humperdinck.</p></div><button className="primary" onClick={()=>setTab('creator')}><i className="fa-solid fa-plus" aria-hidden="true"/> New voice</button></div>
-   {selectedVoice&&<div className="notice"><strong>{selectedVoice[1]}</strong> · {selectedVoice[2]} <span className="public-muted"> — Press Play on this voice's card to hear its Kokoro sample. Generating your own text requires the downloaded app.</span><button className="link" onClick={()=>setChosenVoice(null)}>Close</button></div>}
+   <div className="heading"><div><h2>Voice Library</h2><p>Choose a Kokoro voice and generate speech from your own text right in the browser, up to 500 characters per request. No desktop app required.</p></div><button className="primary" onClick={()=>setTab('creator')}><i className="fa-solid fa-plus" aria-hidden="true"/> New voice</button></div>
+   <BrowserKokoro voices={presetVoices} voice={chosenVoice} onVoiceChange={setChosenVoice}/>
    <VoiceGrid items={voices} onCreate={()=>setTab('creator')} previewDisabled/>
-   <p className="public-muted">Voice samples are externally hosted examples from <a href="https://github.com/hangry-labs/kokoroTTS/tree/main/examples" target="_blank" rel="noopener noreferrer">Hangry Labs KokoroTTS</a>. Playback needs an internet connection. Sample text is fixed; custom text-to-speech remains desktop-only.</p>
+   <p className="public-muted">Voice samples are externally hosted examples from <a href="https://github.com/hangry-labs/kokoroTTS/tree/main/examples" target="_blank" rel="noopener noreferrer">Hangry Labs KokoroTTS</a>. The Play buttons use fixed prerecorded samples. The live generator above produces your entered text locally in your browser; Qwen voice cloning remains desktop-only.</p>
   </section>}
   {tab==='creator'&&<section>
    <div className="heading"><div><h2>Voice Creator</h2><p>Explore the voice designer. The sliders and text inputs work here; producing or saving audio needs the desktop app.</p></div><span className="tag">Design a voice</span></div>
@@ -88,9 +89,9 @@ export default function PublicStudio(){
    </div>
   </section>}
   {tab==='narration'&&<section>
-   <div className="heading"><div><h2>Narration Studio</h2><p>Build a multi-voice script with the same controls as the desktop studio. Rendering audio needs installed models.</p></div><span className="tag">Single or multi-voice</span></div>
+   <div className="heading"><div><h2>Narration Studio</h2><p>Explore the full multi-voice narration workflow. For short, single-voice Kokoro speech up to 500 characters, use the live browser generator in Voice Library.</p></div><span className="tag">Single or multi-voice</span></div>
    {blocks.map((b,index)=><div className="script-block" key={b.id}><div className="block-head"><strong>Part {index+1}</strong><select aria-label={'Voice for part '+(index+1)} value={b.voice} onChange={e=>updateBlock(b.id,'voice',e.target.value)}>{presetVoices.map(v=><option value={v[0]} key={v[0]}>{v[1]} · {v[2]}</option>)}</select>{blocks.length>1&&<button onClick={()=>setBlocks(old=>old.filter(x=>x.id!==b.id))}>Remove</button>}</div><textarea aria-label={'Narration text part '+(index+1)} placeholder="Paste or type narration here..." value={b.text} onChange={e=>updateBlock(b.id,'text',e.target.value)}/></div>)}
-   <div className="actions"><button onClick={()=>setBlocks(old=>[...old,{id:Date.now(),text:'',voice:old[old.length-1]?.voice||'af_heart'}])}>+ Add another voice / part</button><label className="inline">Export <select value={exportFormat} onChange={e=>setExportFormat(e.target.value)}><option value="mp3">MP3</option><option value="wav">WAV</option></select></label><button className="primary" disabled><i className="fa-solid fa-lock" aria-hidden="true"/> Generate Audio</button></div><p className="public-muted">The script is only in this browser session and is not uploaded or saved.</p>
+   <div className="actions"><button onClick={()=>setBlocks(old=>[...old,{id:Date.now(),text:'',voice:old[old.length-1]?.voice||'af_heart'}])}>+ Add another voice / part</button><label className="inline">Export <select value={exportFormat} onChange={e=>setExportFormat(e.target.value)}><option value="mp3">MP3</option><option value="wav">WAV</option></select></label><button className="primary" disabled><i className="fa-solid fa-lock" aria-hidden="true"/> Generate Audio</button></div><p className="public-muted">Multi-voice rendering requires the desktop app. Text entered here stays in this browser session and isn't uploaded. <button className="link" onClick={()=>setTab('voices')}>Open live Kokoro generator</button></p>
   </section>}
   {tab==='video'&&<section><h2>Video Studio</h2><p>Use locally generated narration to create video voiceovers in the desktop application.</p>
    <div className="panel"><h3>Upload your video</h3><DownloadGate><div className="dropzone"><strong>Drop a video</strong><small>MP4, MOV, MKV or WEBM</small><span className="dropzone-cta">Drag a file here or click to browse</span></div></DownloadGate></div>

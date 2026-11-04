@@ -1,0 +1,17 @@
+.browser-kokoro{border:1px solid var(--line);background:var(--teal);border-radius:12px;padding:23px;margin:18px 0 26px;box-shadow:0 8px 24px #0003}
+.browser-kokoro-head{display:flex;justify-content:space-between;align-items:start;gap:20px;flex-wrap:wrap}
+.browser-kokoro-head strong{font-size:19px;letter-spacing:-.3px;color:var(--ivory)}
+.browser-kokoro-head strong i{margin-right:8px;color:var(--brass-hi)}
+.browser-kokoro-head p{font-size:13px;color:var(--muted);margin:7px 0 10px}
+.browser-kokoro-chip{border:1px solid var(--line);border-radius:30px;padding:8px 12px;font-size:10px;font-weight:600;letter-spacing:1.3px;color:var(--ivory)}
+.browser-kokoro .field-row{margin:14px 0 0}.browser-kokoro .field{max-width:400px;width:100%}
+.browser-kokoro textarea{min-height:115px;line-height:1.6}
+.browser-kokoro-controls{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:12px;margin-top:13px}
+.browser-kokoro-controls small{margin-right:auto;color:var(--muted)}
+.browser-kokoro-progress{display:grid;gap:8px;padding:14px;margin:15px 0;background:var(--midnight);border:1px solid var(--line);border-radius:8px;font-size:13px;color:var(--ivory)}
+.browser-kokoro-progress progress{width:100%;height:8px;accent-color:var(--brass-hi)}.browser-kokoro-progress small{color:var(--muted)}
+.browser-kokoro-result{display:grid;gap:12px;border-top:1px solid var(--line);padding-top:19px;margin-top:18px}.browser-kokoro-result audio{width:100%;max-width:520px}.browser-kokoro-result .download{width:max-content}
+.browser-kokoro-footnote{font-size:11px;color:var(--muted);line-height:1.7;margin:19px 0 0}
+.browser-kokoro-footnote i{margin-right:5px}
+.browser-kokoro .warn{color:var(--burgundy)}
+@media(max-width:600px){.browser-kokoro{padding:16px}.browser-kokoro-controls{justify-content:flex-start}.browser-kokoro-controls small{width:100%}}
