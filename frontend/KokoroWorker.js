@@ -7,7 +7,9 @@ import { KokoroTTS, env } from 'kokoro-js';
 // binary staged from the installed npm dependency during the website build.
 // This avoids Safari/Firefox/Chrome failures when external CDN scripts fail.
 if(typeof self!=='undefined'&&self.location?.origin){
- env.wasmPaths={wasm:new URL('/studio/wasm/ort-wasm-simd-threaded.jsep.wasm',self.location.origin).href};
+ env.backends.onnx.wasm.wasmPaths=new URL('/studio/wasm/',self.location.origin).href;
+ // Single-thread inference works on sites without cross-origin isolation.
+ env.backends.onnx.wasm.numThreads=1;
 }
 
 
