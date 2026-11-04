@@ -92,6 +92,33 @@ def available(engine):
     return python_for(engine) is not None
 
 
+_installed = {}  # engine -> (installed, checked at)
+# Finds an engine's packages without importing them: importing torch can take many seconds.
+_FIND = 'import importlib.util as u, sys; sys.exit(0 if all(u.find_spec(m) for m in sys.argv[1:]) else 1)'
+
+
+def installed(engine):
+    """Quick check for the Models tab and health: are the engine's packages present? Cached."""
+    if not catalog.supported(engine):
+        return False
+    if engine in _resolved:
+        return True
+    cached = _installed.get(engine)
+    if cached and (cached[0] or time.monotonic() - cached[1] < 60):
+        return cached[0]
+    modules = [m.split('.')[0] for m in catalog.ENGINES[engine]['imports']]
+    found = any(subprocess.run([str(python), '-c', _FIND, *modules], capture_output=True, timeout=30).returncode == 0
+                for python in candidates(engine))
+    _installed[engine] = (found, time.monotonic())
+    return found
+
+
+def forget(engine):
+    """Drop cached checks after an engine is installed or changed."""
+    _installed.pop(engine, None)
+    _resolved.pop(engine, None)
+
+
 class Worker:
     """A long-lived `backend.worker --serve` process for one engine."""
 

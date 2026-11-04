@@ -64,8 +64,8 @@ class RenameInput(BaseModel):
 def health():
     choice = settings.load()
     return {'status':'ok', 'application':'humperdinck', 'version':'0.4.0', 'platform':catalog.platform_name(),
-            'models':choice, 'design_ready':engines.available(choice['design']['engine']),
-            'clone_ready':engines.available(choice['clone']['engine']),
+            'models':choice, 'design_ready':engines.installed(choice['design']['engine']),
+            'clone_ready':engines.installed(choice['clone']['engine']),
             'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status()}
 
 @app.post('/api/engine/unload')
@@ -652,7 +652,7 @@ def list_models():
         supported = catalog.supported(engine_id)
         engines_out.append({
             'id': engine_id, 'label': engine['label'], 'roles': engine['roles'], 'note': engine['note'],
-            'supported': supported, 'installed': supported and engines.available(engine_id),
+            'supported': supported, 'installed': supported and engines.installed(engine_id),
             'platforms': [{'darwin': 'macOS', 'win32': 'Windows', 'linux': 'Linux'}[p] for p in engine['platforms']],
             'requires_apple_silicon': bool(engine.get('requires_apple_silicon')),
             'models': [{'id': model_id, **info, 'downloaded': catalog.downloaded(model_id),
@@ -685,6 +685,7 @@ def run_install(job_id, command):
         process.wait()
         if process.returncode:
             raise RuntimeError(next((l for l in reversed(log) if l.strip()), f'exit code {process.returncode}'))
+        engines.forget(job['engine'])
         job.update(status='complete', progress=100, message='Installed and ready', log=log[-15:])
     except Exception as exc:
         job.update(status='failed', message=f'Install failed: {exc}', log=log[-15:])

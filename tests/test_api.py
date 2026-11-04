@@ -27,6 +27,7 @@ def fake_synthesize(engine, output, text, *, model, mode, description='', refere
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv('HUMPERDINCK_DATA', str(tmp_path))
     monkeypatch.setattr(engines, 'available', lambda engine: True)
+    monkeypatch.setattr(engines, 'installed', lambda engine: True)
     monkeypatch.setattr(engines, 'synthesize', fake_synthesize)
     monkeypatch.setattr('backend.catalog.downloaded', lambda model: True)
     fake_synthesize.calls = []
