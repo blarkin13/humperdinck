@@ -431,8 +431,30 @@ def require_engine(role):
     if os.environ.get('HUMPERDINCK_ONLINE') != '1' and not catalog.downloaded(choice['model']):
         raise HTTPException(503, f"{choice['model']} has not been downloaded. Open the Models tab and click Download.")
 
+@app.get('/api/preset-voices')
+def list_preset_voices():
+    """Preset narration voices whose engine and weights are already installed."""
+    return [
+        {'key': f'preset:{engine}:{voice}', 'engine': engine, 'voice': voice,
+         'name': label, 'accent': accent}
+        for engine, available in catalog.PRESET_VOICES.items()
+        if engines.installed(engine)
+        for voice, (label, accent) in available.items()
+        if catalog.downloaded(voice)
+    ]
+
+
 def resolve_voice_key(key):
     """Return (reference audio, its transcript or None) for a narration voice."""
+    # Presets identify a fixed local model rather than an audio reference.
+    if key.startswith('preset:'):
+        parts = key.split(':')
+        if len(parts) != 3 or parts[1] not in catalog.PRESET_VOICES or parts[2] not in catalog.PRESET_VOICES[parts[1]]:
+            raise HTTPException(400, 'Unknown preset voice')
+        engine, voice = parts[1:]
+        if not catalog.downloaded(voice) or not engines.installed(engine):
+            raise HTTPException(503, f'{engine} voice {voice} is not installed. Download it in Models.')
+        return None, (engine, voice)
     # Saved designed voices have approved audio; uploads are already normalized WAV.
     if key.startswith('design:'):
         identifier = key[7:]
@@ -463,7 +485,15 @@ def run_multi(job_id, request, references):
             for index,(block,(reference,ref_text)) in enumerate(zip(request.blocks,references)):
                 temp=DATA/'outputs'/f'{job_id}-{index}.wav'
                 try:
-                    engines.clone(choice,temp,block.text,reference,ref_text)
+                    if reference is None:
+                        preset_engine, preset_voice = ref_text
+                        engines.preset(preset_engine, preset_voice, temp, block.text,
+                                       on_progress=lambda done,total: job.update(
+                                           message=f'Block {index+1}/{len(references)} · {done}/{total} segments'))
+                    else:
+                        engines.clone(choice,temp,block.text,reference,ref_text,
+                                      on_progress=lambda done,total: job.update(
+                                          message=f'Block {index+1}/{len(references)} · {done}/{total} segments'))
                     audio,rate=sf.read(temp,dtype='float32',always_2d=False)
                     if audio.ndim==2: audio=audio.mean(axis=1)
                     if rate!=target_rate:
@@ -488,7 +518,8 @@ def create_narration(request: MultiNarrationRequest):
     if request.format not in ('wav','mp3'): raise HTTPException(400,'Unsupported format')
     if request.format=='mp3' and not shutil.which('ffmpeg'): raise HTTPException(503,'FFmpeg is required')
     references=[resolve_voice_key(b.voice_key) for b in request.blocks]
-    require_engine('clone')
+    if any(reference is not None for reference, _ in references):
+        require_engine('clone')
     job_id=uuid4().hex
     jobs[job_id]={'job_id':job_id,'status':'queued','progress':0,'message':'Waiting for narration engine'}
     Thread(target=run_multi,args=(job_id,request,references),daemon=True).start()
