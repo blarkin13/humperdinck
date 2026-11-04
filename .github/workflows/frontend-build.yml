@@ -29,6 +29,10 @@ jobs:
         run: |
           test -s website/studio/index.html
           test -s frontend/KokoroWorker.js
+          test -s website/studio/wasm/ort-wasm-simd-threaded.jsep.wasm
+          test -s website/THIRD_PARTY_NOTICES.txt
+          ! grep -q 'hangry-labs' frontend/src.jsx
+          ! grep -q 'kokorotts-' website/index.html
           test -d website/studio/assets
           grep -q '/studio/assets/' website/studio/index.html
           test -s website/build.json

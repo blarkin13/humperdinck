@@ -57,7 +57,7 @@ function VoiceShelf({name,count,children}){
 
 // Voice cards grouped by category in horizontally browsable shelves.
 // items: [{key,method,name,category,ready,status,summary,meters:[[label,0-100,low,high]],traits,specs:[[icon,text,title]],previewUrl,selected,onOpen,onDelete}]
-export default function VoiceGrid({items,onCreate,previewDisabled=false}){
+export default function VoiceGrid({items,onCreate,previewDisabled=false,onPreviewVoice=null}){
  const [query,setQuery]=useState(''),[playing,setPlaying]=useState(null),[previewJobs,setPreviewJobs]=useState({}),audio=useRef(null);
  useEffect(()=>()=>audio.current?.pause(),[]);
  function playAudio(v,url,kind='generated'){
@@ -70,12 +70,12 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false}){
  }
  async function play(e,v,generate=false){
   e.stopPropagation();
-  if(v.sampleUrl&&!generate){
-   if(playing===v.key+':sample'){audio.current?.pause();setPlaying(null);return}
-   playAudio(v,v.sampleUrl,'sample');
+  if(previewDisabled){
+   // The public Studio never loads a third-party MP3. Open the voice in
+   // Narration Studio instead, where a real generated test is available.
+   if(onPreviewVoice&&v.method==='preset')onPreviewVoice(v);
    return;
   }
-  if(previewDisabled)return;
   const uploaded=v.method==='uploaded'||v.method==='recorded'||v.method==='edited';
   // Audition the user's own reference audio immediately. A real cloned
   // same-script comparison is still available as a separate explicit action.
@@ -126,7 +126,7 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false}){
      {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
      <div className="card-top">
       <div className="sleeve"><SleeveArt seed={v.key+v.name}/>
-       <button className={'play'+(on?' on':'')} disabled={(previewDisabled&&!v.sampleUrl)||(working&&!v.sampleUrl&&!(v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')))} title={v.sampleUrl?'Play a real Kokoro voice sample':previewDisabled?'Voice audio requires the downloaded app':v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')?'Play original recording immediately':working?'Generating the common preview sentence':preview?.status==='failed'?preview.message:on?'Stop preview':'Play the standard comparison sentence'} aria-label={(on?'Stop ':'Play ')+v.name} onClick={e=>play(e,v)}><i className={'fa-solid '+(on?'fa-stop':working&&!v.sampleUrl&&!(v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited'))?'fa-spinner fa-spin':'fa-play')}/></button>
+       <button className={'play'+(on?' on':'')} disabled={(previewDisabled&&!onPreviewVoice)||(working&&!(v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')))} title={previewDisabled&&onPreviewVoice?'Open this voice in Narration Studio':previewDisabled?'Voice audio requires the downloaded app':v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')?'Play original recording immediately':working?'Generating the common preview sentence':preview?.status==='failed'?preview.message:on?'Stop preview':'Play the standard comparison sentence'} aria-label={(previewDisabled&&onPreviewVoice?'Use ':'Play ')+v.name} onClick={e=>play(e,v)}><i className={'fa-solid '+(previewDisabled&&onPreviewVoice?'fa-arrow-right':on?'fa-stop':working&&!(v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited'))?'fa-spinner fa-spin':'fa-play')}/></button>
        {on&&<span className="vu" aria-hidden="true"><i/><i/><i/><i/><i/></span>}
       </div>
       <div className="card-title">

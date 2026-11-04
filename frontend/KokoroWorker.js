@@ -1,11 +1,29 @@
 // Kokoro runs in a browser Web Worker: model weights and synthesis stay on the visitor's device.
 // Compiled by Vite into a same-origin worker so Safari never needs to import an ESM
 // package directly from a cross-origin CDN. Model weights load from Hugging Face.
-import { KokoroTTS } from 'kokoro-js';
+import { KokoroTTS, env } from 'kokoro-js';
+
+// Override Transformers.js's CDN default with the exact ONNX WebAssembly
+// binary staged from the installed npm dependency during the website build.
+// This avoids Safari/Firefox/Chrome failures when external CDN scripts fail.
+if(typeof self!=='undefined'&&self.location?.origin){
+ env.wasmPaths={wasm:new URL('/studio/wasm/ort-wasm-simd-threaded.jsep.wasm',self.location.origin).href};
+}
+
 
 const MODEL='onnx-community/Kokoro-82M-v1.0-ONNX';
 let modelPromise=null;
 let activeStage='startup';
+let lastDownload='';
+const MODEL_ROOT='https://huggingface.co/'+MODEL+'/resolve/main/';
+// A HEAD check does not download the ~92 MB ONNX model. It only diagnoses whether
+// the model host or its redirects are accessible from this visitor's browser.
+async function testResource(name){
+ try{
+  const r=await fetch(MODEL_ROOT+name,{method:'HEAD',cache:'no-store'});
+  return name+': HTTP '+r.status+(r.ok?' (reachable)':' (blocked or unavailable)');
+ }catch(error){return name+': network/CORS failure ('+(error?.message||String(error))+')'}
+}
 const post=(type,details={})=>self.postMessage({type,...details});
 async function getModel(){
  if(!modelPromise){
@@ -14,6 +32,7 @@ async function getModel(){
   modelPromise=KokoroTTS.from_pretrained(MODEL,{
    dtype:'q8', device:'wasm',
    progress_callback:p=>{
+    if(p.file||p.name)lastDownload=String(p.file||p.name).split('/').slice(-2).join('/');
     if(p.status==='progress'&&Number.isFinite(p.progress))post('progress',{percent:Math.max(0,Math.min(100,Math.round(p.progress)))});
     else if(p.status==='done')post('status',{message:'Preparing Kokoro model…'});
    }
@@ -55,7 +74,14 @@ self.addEventListener('message',async event=>{
   self.postMessage({type:'complete',id,buffer},[buffer]);
  }catch(err){
   const reason=err instanceof Error?err.message:String(err);
-  post('error',{id,message:'Kokoro '+activeStage+' failed: '+(reason||'Unknown error'),stage:activeStage});
+  let diagnostics='';
+  if(activeStage==='download / model initialization'){
+   post('status',{id,message:'Checking model download availability…'});
+   const checks=await Promise.all([testResource('config.json'),testResource('onnx/model_quantized.onnx')]);
+   diagnostics=' '+checks.join('; ')+'.';
+  }
+  const location=lastDownload?' Last requested: '+lastDownload+'.':'';
+  post('error',{id,message:'Voice engine '+activeStage+' failed: '+(reason||'Unknown error')+'.'+location+diagnostics+' If the model URLs are reachable, the problem may be browser WebAssembly initialization.',stage:activeStage});
  }
 });
 
