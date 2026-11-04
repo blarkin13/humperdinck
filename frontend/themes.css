@@ -160,3 +160,19 @@
 @media(prefers-reduced-motion:reduce){
  :root[data-theme="ultra"] .voice-card{transition:none}
 }
+
+/* Keep controls legible when colored buttons contain icons or nested labels. */
+:root[data-theme="modern"] .method.active .method-icon{color:#fff}
+:root[data-theme="ultra"] .method.active .method-icon{color:#071522}
+:root[data-theme="modern"] button.active small,:root[data-theme="modern"] .primary small{color:#fff}
+:root[data-theme="ultra"] button.active small,:root[data-theme="ultra"] .primary small{color:#071522}
+:root[data-theme="modern"] .theme-option{background:transparent;box-shadow:none}
+:root[data-theme="modern"] .theme-option.chosen,:root[data-theme="modern"] .theme-option:hover:not(:disabled){background:#ecf3ff}
+:root[data-theme="ultra"] .theme-option{background:transparent;box-shadow:none}
+:root[data-theme="ultra"] .theme-option.chosen,:root[data-theme="ultra"] .theme-option:hover:not(:disabled){background:#24385d}
+:root[data-theme="modern"] .theme-option-text strong{color:#17243b}
+:root[data-theme="ultra"] .theme-option-text strong{color:#f1f7ff}
+:root[data-theme="modern"] .update-files,:root[data-theme="modern"] .update-panel a{color:#285fd6}
+:root[data-theme="modern"] .card-x{color:#536980}
+:root[data-theme="modern"] .model-row .ok{color:#21856c}
+:root[data-theme="ultra"] .model-row .ok{color:#79dcd0}
