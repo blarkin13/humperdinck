@@ -26,10 +26,11 @@ export default function BrowserKokoro({voices,voice,onVoiceChange}){
   if(urlRef.current){URL.revokeObjectURL(urlRef.current);urlRef.current=null;setAudioUrl(null)}
   if(!worker.current){
    try{
-    const next=new Worker('/kokoro-worker.mjs',{type:'module'});
+    const next=new Worker(new URL('./KokoroWorker.js',import.meta.url),{type:'module'});
     next.addEventListener('message',event=>{
      if(!mounted.current)return;
      const data=event.data||{};
+     if(data.type==='worker-ready'){setMessage('Browser engine ready.');return}
      if(data.type==='progress'){setProgress(data.percent);return}
      if(data.type==='status'){setMessage(data.message||'Working…');return}
      if(data.id!==request.current)return;
@@ -43,7 +44,7 @@ export default function BrowserKokoro({voices,voice,onVoiceChange}){
     });
     next.addEventListener('error',event=>{
      if(!mounted.current)return;
-     setError('Could not load the browser Kokoro engine. Check your connection and try again.');
+     setError('Kokoro worker could not start ('+(event.message||'unknown browser error')+'). Try reloading the page, or use Chrome if Safari blocks model downloads.');
      setBusy(false);setProgress(null);
      next.terminate();worker.current=null;
     });
