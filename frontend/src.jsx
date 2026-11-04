@@ -58,6 +58,12 @@ function App(){
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
  const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:''}]),[format,setFormat]=useState('mp3'),[narrationJob,setNarrationJob]=useState(null),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[accent,setAccent]=useState(''),[style,setStyle]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
+ useEffect(()=>{
+  if(!status)return;
+  const failed=/\b(error|failed|could not|not responding|unable|invalid|missing)\b/i.test(status);
+  const succeeded=/\b(saved|approved|deleted|imported|uploaded|restored|ready|complete)\b/i.test(status);
+  notify(status,failed?'error':succeeded?'success':'info');
+ },[status,notify]);
  async function refresh(){try{const [d,u,p]=await Promise.all([api('designed-voices'),api('voices'),api('preset-voices')]);setDesigned(d);setUploads(u);setPresets(p)}catch(e){setStatus(e.message)}}
  useEffect(()=>{refresh()},[]);
  // Read new preset downloads when returning from Models to Narration Studio.
@@ -166,6 +172,6 @@ function App(){
   <AudioEditor src={narrationJob.download_url.replace(/\.mp3$/,'.wav')} source={'output:'+narrationJob.job_id} saveLabel="Apply edits" onSaved={j=>{setNarrationJob({...j,job_id:j.download_url.split('/').pop().split('.')[0]});setStatus('Edited narration ready. Video Studio will use this version.')}}/></>}</div>}</section>}
  {tab==='video'&&<section><h2>Video Studio</h2><p>Upload a video, place your narration at a timestamp, and export an MP4.</p><div className="panel"><DropZone accept=".mp4,.mov,.mkv,.webm" onFile={f=>upload(f,'videos')} title="Drop a video" hint="MP4, MOV, MKV or WEBM"/>{video&&<><p>{video.filename}</p><video className="video-preview" controls src={'/api/videos/'+video.video_id}/></>}</div><div className="panel"><h3>Narration track</h3>{narrationJob?.status==='complete'?<><audio controls src={narrationJob.download_url}/><label>Start narration at (seconds)</label><input type="number" min="0" step="0.1" value={offset} onChange={e=>setOffset(e.target.value)}/><label className="check"><input type="checkbox" checked={mix} onChange={e=>setMix(e.target.checked)}/> Mix with original video audio</label><button className="primary" disabled={!video||busy(videoJob)} onClick={renderVideo}>Render Video</button></>:<div className="notice">Generate your narration in Narration Studio first. <button onClick={()=>setTab('narration')}>Open Narration Studio</button></div>}{videoJob&&<div className="job"><p>{videoJob.message}</p><progress max="100" value={videoJob.progress}/>{videoJob.status==='complete'&&<><video className="video-preview" controls src={videoJob.download_url}/><a className="download" href={videoJob.download_url} download>Download MP4</a></>}</div>}</div><p className="hint">Current video support: one combined narration track with a start offset. Multi-track drag-and-drop editing and automatic synchronization are future work.</p></section>}
  {tab==='models'&&<Models/>}
- <footer role="status">{status}</footer></main>
+ </main>
 }
 createRoot(document.getElementById('root')).render(<NotificationProvider><App/></NotificationProvider>);
