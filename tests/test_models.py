@@ -181,12 +181,14 @@ def test_delete_rejects_unknown_model(tmp_path, monkeypatch):
         raise AssertionError('Unknown model was allowed to delete files')
 
 
-def test_delete_models_endpoint_rejects_unknown_and_active_jobs(client, monkeypatch):
-    from backend import engines
+def test_delete_models_endpoint_rejects_unknown_and_active_jobs(client):
     assert client.post('/api/models/delete', json={'engine': 'piper', 'model': '../../bad'}).status_code == 422
 
-    # Running generation must block deletions.
-    monkeypatch.setattr(client.module.engine_lock, 'acquire', lambda blocking: False)
-    result = client.post('/api/models/delete', json={
-        'engine': 'qwen-torch', 'model': 'Qwen/Qwen3-TTS-12Hz-0.6B-Base'})
-    assert result.status_code == 409
+    # A running generation holds the same lock, so deletion must fail with 409.
+    assert client.module.engine_lock.acquire(blocking=False)
+    try:
+        result = client.post('/api/models/delete', json={
+            'engine': 'qwen-torch', 'model': 'Qwen/Qwen3-TTS-12Hz-0.6B-Base'})
+        assert result.status_code == 409
+    finally:
+        client.module.engine_lock.release()
