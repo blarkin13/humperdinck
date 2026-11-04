@@ -202,3 +202,53 @@ def test_builtin_voice_catalog_has_named_british_and_american_presets():
         assert all(voice in catalog.ENGINES[engine]['models'] for voice in voices)
         assert all(name and ('British English' in accent or 'American English' in accent)
                    for name, accent in voices.values())
+
+
+def test_all_kokoro_voice_languages_and_model_sharing():
+    from collections import Counter
+    voices = catalog.PRESET_VOICES['kokoro']
+    assert len(voices) == 54
+    assert len(set(voices)) == 54
+    expected = {
+        'American English': 20, 'British English': 8, 'Japanese': 5,
+        'Mandarin Chinese': 8, 'Spanish': 3, 'French': 1,
+        'Hindi': 4, 'Italian': 2, 'Brazilian Portuguese': 3,
+    }
+    assert Counter(accent.split(' · ')[0] for _, accent in voices.values()) == expected
+    for voice in voices:
+        catalog.validate('preset', 'kokoro', voice)
+
+
+def test_kokoro_engine_uses_correct_language_phonemization(monkeypatch, tmp_path):
+    import sys
+    import types
+    import numpy as np
+    import soundfile as sf
+    from backend.kokoro_engine import KokoroEngine
+
+    recorded = []
+    class Model:
+        def create(self, text, voice, **kwargs):
+            recorded.append((text, voice, kwargs))
+            return np.zeros(2400, dtype='float32'), 24000
+    engine = KokoroEngine()
+    engine.model = Model()
+    for voice, lang in [('af_heart', 'en-us'), ('bf_emma', 'en-gb'),
+                        ('ef_dora', 'es'), ('ff_siwis', 'fr-fr'),
+                        ('hf_alpha', 'hi'), ('if_sara', 'it'), ('pf_dora', 'pt-br')]:
+        engine.synthesize('A short line.', voice, tmp_path / (voice + '.wav'))
+        assert recorded[-1][2]['lang'] == lang
+
+    # The Japanese and Mandarin converters produce phonemes, not English G2P.
+    pkg = types.ModuleType('misaki')
+    japanese = types.ModuleType('misaki.ja')
+    chinese = types.ModuleType('misaki.zh')
+    japanese.JAG2P = lambda: lambda text: ('japanese phonemes', None)
+    chinese.ZHG2P = lambda: lambda text: ('mandarin phonemes', None)
+    monkeypatch.setitem(sys.modules, 'misaki', pkg)
+    monkeypatch.setitem(sys.modules, 'misaki.ja', japanese)
+    monkeypatch.setitem(sys.modules, 'misaki.zh', chinese)
+    for voice, phonemes in [('jf_alpha', 'japanese phonemes'), ('zf_xiaobei', 'mandarin phonemes')]:
+        engine.synthesize('A short line.', voice, tmp_path / (voice + '.wav'))
+        assert recorded[-1][0] == phonemes
+        assert recorded[-1][2]['is_phonemes'] is True
