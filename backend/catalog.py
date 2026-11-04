@@ -201,6 +201,42 @@ def downloaded(model_id):
     return False
 
 
+
+def delete_downloaded_model(engine_id, model_id):
+    """Delete only catalog-listed local model weights, not engines or user voices.
+
+    Kokoro uses a shared voicepack; deleting it disables every Kokoro preset.
+    """
+    import shutil
+
+    if engine_id not in ENGINES or model_id not in ENGINES[engine_id]['models']:
+        raise ValueError('Unknown model')
+    if engine_id == 'kokoro':
+        folder = preset_path('kokoro', model_id)
+        removed = False
+        for name in ('kokoro-v1.0.onnx', 'voices-v1.0.bin'):
+            path = folder / name
+            if path.is_file():
+                path.unlink()
+                removed = True
+        return removed
+    if engine_id == 'piper':
+        folder = preset_path('piper', model_id)
+        removed = False
+        for ext in ('.onnx', '.onnx.json'):
+            path = folder / (model_id + ext)
+            if path.is_file():
+                path.unlink()
+                removed = True
+        return removed
+    # The catalog identifies a model; the cache repository has its own blobs.
+    repo = hf_cache() / ('models--' + model_id.replace('/', '--'))
+    if not repo.is_dir():
+        return False
+    shutil.rmtree(repo)
+    return True
+
+
 def total_memory_gb():
     try:
         if sys.platform == 'win32':
