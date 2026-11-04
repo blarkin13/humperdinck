@@ -4,8 +4,8 @@ import os
 import re
 from pathlib import Path
 
-# The 8-bit model fits an 8 GB Mac comfortably; set HUMPERDINCK_QWEN_MODEL to try a
-# less compressed variant (more detail, about twice the memory).
+# 8-bit quantization reduces weight memory, but generation can still exhaust an
+# 8 GB Mac's unified memory. Override HUMPERDINCK_QWEN_MODEL to try other variants.
 DEFAULT_MODEL = os.environ.get('HUMPERDINCK_QWEN_MODEL', 'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit')
 
 
