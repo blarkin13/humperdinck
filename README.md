@@ -30,7 +30,7 @@ bash install-voice.sh
 bash start.sh
 ```
 
-The core installer creates `.venv` and installs the frontend. The **separate voice installer** installs Chatterbox, PyTorch, and audio dependencies. On systems with incompatible PyTorch wheels, the optional installer may fail: use the correct platform-specific PyTorch installation first, then retry. CUDA acceleration requires a compatible PyTorch build and drivers. Model weights are downloaded on first generation.
+The core installer creates `.venv` and installs the frontend. The **separate voice installer** installs the Qwen3-TTS cloning engine, PyTorch, and audio dependencies. On systems with incompatible PyTorch wheels, the optional installer may fail: use the correct platform-specific PyTorch installation first, then retry. CUDA acceleration requires a compatible PyTorch build and drivers. Model weights are downloaded through the Models tab before generating.
 
 Open http://127.0.0.1:5173. Upload a clean voice recording under Voice Library, select it in Audio Studio, paste text, click Generate, then preview/download WAV or MP3. Each long text is segmented and concatenated with short pauses.
 
@@ -42,7 +42,8 @@ Humperdinck runs on macOS, Windows and Linux. Open the **Models** tab to pick th
 |---|---|---|---|
 | Qwen3-TTS (MLX) | Voice design | macOS on Apple Silicon | Fastest on M-series Macs. 4/6/8-bit and bf16 models |
 | Qwen3-TTS (PyTorch) | Voice design, cloning | macOS, Windows, Linux | Uses an NVIDIA GPU (CUDA) when one is present, otherwise the CPU |
-| Chatterbox | Cloning and narration | macOS, Windows, Linux | Default narrator |
+| Kokoro ONNX | Fast preset narration | macOS, Windows, Linux | Preset voices for lightweight CPU narration |
+| Piper | Fast preset narration | macOS, Windows, Linux | Individual CPU voices; license review before redistribution |
 
 Install from the command line:
 
@@ -60,7 +61,7 @@ Installs and downloads need the internet once. After that everything runs offlin
 - Generated speech can contain pronunciation errors and may vary between segments.
 - This release does not implement video timing, YouTube download, or video export.
 - Tested on macOS (Apple Silicon). Windows and Linux are supported but have not yet been tested on real machines.
-- Check Chatterbox model and dependency licenses before redistribution or commercial use.
+- Check the licensing of every model and preset voice before redistribution or commercial use, especially Piper's GPL-3.0 implementation.
 
 See `docs/REQUIREMENTS.md` and `docs/ROADMAP.md` for further plans.
 
@@ -93,7 +94,7 @@ bash install.sh
 bash start.sh
 ```
 
-In Audio Studio, choose **Design a synthetic voice (Qwen MLX)**, describe the voice, enter a short sentence, and select Generate. Preview and download WAV or MP3. First use downloads model weights; MP3 requires FFmpeg. This is **experimental and not hardware-tested**. The configured model is an 8-bit MLX community variant; verify the repository exists and supports `instruct` before relying on it. If unavailable, select a compatible VoiceDesign checkpoint in `backend/qwen_engine.py`. An 8 GB Mac may be unable to load a 1.7B model with sufficient headroom. Start with a short sentence and close other applications. Long-form consistency is not yet guaranteed. Chatterbox remains available for reference-audio cloning.
+In Audio Studio, choose **Design a synthetic voice (Qwen MLX)**, describe the voice, enter a short sentence, and select Generate. Preview and download WAV or MP3. First use downloads model weights; MP3 requires FFmpeg. This is **experimental and not hardware-tested**. The configured model is an 8-bit MLX community variant; verify the repository exists and supports `instruct` before relying on it. If unavailable, select a compatible VoiceDesign checkpoint in `backend/qwen_engine.py`. An 8 GB Mac may be unable to load a 1.7B model with sufficient headroom. Start with a short sentence and close other applications. Long-form consistency is not yet guaranteed. Qwen3-TTS Base is available for reference-audio cloning.
 
 ### Apple Silicon automatic voice engine setup
 
@@ -102,9 +103,9 @@ The main `bash install.sh` installs and verifies `mlx-audio` automatically on Ap
 ## Engine isolation, jobs and tests
 
 - Each speech engine runs in its own short-lived worker process (`backend/worker.py`), using
-  `.venv-qwen` or `.venv-chatterbox` when present and falling back to `.venv`. Model memory is
+  `.venv-qwen` or `.venv-qwen-torch` when present and falling back to `.venv`. Model memory is
   returned to the OS when the worker stops. Override an interpreter with `HUMPERDINCK_QWEN_PYTHON` /
-  `HUMPERDINCK_CHATTERBOX_PYTHON`.
+  `HUMPERDINCK_QWEN_TORCH_PYTHON`.
 - The worker stays running between jobs so the model loads once. Only one engine is kept in
   memory at a time. Settings (environment variables, in seconds):
   `HUMPERDINCK_IDLE_TIMEOUT_S` (default 300) stops an idle worker to free memory;
