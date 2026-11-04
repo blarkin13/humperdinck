@@ -21,9 +21,9 @@
 .theme-thumbnail-modern{background:#f5f7fb}
 .theme-thumbnail-modern .theme-thumbnail-top{background:#336cf0}
 .theme-thumbnail-modern .theme-thumbnail-card{background:#fff;border:1px solid #ccd7e6}
-.theme-thumbnail-ultra{background:#080d1b}
-.theme-thumbnail-ultra .theme-thumbnail-top{background:linear-gradient(90deg,#35e2db,#8182ff)}
-.theme-thumbnail-ultra .theme-thumbnail-card{background:#172342;border:1px solid #35e2db66}
+.theme-thumbnail-ultra{background:#090909}
+.theme-thumbnail-ultra .theme-thumbnail-top{background:#f0f0f0}
+.theme-thumbnail-ultra .theme-thumbnail-card{background:#252525;border:1px solid #666}
 
 /* Modern: light studio workspace; dark text, high contrast blue actions. */
 :root[data-theme="modern"]{
@@ -220,16 +220,16 @@
 
 /* Keep controls legible when colored buttons contain icons or nested labels. */
 :root[data-theme="modern"] .method.active .method-icon{color:#fff}
-:root[data-theme="ultra"] .method.active .method-icon{color:#071522}
+:root[data-theme="ultra"] .method.active .method-icon{color:#111}
 :root[data-theme="modern"] button.active small,:root[data-theme="modern"] .primary small{color:#fff}
-:root[data-theme="ultra"] button.active small,:root[data-theme="ultra"] .primary small{color:#071522}
+:root[data-theme="ultra"] button.active small,:root[data-theme="ultra"] .primary small{color:#111}
 :root[data-theme="modern"] .theme-option{background:transparent;box-shadow:none}
 :root[data-theme="modern"] .theme-option.chosen,:root[data-theme="modern"] .theme-option:hover:not(:disabled){background:#ecf3ff}
 :root[data-theme="ultra"] .theme-option{background:transparent;box-shadow:none}
-:root[data-theme="ultra"] .theme-option.chosen,:root[data-theme="ultra"] .theme-option:hover:not(:disabled){background:#24385d}
+:root[data-theme="ultra"] .theme-option.chosen,:root[data-theme="ultra"] .theme-option:hover:not(:disabled){background:#303030}
 :root[data-theme="modern"] .theme-option-text strong{color:#17243b}
 :root[data-theme="ultra"] .theme-option-text strong{color:#f1f7ff}
 :root[data-theme="modern"] .update-files,:root[data-theme="modern"] .update-panel a{color:#285fd6}
 :root[data-theme="modern"] .card-x{color:#536980}
 :root[data-theme="modern"] .model-row .ok{color:#21856c}
-:root[data-theme="ultra"] .model-row .ok{color:#79dcd0}
+:root[data-theme="ultra"] .model-row .ok{color:#ddd}
