@@ -4,7 +4,7 @@ One-shot mode reads a single JSON request on stdin. With --serve it reads one JS
 request per line and keeps the model loaded between requests until stdin closes.
 Each request produces JSON lines on stdout: {"loaded": true} once the model is ready,
 {"progress": [done, total]} while working, then {"ok": true} or {"error": "..."}.
-Running engines in their own processes keeps Qwen and Chatterbox dependencies apart
+Running engines in their own processes keeps TTS dependencies apart
 and returns all model memory to the OS when the worker exits.
 """
 import json
@@ -53,9 +53,6 @@ def engine_for(name, model):
         elif name == 'piper':
             from backend.piper_engine import PiperEngine
             adapter = PiperEngine(model)
-        elif name == 'chatterbox':
-            from backend.engine import VoiceEngine
-            adapter = VoiceEngine()
         else:
             raise ValueError(f'Unknown engine {name}')
         if hasattr(adapter, 'load'):

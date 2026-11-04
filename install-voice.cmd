@@ -1,5 +1,5 @@
 @echo off
-rem Double-click to install the Chatterbox narration voice engine.
+rem Double-click to install the Qwen custom voice cloning engine.
 cd /d "%~dp0"
 if not exist ".venv\Scripts\python.exe" (
   echo Double-click install.cmd first.

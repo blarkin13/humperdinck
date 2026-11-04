@@ -35,7 +35,7 @@ def test_models_api_lists_engines_and_saves_choice(client):  # noqa: F811
 
 def test_install_rejects_unknown_engine_and_model(client):  # noqa: F811
     assert client.post('/api/models/install', json={'engine': 'nope'}).status_code == 422
-    assert client.post('/api/models/install', json={'engine': 'chatterbox', 'model': 'bad/model'}).status_code == 422
+    assert client.post('/api/models/install', json={'engine': 'qwen-torch', 'model': 'bad/model'}).status_code == 422
 
 
 def test_partial_download_is_not_downloaded(tmp_path, monkeypatch):

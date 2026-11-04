@@ -1,6 +1,6 @@
 """Run speech engines in isolated worker processes.
 
-Each engine may have its own virtual environment (.venv-qwen, .venv-chatterbox),
+Each engine may have its own virtual environment (.venv-qwen, .venv-qwen-torch),
 so their ML dependencies never conflict. Older installs that put everything in
 .venv keep working because the main environment is used as a fallback.
 
