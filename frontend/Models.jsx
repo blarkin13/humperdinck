@@ -16,6 +16,18 @@ export default function Models(){
   const what=model?`download ${model} (about ${size} GB)`:'install this engine (several minutes, a few GB of packages)';
   if(!confirm(`This needs an internet connection and will ${what}. Continue?`))return;
   try{const r=await fetch('/api/models/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine,model})}),j=await r.json();if(!r.ok)throw Error(j.detail);setJob(j)}catch(e){setMsg(e.message)}}
+ async function removeModel(engine,model,shared,selected){
+  const impact=shared?'This removes the shared Kokoro model and disables ALL Kokoro voices.':'This removes only the downloaded weights for this model.';
+  const inUse=selected?' It is currently selected for a job type; that job will not work until you download it again or choose another model.':'';
+  if(!confirm(`Delete downloaded files for ${model}?\n\n${impact}${inUse}\n\nYour saved voices and audio files will not be deleted.`))return;
+  setMsg('');
+  try{
+   const r=await fetch('/api/models/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine,model})});
+   const j=await r.json();if(!r.ok)throw Error(j.detail||'Could not delete model');
+   setMsg(j.message);
+   await load();
+  }catch(e){setMsg(e.message)}
+ }
  if(error)return <section><h2>Models</h2><div className="notice">{error}</div></section>;
  if(!data)return <section><h2>Models</h2><p>Loading...</p></section>;
  const latest=job?.job_id?job:data.recent_install;
@@ -34,7 +46,7 @@ export default function Models(){
      return <div className={'model-row'+(sel?' chosen':'')} key={m.id}>
       <label className="check">{role!=='preset'&&<input type="radio" name={role} checked={sel} disabled={!usable} onChange={()=>choose(role,e.id,m.id)}/>} <span><strong>{m.label}</strong>{m.note&&<small> · {m.note}</small>}<br/><small className="mono">{m.id}</small></span></label>
       <small className="model-meta">{e.id==='kokoro'?'Shared ~0.35 GB voice bundle':e.id==='piper'?'Separate voice download':m.size_gb+' GB download'} · ~{m.memory_gb} GB RAM{m.gpu_memory_gb?` (or ${m.gpu_memory_gb} GB on an NVIDIA GPU)`:''}{m.tight&&<b className="warn"> · may be too large for this computer</b>}</small>
-      {e.supported&&(m.downloaded?<><small className="ok">{repaired(e.id,m.id)?'Files verified · repair complete':'Downloaded'}{sel?' · In use':''}</small>{e.id==='qwen-mlx'&&<button disabled={running} title="Recheck model files, update the MLX engine and download any missing files" onClick={()=>install(e.id,m.id,m.size_gb)}>{repaired(e.id,m.id)?'Repair again':'Repair / update'}</button>}</>:<button disabled={running||!e.installed} title={e.installed?'':'Install the engine first'} onClick={()=>install(e.id,m.id,m.size_gb)}>Download</button>)}
+      {e.supported&&(m.downloaded?<><small className="ok">{repaired(e.id,m.id)?'Files verified · repair complete':'Downloaded'}{sel?' · In use':''}</small>{e.id==='qwen-mlx'&&<button disabled={running} title="Recheck model files, update the MLX engine and download any missing files" onClick={()=>install(e.id,m.id,m.size_gb)}>{repaired(e.id,m.id)?'Repair again':'Repair / update'}</button>}<button className="danger" disabled={running} title={e.id==='kokoro'?'Delete the shared Kokoro model and all Kokoro presets':'Delete only this model’s downloaded weights'} onClick={()=>removeModel(e.id,m.id,e.id==='kokoro',sel)}>Delete model</button></>:<button disabled={running||!e.installed} title={e.installed?'':'Install the engine first'} onClick={()=>install(e.id,m.id,m.size_gb)}>Download</button>)}
      </div>})}
    </div>)}
   </div>)}

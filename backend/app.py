@@ -736,6 +736,35 @@ def run_install(job_id, command):
     finally:
         install_lock.release()
 
+class ModelDelete(BaseModel):
+    engine: str
+    model: str
+
+
+@app.post('/api/models/delete')
+def delete_model(request: ModelDelete):
+    """Remove downloaded weights without uninstalling the engine or touching saved voices."""
+    if request.engine not in catalog.ENGINES or request.model not in catalog.ENGINES[request.engine]['models']:
+        raise HTTPException(422, 'Unknown model')
+    # Keep deletion and model installation mutually exclusive, and do not remove
+    # model files from underneath an active inference job.
+    if not install_lock.acquire(blocking=False):
+        raise HTTPException(409, 'A model installation or deletion is in progress')
+    try:
+        if not engine_lock.acquire(blocking=False):
+            raise HTTPException(409, 'Audio generation is running. Delete the model when it finishes.')
+        try:
+            # The resident worker may hold the model open; unload before deleting.
+            engines.pool.shutdown()
+            removed = catalog.delete_downloaded_model(request.engine, request.model)
+        finally:
+            engine_lock.release()
+    finally:
+        install_lock.release()
+    return {'deleted': removed, 'engine': request.engine, 'model': request.model,
+            'message': 'Downloaded model files deleted.' if removed else 'No local model files found.'}
+
+
 @app.post('/api/models/install')
 def install_model(request: ModelInstall):
     """Install an engine and/or download a model. Needs internet; runs in the background."""
