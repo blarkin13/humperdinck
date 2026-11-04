@@ -227,3 +227,17 @@ def test_microphone_recording_upload(client, tmp_path):
     assert r.json()['filename'] == 'My voice'
     audio, rate = sf.read(tmp_path / 'voices' / f"{r.json()['voice_id']}.wav")
     assert rate == 24000 and audio.ndim == 1 and abs(len(audio) / rate - 3) < 0.1
+
+
+def test_slider_prompt_strength_and_legacy_recipe():
+    from backend.voice_library import build_instruction
+    neutral = {'pitch': 50, 'rasp': 50, 'pace': 50, 'warmth': 50}
+    assert build_instruction('A documentary voice.', neutral) == 'A documentary voice.'
+    mild = build_instruction('A documentary voice.', {**neutral, 'rasp': 72})
+    strong = build_instruction('A documentary voice.', {**neutral, 'rasp': 95})
+    assert 'slightly gravelly' in mild
+    assert 'pronounced gravelly' in strong
+    assert mild != strong
+    assert 'very low speaking pitch' in build_instruction('Voice.', {**neutral, 'pitch': 5})
+    legacy = 'A masculine-presenting adult voice with midrange pitch, slightly textured texture, conversational pace and balanced resonance.'
+    assert build_instruction(legacy, {**neutral, 'rasp': 100}) == legacy

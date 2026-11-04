@@ -259,6 +259,9 @@ def draft_preview(request: DraftPreviewInput):
         raise HTTPException(422, 'Combined voice instruction exceeds 1200 characters')
     result = generate(GenerateRequest(text=request.text, voice_description=instruction,
                                       engine='qwen-design', format='wav'))
+    # Return the actual instruction and selected checkpoint for reproducible comparisons.
+    result['design_instruction'] = instruction
+    result['design_model'] = settings.load()['design']['model']
     jobs[result['job_id']]['draft_preview'] = True
     jobs[result['job_id']]['preview_text'] = request.text
     return result

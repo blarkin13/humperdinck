@@ -28,7 +28,7 @@ ENGINES = {
         'models': {
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-4bit': {'label': '1.7B · 4-bit', 'size_gb': 2.3, 'memory_gb': 2.0, 'roles': ('design',), 'note': 'Smallest; least detail'},
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-6bit': {'label': '1.7B · 6-bit', 'size_gb': 2.7, 'memory_gb': 2.5, 'roles': ('design',)},
-            'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit': {'label': '1.7B · 8-bit', 'size_gb': 3.1, 'memory_gb': 3.0, 'roles': ('design',), 'note': 'Recommended for 8 GB Macs'},
+            'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit': {'label': '1.7B · 8-bit', 'size_gb': 3.1, 'memory_gb': 3.0, 'roles': ('design',), 'note': 'Lower weight memory; 8 GB Macs may still run out of memory'},
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16': {'label': '1.7B · full precision', 'size_gb': 4.5, 'memory_gb': 4.5, 'roles': ('design',), 'note': 'Most detail; needs 16 GB+ to be comfortable'},
         },
     },
@@ -132,7 +132,22 @@ def downloaded(model_id):
     if any((repo / 'blobs').glob('*.incomplete')):
         return False
     weights = ('.safetensors', '.bin', '.pt', '.pth', '.npz', '.gguf')
-    return any(f.name.endswith(weights) for s in snapshots.iterdir() if s.is_dir() for f in s.rglob('*'))
+    for snapshot in snapshots.iterdir():
+        if not snapshot.is_dir():
+            continue
+        # The root checkpoint alone is not sufficient for Qwen3-TTS on MLX.
+        # It requires the separate decoder under speech_tokenizer/ as well.
+        root_weights = any(f.is_file() and f.name.endswith(weights) for f in snapshot.iterdir())
+        if not root_weights:
+            continue
+        if model_id.startswith('mlx-community/Qwen3-TTS-'):
+            speech = snapshot / 'speech_tokenizer'
+            if not (speech / 'config.json').is_file():
+                continue
+            if not any(f.is_file() and f.name.endswith(weights) for f in speech.glob('*')):
+                continue
+        return True
+    return False
 
 
 def total_memory_gb():
