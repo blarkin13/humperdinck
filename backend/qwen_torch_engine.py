@@ -10,6 +10,7 @@ import gc
 import numpy as np
 
 from backend.engine import segments
+from backend.qwen_engine import design_language
 
 
 def local_path(model_id):
@@ -60,7 +61,7 @@ class QwenTorchEngine:
             raise ValueError('No text supplied')
         parts, rate = [], None
         for i, chunk in enumerate(chunks):
-            wavs, rate = model.generate_voice_design(text=chunk, language='Auto', instruct=description)
+            wavs, rate = model.generate_voice_design(text=chunk, language=design_language(description), instruct=description)
             parts.append(wavs[0])
             if on_progress:
                 on_progress(i + 1, len(chunks))

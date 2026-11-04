@@ -40,6 +40,17 @@ def voice_segments(text, limit=600):
     return chunks
 
 
+def design_language(description: str) -> str:
+    """Set English when an explicitly English-language regional accent is requested.
+
+    Qwen's automatic language inference can otherwise compete with the accent
+    instruction. This selects the language, not a guaranteed regional accent.
+    """
+    import re
+    english_accents = r'\b(british|english accent|received pronunciation|scottish|irish|australian|canadian|american|new zealand|south african)\b'
+    return 'english' if re.search(english_accents, description, re.IGNORECASE) else 'auto'
+
+
 class QwenVoiceDesigner:
     def __init__(self, model_id=DEFAULT_MODEL):
         self.model_id = model_id
@@ -78,7 +89,7 @@ class QwenVoiceDesigner:
         sample_rate = None
         try:
             for index, chunk in enumerate(chunks):
-                generated = model.generate(text=chunk, instruct=description)
+                generated = model.generate(text=chunk, instruct=description, lang_code=design_language(description))
                 # MLX-Audio models can return an iterator of generation results.
                 parts = []
                 for result in generated:
