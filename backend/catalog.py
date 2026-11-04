@@ -84,14 +84,7 @@ ENGINES = {
             'Qwen/Qwen3-TTS-12Hz-1.7B-Base': {'label': '1.7B voice clone', 'size_gb': 4.5, 'memory_gb': 7.0, 'gpu_memory_gb': 4.5, 'roles': ('clone',), 'note': 'Keeps accents from designed voices best'},
         },
     },
-    'chatterbox': {
-        'label': 'Chatterbox', 'venv': 'chatterbox', 'roles': ('clone',), 'platforms': ALL,
-        'imports': ('chatterbox.tts',), 'packages': ['chatterbox-tts>=0.1,<1', 'soundfile>=0.12,<1'], 'torch': True,
-        'note': 'English voice cloning from a short clip. Works on every platform.',
-        'models': {
-            'ResembleAI/chatterbox': {'label': 'Chatterbox', 'size_gb': 3.0, 'memory_gb': 2.5, 'gpu_memory_gb': 3.0, 'roles': ('clone',), 'note': 'Default narration model'},
-        },
-    },
+
 }
 
 
@@ -104,7 +97,7 @@ def defaults():
     design = ('qwen-mlx', 'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit') if MAC_ARM else \
              ('qwen-torch', 'Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign')
     return {'design': {'engine': design[0], 'model': design[1]},
-            'clone': {'engine': 'chatterbox', 'model': 'ResembleAI/chatterbox'},
+            'clone': {'engine': 'qwen-torch', 'model': 'Qwen/Qwen3-TTS-12Hz-0.6B-Base'},
             'preset': {'engine': 'kokoro', 'model': 'bm_george'}}
 
 
