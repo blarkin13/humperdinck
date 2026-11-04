@@ -1,17 +1,19 @@
 import React,{useState} from 'react';
+import {useNotifications} from './Notifications.jsx';
 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 
 // "Check updates" button: shows what changed on GitHub and installs only after approval.
 export default function Updates(){
+ const {notify,confirm:askConfirm}=useNotifications();
  const [open,setOpen]=useState(false),[state,setState]=useState('idle'),[info,setInfo]=useState(null),[msg,setMsg]=useState('');
  async function check(){setOpen(true);setState('checking');setMsg('');setInfo(null);
   try{const r=await fetch('/api/updates/check'),j=await r.json();if(!r.ok)throw Error(j.detail);setInfo(j);setState('checked')}catch(e){setMsg(e.message||'Could not check for updates');setState('error')}}
  async function install(){
-  if(!confirm('Install this update? Humperdinck will restart. Your voices, recordings and outputs are kept.'))return;
+  if(!await askConfirm('Install this update? Humperdinck will restart. Your voices, recordings and outputs are kept.',{title:'Install update',confirmLabel:'Install and restart'}))return;
   setState('installing');setMsg('Downloading and verifying...');
   try{const r=await fetch('/api/updates/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({commit_sha:info.commit_sha})}),j=await r.json();if(!r.ok)throw Error(j.detail);
-   setMsg(j.message);if(!j.installing){setState('checked');return}
+   setMsg(j.message);notify(j.message,j.installing?'info':'success');if(!j.installing){setState('checked');return}
    // Wait for the server to go down and come back, then load the new interface.
    let down=false;for(let i=0;i<180;i++){await wait(1000);try{const h=await fetch('/api/health',{cache:'no-store'});if(h.ok&&down){location.reload();return}if(!h.ok)down=true}catch{down=true}}
    setMsg('Humperdinck has not come back yet. Check the terminal window, then reload this page.')}catch(e){setMsg('Update failed: '+e.message);setState('checked')}}
