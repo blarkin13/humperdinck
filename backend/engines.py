@@ -77,8 +77,8 @@ def _call(python, request, timeout=None):
 def explain(error):
     """Turn known library errors into instructions."""
     if 'OfflineModeIsEnabled' in error or 'offline mode' in error.lower() or 'LocalEntryNotFoundError' in error:
-        return ('This model is not fully downloaded, and Humperdinck runs offline. Open the Models tab and click '
-                'Download for the selected model (needs internet once).')
+        return ('A file this model needs is not on this computer, and Humperdinck runs offline. In the Models tab, '
+                f'click Download for the selected model (needs internet once). Details: {error[-300:]}')
     return error
 
 

@@ -12,6 +12,20 @@ import numpy as np
 from backend.engine import segments
 
 
+def local_path(model_id):
+    """The model's folder in the local cache, when it is there.
+
+    Loading by repo name makes transformers ask the Hugging Face API whether the model is
+    a Mistral model (while loading the tokenizer), and that call ignores offline mode.
+    Loading from a folder skips it.
+    """
+    from huggingface_hub import snapshot_download
+    try:
+        return snapshot_download(model_id, local_files_only=True)
+    except Exception:
+        return model_id  # not cached: let from_pretrained download it (online mode)
+
+
 class QwenTorchEngine:
     def __init__(self, model_id):
         self.model_id = model_id
@@ -27,7 +41,7 @@ class QwenTorchEngine:
             else:
                 # bf16 on CPU is slow or unsupported on many machines; MPS support is unreliable.
                 device, dtype = 'cpu', torch.float32
-            self.model = Qwen3TTSModel.from_pretrained(self.model_id, device_map=device, dtype=dtype)
+            self.model = Qwen3TTSModel.from_pretrained(local_path(self.model_id), device_map=device, dtype=dtype)
         return self.model
 
     def _write(self, parts, rate, destination):
