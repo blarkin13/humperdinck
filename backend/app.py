@@ -667,7 +667,8 @@ def list_models():
                        for model_id, info in engine['models'].items()]})
     return {'platform': catalog.platform_name(), 'memory_gb': round(memory, 1) if memory else None,
             'selected': settings.load(), 'engines': engines_out,
-            'installing': next((j for j in [jobs.get(installing.get('job'))] if j and j.get('status') in ('queued','running')), None)}
+            'installing': next((j for j in [jobs.get(installing.get('job'))] if j and j.get('status') in ('queued','running')), None),
+            'recent_install': jobs.get(installing.get('job')) if installing.get('job') else None}
 
 @app.put('/api/models/selection')
 def choose_model(request: ModelChoice):
@@ -693,7 +694,13 @@ def run_install(job_id, command):
         if process.returncode:
             raise RuntimeError(next((l for l in reversed(log) if l.strip()), f'exit code {process.returncode}'))
         engines.forget(job['engine'])
-        job.update(status='complete', progress=100, message='Installed and ready', log=log[-15:])
+        # Check model files before reporting a successful repair.
+        if job.get('model') and not catalog.downloaded(job['model']):
+            raise RuntimeError('Model download is incomplete or speech-tokenizer files are missing. Check the installer log.')
+        job.update(status='complete', progress=100,
+                   message='Repair complete; model files verified. Generate a preview to test decoding.'
+                   if job.get('model') and job['engine'] == 'qwen-mlx'
+                   else 'Installed and ready', log=log[-15:])
     except Exception as exc:
         job.update(status='failed', message=f'Install failed: {exc}', log=log[-15:])
     finally:
