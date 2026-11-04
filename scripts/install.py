@@ -25,4 +25,4 @@ engine = 'qwen-mlx' if sys.platform == 'darwin' and platform.machine() == 'arm64
 print(f'\nInstalling the {engine} voice design engine...')
 subprocess.run([str(python), str(root/'scripts/install_engine.py'), engine], check=True)
 print('Download model weights from the Models tab in the app (needs internet once).')
-print('\nInstallation complete. Run start.sh (or start.ps1 on Windows).')
+print('\nInstallation complete. Run start.sh (or double-click start.cmd on Windows).')
