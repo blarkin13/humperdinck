@@ -1,4 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
+import {useNotifications} from './Notifications.jsx';
 
 const blank={fade_in:0,fade_out:0,gain_db:0,speed:1,normalize:false,denoise:false,highpass:false,compress:false,trim_silence:false};
 const fmt=t=>t.toFixed(2)+'s';
@@ -6,6 +7,7 @@ const fmt=t=>t.toFixed(2)+'s';
 // Waveform editor: drag across the waveform to select, preview, then render a new file on the server.
 // `source` is "output:<id>", "upload:<id>" or "sample:<id>"; edits never overwrite unless "Replace" is chosen.
 export default function AudioEditor({src,source,onSaved,allowReplace,saveLabel='Save as new file'}){
+ const {notify,confirm:askConfirm}=useNotifications();
  const canvas=useRef(null),ctx=useRef(null),player=useRef(null),drag=useRef(null);
  const [buffer,setBuffer]=useState(null),[sel,setSel]=useState(null),[opts,setOpts]=useState(blank),[busy,setBusy]=useState(false),[msg,setMsg]=useState(''),[head,setHead]=useState(0);
  useEffect(()=>{let live=true;setBuffer(null);setSel(null);
@@ -26,7 +28,7 @@ export default function AudioEditor({src,source,onSaved,allowReplace,saveLabel='
  const set=(k,v)=>setOpts(o=>({...o,[k]:v}));
  async function save(mode){setBusy(true);setMsg('Rendering...');
   try{const body={...opts,source,save_as:mode,start:sel?sel[0]:0,end:sel?sel[1]:null};const r=await fetch('/api/audio/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw Error(typeof j.detail==='string'?j.detail:JSON.stringify(j.detail));
-   setMsg(mode==='replace'?'Recording replaced.':'Saved.');setOpts(blank);setSel(null);onSaved&&onSaved(j)}catch(e){setMsg('Edit failed: '+e.message)}finally{setBusy(false)}}
+   setMsg(mode==='replace'?'Recording replaced.':'Saved.');notify(mode==='replace'?'Recording replaced.':'Audio saved.','success');setOpts(blank);setSel(null);onSaved&&onSaved(j)}catch(e){setMsg('Edit failed: '+e.message);notify('Edit failed: '+e.message,'error')}finally{setBusy(false)}}
  const toggles=[['trim_silence','Trim silence'],['highpass','Remove rumble'],['denoise','Reduce noise'],['compress','Even out levels'],['normalize','Normalize loudness']];
  return <div className="editor">
   <div className="editor-head"><strong>Audio editor</strong><small>{buffer?(sel?`Selection ${fmt(sel[0])} – ${fmt(sel[1])} (${fmt(sel[1]-sel[0])})`:`Length ${fmt(buffer.duration)} · drag on the waveform to select a range`):'Loading waveform...'}</small></div>
@@ -40,7 +42,7 @@ export default function AudioEditor({src,source,onSaved,allowReplace,saveLabel='
   </div>
   <div className="chips">{toggles.map(([k,l])=><label key={k} className="check"><input type="checkbox" checked={opts[k]} onChange={e=>set(k,e.target.checked)}/> {l}</label>)}</div>
   <p className="hint">{sel?'Only the selected range is kept. ':''}Edits create a new file; the original is kept unless you replace it.</p>
-  <div className="actions tight"><button className="primary" disabled={busy||!buffer} onClick={()=>save('new')}>{saveLabel}</button>{allowReplace&&<button disabled={busy||!buffer} onClick={()=>confirm('Replace the original recording? This cannot be undone.')&&save('replace')}>Replace original</button>}<button disabled={busy} onClick={()=>{setOpts(blank);setSel(null)}}>Reset</button></div>
+  <div className="actions tight"><button className="primary" disabled={busy||!buffer} onClick={()=>save('new')}>{saveLabel}</button>{allowReplace&&<button disabled={busy||!buffer} onClick={async()=>{if(await askConfirm('Replace the original recording? This cannot be undone.',{title:'Replace recording',confirmLabel:'Replace original',danger:true}))save('replace')}}>Replace original</button>}<button disabled={busy} onClick={()=>{setOpts(blank);setSel(null)}}>Reset</button></div>
   {msg&&<small>{msg}</small>}
  </div>;
 }

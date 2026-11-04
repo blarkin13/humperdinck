@@ -1,0 +1,23 @@
+/* Both Vintage and monochrome Modern inherit their accent, surface and text colors. */
+.toast-stack{position:fixed;top:22px;right:22px;z-index:1100;width:min(390px,calc(100vw - 32px));display:grid;gap:10px;pointer-events:none}
+.theme-toast{pointer-events:auto;display:flex;align-items:flex-start;gap:11px;padding:13px 14px;background:var(--midnight);color:var(--ivory);border:1px solid var(--line);border-left:3px solid var(--brass);border-radius:9px;box-shadow:0 15px 42px #0009;line-height:1.45;animation:toast-in .18s ease-out}
+.theme-toast>i{margin-top:3px;color:var(--brass-hi)}
+.theme-toast span{flex:1;overflow-wrap:anywhere;font-size:13px}
+.theme-toast button{border:0;background:transparent!important;color:var(--muted);padding:0 2px;box-shadow:none!important;line-height:1.4}
+.theme-toast.toast-error{border-left-color:var(--burgundy)}
+.theme-toast.toast-error>i{color:var(--burgundy)}
+.theme-toast.toast-success{border-left-color:var(--brass)}
+.theme-dialog-overlay{position:fixed;inset:0;z-index:1200;background:#000a;display:grid;place-items:center;padding:20px;backdrop-filter:blur(3px)}
+.theme-dialog{width:min(440px,100%);padding:26px;background:var(--midnight);border:1px solid var(--line);border-radius:13px;box-shadow:0 30px 90px #000c;color:var(--ivory)}
+.theme-dialog h3{margin:0 0 12px;color:var(--ivory)}
+.theme-dialog p{margin:0 0 19px;white-space:pre-line;color:var(--muted);font-size:14px}
+.theme-dialog input{width:100%;margin-bottom:18px}
+.theme-dialog-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.theme-dialog-actions button{min-width:95px}
+:root[data-theme="modern"] .theme-toast,:root[data-theme="modern"] .theme-dialog{background:#191919;border-color:#444}
+:root[data-theme="modern"] .theme-toast.toast-error{border-left-color:#b9b9b9}
+:root[data-theme="modern"] .theme-toast.toast-error>i{color:#eee}
+:root[data-theme="modern"] .theme-dialog-actions button.danger{background:#343434;color:#fff;border-color:#8b8b8b}
+@keyframes toast-in{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+@media(max-width:600px){.toast-stack{top:12px;right:12px}.theme-dialog{padding:20px}}
+@media(prefers-reduced-motion:reduce){.theme-toast{animation:none}}

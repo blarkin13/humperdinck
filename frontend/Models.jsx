@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react';
+import {useNotifications} from './Notifications.jsx';
 
 const roles=[['preset','Fast preset narration','Fast, CPU-friendly built-in voices in multiple languages, ready to use throughout Humperdinck. These are preset voices, not clones of uploaded recordings.'],
  ['design','Voice design','Turns a written description or the sliders into preview voices in Voice Creator.'],
@@ -6,25 +7,26 @@ const roles=[['preset','Fast preset narration','Fast, CPU-friendly built-in voic
 
 // Choose which model handles each job, and install engines or download models that are missing.
 export default function Models(){
+ const {notify,confirm:askConfirm}=useNotifications();
  const [data,setData]=useState(null),[error,setError]=useState(''),[job,setJob]=useState(null),[msg,setMsg]=useState(''),[expanded,setExpanded]=useState({});
  async function load(){try{const r=await fetch('/api/models'),j=await r.json();if(!r.ok)throw Error(j.detail);setData(j);if(j.installing)setJob(j.installing)}catch(e){setError(e.message)}}
  useEffect(()=>{load()},[]);
  useEffect(()=>{if(!job||!['queued','running'].includes(job.status))return;
   const t=setInterval(async()=>{try{const j=await (await fetch('/api/jobs/'+job.job_id)).json();setJob(j);if(!['queued','running'].includes(j.status))load()}catch{}},1500);return()=>clearInterval(t)},[job?.job_id,job?.status]);
- async function choose(role,engine,model){setMsg('');try{const r=await fetch('/api/models/selection',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,engine,model})}),j=await r.json();if(!r.ok)throw Error(j.detail);setData(d=>({...d,selected:j}));setMsg('Saved. New jobs will use this model.')}catch(e){setMsg(e.message)}}
+ async function choose(role,engine,model){setMsg('');try{const r=await fetch('/api/models/selection',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,engine,model})}),j=await r.json();if(!r.ok)throw Error(j.detail);setData(d=>({...d,selected:j}));notify('Model selection saved. New jobs will use this model.','success')}catch(e){setMsg(e.message);notify(e.message,'error')}}
  async function install(engine,model,size){
   const what=model?`download ${model} (about ${size} GB)`:'install this engine (several minutes, a few GB of packages)';
-  if(!confirm(`This needs an internet connection and will ${what}. Continue?`))return;
-  try{const r=await fetch('/api/models/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine,model})}),j=await r.json();if(!r.ok)throw Error(j.detail);setJob(j)}catch(e){setMsg(e.message)}}
+  if(!await askConfirm(`This needs an internet connection and will ${what}. Continue?`,{title:'Install AI model',confirmLabel:'Install'}))return;
+  try{const r=await fetch('/api/models/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine,model})}),j=await r.json();if(!r.ok)throw Error(j.detail);setJob(j);notify('Model installation started.','info')}catch(e){setMsg(e.message);notify(e.message,'error')}}
  async function removeModel(engine,model,shared,selected){
   const impact=shared?'This removes the shared Kokoro model and disables ALL Kokoro voices.':'This removes only the downloaded weights for this model.';
   const inUse=selected?' It is currently selected for a job type; that job will not work until you download it again or choose another model.':'';
-  if(!confirm(`Delete downloaded files for ${model}?\n\n${impact}${inUse}\n\nYour saved voices and audio files will not be deleted.`))return;
+  if(!await askConfirm(`Delete downloaded files for ${model}?\n\n${impact}${inUse}\n\nYour saved voices and audio files will not be deleted.`,{title:'Delete downloaded model',confirmLabel:'Delete model',danger:true}))return;
   setMsg('');
   try{
    const r=await fetch('/api/models/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine,model})});
    const j=await r.json();if(!r.ok)throw Error(j.detail||'Could not delete model');
-   setMsg(j.message);
+   notify(j.message,'success');
    await load();
   }catch(e){setMsg(e.message)}
  }

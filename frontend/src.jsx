@@ -14,6 +14,7 @@ import Updates from './Updates.jsx';
 import Recorder from './Recorder.jsx';
 import Models from './Models.jsx';
 import ThemePicker from './ThemePicker.jsx';
+import {NotificationProvider,useNotifications} from './Notifications.jsx';
 // An audio player that says so (with a download link) when the browser cannot play the clip.
 function Player({src}){const [failed,setFailed]=useState(false);
  return failed?<p className="notice"><i className="fa-solid fa-triangle-exclamation"/> This browser could not play the clip. <a href={src} download>Download it</a> to listen.</p>
@@ -52,10 +53,17 @@ const starter='Good evening. I have been waiting a long time to tell you this st
 async function api(path,options){const r=await fetch('/api/'+path,options);let j;try{j=await r.json()}catch{throw Error('Humperdinck\'s backend is not responding. Check the start.cmd / start.sh window for an error, then restart it.')}if(!r.ok)throw Error(typeof j.detail==='string'?j.detail:JSON.stringify(j.detail||j));return j}
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function App(){
+ const {notify,confirm:askConfirm,input:askInput}=useNotifications();
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
  const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:''}]),[format,setFormat]=useState('mp3'),[narrationJob,setNarrationJob]=useState(null),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[accent,setAccent]=useState(''),[style,setStyle]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
+ useEffect(()=>{
+  if(!status)return;
+  const failed=/\b(error|failed|could not|not responding|unable|invalid|missing)\b/i.test(status);
+  const succeeded=/\b(saved|approved|deleted|imported|uploaded|restored|ready|complete)\b/i.test(status);
+  notify(status,failed?'error':succeeded?'success':'info');
+ },[status,notify]);
  async function refresh(){try{const [d,u,p]=await Promise.all([api('designed-voices'),api('voices'),api('preset-voices')]);setDesigned(d);setUploads(u);setPresets(p)}catch(e){setStatus(e.message)}}
  useEffect(()=>{refresh()},[]);
  // Read new preset downloads when returning from Models to Narration Studio.
@@ -106,15 +114,15 @@ function App(){
  }
  function nextName(n){const m=n.match(/^(.*?)(\d+)$/);return m?m[1]+(+m[2]+1):n+' 2'}
  async function saveCandidateAsNew(c){
-  const voiceName=window.prompt('Name for the new voice',name);if(!voiceName)return;
+  const voiceName=await askInput('Name for the new voice',name);if(!voiceName)return;
   try{const d=await api('designed-voices',json('POST',{name:voiceName.trim(),category,description:voicePrompt(),characteristics:designTraits(),method:method==='controls'?'sliders':'prompt'}));
    await api(`designed-voices/${d.id}/versions/1/attach-preview`,json('POST',{job_id:c.job_id,approve:true}));
    setSavedJobs(old=>[...old,c.job_id]);await refresh();setStatus(`Saved "${voiceName}" as a new voice.`)}catch(e){setStatus('Save failed: '+e.message)}}
  async function deleteVersion(version){
-  if(!confirm(`Delete version ${version} and its samples?`))return;
+  if(!await askConfirm(`Delete version ${version} and its samples?`,{title:'Delete voice version',confirmLabel:'Delete version',danger:true}))return;
   try{await api(`designed-voices/${selected}/versions/${version}`,{method:'DELETE'});await refresh();await openVoice(selected);setStatus(`Version ${version} deleted.`)}catch(e){setStatus(e.message)}}
- async function deleteDesigned(id,voiceName){if(!confirm(`Delete "${voiceName}" and all its versions?`))return;try{await api('designed-voices/'+id,{method:'DELETE'});if(selected===id)newVoice();await refresh()}catch(e){setStatus(e.message)}}
- async function deleteUpload(id,voiceName){if(!confirm(`Delete uploaded voice "${voiceName}"?`))return;try{await api('voices/'+id,{method:'DELETE'});if(uploadSel===id)newVoice();setBlocks(old=>old.map(b=>b.voice_key==='upload:'+id?{...b,voice_key:''}:b));await refresh()}catch(e){setStatus(e.message)}}
+ async function deleteDesigned(id,voiceName){if(!await askConfirm(`Delete "${voiceName}" and all its versions?`,{title:'Delete voice',confirmLabel:'Delete voice',danger:true}))return;try{await api('designed-voices/'+id,{method:'DELETE'});if(selected===id)newVoice();await refresh()}catch(e){setStatus(e.message)}}
+ async function deleteUpload(id,voiceName){if(!await askConfirm(`Delete uploaded voice "${voiceName}"?`,{title:'Delete recording',confirmLabel:'Delete recording',danger:true}))return;try{await api('voices/'+id,{method:'DELETE'});if(uploadSel===id)newVoice();setBlocks(old=>old.map(b=>b.voice_key==='upload:'+id?{...b,voice_key:''}:b));await refresh()}catch(e){setStatus(e.message)}}
  async function updateUpload(id,changes){try{await api('voices/'+id,json('PATCH',changes));await refresh()}catch(e){setStatus(e.message)}}
  function openUpload(id){newVoice();setUploadSel(id);setMethod('upload');setTab('creator')}
  async function restoreVersion(version){
@@ -122,7 +130,7 @@ function App(){
   catch(e){setStatus(e.message)}
  }
 
- async function deleteVoice(){if(!selected||!confirm('Delete this voice?'))return;try{await api('designed-voices/'+selected,{method:'DELETE'});newVoice();await refresh()}catch(e){setStatus(e.message)}}
+ async function deleteVoice(){if(!selected||!await askConfirm('Delete this voice?',{title:'Delete voice',confirmLabel:'Delete voice',danger:true}))return;try{await api('designed-voices/'+selected,{method:'DELETE'});newVoice();await refresh()}catch(e){setStatus(e.message)}}
  async function approveExisting(sample,version){try{await api(`designed-voices/${selected}/versions/${version}/approve/${sample}`,{method:'POST'});await openVoice(selected);setStatus('Reference approved.')}catch(e){setStatus(e.message)}}
  const duplicatedPresetNames=new Set(presets.map(v=>v.name).filter((name,i,all)=>all.indexOf(name)!==i));
   const voiceOptions=[...presets.map(v=>({value:v.key,label:v.name+(duplicatedPresetNames.has(v.name)?' · '+v.accent.split(' · ')[0]:'')})),...designed.filter(v=>v.narration_sample_id).map(v=>({value:'design:'+v.id,label:v.name})),...uploads.map(v=>({value:'upload:'+v.voice_id,label:v.filename}))];
@@ -147,7 +155,7 @@ function App(){
   {tab==='creator'&&<section><div className="heading"><div><h2>Voice Creator</h2><p>{selected?'Edit, preview and approve a new version of your saved voice.':uploadSel?'Manage or refine this voice recording.':'Design, describe, record or upload a voice, then preview and save it to your library.'}</p></div><button onClick={()=>setTab('voices')}><i className="fa-solid fa-arrow-left"/> Back to Voice Library</button></div>
   <datalist id="categories">{[...new Set([...designed,...uploads].map(v=>v.category).filter(Boolean))].map(c=><option key={c} value={c}/>)}</datalist>
  <h3>{selected?'Edit designed voice':uploadSel?'Edit recorded voice':'Create a voice'}</h3><div className="method-grid">{[['upload','Upload Audio','Clone from a recording','fa-file-audio'],['record','Record with Mic','Record your own voice','fa-microphone'],['controls','Design with Sliders','Choose vocal characteristics','fa-sliders'],['prompt','Describe a Voice','Write what you want to hear','fa-feather-pointed']].map(([id,title,subtitle,icon])=><button className={'method '+(method===id?'active':'')} key={id} onClick={()=>{setMethod(id);setCandidates([]);setChosen('')}}><i className={'fa-solid method-icon '+icon}/><strong>{title}</strong><small>{subtitle}</small></button>)}</div>
- {method==='record'?<div className="panel"><h3>Record with your microphone</h3><Recorder onSave={async f=>{const r=await upload(f,'voices');if(r){openUpload(r.voice_id);setStatus('Recording saved and ready for narration. Trim or clean it up below if needed.')}}}/></div>:method==='upload'?<div className="panel"><h3>Upload a voice reference</h3><DropZone accept=".wav,.mp3,.flac,.m4a" onFile={f=>upload(f,'voices')} title="Drop a voice recording" hint="A clear recording you own or have permission to clone. WAV, MP3, FLAC or M4A, up to 30 MB. 10–30 seconds of clean speech works best."/>
+ {method==='record'?<div className="panel"><h3>Record with your microphone</h3><Recorder onSave={async f=>{const r=await upload(f,'voices');if(r){openUpload(r.voice_id);setStatus('Recording saved and ready for narration. Trim or clean it up below if needed.')}}}/></div>:method==='upload'?<div className="panel"><h3>Upload a voice reference</h3><DropZone accept=".wav,.mp3,.flac,.m4a,.ogg" onFile={f=>upload(f,'voices')} title="Drop a voice recording" hint="A clear recording you own or have permission to clone. WAV, MP3, FLAC, M4A or OGG, up to 30 MB. 10–30 seconds of clean speech works best."/>
   {(()=>{const u=uploads.find(v=>v.voice_id===uploadSel);if(!u)return null;return <div className="saved"><h3>{u.filename}</h3><div className="field-row"><div className="field"><label>Name</label><input defaultValue={u.filename} key={'n'+u.voice_id} onBlur={e=>e.target.value.trim()&&e.target.value!==u.filename&&updateUpload(u.voice_id,{name:e.target.value.trim()})}/></div><div className="field"><label>Category</label><input list="categories" defaultValue={u.category} key={'c'+u.voice_id} placeholder="e.g. Narrators" onBlur={e=>e.target.value!==u.category&&updateUpload(u.voice_id,{category:e.target.value})}/></div></div>
    <p className="hint">Trim to the cleanest speech and remove noise for a better clone.</p><AudioEditor src={'/api/voices/'+u.voice_id+'/audio'} source={'upload:'+u.voice_id} allowReplace saveLabel="Save as new voice" onSaved={async j=>{await refresh();if(j.voice_id!==u.voice_id)setUploadSel(j.voice_id);setStatus('Edited voice saved.')}}/></div>})()}</div>:<div className="panel"><div className="field-row"><div className="field"><label>Voice name</label><input value={name} onChange={e=>setName(e.target.value)}/></div><div className="field"><label>Category</label><input list="categories" value={category} onChange={e=>setCategory(e.target.value)} placeholder="e.g. Narrators, Villains"/></div></div>{method==='controls'&&<><label>Voice presentation</label><div className="toggle">{[['masculine','Male'],['feminine','Female']].map(([id,label])=><button key={id} className={gender===id?'active':''} onClick={()=>setGender(id)}>{label}</button>)}</div><div className="field-row"><div className="field"><label>Accent</label><select value={accent} onChange={e=>setAccent(e.target.value)}>{accents.map(a=><option key={a} value={a}>{a||'No preference'}</option>)}</select></div><div className="field"><label>Style</label><select value={style} onChange={e=>setStyle(e.target.value)}>{styles.map(a=><option key={a} value={a}>{a||'No preference'}</option>)}</select></div></div>
   <div className="slider-grid">{Object.keys(defaults).map(k=><div key={k}><label>{traitLabels[k][0]} <span>{settings[k]}</span></label><input type="range" min="0" max="100" value={settings[k]} onChange={e=>setSettings({...settings,[k]:+e.target.value})}/><div className="range-ends"><small>{traitLabels[k][1]}</small><small>{traitLabels[k][2]}</small></div></div>)}</div><div className="actions tight"><button onClick={()=>setSettings({...defaults})}>Reset sliders</button><button onClick={()=>setSettings(Object.fromEntries(Object.keys(defaults).map(k=>[k,Math.round(15+Math.random()*70)])))}>Randomize</button></div><p className="hint">Sliders are used only in Design with Sliders. Describe a Voice sends just your written prompt. Accents are not guaranteed; a real accent reference used with cloning is more reliable.</p></>}
@@ -164,6 +172,6 @@ function App(){
   <AudioEditor src={narrationJob.download_url.replace(/\.mp3$/,'.wav')} source={'output:'+narrationJob.job_id} saveLabel="Apply edits" onSaved={j=>{setNarrationJob({...j,job_id:j.download_url.split('/').pop().split('.')[0]});setStatus('Edited narration ready. Video Studio will use this version.')}}/></>}</div>}</section>}
  {tab==='video'&&<section><h2>Video Studio</h2><p>Upload a video, place your narration at a timestamp, and export an MP4.</p><div className="panel"><DropZone accept=".mp4,.mov,.mkv,.webm" onFile={f=>upload(f,'videos')} title="Drop a video" hint="MP4, MOV, MKV or WEBM"/>{video&&<><p>{video.filename}</p><video className="video-preview" controls src={'/api/videos/'+video.video_id}/></>}</div><div className="panel"><h3>Narration track</h3>{narrationJob?.status==='complete'?<><audio controls src={narrationJob.download_url}/><label>Start narration at (seconds)</label><input type="number" min="0" step="0.1" value={offset} onChange={e=>setOffset(e.target.value)}/><label className="check"><input type="checkbox" checked={mix} onChange={e=>setMix(e.target.checked)}/> Mix with original video audio</label><button className="primary" disabled={!video||busy(videoJob)} onClick={renderVideo}>Render Video</button></>:<div className="notice">Generate your narration in Narration Studio first. <button onClick={()=>setTab('narration')}>Open Narration Studio</button></div>}{videoJob&&<div className="job"><p>{videoJob.message}</p><progress max="100" value={videoJob.progress}/>{videoJob.status==='complete'&&<><video className="video-preview" controls src={videoJob.download_url}/><a className="download" href={videoJob.download_url} download>Download MP4</a></>}</div>}</div><p className="hint">Current video support: one combined narration track with a start offset. Multi-track drag-and-drop editing and automatic synchronization are future work.</p></section>}
  {tab==='models'&&<Models/>}
- <footer role="status">{status}</footer></main>
+ </main>
 }
-createRoot(document.getElementById('root')).render(<App/>);
+createRoot(document.getElementById('root')).render(<NotificationProvider><App/></NotificationProvider>);
