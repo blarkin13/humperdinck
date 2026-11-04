@@ -670,7 +670,172 @@ def install_update(request: UpdateInstallRequest):
 
 
 class ModelChoice(BaseModel):
-    role: str = Field(pattern=r'^(design|clone|preset)
+    role: str = Field(pattern=r'^(design|clone|preset)    engine: str
+    model: str
+
+class ModelInstall(BaseModel):
+    engine: str
+    model: str | None = None
+
+install_lock = Lock()
+
+@app.get('/api/models')
+def list_models():
+    """Every engine and model, whether it runs here, and what is installed and selected."""
+    memory = catalog.total_memory_gb()
+    engines_out = []
+    for engine_id, engine in catalog.ENGINES.items():
+        supported = catalog.supported(engine_id)
+        engines_out.append({
+            'id': engine_id, 'label': engine['label'], 'roles': engine['roles'], 'note': engine['note'],
+            'supported': supported, 'installed': supported and engines.installed(engine_id),
+            'platforms': [{'darwin': 'macOS', 'win32': 'Windows', 'linux': 'Linux'}[p] for p in engine['platforms']],
+            'requires_apple_silicon': bool(engine.get('requires_apple_silicon')),
+            'models': [{'id': model_id, **info, 'downloaded': catalog.downloaded(model_id),
+                        'tight': bool(memory and info['memory_gb'] > memory * 0.6)}
+                       for model_id, info in engine['models'].items()]})
+    return {'platform': catalog.platform_name(), 'memory_gb': round(memory, 1) if memory else None,
+            'selected': settings.load(), 'engines': engines_out,
+            'installing': next((j for j in [jobs.get(installing.get('job'))] if j and j.get('status') in ('queued','running')), None),
+            'recent_install': jobs.get(installing.get('job')) if installing.get('job') else None}
+
+@app.put('/api/models/selection')
+def choose_model(request: ModelChoice):
+    try:
+        return settings.save(request.role, request.engine, request.model)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+installing = {}
+
+def run_install(job_id, command):
+    job = jobs[job_id]
+    log = []
+    try:
+        job.update(status='running', message='Starting installer')
+        process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in process.stdout:
+            line = line.rstrip()
+            log.append(line); del log[:-40]
+            if line.startswith('STEP '):
+                job.update(message=line[5:])
+        process.wait()
+        if process.returncode:
+            raise RuntimeError(next((l for l in reversed(log) if l.strip()), f'exit code {process.returncode}'))
+        engines.forget(job['engine'])
+        # Check model files before reporting a successful repair.
+        if job.get('model') and not catalog.downloaded(job['model']):
+            raise RuntimeError('Model download is incomplete or speech-tokenizer files are missing. Check the installer log.')
+        job.update(status='complete', progress=100,
+                   message='Repair complete; model files verified. Generate a preview to test decoding.'
+                   if job.get('model') and job['engine'] == 'qwen-mlx'
+                   else 'Installed and ready', log=log[-15:])
+    except Exception as exc:
+        job.update(status='failed', message=f'Install failed: {exc}', log=log[-15:])
+    finally:
+        install_lock.release()
+
+@app.post('/api/models/install')
+def install_model(request: ModelInstall):
+    """Install an engine and/or download a model. Needs internet; runs in the background."""
+    if request.engine not in catalog.ENGINES or not catalog.supported(request.engine):
+        raise HTTPException(422, 'That engine is not available on this computer')
+    if request.model and request.model not in catalog.ENGINES[request.engine]['models']:
+        raise HTTPException(422, 'Unknown model for this engine')
+    if not install_lock.acquire(blocking=False):
+        raise HTTPException(409, 'Another installation is already running')
+    command = [sys.executable, str(ROOT/'scripts'/'install_engine.py'), request.engine]
+    if request.model:
+        command += ['--model', request.model]
+    job_id = uuid4().hex
+    jobs[job_id] = {'status':'queued','progress':0,'message':'Waiting to install','engine':request.engine,'model':request.model}
+    installing['job'] = job_id
+    Thread(target=run_install, args=(job_id, command), daemon=True).start()
+    return jobs[job_id]
+)
+    engine: str
+    model: str
+
+class ModelInstall(BaseModel):
+    engine: str
+    model: str | None = None
+
+install_lock = Lock()
+
+@app.get('/api/models')
+def list_models():
+    """Every engine and model, whether it runs here, and what is installed and selected."""
+    memory = catalog.total_memory_gb()
+    engines_out = []
+    for engine_id, engine in catalog.ENGINES.items():
+        supported = catalog.supported(engine_id)
+        engines_out.append({
+            'id': engine_id, 'label': engine['label'], 'roles': engine['roles'], 'note': engine['note'],
+            'supported': supported, 'installed': supported and engines.installed(engine_id),
+            'platforms': [{'darwin': 'macOS', 'win32': 'Windows', 'linux': 'Linux'}[p] for p in engine['platforms']],
+            'requires_apple_silicon': bool(engine.get('requires_apple_silicon')),
+            'models': [{'id': model_id, **info, 'downloaded': catalog.downloaded(model_id),
+                        'tight': bool(memory and info['memory_gb'] > memory * 0.6)}
+                       for model_id, info in engine['models'].items()]})
+    return {'platform': catalog.platform_name(), 'memory_gb': round(memory, 1) if memory else None,
+            'selected': settings.load(), 'engines': engines_out,
+            'installing': next((j for j in [jobs.get(installing.get('job'))] if j and j.get('status') in ('queued','running')), None),
+            'recent_install': jobs.get(installing.get('job')) if installing.get('job') else None}
+
+@app.put('/api/models/selection')
+def choose_model(request: ModelChoice):
+    try:
+        return settings.save(request.role, request.engine, request.model)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+installing = {}
+
+def run_install(job_id, command):
+    job = jobs[job_id]
+    log = []
+    try:
+        job.update(status='running', message='Starting installer')
+        process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in process.stdout:
+            line = line.rstrip()
+            log.append(line); del log[:-40]
+            if line.startswith('STEP '):
+                job.update(message=line[5:])
+        process.wait()
+        if process.returncode:
+            raise RuntimeError(next((l for l in reversed(log) if l.strip()), f'exit code {process.returncode}'))
+        engines.forget(job['engine'])
+        # Check model files before reporting a successful repair.
+        if job.get('model') and not catalog.downloaded(job['model']):
+            raise RuntimeError('Model download is incomplete or speech-tokenizer files are missing. Check the installer log.')
+        job.update(status='complete', progress=100,
+                   message='Repair complete; model files verified. Generate a preview to test decoding.'
+                   if job.get('model') and job['engine'] == 'qwen-mlx'
+                   else 'Installed and ready', log=log[-15:])
+    except Exception as exc:
+        job.update(status='failed', message=f'Install failed: {exc}', log=log[-15:])
+    finally:
+        install_lock.release()
+
+@app.post('/api/models/install')
+def install_model(request: ModelInstall):
+    """Install an engine and/or download a model. Needs internet; runs in the background."""
+    if request.engine not in catalog.ENGINES or not catalog.supported(request.engine):
+        raise HTTPException(422, 'That engine is not available on this computer')
+    if request.model and request.model not in catalog.ENGINES[request.engine]['models']:
+        raise HTTPException(422, 'Unknown model for this engine')
+    if not install_lock.acquire(blocking=False):
+        raise HTTPException(409, 'Another installation is already running')
+    command = [sys.executable, str(ROOT/'scripts'/'install_engine.py'), request.engine]
+    if request.model:
+        command += ['--model', request.model]
+    job_id = uuid4().hex
+    jobs[job_id] = {'status':'queued','progress':0,'message':'Waiting to install','engine':request.engine,'model':request.model}
+    installing['job'] = job_id
+    Thread(target=run_install, args=(job_id, command), daemon=True).start()
+    return jobs[job_id]
+)
     engine: str
     model: str
 
