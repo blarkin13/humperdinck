@@ -28,7 +28,7 @@ ENGINES = {
         'models': {
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-4bit': {'label': '1.7B · 4-bit', 'size_gb': 2.3, 'memory_gb': 2.0, 'roles': ('design',), 'note': 'Smallest; least detail'},
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-6bit': {'label': '1.7B · 6-bit', 'size_gb': 2.7, 'memory_gb': 2.5, 'roles': ('design',)},
-            'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit': {'label': '1.7B · 8-bit', 'size_gb': 3.1, 'memory_gb': 3.0, 'roles': ('design',), 'note': 'Recommended for 8 GB Macs'},
+            'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit': {'label': '1.7B · 8-bit', 'size_gb': 3.1, 'memory_gb': 3.0, 'roles': ('design',), 'note': 'Lower weight memory; 8 GB Macs may still run out of memory'},
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16': {'label': '1.7B · full precision', 'size_gb': 4.5, 'memory_gb': 4.5, 'roles': ('design',), 'note': 'Most detail; needs 16 GB+ to be comfortable'},
         },
     },
