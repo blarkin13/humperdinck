@@ -30,6 +30,8 @@ jobs:
           test -s website/studio/index.html
           test -s frontend/KokoroWorker.js
           test -s website/studio/wasm/ort-wasm-simd-threaded.jsep.wasm
+          grep -q 'env.backends.onnx.wasm.wasmPaths' frontend/KokoroWorker.js
+          ! grep -q 'env.wasmPaths=' frontend/KokoroWorker.js
           test -s website/THIRD_PARTY_NOTICES.txt
           ! grep -q 'hangry-labs' frontend/src.jsx
           ! grep -q 'kokorotts-' website/index.html
