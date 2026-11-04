@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 
-const roles=[['preset','Fast preset narration','CPU-friendly fixed voices for Narration Studio. British and American voices are available; these do not clone uploaded voices.'],
+const roles=[['preset','Fast preset narration','Fast, CPU-friendly built-in voices in multiple languages, ready to use throughout Humperdinck. These are preset voices, not clones of uploaded recordings.'],
  ['design','Voice design','Turns a written description or the sliders into preview voices in Voice Creator.'],
  ['clone','Custom voice cloning','Recreates an approved designed voice or uploaded recording in Narration Studio. This can be much slower than preset narration.']];
 
