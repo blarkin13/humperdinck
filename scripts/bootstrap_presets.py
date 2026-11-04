@@ -19,7 +19,7 @@ def bootstrap():
         return
     data = Path(os.environ.get('HUMPERDINCK_DATA') or ROOT / 'data')
     data.mkdir(parents=True, exist_ok=True)
-    marker = data / '.preset-voices-installed-v1'
+    marker = data / '.preset-voices-installed-v2'
     if marker.is_file():
         return
     print('[Humperdinck] Installing built-in Kokoro and Piper voices (first setup only)...', flush=True)

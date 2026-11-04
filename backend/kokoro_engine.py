@@ -26,9 +26,31 @@ class KokoroEngine:
             raise ValueError('No narration text')
         model = self.load()
         audio, rate = [], None
-        language = 'en-gb' if voice.startswith('b') else 'en-us'
+        # v1.0 Kokoro uses distinct phoneme sets across languages. Never
+        # phonemize all voices as American English.
+        language = {
+            'a': 'en-us', 'b': 'en-gb', 'e': 'es', 'f': 'fr-fr',
+            'h': 'hi', 'i': 'it', 'p': 'pt-br',
+        }.get(voice[0])
+        g2p = None
+        if voice[0] == 'j':
+            try:
+                from misaki.ja import JAG2P
+            except ImportError as exc:
+                raise RuntimeError('Japanese Kokoro voices need misaki-fork[ja]. Reinstall the Kokoro engine in Models.') from exc
+            g2p = JAG2P()
+        elif voice[0] == 'z':
+            try:
+                from misaki.zh import ZHG2P
+            except ImportError as exc:
+                raise RuntimeError('Mandarin Kokoro voices need misaki-fork[zh]. Reinstall the Kokoro engine in Models.') from exc
+            g2p = ZHG2P()
         for index, chunk in enumerate(chunks):
-            samples, current_rate = model.create(chunk, voice=voice, speed=1.0, lang=language)
+            if g2p is not None:
+                phonemes, _ = g2p(chunk)
+                samples, current_rate = model.create(phonemes, voice=voice, speed=1.0, is_phonemes=True)
+            else:
+                samples, current_rate = model.create(chunk, voice=voice, speed=1.0, lang=language)
             if rate is not None and current_rate != rate:
                 raise RuntimeError('Inconsistent Kokoro sample rates')
             rate = current_rate
