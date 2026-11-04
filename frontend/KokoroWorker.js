@@ -8,6 +8,10 @@ import { KokoroTTS, env } from 'kokoro-js';
 // This avoids Safari/Firefox/Chrome failures when external CDN scripts fail.
 if(typeof self!=='undefined'&&self.location?.origin){
  env.wasmPaths={wasm:new URL('/studio/wasm/ort-wasm-simd-threaded.jsep.wasm',self.location.origin).href};
+ // Fetch Hugging Face files through our own restricted Cloudflare Worker route.
+ // Inference and the downloaded model remain entirely in the visitor's browser.
+ env.remoteHost=new URL('/model/',self.location.origin).href;
+ env.remotePathTemplate='{model}/resolve/{revision}/{file}';
 }
 
 
@@ -15,14 +19,14 @@ const MODEL='onnx-community/Kokoro-82M-v1.0-ONNX';
 let modelPromise=null;
 let activeStage='startup';
 let lastDownload='';
-const MODEL_ROOT='https://huggingface.co/'+MODEL+'/resolve/main/';
+const MODEL_ROOT=new URL('/model/'+MODEL+'/resolve/main/',self.location.origin).href;
 // A HEAD check does not download the ~92 MB ONNX model. It only diagnoses whether
 // the model host or its redirects are accessible from this visitor's browser.
 async function testResource(name){
  try{
   const r=await fetch(MODEL_ROOT+name,{method:'HEAD',cache:'no-store'});
-  return name+': HTTP '+r.status+(r.ok?' (reachable)':' (blocked or unavailable)');
- }catch(error){return name+': network/CORS failure ('+(error?.message||String(error))+')'}
+  return name+': HTTP '+r.status+(r.ok?' (reachable)':' (proxy or upstream error)');
+ }catch(error){return name+': network failure ('+(error?.message||String(error))+')'}
 }
 const post=(type,details={})=>self.postMessage({type,...details});
 async function getModel(){
@@ -81,7 +85,7 @@ self.addEventListener('message',async event=>{
    diagnostics=' '+checks.join('; ')+'.';
   }
   const location=lastDownload?' Last requested: '+lastDownload+'.':'';
-  post('error',{id,message:'Voice engine '+activeStage+' failed: '+(reason||'Unknown error')+'.'+location+diagnostics+' If the model URLs are reachable, the problem may be browser WebAssembly initialization.',stage:activeStage});
+  post('error',{id,message:'Voice engine '+activeStage+' failed: '+(reason||'Unknown error')+'.'+location+diagnostics+' If model requests succeed, inspect the local WebAssembly runtime or browser console.',stage:activeStage});
  }
 });
 
