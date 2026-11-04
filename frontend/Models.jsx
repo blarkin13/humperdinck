@@ -17,10 +17,12 @@ export default function Models(){
   try{const r=await fetch('/api/models/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine,model})}),j=await r.json();if(!r.ok)throw Error(j.detail);setJob(j)}catch(e){setMsg(e.message)}}
  if(error)return <section><h2>Models</h2><div className="notice">{error}</div></section>;
  if(!data)return <section><h2>Models</h2><p>Loading...</p></section>;
- const running=['queued','running'].includes(job?.status);
+ const latest=job?.job_id?job:data.recent_install;
+ const running=['queued','running'].includes(latest?.status);
+ const repaired=(engine,model)=>latest?.engine===engine&&latest?.model===model&&latest?.status==='complete';
  return <section>
   <div className="heading"><div><h2>Models</h2><p>Pick which AI model does each job. Everything runs on this computer.</p></div><span className="tag">{data.platform}{data.memory_gb?` · ${data.memory_gb} GB RAM`:''}</span></div>
-  {job&&<div className="job"><p>{job.message}</p>{running&&<progress/>}{job.status==='failed'&&job.log&&<pre className="log">{job.log.join('\n')}</pre>}</div>}
+  {latest&&<div className="job"><p>{latest.status==='complete'?'Completed: ':latest.status==='failed'?'Failed: ':''}{latest.message}</p>{running&&<progress/>}{latest.status==='complete'&&<p className="hint">Checkpoint files have been checked. Run a short voice preview to confirm the audio decoder can load.</p>}{latest.status==='failed'&&latest.log&&<pre className="log">{latest.log.join('\n')}</pre>}</div>}
   {msg&&<p className="hint">{msg}</p>}
   {roles.map(([role,title,blurb])=><div className="panel" key={role}><h3>{title}</h3><p>{blurb}</p>
    {data.engines.filter(e=>e.roles.includes(role)).map(e=><div className={'engine'+(e.supported?'':' unavailable')} key={e.id}>
@@ -31,7 +33,7 @@ export default function Models(){
      return <div className={'model-row'+(sel?' chosen':'')} key={m.id}>
       <label className="check"><input type="radio" name={role} checked={sel} disabled={!usable} onChange={()=>choose(role,e.id,m.id)}/> <span><strong>{m.label}</strong>{m.note&&<small> · {m.note}</small>}<br/><small className="mono">{m.id}</small></span></label>
       <small className="model-meta">{m.size_gb} GB download · ~{m.memory_gb} GB RAM{m.gpu_memory_gb?` (or ${m.gpu_memory_gb} GB on an NVIDIA GPU)`:''}{m.tight&&<b className="warn"> · may be too large for this computer</b>}</small>
-      {e.supported&&(m.downloaded?<><small className="ok">Downloaded{sel?' · In use':''}</small>{e.id==='qwen-mlx'&&<button disabled={running} title="Reinstall the MLX engine and check the model files" onClick={()=>install(e.id,m.id,m.size_gb)}>Repair / update</button>}</>:<button disabled={running||!e.installed} title={e.installed?'':'Install the engine first'} onClick={()=>install(e.id,m.id,m.size_gb)}>Download</button>)}
+      {e.supported&&(m.downloaded?<><small className="ok">{repaired(e.id,m.id)?'Files verified · repair complete':'Downloaded'}{sel?' · In use':''}</small>{e.id==='qwen-mlx'&&<button disabled={running} title="Recheck model files, update the MLX engine and download any missing files" onClick={()=>install(e.id,m.id,m.size_gb)}>{repaired(e.id,m.id)?'Repair again':'Repair / update'}</button>}</>:<button disabled={running||!e.installed} title={e.installed?'':'Install the engine first'} onClick={()=>install(e.id,m.id,m.size_gb)}>Download</button>)}
      </div>})}
    </div>)}
   </div>)}
