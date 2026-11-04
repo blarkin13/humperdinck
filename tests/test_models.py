@@ -195,7 +195,7 @@ def test_delete_models_endpoint_rejects_unknown_and_active_jobs(client):
 
 
 def test_builtin_voice_catalog_has_named_british_and_american_presets():
-    assert len(catalog.PRESET_VOICES['kokoro']) == 6
+    assert len(catalog.PRESET_VOICES['kokoro']) == 54
     assert len(catalog.PRESET_VOICES['piper']) == 4
     for engine, voices in catalog.PRESET_VOICES.items():
         assert 'preset' in catalog.ENGINES[engine]['roles']
