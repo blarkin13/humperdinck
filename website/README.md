@@ -93,3 +93,11 @@ bash scripts/build-public-studio.sh
 ```
 
 **Update the Cloudflare deploy command before attempting to use `/studio/`**. The public site still works as a landing page until the new build command is applied. Never commit `website/studio` generated assets; they are deployment artifacts.
+
+## Working public Kokoro audio demos
+
+The landing page and /studio/ Voice Library now play **real Kokoro-generated prerecorded audio examples** in the browser. The public MP3s are hosted by the Hangry Labs KokoroTTS project, not by Humperdinck's Cloudflare worker. Original examples and attribution: https://github.com/hangry-labs/kokoroTTS/tree/main/examples .
+
+This feature requires an Internet connection to retrieve sample files from raw.githubusercontent.com. It does not load Kokoro models, allow arbitrary text-to-speech, or send user text to Hangry Labs; demo clips contain fixed text. If the external samples become unavailable, the players report an audio playback error; move to Humperdinck-owned voice recordings after verifying redistribution rights and generating the samples.
+
+To enable **live typed-text Kokoro generation** in the public site, add a separately tested Kokoro inference mechanism (browser-side Kokoro ONNX/Transformers.js, with an initial model download, or a secured hosted TTS service). Don't silently route this through the desktop FastAPI backend.
