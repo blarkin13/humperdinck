@@ -115,3 +115,11 @@ The Studio Voice Library includes a live Kokoro text-to-speech demonstration imp
 - User-generated text and audio never go to Humperdinck's server or Cloudflare API; loading the browser code/model requires third-party CDN/model-host access. No usage quotas or visitor tracking are imposed here because inference is local. **500 characters is a per-request limit, not a per-day limit.**
 
 Cloudflare's existing production build/deploy command is unchanged. The static worker file is deployed directly from `website/` and the React UI is bundled by `scripts/build-public-studio.sh`.
+
+## Browser narration loader update
+
+The public Studio keeps **Voice Library** separate from **Narration Studio**. The library browses/selects voices and plays fixed samples; the live 500-character generation interface is under Narration Studio only. Marketing sections avoid positioning Humperdinck as a Kokoro-specific product.
+
+The prior public release imported the voice engine directly from jsDelivr in a cross-origin module worker. This can fail during module initialization, leaving only a generic "Load failed" error. The new code imports the pinned `kokoro-js@1.2.1` npm dependency from `frontend/KokoroWorker.js`; Vite bundles it as a same-origin worker referenced through `new URL(..., import.meta.url)`. The browser still obtains model weights from Hugging Face. Error messages include download/model initialization vs synthesis stage, to distinguish model failures from worker startup failures.
+
+This change updates `frontend/package.json`. The Cloudflare build script and CI temporarily use `npm install` rather than `npm ci` so the existing lockfile can be reconciled during builds. Once network-enabled npm access is available, regenerate and commit `frontend/package-lock.json`, then return both build steps to `npm ci` for reproducibility. Do not assume CI compilation guarantees inference works on Safari: test a short generation on the real deployed site.

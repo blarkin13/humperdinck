@@ -1,13 +1,15 @@
 // Kokoro runs in a browser Web Worker: model weights and synthesis stay on the visitor's device.
-// This module is only served by the public website and is not used by the desktop app.
-// The pinned browser bundle is loaded from jsDelivr; model weights come from Hugging Face.
-import { KokoroTTS } from 'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm';
+// Compiled by Vite into a same-origin worker so Safari never needs to import an ESM
+// package directly from a cross-origin CDN. Model weights load from Hugging Face.
+import { KokoroTTS } from 'kokoro-js';
 
 const MODEL='onnx-community/Kokoro-82M-v1.0-ONNX';
 let modelPromise=null;
+let activeStage='startup';
 const post=(type,details={})=>self.postMessage({type,...details});
 async function getModel(){
  if(!modelPromise){
+  activeStage='download / model initialization';
   post('status',{message:'Downloading Kokoro model (first use can take a while)…'});
   modelPromise=KokoroTTS.from_pretrained(MODEL,{
    dtype:'q8', device:'wasm',
@@ -44,6 +46,7 @@ self.addEventListener('message',async event=>{
  }
  try{
   const tts=await getModel();
+  activeStage='audio generation';
   post('status',{id,message:'Generating speech on your device…'});
   const result=await tts.generate(text.trim(),{voice});
   const samples=result.audio;
@@ -51,6 +54,9 @@ self.addEventListener('message',async event=>{
   const buffer=wav(samples,result.sampling_rate||24000);
   self.postMessage({type:'complete',id,buffer},[buffer]);
  }catch(err){
-  post('error',{id,message:err?.message||'Kokoro could not generate audio in this browser.'});
+  const reason=err instanceof Error?err.message:String(err);
+  post('error',{id,message:'Kokoro '+activeStage+' failed: '+(reason||'Unknown error'),stage:activeStage});
  }
 });
+
+post('worker-ready',{message:'Kokoro browser engine loaded.'});

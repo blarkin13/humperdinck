@@ -17,17 +17,17 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: Build frontend
         working-directory: frontend
         run: npm run build
       - name: Build public Cloudflare studio preview
         run: bash scripts/build-public-studio.sh
       - name: Check browser Kokoro worker syntax
-        run: node --check website/kokoro-worker.mjs
+        run: node --check frontend/KokoroWorker.js
       - name: Check staged studio assets
         run: |
           test -s website/studio/index.html
-          test -s website/kokoro-worker.mjs
+          test -s frontend/KokoroWorker.js
           test -d website/studio/assets
           grep -q '/studio/assets/' website/studio/index.html

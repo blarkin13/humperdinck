@@ -22,3 +22,9 @@
 .public-studio .public-bottom-cta>a{background:var(--brass-hi);color:var(--midnight);padding:12px 18px;font-weight:650;text-decoration:none;border-radius:6px;font-size:13px}
 :root[data-theme="modern"] .public-studio .public-bottom-cta>a{color:#111}
 @media(max-width:700px){.public-studio header{flex-direction:column;align-items:stretch}.public-studio .header-actions{justify-content:flex-start}.public-studio .public-banner>a{margin-left:0}}
+
+/* Keep browsing and generation in separate Studio tabs. */
+.public-library-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;background:var(--teal);border:1px solid var(--line);border-radius:9px;padding:12px 15px;margin-top:16px;color:var(--ivory);font-size:13px}
+.public-library-toolbar button{font-size:12px}
+.public-multivoice-divider{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);margin-top:31px;padding-top:18px}
+.public-multivoice-divider h3{margin:0}
