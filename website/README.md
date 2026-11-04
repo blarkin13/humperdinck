@@ -145,3 +145,29 @@ The static homepage remains a separate marketing website. The statement about ma
 The browser Voice Library **no longer fetches any Hangry Labs MP3 sample**. Clicking a built-in voice's preview/test icon selects that voice and opens Narration Studio for real speech generation using visitor-entered text; the existing 500-character limit remains. The marketing homepage no longer embeds MP3s or the sample attribution paragraph. Apache-2.0 notices for the actual runtime/model remain available at `/THIRD_PARTY_NOTICES.txt` rather than occupying UI space.
 
 Browser model initialization had reported `Load failed` under Safari, but the generic error could mean a blocked third-party download or ONNX WASM loading. The public build now copies the installed `ort-wasm-simd-threaded.jsep.wasm` binary into `/studio/wasm/`, and `frontend/KokoroWorker.js` sets the official `kokoro-js` `env.wasmPaths` override to load it from Humperdinck's own domain. It also diagnoses Hugging Face `config.json` and quantized ONNX HEAD status on failure; the model weights still come from Hugging Face, so network blocking of that host can still prevent generation. Real Safari/browser inference must be checked after deployment.
+
+## Same-origin Kokoro model proxy (November 4, 2026)
+
+The browser Studio now requests public Kokoro model files under `/model/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/`. `src/model-proxy-worker.js` forwards only paths for this specific model to Hugging Face, streaming responses back through the same origin. Audio and user text stay in the browser. No R2 bucket or inference service is required. The existing static website and app UI remain unchanged.
+
+**Required one-time deployment configuration change:** In Cloudflare **Workers & Pages → humperdinck → Settings → Builds**, replace the previous Deploy command:
+
+```bash
+bash scripts/build-public-studio.sh && npx wrangler deploy --assets ./website --name humperdinck --compatibility-date 2026-11-03
+```
+
+with:
+
+```bash
+bash scripts/build-public-studio.sh && npx wrangler deploy
+```
+
+Leave the build root set to the repository root. The committed `wrangler.jsonc` now supplies the same Worker name, static asset directory and the new `main` entry point, with routing limited to `/model/*`. **If Cloudflare still runs the old deploy command, the new server endpoint will not be activated.**
+
+After deploying, open:
+
+`https://humperdinck.larki-brian.workers.dev/model/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/config.json`
+
+Expected: JSON with `"model_type": "style_text_to_speech_2"`. A 404 means this proxy was not deployed or the upstream returned 404; a 502 means Cloudflare couldn't retrieve the upstream. Check Worker logs and the actual deployment revision, not just the UI build banner. Then test a short generated sentence under Narration Studio in Safari and Chrome.
+
+The Worker allows only safe paths under the one public model, forwards no browser cookies, and sets one-day caching on successful responses. It streams ONNX data without embedding the model inside Cloudflare's limited-size static assets. This implementation must still be verified with a real model download and speech generation after deployment.
