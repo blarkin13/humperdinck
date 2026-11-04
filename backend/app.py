@@ -444,6 +444,115 @@ def list_preset_voices():
     ]
 
 
+
+# A fixed, reusable comparison recording for every Voice Library card.
+VOICE_PREVIEW_TEXT = 'Good evening. I have been waiting a long time to tell you this story.'
+PREVIEW_DIR = DATA / 'voice-previews'
+PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+preview_pending = {}
+preview_pending_lock = Lock()
+
+
+class LibraryPreviewRequest(BaseModel):
+    voice_key: str = Field(min_length=3, max_length=150)
+
+
+def preview_recipe(key):
+    """Resolve a voice and key its cache by actual source/model, not display name."""
+    import hashlib
+    if key.startswith('design:'):
+        voice_id = key[7:]
+        voice = library.get(voice_id) or _missing_voice()
+        approved = library.latest_approved(voice_id)
+        if approved:
+            reference = approved['path']
+            ref_text = approved['text']
+            mode = 'clone'
+        else:
+            active = next((v for v in voice['versions'] if v['version'] == voice['active_version']), None)
+            if not active:
+                raise HTTPException(404, 'Designed voice version not found')
+            mode = 'design'
+            reference = None
+            ref_text = build_instruction(active['description'], active['characteristics'])
+        choice = settings.load()[mode]
+    else:
+        reference, ref_text = resolve_voice_key(key)
+        mode = 'preset' if reference is None else 'clone'
+        if mode == 'preset':
+            engine, model = ref_text
+            choice = {'engine': engine, 'model': model}
+        else:
+            choice = settings.load()['clone']
+    source = {'voice': key, 'mode': mode, 'choice': choice,
+              'prompt': VOICE_PREVIEW_TEXT}
+    if reference is not None:
+        source['reference'] = str(reference)
+        source['reference_mtime'] = reference.stat().st_mtime_ns
+        source['reference_bytes'] = reference.stat().st_size
+        source['reference_text'] = ref_text
+    elif mode == 'design':
+        source['description'] = ref_text
+    digest = hashlib.sha256(json.dumps(source, sort_keys=True).encode()).hexdigest()
+    return mode, choice, reference, ref_text, digest
+
+
+def generate_library_preview(job_id, mode, choice, reference, ref_text, digest):
+    job = jobs[job_id]
+    path = PREVIEW_DIR / (digest + '.wav')
+    temp = PREVIEW_DIR / (digest + '-' + job_id + '.wav')
+    try:
+        with engine_lock:
+            job.update(status='running', message='Generating voice comparison preview')
+            progress = lambda done, total: job.update(progress=round(done / total * 95),
+                                                      message=f'Preview: {done}/{total} segments')
+            if mode == 'preset':
+                engines.preset(choice['engine'], choice['model'], temp, VOICE_PREVIEW_TEXT, on_progress=progress)
+            elif mode == 'design':
+                engines.design(choice, temp, VOICE_PREVIEW_TEXT, ref_text, on_progress=progress)
+            else:
+                engines.clone(choice, temp, VOICE_PREVIEW_TEXT, reference, ref_text, on_progress=progress)
+            temp.replace(path)
+        job.update(status='complete', progress=100, message='Voice preview ready',
+                   download_url=f'/api/voice-previews/{digest}.wav')
+    except Exception as exc:
+        job.update(status='failed', message=f'Preview failed: {exc}')
+    finally:
+        temp.unlink(missing_ok=True)
+        with preview_pending_lock:
+            preview_pending.pop(digest, None)
+
+
+@app.post('/api/voice-previews')
+def create_library_preview(request: LibraryPreviewRequest):
+    mode, choice, reference, ref_text, digest = preview_recipe(request.voice_key)
+    destination = PREVIEW_DIR / (digest + '.wav')
+    if destination.is_file() and destination.stat().st_size:
+        return {'status': 'complete', 'download_url': f'/api/voice-previews/{digest}.wav'}
+    with preview_pending_lock:
+        old_id = preview_pending.get(digest)
+        if old_id:
+            return jobs[old_id]
+        job_id = uuid4().hex
+        jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0,
+                        'message': 'Waiting to generate comparison preview'}
+        preview_pending[digest] = job_id
+    Thread(target=generate_library_preview,
+           args=(job_id, mode, choice, reference, ref_text, digest), daemon=True).start()
+    return jobs[job_id]
+
+
+@app.get('/api/voice-previews/{filename}')
+def library_preview_audio(filename: str):
+    digest, dot, extension = filename.partition('.')
+    if dot != '.' or extension != 'wav' or len(digest) != 64 or any(c not in '0123456789abcdef' for c in digest):
+        raise HTTPException(404, 'Preview not found')
+    path = PREVIEW_DIR / filename
+    if not path.is_file():
+        raise HTTPException(404, 'Preview not found')
+    return FileResponse(path, media_type='audio/wav')
+
+
 def resolve_voice_key(key):
     """Return (reference audio, its transcript or None) for a narration voice."""
     # Presets identify a fixed local model rather than an audio reference.
