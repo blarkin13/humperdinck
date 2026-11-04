@@ -16,7 +16,7 @@ function SleeveArt({seed}){
  </svg>;
 }
 
-const METHODS={sliders:['Designed with sliders','fa-sliders'],prompt:['Described in words','fa-feather-pointed'],designed:['Designed with AI','fa-wand-magic-sparkles'],
+const METHODS={preset:['Built-in voice','fa-compact-disc'],sliders:['Designed with sliders','fa-sliders'],prompt:['Described in words','fa-feather-pointed'],designed:['Designed with AI','fa-wand-magic-sparkles'],
  uploaded:['Uploaded recording','fa-file-audio'],recorded:['Recorded with mic','fa-microphone'],edited:['Edited recording','fa-scissors']};
 
 export function ago(iso){if(!iso)return '';const d=(Date.now()-new Date(iso))/864e5;return d<1?'Today':d<2?'Yesterday':d<30?`${Math.floor(d)} days ago`:new Date(iso).toLocaleDateString()}
@@ -35,17 +35,17 @@ export default function VoiceGrid({items}){
  const names=Object.keys(groups).sort((a,b)=>a==='Uncategorized'?1:b==='Uncategorized'?-1:a.localeCompare(b));
  return <div className="library">
   {items.length>LIMIT&&<div className="search-wrap"><i className="fa-solid fa-magnifying-glass"/><input className="search" placeholder="Search voices, categories or descriptions" value={query} onChange={e=>setQuery(e.target.value)}/></div>}
-  {!items.length&&<div className="notice"><i className="fa-solid fa-record-vinyl"/> No voices yet. Create one below.</div>}
+  {!items.length&&<div className="notice"><i className="fa-solid fa-record-vinyl"/> No voices yet. Create one in Voice Creator.</div>}
   {names.map(name=>{const list=groups[name],expanded=open[name]||!!q,visible=expanded?list:list.slice(0,LIMIT);
    return <div className="voice-group" key={name}>
     {names.length>1||name!=='Uncategorized'?<h4><i className="fa-solid fa-layer-group"/> {name} <small>{list.length} {list.length===1?'voice':'voices'}</small></h4>:null}
     <div className="voice-grid">{visible.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing===v.key;
      return <article key={v.key} className={'voice-card'+(v.selected?' selected':'')+(v.ready?' ready':'')} role="button" tabIndex={0} aria-label={'Open '+v.name} onClick={v.onOpen} onKeyDown={e=>e.key==='Enter'&&v.onOpen()}>
-     <button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>
+     {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
      <div className="card-top">
       <div className="sleeve"><SleeveArt seed={v.key+v.name}/>
-       <button className={'play'+(on?' on':'')+(v.previewUrl?'':' none')} title={v.previewUrl?(on?'Stop':'Play preview'):'No preview yet: open the voice to generate one'} aria-label={(on?'Stop ':'Play ')+v.name}
-        onClick={e=>v.previewUrl?play(e,v):(e.stopPropagation(),v.onOpen())}><i className={'fa-solid '+(on?'fa-stop':v.previewUrl?'fa-play':'fa-wand-magic-sparkles')}/></button>
+       <button className={'play'+(on?' on':'')+(v.previewUrl?'':' none')} title={v.previewUrl?(on?'Stop':'Play preview'):v.method==='preset'?'Use this voice in Narration Studio':'No preview yet: open the voice to generate one'} aria-label={(on?'Stop ':'Play ')+v.name}
+        onClick={e=>v.previewUrl?play(e,v):(e.stopPropagation(),v.onOpen())}><i className={'fa-solid '+(on?'fa-stop':v.previewUrl?'fa-play':v.method==='preset'?'fa-arrow-right':'fa-wand-magic-sparkles')}/></button>
        {on&&<span className="vu" aria-hidden="true"><i/><i/><i/><i/><i/></span>}
       </div>
       <div className="card-title">
