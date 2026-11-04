@@ -14,13 +14,21 @@ printf '{\"revision\":\"%s\",\"studio\":\"/studio/?v=%s\"}\\n' "$BUILD_ID" "$BUI
 cp -R frontend/dist/. website/studio/
 # Copy the runtime-matched ONNX WASM binary to our own static origin. The
 # browser worker sets env.wasmPaths to this file instead of relying on a CDN.
-WASM_FILE="$(find frontend/node_modules/@huggingface/transformers frontend/node_modules/onnxruntime-web -type f -name 'ort-wasm-simd-threaded.jsep.wasm' -print -quit 2>/dev/null || true)"
-if [[ -z "$WASM_FILE" || ! -s "$WASM_FILE" ]]; then
-  echo 'ONNX WebAssembly binary was not found in installed npm dependencies' >&2
+# ONNX Runtime Web needs both the matching JS loader and WASM binary.
+# Find the distribution containing the runtime and stage its matching files.
+ORT_DIST="$(find frontend/node_modules -type f -name 'ort-wasm-simd-threaded.jsep.wasm' -print -quit 2>/dev/null | xargs -r dirname)"
+if [[ -z "$ORT_DIST" ]]; then
+  echo 'ONNX runtime WebAssembly distribution missing from npm installation' >&2
   exit 1
 fi
 mkdir -p website/studio/wasm
-cp "$WASM_FILE" website/studio/wasm/ort-wasm-simd-threaded.jsep.wasm
+for file in ort-wasm-simd-threaded.jsep.wasm ort-wasm-simd-threaded.jsep.mjs; do
+  if [[ ! -s "$ORT_DIST/$file" ]]; then
+    echo "Required ONNX runtime asset missing: $ORT_DIST/$file" >&2
+    exit 1
+  fi
+  cp "$ORT_DIST/$file" website/studio/wasm/
+done
 test -s website/studio/index.html
 test -s website/studio/assets/$(find website/studio/assets -maxdepth 1 -name '*.js' -printf '%f\n' | head -n 1)
 echo "Public studio built at website/studio/"
@@ -29,3 +37,4 @@ test -s website/build.json
 grep -q "$BUILD_ID" website/studio/assets/*.js
 
 test -s website/studio/wasm/ort-wasm-simd-threaded.jsep.wasm
+test -s website/studio/wasm/ort-wasm-simd-threaded.jsep.mjs
