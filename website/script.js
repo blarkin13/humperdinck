@@ -1,5 +1,5 @@
 'use strict';
-// The first public website is intentionally static. No account forms or API calls
-// are presented until authentication and hosted demo services actually exist.
+// Static website: actual Kokoro samples use browser-native audio elements.
+// Account forms and hosted custom text-to-speech remain unavailable.
 const year = document.getElementById('year');
 if (year) year.textContent = String(new Date().getFullYear());
