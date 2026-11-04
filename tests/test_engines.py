@@ -23,15 +23,15 @@ def run(pool, engine, tmp_path, text='Hello.'):
 
 
 def test_worker_is_reused_between_jobs(pool, tmp_path):
-    run(pool, 'chatterbox', tmp_path)
+    run(pool, 'qwen-torch', tmp_path)
     pid = pool.worker.process.pid
-    run(pool, 'chatterbox', tmp_path)
+    run(pool, 'qwen-torch', tmp_path)
     assert pool.worker.process.pid == pid
-    assert pool.status()['engine'] == 'chatterbox' and pool.status()['loaded']
+    assert pool.status()['engine'] == 'qwen-torch' and pool.status()['loaded']
 
 
 def test_switching_engine_stops_the_other_one(pool, tmp_path):
-    run(pool, 'chatterbox', tmp_path)
+    run(pool, 'qwen-torch', tmp_path)
     first = pool.worker
     run(pool, 'qwen-mlx', tmp_path)
     assert not first.alive()
@@ -40,7 +40,7 @@ def test_switching_engine_stops_the_other_one(pool, tmp_path):
 
 def test_idle_worker_exits(pool, tmp_path, monkeypatch):
     monkeypatch.setenv('HUMPERDINCK_IDLE_TIMEOUT_S', '0.3')
-    run(pool, 'chatterbox', tmp_path)
+    run(pool, 'qwen-torch', tmp_path)
     worker = pool.worker
     for _ in range(50):
         if pool.status() is None:
@@ -51,14 +51,14 @@ def test_idle_worker_exits(pool, tmp_path, monkeypatch):
 
 def test_stalled_job_is_killed_and_next_job_recovers(pool, tmp_path, monkeypatch):
     monkeypatch.setenv('HUMPERDINCK_STALL_TIMEOUT_S', '0.5')
-    run(pool, 'chatterbox', tmp_path)  # loaded, so the stall budget applies
+    run(pool, 'qwen-torch', tmp_path)  # loaded, so the stall budget applies
     with pytest.raises(RuntimeError, match='stopped responding'):
-        run(pool, 'chatterbox', tmp_path, 'sleep:5')
+        run(pool, 'qwen-torch', tmp_path, 'sleep:5')
     assert pool.status() is None
-    run(pool, 'chatterbox', tmp_path)
+    run(pool, 'qwen-torch', tmp_path)
 
 
 def test_crashed_worker_reports_and_restarts(pool, tmp_path):
     with pytest.raises(RuntimeError, match='exited unexpectedly'):
-        run(pool, 'chatterbox', tmp_path, 'crash')
-    run(pool, 'chatterbox', tmp_path)
+        run(pool, 'qwen-torch', tmp_path, 'crash')
+    run(pool, 'qwen-torch', tmp_path)
