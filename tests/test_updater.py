@@ -63,7 +63,7 @@ def test_crlf_files_match(project):
     assert 'frontend/src.jsx' not in updater.check()['changed_files']
 
 
-def test_committed_crlf_windows_launchers_do_not_repeat_updates(project):
+def test_committed_crlf_windows_launchers_do_not_repeat_updates(project, monkeypatch):
     local, state = project
     # GitHub stores these launcher files with CRLF, not normalized LF.
     launchers = {
@@ -71,6 +71,18 @@ def test_committed_crlf_windows_launchers_do_not_repeat_updates(project):
         'install.cmd': b'@echo off\r\necho Installing Humperdinck\r\n',
         'install-voice.cmd': b'@echo off\r\necho Installing voice\r\n',
     }
+    original_json = updater.github_json
+
+    def with_launchers(path):
+        result = original_json(path)
+        if path.startswith('git/trees/'):
+            result['tree'].extend(
+                {'path': name, 'type': 'blob', 'sha': updater.blob_hash(contents)}
+                for name, contents in launchers.items()
+            )
+        return result
+
+    monkeypatch.setattr(updater, 'github_json', with_launchers)
     for name, contents in launchers.items():
         state['archive'][name] = contents
         (local / name).write_bytes(contents)
@@ -78,7 +90,6 @@ def test_committed_crlf_windows_launchers_do_not_repeat_updates(project):
     initial = updater.check()
     assert not any(name in initial['changed_files'] for name in launchers)
 
-    # Install another update, then confirm CRLF files do not reappear.
     updater.stage(initial)
     updater.apply()
     after = updater.check()
@@ -86,10 +97,23 @@ def test_committed_crlf_windows_launchers_do_not_repeat_updates(project):
     assert not any(name in after['changed_files'] for name in launchers)
 
 
-def test_changed_crlf_windows_launcher_is_detected(project):
+def test_changed_crlf_windows_launcher_is_detected(project, monkeypatch):
     local, state = project
-    state['archive']['start.cmd'] = b'@echo off\r\necho New code\r\n'
+    remote_cmd = b'@echo off\r\necho New code\r\n'
+    state['archive']['start.cmd'] = remote_cmd
     (local / 'start.cmd').write_bytes(b'@echo off\r\necho Old code\r\n')
+    original_json = updater.github_json
+
+    def with_launcher(path):
+        result = original_json(path)
+        if path.startswith('git/trees/'):
+            result['tree'].append({
+                'path': 'start.cmd', 'type': 'blob',
+                'sha': updater.blob_hash(remote_cmd),
+            })
+        return result
+
+    monkeypatch.setattr(updater, 'github_json', with_launcher)
     assert 'start.cmd' in updater.check()['changed_files']
 
 
