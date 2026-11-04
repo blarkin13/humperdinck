@@ -11,10 +11,20 @@ if(typeof self!=='undefined'&&self.location?.origin){
   mjs:new URL('ort-wasm-simd-threaded.jsep.mjs',wasmRoot).href,
   wasm:new URL('ort-wasm-simd-threaded.jsep.wasm',wasmRoot).href
  };
- // Fetch Hugging Face files through our own restricted Cloudflare Worker route.
- // Inference and the downloaded model remain entirely in the visitor's browser.
- env.remoteHost=new URL('/model/',self.location.origin).href;
- env.remotePathTemplate='{model}/resolve/{revision}/{file}';
+ // kokoro-js 1.2.1 does NOT forward remoteHost/remotePathTemplate from
+ // its wrapper env to Transformers.js. Rewrite only this model's fetch requests
+ // to our same-origin /model/ endpoint; keep synthesis fully local.
+ const source='https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/';
+ const destination=new URL('/model/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/',self.location.origin).href;
+ const nativeFetch=self.fetch.bind(self);
+ self.fetch=(input,init)=>{
+  const original=input instanceof Request?input.url:input instanceof URL?input.href:String(input);
+  if(!original.startsWith(source))return nativeFetch(input,init);
+  const rewritten=destination+original.slice(source.length);
+  // Preserve headers, method, abort signals and request options.
+  const request=input instanceof Request?new Request(rewritten,input):rewritten;
+  return nativeFetch(request,init);
+ };
 }
 
 
