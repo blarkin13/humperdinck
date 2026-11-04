@@ -85,7 +85,12 @@ def main():
         venv.create(env_dir, with_pip=True)
     step('Updating pip')
     subprocess.run([str(python), '-m', 'pip', 'install', '-q', '--upgrade', 'pip'], check=True)
-    command = [str(python), '-m', 'pip', 'install', *engine['packages']]
+    # The MLX Qwen speech decoder has changed across mlx-audio releases.
+    # Re-running Install/Repair must refresh the engine rather than accept an
+    # already-installed but incompatible mlx-audio package.
+    command = [str(python), '-m', 'pip', 'install',
+               *(['--upgrade'] if args.engine == 'qwen-mlx' else []),
+               *engine['packages']]
     step(f"Installing {engine['label']} packages (this can take several minutes)")
     subprocess.run(command, check=True)
     if engine.get('torch') and sys.platform in ('win32', 'linux') and shutil.which('nvidia-smi'):
