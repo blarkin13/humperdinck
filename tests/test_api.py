@@ -229,6 +229,27 @@ def test_microphone_recording_upload(client, tmp_path):
     assert rate == 24000 and audio.ndim == 1 and abs(len(audio) / rate - 3) < 0.1
 
 
+@pytest.mark.skipif(not shutil.which('ffmpeg'), reason='ffmpeg not installed')
+def test_ogg_voice_upload_normalizes_to_wav(client, tmp_path):
+    clip = tmp_path / 'British narrator.ogg'
+    subprocess.run([
+        'ffmpeg', '-v', 'error', '-f', 'lavfi', '-i',
+        'sine=frequency=440:duration=2', '-c:a', 'libvorbis', str(clip)
+    ], check=True)
+    with clip.open('rb') as source:
+        result = client.post('/api/voices', files={
+            'file': ('British narrator.ogg', source, 'audio/ogg')
+        })
+    assert result.status_code == 200, result.text
+    assert result.json()['filename'] == 'British narrator'
+    output = tmp_path / 'voices' / (result.json()['voice_id'] + '.wav')
+    assert output.is_file()
+    samples, rate = sf.read(output)
+    assert rate == 24000
+    assert samples.ndim == 1
+    assert abs(len(samples) / rate - 2) < 0.1
+
+
 def test_slider_prompt_strength_and_legacy_recipe():
     from backend.voice_library import build_instruction
     neutral = {'pitch': 50, 'rasp': 50, 'pace': 50, 'warmth': 50}
