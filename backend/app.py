@@ -485,15 +485,14 @@ def run_multi(job_id, request, references):
             for index,(block,(reference,ref_text)) in enumerate(zip(request.blocks,references)):
                 temp=DATA/'outputs'/f'{job_id}-{index}.wav'
                 try:
+                    def progress(done, total):
+                        job.update(progress=round((index + done / total) / len(references) * 95),
+                                   message=f'Block {index+1}/{len(references)} · {done}/{total} segments')
                     if reference is None:
                         preset_engine, preset_voice = ref_text
-                        engines.preset(preset_engine, preset_voice, temp, block.text,
-                                       on_progress=lambda done,total: job.update(
-                                           message=f'Block {index+1}/{len(references)} · {done}/{total} segments'))
+                        engines.preset(preset_engine, preset_voice, temp, block.text, on_progress=progress)
                     else:
-                        engines.clone(choice,temp,block.text,reference,ref_text,
-                                      on_progress=lambda done,total: job.update(
-                                          message=f'Block {index+1}/{len(references)} · {done}/{total} segments'))
+                        engines.clone(choice, temp, block.text, reference, ref_text, on_progress=progress)
                     audio,rate=sf.read(temp,dtype='float32',always_2d=False)
                     if audio.ndim==2: audio=audio.mean(axis=1)
                     if rate!=target_rate:
