@@ -97,3 +97,31 @@ def test_english_accent_language_hint():
     assert design_language('An Australian woman with a relaxed voice.') == 'english'
     assert design_language('A warm narrator with an unhurried voice.') == 'auto'
     assert design_language('Une voix française douce.') == 'auto'
+
+
+def test_cpu_preset_catalog_and_downloads(tmp_path, monkeypatch):
+    monkeypatch.setattr(catalog, 'preset_path', lambda engine, voice: tmp_path / engine)
+    kokoro = tmp_path / 'kokoro'
+    piper = tmp_path / 'piper'
+    kokoro.mkdir()
+    piper.mkdir()
+    assert not catalog.downloaded('bm_george')
+    assert not catalog.downloaded('en_GB-alan-medium')
+    (kokoro / 'kokoro-v1.0.onnx').write_bytes(b'x' * 100001)
+    (kokoro / 'voices-v1.0.bin').write_bytes(b'x' * 100001)
+    assert catalog.downloaded('bm_george')
+    assert catalog.downloaded('bf_emma')  # Kokoro presets share the voicepack.
+    (piper / 'en_GB-alan-medium.onnx').write_bytes(b'x' * 100001)
+    (piper / 'en_GB-alan-medium.onnx.json').write_text('{"voice": "Alan"}')
+    assert catalog.downloaded('en_GB-alan-medium')
+    assert not catalog.downloaded('en_GB-cori-medium')
+    assert 'bm_george' in catalog.ENGINES['kokoro']['models']
+    assert 'en_GB-alan-medium' in catalog.ENGINES['piper']['models']
+    catalog.validate('preset', 'kokoro', 'bm_george')
+    catalog.validate('preset', 'piper', 'en_GB-alan-medium')
+    try:
+        catalog.validate('clone', 'kokoro', 'bm_george')
+    except ValueError:
+        pass
+    else:
+        raise AssertionError('Preset-only engine was accepted for arbitrary voice cloning')
