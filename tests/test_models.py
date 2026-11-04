@@ -128,3 +128,65 @@ def test_cpu_preset_catalog_and_downloads(tmp_path, monkeypatch):
         pass
     else:
         raise AssertionError('Preset-only engine was accepted for arbitrary voice cloning')
+
+
+def test_delete_hf_model_does_not_touch_another_repository(tmp_path, monkeypatch):
+    monkeypatch.setattr(catalog, 'hf_cache', lambda: tmp_path)
+    model = 'Qwen/Qwen3-TTS-12Hz-0.6B-Base'
+    target = tmp_path / ('models--' + model.replace('/', '--'))
+    target.mkdir()
+    (target / 'weights.safetensors').write_text('weights')
+    other = tmp_path / 'models--unrelated--model'
+    other.mkdir()
+    (other / 'weights.safetensors').write_text('untouched')
+    assert catalog.delete_downloaded_model('qwen-torch', model)
+    assert not target.exists()
+    assert (other / 'weights.safetensors').read_text() == 'untouched'
+    assert not catalog.delete_downloaded_model('qwen-torch', model)
+
+
+def test_delete_piper_does_not_remove_other_voice(tmp_path, monkeypatch):
+    monkeypatch.setattr(catalog, 'preset_path', lambda engine, voice: tmp_path / engine)
+    folder = tmp_path / 'piper'
+    folder.mkdir()
+    for name in ('en_GB-alan-medium', 'en_GB-cori-medium'):
+        (folder / (name + '.onnx')).write_text('weights')
+        (folder / (name + '.onnx.json')).write_text('{}')
+    assert catalog.delete_downloaded_model('piper', 'en_GB-alan-medium')
+    assert not (folder / 'en_GB-alan-medium.onnx').exists()
+    assert (folder / 'en_GB-cori-medium.onnx').exists()
+    assert (folder / 'en_GB-cori-medium.onnx.json').exists()
+
+
+def test_delete_kokoro_removes_only_shared_bundle(tmp_path, monkeypatch):
+    monkeypatch.setattr(catalog, 'preset_path', lambda engine, voice: tmp_path / engine)
+    folder = tmp_path / 'kokoro'
+    folder.mkdir()
+    (folder / 'kokoro-v1.0.onnx').write_text('model')
+    (folder / 'voices-v1.0.bin').write_text('voicepack')
+    (folder / 'personal.wav').write_text('recording')
+    assert catalog.delete_downloaded_model('kokoro', 'bm_george')
+    assert not (folder / 'kokoro-v1.0.onnx').exists()
+    assert not (folder / 'voices-v1.0.bin').exists()
+    assert (folder / 'personal.wav').exists()
+
+
+def test_delete_rejects_unknown_model(tmp_path, monkeypatch):
+    monkeypatch.setattr(catalog, 'hf_cache', lambda: tmp_path)
+    try:
+        catalog.delete_downloaded_model('qwen-torch', '../../other')
+    except ValueError:
+        pass
+    else:
+        raise AssertionError('Unknown model was allowed to delete files')
+
+
+def test_delete_models_endpoint_rejects_unknown_and_active_jobs(client, monkeypatch):
+    from backend import engines
+    assert client.post('/api/models/delete', json={'engine': 'piper', 'model': '../../bad'}).status_code == 422
+
+    # Running generation must block deletions.
+    monkeypatch.setattr(client.module.engine_lock, 'acquire', lambda blocking: False)
+    result = client.post('/api/models/delete', json={
+        'engine': 'qwen-torch', 'model': 'Qwen/Qwen3-TTS-12Hz-0.6B-Base'})
+    assert result.status_code == 409
