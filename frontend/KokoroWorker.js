@@ -3,10 +3,14 @@
 // package directly from a cross-origin CDN. Model weights load from Hugging Face.
 import { KokoroTTS, env } from 'kokoro-js';
 
-// Configure the ONNX Runtime backend (not a top-level env.wasmPaths property).
-// The build stages matching .mjs and .wasm runtime assets on our own origin.
+// kokoro-js exposes a wrapper env with top-level wasmPaths (unlike Transformers.js).
+// Point at both matching, locally hosted ONNX runtime assets.
 if(typeof self!=='undefined'&&self.location?.origin){
- env.backends.onnx.wasm.wasmPaths=new URL('/studio/wasm/',self.location.origin).href;
+ const wasmRoot=new URL('/studio/wasm/',self.location.origin);
+ env.wasmPaths={
+  mjs:new URL('ort-wasm-simd-threaded.jsep.mjs',wasmRoot).href,
+  wasm:new URL('ort-wasm-simd-threaded.jsep.wasm',wasmRoot).href
+ };
  // Fetch Hugging Face files through our own restricted Cloudflare Worker route.
  // Inference and the downloaded model remain entirely in the visitor's browser.
  env.remoteHost=new URL('/model/',self.location.origin).href;
