@@ -2,6 +2,7 @@
 // Compiled by Vite into a same-origin worker so Safari never needs to import an ESM
 // package directly from a cross-origin CDN. Model weights load from Hugging Face.
 import { KokoroTTS, env } from 'kokoro-js';
+import { env as transformersEnv } from '@huggingface/transformers';
 
 // kokoro-js exposes a wrapper env with top-level wasmPaths (unlike Transformers.js).
 // Point at both matching, locally hosted ONNX runtime assets.
@@ -11,20 +12,10 @@ if(typeof self!=='undefined'&&self.location?.origin){
   mjs:new URL('ort-wasm-simd-threaded.jsep.mjs',wasmRoot).href,
   wasm:new URL('ort-wasm-simd-threaded.jsep.wasm',wasmRoot).href
  };
- // kokoro-js 1.2.1 does NOT forward remoteHost/remotePathTemplate from
- // its wrapper env to Transformers.js. Rewrite only this model's fetch requests
- // to our same-origin /model/ endpoint; keep synthesis fully local.
- const source='https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/';
- const destination=new URL('/model/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/',self.location.origin).href;
- const nativeFetch=self.fetch.bind(self);
- self.fetch=(input,init)=>{
-  const original=input instanceof Request?input.url:input instanceof URL?input.href:String(input);
-  if(!original.startsWith(source))return nativeFetch(input,init);
-  const rewritten=destination+original.slice(source.length);
-  // Preserve headers, method, abort signals and request options.
-  const request=input instanceof Request?new Request(rewritten,input):rewritten;
-  return nativeFetch(request,init);
- };
+ // Configure the actual Transformers.js downloader, not kokoro-js's
+ // limited env wrapper. Model and tokenizer files stay on our origin.
+ transformersEnv.remoteHost=new URL('/model/',self.location.origin).href;
+ transformersEnv.remotePathTemplate='{model}/resolve/{revision}/{file}';
 }
 
 
