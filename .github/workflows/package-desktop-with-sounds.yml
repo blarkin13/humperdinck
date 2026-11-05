@@ -28,6 +28,18 @@ jobs:
           mkdir -p downloaded
           gh release download "$RELEASE_TAG" --pattern humperdinck-cc0-nature-pack.zip --dir downloaded --clobber
           echo "37c94fa9f2c27df851899d9ac8ed3c8076e0476ea313de838db590a6304c17a7  downloaded/humperdinck-cc0-nature-pack.zip" | sha256sum -c -
+      - name: Include published Built-In Humperdinck Voices when available
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded-voices
+          if gh release view builtin-humperdinck-voices-v1 >/dev/null 2>&1; then
+            gh release download builtin-humperdinck-voices-v1 --pattern humperdinck-builtin-voices-v1.zip --dir downloaded-voices --clobber
+          else
+            echo "Built-In Humperdinck Voices have not been published yet; sound-only installer will be packaged."
+          fi
       - name: Make the offline-ready installer archive
         shell: bash
         run: |
@@ -35,6 +47,10 @@ jobs:
           mkdir -p dist/humperdinck/assets/sound-packs
           git archive HEAD | tar -x -C dist/humperdinck
           cp downloaded/humperdinck-cc0-nature-pack.zip dist/humperdinck/assets/sound-packs/
+          if test -f downloaded-voices/humperdinck-builtin-voices-v1.zip; then
+            mkdir -p dist/humperdinck/assets/voice-packs
+            cp downloaded-voices/humperdinck-builtin-voices-v1.zip dist/humperdinck/assets/voice-packs/
+          fi
           cd dist
           zip -q -r humperdinck-desktop-with-nature-sounds.zip humperdinck
       - name: Publish combined installer ZIP on GitHub Release

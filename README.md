@@ -34,6 +34,17 @@ bash start.sh
 
 Open http://127.0.0.1:5173. Upload a clean voice recording under Voice Library, select it in Audio Studio, paste text, click Generate, then preview/download WAV or MP3. Each long text is segmented and concatenated with short pauses.
 
+## Built-In Humperdinck Voices
+
+Voice Library includes a **Built-In Humperdinck Voices** publishing workflow
+for approved reference samples. Creators can generate the standard lighthouse
+sentence from their uploaded-and-edited voice, listen, approve and export a
+small ZIP containing only that approved generated sample and the display
+metadata—**not the original uploaded audio**. After publishing a voice ZIP as
+the `builtin-humperdinck-voices-v1` GitHub Release, new installations import
+the official reference voices automatically. See
+[the publishing and privacy notes](docs/BUILTIN_HUMPERDINCK_VOICES.md).
+
 ## Platforms and models
 
 Humperdinck runs on macOS, Windows and Linux. Open the **Models** tab to pick the model for each job, install engines and download models.

@@ -760,3 +760,31 @@ button.active small,.primary small{color:#3a3122}
 .curated-license{padding:10px 16px 14px;margin:0;color:var(--muted);font-size:11px;line-height:1.5}
 :root[data-mode="light"] .curated-recordings{background:var(--light-panel)}
 @media(max-width:640px){.curated-sound-row{align-items:flex-start;flex-direction:column;gap:10px}.curated-sound-actions{width:100%;justify-content:flex-end}}
+
+
+/* Built-In Humperdinck Voices — built directly into Voice Library. */
+.starter-voice-pack{margin:0 0 18px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(105,105,105,.035)}
+.starter-voice-pack summary{padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;list-style:none}
+.starter-voice-pack summary::-webkit-details-marker{display:none}
+.starter-voice-pack summary span{display:inline-flex;align-items:center;gap:9px;color:var(--ivory);font-size:13px;font-weight:600}
+.starter-voice-pack summary span:last-child{font-weight:400;font-size:11px;color:var(--muted)}
+.starter-voice-pack summary span:first-child i{color:var(--brass-hi)}
+.starter-voice-pack[open] summary span:last-child i{transform:rotate(180deg)}
+.starter-voice-pack-content{padding:0 16px 16px}
+.starter-voice-pack-content p{font-size:12px;color:var(--muted);line-height:1.6}
+.starter-voice-pack-content blockquote{margin:10px 0 14px;padding:12px 14px;font-size:12px;color:var(--ivory);border-left:2px solid var(--brass-hi);background:rgba(110,110,110,.08)}
+.starter-voice-pack-list{border-top:1px solid var(--line)}
+.starter-voice-pack-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)}
+.starter-voice-pack-row>div:first-child{min-width:130px;flex:1;display:flex;flex-direction:column;gap:5px}
+.starter-voice-pack-row strong{font-size:12px;color:var(--ivory)}
+.starter-voice-pack-row small{font-size:11px;color:var(--muted)}
+.starter-voice-pack-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.starter-voice-pack-actions button{font-size:11px;padding:8px 10px;white-space:nowrap}
+.starter-voice-pack-actions audio{max-width:200px;height:32px}
+.starter-voice-pack-actions label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ivory);cursor:pointer}
+.starter-voice-pack-actions label input{width:auto;accent-color:var(--brass-hi)}
+.starter-voice-error{max-width:200px;color:#bd7972!important}
+.starter-voice-pack-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:15px}
+.starter-voice-pack-footer small{font-size:11px;max-width:450px;line-height:1.5;color:var(--muted)}
+.starter-voice-pack-footer button{min-width:185px}
+@media(max-width:800px){.starter-voice-pack-row{align-items:flex-start;flex-direction:column}.starter-voice-pack-actions{justify-content:flex-start}.starter-voice-pack-footer{flex-direction:column;align-items:flex-start}}
