@@ -369,13 +369,17 @@
 :root[data-mode="light"] .theme-trigger{color:var(--ivory)}
 @media(prefers-reduced-motion:reduce){:root[data-mode="light"] .voice-card{transition:none}}
 
-/* Crisp SVG brand marks at any screen zoom; selection is independent of style. */
-.brand-mark-modern,.brand-mark-light{display:none}
-:root[data-theme="modern"][data-mode="dark"] .brand-mark-vintage,
-:root[data-mode="light"] .brand-mark-vintage{display:none}
-:root[data-theme="modern"][data-mode="dark"] .brand-mark-modern{display:block}
-:root[data-mode="light"] .brand-mark-light{display:block}
-:root[data-mode="light"] .brand-mark-modern{display:none}
+/* Use the original Vintage logo in both Vintage modes, and the supplied
+   Modern PNG pair only in their corresponding Modern color modes. */
+.brand .brand-mark-modern,.brand .brand-mark-light{display:none}
+:root[data-theme="vintage"] .brand .brand-mark-vintage{display:block}
+:root[data-theme="vintage"] .brand .brand-mark-modern,
+:root[data-theme="vintage"] .brand .brand-mark-light{display:none}
+:root[data-theme="modern"] .brand .brand-mark-vintage{display:none}
+:root[data-theme="modern"][data-mode="dark"] .brand .brand-mark-modern{display:block}
+:root[data-theme="modern"][data-mode="light"] .brand .brand-mark-modern{display:none}
+:root[data-theme="modern"][data-mode="light"] .brand .brand-mark-light{display:block}
+:root[data-theme="modern"][data-mode="dark"] .brand .brand-mark-light{display:none}
 :root[data-mode="light"] .brand-mark{filter:none}
 :root[data-mode="light"] .local i{color:#c34242;animation:onair 2.4s ease-in-out infinite}
 :root[data-theme="modern"] .local i{animation:onair 2.4s ease-in-out infinite}
