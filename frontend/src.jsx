@@ -60,7 +60,7 @@ function App(){
  const {notify,confirm:askConfirm,input:askInput}=useNotifications();
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
- const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[format,setFormat]=useState('mp3'),[narrationJob,setNarrationJob]=useState(null),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
+ const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[format,setFormat]=useState('mp3'),[narrationJob,setNarrationJob]=useState(null),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
  const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[accent,setAccent]=useState(''),[style,setStyle]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
  useEffect(()=>{
@@ -197,12 +197,20 @@ function App(){
   const audio=hiddenAudio.current;
   if(!audio||!url)return;
   audio.pause();
+  setAudibleSectionId(null);
+  audio.dataset.sectionId=String(id);
   if(audio.src!==new URL(url,window.location.href).href)audio.src=url;
   audio.currentTime=0;
   audio.playbackRate=sectionSpeed[id]||1;
-  audio.play().catch(()=>setSectionPlayError({id,message:'Your browser blocked automatic playback. Click the Play icon again to retry.'}));
+  audio.play().then(()=>setAudibleSectionId(id)).catch(()=>{setAudibleSectionId(null);setSectionPlayError({id,message:'Your browser blocked automatic playback. Click Play again to retry.'})});
+ }
+ function stopSection(){
+  const audio=hiddenAudio.current;
+  if(audio){audio.pause();audio.currentTime=0}
+  setAudibleSectionId(null);
  }
  async function playSection(block){
+  if(audibleSectionId===block.id){stopSection();return}
   const clean=spokenText(block.text);
   if(!block.voice_key){openSpeaker(block.id);return}
   if(!clean){setSectionPlayError({id:block.id,message:'Enter text before generating audio.'});return}
@@ -235,6 +243,12 @@ function App(){
   },1000);
   return()=>clearInterval(timer);
  },[sectionJob?.job_id,sectionJob?.status]);
+ useEffect(()=>{
+  if(audibleSectionId===null)return;
+  const playing=blocks.find(b=>b.id===audibleSectionId);
+  const cached=sectionAudio[audibleSectionId];
+  if(!playing||cached?.signature!==audioSignature(playing))stopSection();
+ },[blocks,sectionAudio,audibleSectionId]);
  function insertTag(id,tag){
   if(!DIRECTION_TAGS.includes(tag))return;
   setBlocks(old=>{
@@ -302,8 +316,8 @@ function App(){
     </div>
     <div className="narration-compact-toolbar">
       <div className="compact-toolbar-left">
-       <button type="button" className="icon-action section-play" aria-label={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated audio':'Generate section audio')+(b.voice_key?'':' · select a narrator first')} disabled={sectionPlayingId!==null} onClick={()=>playSection(b)}>
-        <i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':sectionAudio[b.id]?.signature===audioSignature(b)?'fa-play':'fa-wave-square')} aria-hidden="true"/>
+       <button type="button" className="icon-action section-play" aria-label={(sectionPlayingId===b.id?'Generating':audibleSectionId===b.id?'Stop':sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionPlayingId===b.id?'Generating audio':audibleSectionId===b.id?'Stop playback':sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated audio':'Generate section audio')+(b.voice_key?'':' · select a narrator first')} disabled={sectionPlayingId!==null} onClick={()=>playSection(b)}>
+        <i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':audibleSectionId===b.id?'fa-stop':sectionAudio[b.id]?.signature===audioSignature(b)?'fa-play':'fa-wave-square')} aria-hidden="true"/>
        </button>
        <div className="section-floating-wrap section-speed-wrap" data-section-floating-control>
         <button type="button" className="icon-action section-speed" onClick={()=>toggleSectionPopover(b.id,'speed')} title="Adjust playback speed" aria-expanded={sectionPopover?.id===b.id&&sectionPopover.type==='speed'} aria-label={'Playback speed '+Number((sectionSpeed[b.id]||1).toFixed(2))+' times. Adjust speed'}>
@@ -373,7 +387,7 @@ function App(){
    </div>
   </div>;
  })()}
- <audio ref={hiddenAudio} className="hidden-section-audio" aria-hidden="true" preload="auto"/>
+ <audio ref={hiddenAudio} className="hidden-section-audio" aria-hidden="true" preload="auto" onPlay={e=>setAudibleSectionId(Number(e.currentTarget.dataset.sectionId)||null)} onPause={()=>setAudibleSectionId(null)} onEnded={()=>setAudibleSectionId(null)}/>
  {PUBLIC_STUDIO&&<BrowserKokoro voices={PUBLIC_VOICES.map(v=>[v.key,v.name,v.accent])} voice={blocks.find(b=>b.id===activePreview)?.voice_key||''} text={blocks.find(b=>b.id===activePreview)?.text||''} sectionNumber={Math.max(1,blocks.findIndex(b=>b.id===activePreview)+1)} compact playRequest={playSectionRequest} onPlaybackState={(id,state)=>{if(state==='ready'||state==='error'||state==='idle')setSectionPlayingId(old=>old===id?null:old);else if(state==='generating')setSectionPlayingId(id)}} onSectionAudio={(id,url)=>{if(id===null)return;const pending=pendingSignature.current;if(pending?.sectionId!==id)return;setSectionAudio(old=>({...old,[id]:{signature:pending.signature,url}}));replaySection(url,id)}} onSectionError={(id,message)=>setSectionPlayError({id,message})} />}
  {!PUBLIC_STUDIO&&<div className="actions"><label className="inline">Export <select value={format} onChange={e=>setFormat(e.target.value)}><option value="mp3">MP3</option><option value="wav">WAV</option></select></label><button className="primary" onClick={generateNarration} disabled={busy(narrationJob)||!voiceOptions.length}>Generate Audio</button></div>}
  {PUBLIC_STUDIO&&<p className="hint">The browser generates one selected section at a time. To export a combined multi-speaker narration, use the desktop app.</p>}
