@@ -5,7 +5,7 @@ import {suggestSoundEffects} from './soundSuggestions.js';
 const TYPES=['All','Atmosphere','Nature','Weather','People','Machines','Impacts','Music','Other'];
 export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestText='',compact=false,sectionId=null,refreshKey=0,disabled=false}){
  const {notify,confirm}=useNotifications();
- const [items,setItems]=useState([]),[query,setQuery]=useState(''),[category,setCategory]=useState('All'),[uploading,setUploading]=useState(false),[selected,setSelected]=useState(null),[editing,setEditing]=useState(null),[editName,setEditName]=useState(''),[editCategory,setEditCategory]=useState('Other'),[position,setPosition]=useState('after'),[volume,setVolume]=useState(80),[fadeIn,setFadeIn]=useState(0),[fadeOut,setFadeOut]=useState(0),[showSuggestions,setShowSuggestions]=useState(false);
+ const [items,setItems]=useState([]),[query,setQuery]=useState(''),[category,setCategory]=useState('All'),[uploading,setUploading]=useState(false),[selected,setSelected]=useState(null),[editing,setEditing]=useState(null),[editName,setEditName]=useState(''),[editCategory,setEditCategory]=useState('Other'),[position,setPosition]=useState('after'),[volume,setVolume]=useState(80),[fadeIn,setFadeIn]=useState(0),[fadeOut,setFadeOut]=useState(0),[showSuggestions,setShowSuggestions]=useState(false),[suggesting,setSuggesting]=useState(false),[modelSuggestions,setModelSuggestions]=useState(null),[suggestionSource,setSuggestionSource]=useState('keywords');
  const fileRef=useRef(null),audioRef=useRef(null),[playing,setPlaying]=useState(null);
  async function load(){
   if(disabled)return;
@@ -40,7 +40,27 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
   if(!await confirm('Delete "'+item.name+'" from your library?',{title:'Delete sound effect',danger:true,confirmLabel:'Delete'}))return;
   try{await api('sound-effects/'+item.id,{method:'DELETE'});if(playing===item.id)audioRef.current?.pause();await load();notify('Sound effect deleted','success')}catch(err){notify(err.message,'error')}
  }
- const suggested=suggestSoundEffects(suggestText,items);
+ const fallbackSuggestions=suggestSoundEffects(suggestText,items);
+ const suggested=modelSuggestions??fallbackSuggestions;
+ async function toggleSuggestions(){
+  if(showSuggestions){setShowSuggestions(false);return}
+  setShowSuggestions(true);
+  if(!suggestText?.trim())return;
+  setSuggesting(true);
+  try{
+   const result=await api('sound-effects/suggest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:suggestText})});
+   const matched=result.suggestions.map(choice=>{
+    const item=items.find(sound=>sound.id===choice.sound_id);
+    return item?{...item,reason:choice.reason}:null;
+   }).filter(Boolean);
+   setModelSuggestions(matched);
+   setSuggestionSource(result.source);
+  }catch(err){
+   setModelSuggestions(null);
+   setSuggestionSource('keywords');
+   notify('Using local keyword suggestions: '+err.message,'info');
+  }finally{setSuggesting(false)}
+ }
  const filtered=items.filter(item=>(category==='All'||item.category===category)&&(!query||item.name.toLowerCase().includes(query.toLowerCase())||(item.category||'').toLowerCase().includes(query.toLowerCase())));
  return <div className={'sound-library '+(compact?'sound-library-compact':'')}>
   <div className="sound-library-head">
@@ -55,10 +75,10 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
   </div>
   <audio ref={audioRef} hidden onEnded={()=>setPlaying(null)} onPause={()=>setPlaying(null)}/>
   {onInsert&&suggestText?.trim()&&<div className="sound-suggestion-area">
-   <button type="button" className="sound-suggest-trigger" onClick={()=>setShowSuggestions(v=>!v)} aria-expanded={showSuggestions}><i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"/> Suggest sounds for this section</button>
+   <button type="button" className="sound-suggest-trigger" onClick={toggleSuggestions} aria-expanded={showSuggestions} disabled={suggesting}><i className={'fa-solid '+(suggesting?'fa-spinner fa-spin':'fa-wand-magic-sparkles')} aria-hidden="true"/> {suggesting?'Finding sounds…':'Suggest sounds for this section'}</button>
    {showSuggestions&&<div className="sound-suggestions">
-    <small>Suggestions match keywords to sounds already in your library. Review before adding.</small>
-    {suggested.length?suggested.map(item=><div className="sound-suggestion" key={item.id}><div><strong>{item.name}</strong><small>Matched: {item.reason}</small></div><button type="button" aria-label={'Add suggested '+item.name} onClick={()=>onInsert(sectionId,item,{position,volume:volume/100,fade_in:fadeIn,fade_out:fadeOut})}><i className="fa-solid fa-plus"/></button></div>):<small>No matching sounds found. Import relevant sounds or choose one manually.</small>}
+    <small>{suggesting?'Analyzing narration with an available local model…':suggestionSource==='ollama'?'Suggestions from your local Ollama model; review before adding.':'Suggestions matched to your library using offline keywords; review before adding.'}</small>
+    {!suggesting&&suggested.length?suggested.map(item=><div className="sound-suggestion" key={item.id}><div><strong>{item.name}</strong><small>Matched: {item.reason}</small></div><button type="button" aria-label={'Add suggested '+item.name} onClick={()=>onInsert(sectionId,item,{position,volume:volume/100,fade_in:fadeIn,fade_out:fadeOut})}><i className="fa-solid fa-plus"/></button></div>):!suggesting&&<small>No matching sounds found. Import relevant sounds or choose one manually.</small>}
    </div>}
   </div>}
   <div className="sound-items">
