@@ -2,7 +2,7 @@
 // The 500-character limit is applied per section (Unicode code points).
 export const SECTION_LIMIT=500;
 let nextSectionId=1000;
-export const makeSection=(text='',voice_key='')=>({id:++nextSectionId,text,voice_key});
+export const makeSection=(text='',voice_key='')=>({id:++nextSectionId,text,voice_key,delay_after:0.3});
 const length=text=>Array.from(text).length;
 export function splitNarration(text,max=SECTION_LIMIT){
  const remaining=Array.from(text||'');
@@ -54,4 +54,19 @@ export function assignSectionSpeaker(blocks,id,voice_key){
   if(i>index&&blocks.slice(index+1,i+1).every(b=>!b.voice_key))return {...block,voice_key};
   return block;
  });
+}
+
+/** Reorder a section by stable ID, retaining its text, narrator and pause. */
+export function moveSection(blocks,fromId,toId){
+ const from=blocks.findIndex(b=>b.id===fromId);
+ const to=blocks.findIndex(b=>b.id===toId);
+ if(from<0||to<0||from===to)return blocks;
+ const updated=[...blocks];
+ const [moved]=updated.splice(from,1);
+ updated.splice(to,0,moved);
+ return updated;
+}
+export function sectionDelay(seconds){
+ const value=Number(seconds);
+ return Number.isFinite(value)?Math.min(30,Math.max(0,value)):0.3;
 }
