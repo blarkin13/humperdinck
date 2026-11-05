@@ -429,3 +429,63 @@ button.active small,.primary small{color:#3a3122}
 :root[data-mode="light"] .video-studio .video-icon-action:not(.primary){background:var(--light-panel);color:var(--ivory)}
 :root[data-theme="modern"][data-mode="dark"] .video-icon-action.primary{background:#f1f1f1;color:#111;border-color:#f1f1f1}
 @media(max-width:650px){.video-offset-field{align-items:flex-start;flex-direction:column;gap:6px}}
+
+
+/* Video Studio: primary preview with a compact, integrated narration sidebar. */
+.video-studio-heading{margin-bottom:21px}
+.video-workspace{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:18px;align-items:stretch}
+.video-workspace>.panel{margin:0;min-width:0;padding:18px;border-radius:13px;display:flex;flex-direction:column}
+.video-stage-header,.video-stage-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:42px}
+.video-stage-header{margin-bottom:12px}
+.video-stage-title{display:flex;align-items:center;gap:10px;font-size:15px}
+.video-stage-title i{color:var(--brass-hi)}
+.video-preview-tabs{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:9px;background:rgba(0,0,0,.08)}
+.video-workspace .video-preview-tabs button{padding:6px 11px;min-height:32px;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:12px;box-shadow:none}
+.video-workspace .video-preview-tabs button.active{background:var(--teal);color:var(--ivory);box-shadow:0 1px 5px #0002}
+.video-stage-player{display:grid;place-items:center;min-height:235px;flex:1;background:#090b0d;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.video-stage-player .video-preview{display:block;width:100%;max-height:490px;aspect-ratio:16/9;object-fit:contain;background:#090b0d;border:0;border-radius:0;margin:0}
+.video-stage-empty{display:grid;place-items:center;min-height:240px;flex:1}
+.video-stage-empty .dropzone{width:100%;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.video-stage-footer{min-height:45px;margin-top:11px}
+.video-stage-meta{display:flex;align-items:center;gap:8px;min-width:0;color:var(--muted);font-size:12px}
+.video-stage-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.video-stage-actions{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.video-replace{position:relative}
+.video-replace summary{display:flex;align-items:center;gap:6px;padding:8px;border-radius:8px;cursor:pointer;color:var(--muted);font-size:12px;list-style:none}
+.video-replace summary::-webkit-details-marker{display:none}
+.video-replace summary:hover{color:var(--ivory);background:rgba(198,164,106,.1)}
+.video-replace-picker{position:absolute;z-index:30;right:0;bottom:calc(100% + 9px);width:min(320px,80vw);padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--teal);box-shadow:0 12px 40px #0007}
+.video-replace-picker .dropzone{margin:0}
+.video-workspace .video-icon-action{width:38px;height:38px;flex-basis:38px;border-color:var(--line);border-radius:9px}
+.video-controls .video-panel-heading{margin-bottom:18px}
+.video-controls .video-panel-heading h3{font-size:17px;gap:9px}
+.video-track-status{display:flex;align-items:center;gap:10px;padding:12px;background:rgba(72,153,117,.10);border:1px solid rgba(72,153,117,.35);border-radius:9px;color:var(--ivory);font-size:13px}
+.video-track-status i{color:#67bd8f}
+.video-setting-row{display:flex;align-items:center;justify-content:space-between;gap:15px;margin:23px 0 15px}
+.video-setting-row>label{margin:0;color:var(--muted);font-size:13px}
+.video-time-control{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:rgba(0,0,0,.10)}
+.video-workspace .video-time-control input[type=number]{width:62px!important;min-width:0;margin:0;padding:4px!important;border:0!important;box-shadow:none!important;text-align:center;background:transparent!important;font-variant-numeric:tabular-nums}
+.video-time-control span{font-size:12px;color:var(--muted)}
+.video-controls .video-mix-option{display:flex;align-items:center;gap:10px;margin:4px 0 20px;font-size:13px;color:var(--ivory)}
+.video-controls .video-mix-option input{width:16px;height:16px;flex:0 0 16px}
+.video-no-narration{flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:13px;padding:25px 10px;color:var(--muted)}
+.video-no-narration>i{font-size:24px;color:var(--brass-hi)}
+.video-no-narration p{margin:0;line-height:1.6;font-size:13px}
+.video-render-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:17px;margin-top:auto;border-top:1px solid var(--line)}
+.video-render-status{display:flex;flex-direction:column;gap:5px;min-width:0}
+.video-render-status strong{font-size:13px}
+.video-render-status small{color:var(--muted);font-size:11px;line-height:1.5}
+.video-workspace .video-render-action{width:48px;height:48px;flex-basis:48px}
+.video-render-progress{margin-top:12px}
+.video-render-progress progress{display:block;width:100%;height:7px}
+.video-render-error{color:#e7a09c;font-size:12px;overflow-wrap:anywhere}
+:root[data-mode="light"] .video-preview-tabs{background:var(--light-panel)}
+:root[data-mode="light"] .video-preview-tabs button.active{background:var(--light-surface);color:var(--ivory)}
+:root[data-mode="light"] .video-replace-picker{background:var(--light-surface);box-shadow:0 12px 38px #0003}
+:root[data-mode="light"] .video-time-control{background:var(--light-panel)}
+:root[data-mode="light"] .video-time-control input[type=number]{color:var(--ivory)!important}
+:root[data-mode="light"] .video-track-status{background:#e9f4ec;border-color:#b2d4bc;color:#244f32}
+:root[data-mode="light"] .video-track-status i{color:#317344}
+:root[data-mode="light"] .video-render-error{color:#a23930}
+@media(max-width:860px){.video-workspace{grid-template-columns:1fr}.video-workspace>.panel{padding:16px}.video-controls{min-height:260px}}
+@media(max-width:520px){.video-stage-header{align-items:flex-start;flex-wrap:wrap}.video-workspace>.panel{padding:12px}.video-stage-player{min-height:160px}.video-stage-meta{max-width:50%}.video-setting-row{margin:18px 0 12px}}
