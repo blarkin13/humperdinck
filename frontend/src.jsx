@@ -163,7 +163,7 @@ function App(){
   if(sectionPlayingId!==null)return;
   setSectionPlayingId(block.id);setSectionPlayError(null);
   pendingSignature.current={sectionId:block.id,signature};
-  if(PUBLIC_STUDIO){setActivePreview(block.id);setPlaySectionRequest({id:++playSequence.current,sectionId:block.id,text:clean,voice:block.voice_key});return}
+  if(PUBLIC_STUDIO){setActivePreview(block.id);setPlaySectionRequest({id:++playSequence.current,sectionId:block.id,text:block.text,voice:block.voice_key});return}
   try{
    const result=await api('narrations',json('POST',{blocks:[{text:clean,voice_key:block.voice_key,delay_after:0}],format:'wav'}));
    setSectionJob({...result,sectionId:block.id,signature});
@@ -244,7 +244,7 @@ function App(){
     <div className="section-directions"><label>Speech direction <select value="" aria-label={'Insert direction in section '+(i+1)} onChange={e=>{if(e.target.value)insertTag(b.id,e.target.value)}}><option value="">Add tag…</option>{DIRECTION_TAGS.map(tag=><option value={tag} key={tag}>[{tag}]</option>)}</select></label>
     <button type="button" className="section-tag-wand" onClick={()=>suggestTags(b.id)} title="Suggest direction tags based on punctuation and wording"><i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"/> Suggest tags</button></div>
     <div className="section-foot">
-     <button type="button" className="section-play" aria-label={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated':'Generate')+' audio for section '+(i+1)} disabled={!spokenText(b.text)||!b.voice_key||sectionPlayingId!==null} onClick={()=>playSection(b)}><i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':sectionAudio[b.id]?.signature===audioSignature(b)?'fa-play':'fa-waveform-lines')} aria-hidden="true"/></button>
+     <button type="button" className="section-play" aria-label={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated':'Generate')+' audio for section '+(i+1)} disabled={!spokenText(b.text)||!b.voice_key||sectionPlayingId!==null} onClick={()=>playSection(b)}><i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':sectionAudio[b.id]?.signature===audioSignature(b)?'fa-play':'fa-wave-square')} aria-hidden="true"/></button>
      <label className="section-delay">Delay <input type="number" aria-label={'Delay after section '+(i+1)+' in seconds'} min="0" max="30" step="0.1" value={b.delay_after??0} onChange={e=>changeBlock(b.id,'delay_after',sectionDelay(e.target.value))}/> <span>s</span></label>
      <button type="button" onClick={()=>addAfter(i)} title={'Insert a section after section '+(i+1)}><i className="fa-solid fa-plus" aria-hidden="true"/> Insert below</button>
      {blocks.length>1&&<button type="button" onClick={()=>removeBlock(b.id)}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Remove</button>}
