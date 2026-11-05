@@ -38,7 +38,7 @@ export default function CuratedSounds({api,onInstalled,expanded=false}){
   finally{setWorking('');setTarget(null)}
  }
  const installed=catalog.filter(item=>item.installed).length;
- return <details className="curated-recordings" open={expanded?undefined:undefined} defaultOpen={expanded}>
+ return <details className="curated-recordings">
   <summary><span><i className="fa-solid fa-leaf" aria-hidden="true"/> Real nature recordings · CC0 collection</span>
    <span className="curated-counter">{installed} / {catalog.length||10} installed <i className="fa-solid fa-chevron-down"/></span>
   </summary>
