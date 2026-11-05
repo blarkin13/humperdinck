@@ -4,7 +4,7 @@ import {useNotifications} from './Notifications.jsx';
 const TYPES=['All','Atmosphere','Nature','Weather','People','Machines','Impacts','Music','Other'];
 export default function SoundEffects({api,onInsert=null,compact=false,sectionId=null,refreshKey=0,disabled=false}){
  const {notify,confirm}=useNotifications();
- const [items,setItems]=useState([]),[query,setQuery]=useState(''),[category,setCategory]=useState('All'),[uploading,setUploading]=useState(false),[selected,setSelected]=useState(null),[position,setPosition]=useState('after'),[volume,setVolume]=useState(80);
+ const [items,setItems]=useState([]),[query,setQuery]=useState(''),[category,setCategory]=useState('All'),[uploading,setUploading]=useState(false),[selected,setSelected]=useState(null),[editing,setEditing]=useState(null),[editName,setEditName]=useState(''),[editCategory,setEditCategory]=useState('Other'),[position,setPosition]=useState('after'),[volume,setVolume]=useState(80);
  const fileRef=useRef(null),audioRef=useRef(null),[playing,setPlaying]=useState(null);
  async function load(){
   if(disabled)return;
@@ -30,12 +30,10 @@ export default function SoundEffects({api,onInsert=null,compact=false,sectionId=
   audioRef.current.src='/api/sound-effects/'+item.id+'/audio';
   audioRef.current.play().then(()=>setPlaying(item.id)).catch(()=>notify('Unable to play the selected sound','error'));
  }
- async function edit(item){
-  const name=window.prompt('Sound name',item.name);
-  if(name===null)return;
-  const kind=window.prompt('Category ('+TYPES.slice(1).join(', ')+')',item.category||'Other');
-  if(kind===null)return;
-  try{await api('sound-effects/'+item.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,category:kind})});await load()}catch(err){notify(err.message,'error')}
+ function edit(item){setEditing(item.id);setEditName(item.name);setEditCategory(item.category||'Other')}
+ async function saveEdit(){
+  try{await api('sound-effects/'+editing,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:editName,category:editCategory})});setEditing(null);await load();notify('Sound details saved','success')}
+  catch(err){notify(err.message,'error')}
  }
  async function remove(item){
   if(!await confirm('Delete "'+item.name+'" from your library?',{title:'Delete sound effect',danger:true,confirmLabel:'Delete'}))return;
@@ -62,6 +60,14 @@ export default function SoundEffects({api,onInsert=null,compact=false,sectionId=
     {!compact&&<button type="button" className="sound-item-delete" onClick={()=>remove(item)} title={'Delete '+item.name} aria-label={'Delete '+item.name}><i className="fa-solid fa-trash-can"/></button>}
    </div>)}
   </div>
+  {editing!==null&&<div className="sound-edit-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null)}}>
+    <form className="sound-edit-modal" role="dialog" aria-modal="true" aria-label="Edit sound details" onSubmit={e=>{e.preventDefault();saveEdit()}}>
+     <h3>Edit sound effect</h3>
+     <label>Sound name<input maxLength="120" required value={editName} onChange={e=>setEditName(e.target.value)}/></label>
+     <label>Category<select value={TYPES.includes(editCategory)?editCategory:'Other'} onChange={e=>setEditCategory(e.target.value)}>{TYPES.slice(1).map(t=><option key={t}>{t}</option>)}</select></label>
+     <div className="sound-edit-actions"><button type="button" onClick={()=>setEditing(null)}>Cancel</button><button className="primary" type="submit">Save</button></div>
+    </form>
+   </div>}
   {onInsert&&<div className="sound-insert-settings"><label>Position<select value={position} onChange={e=>setPosition(e.target.value)}><option value="before">Before narration</option><option value="after">After narration</option></select></label><label>Volume <span>{volume}%</span><input type="range" min="0" max="150" step="5" value={volume} onChange={e=>setVolume(Number(e.target.value))}/></label></div>}
   </>}
  </div>;
