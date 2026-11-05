@@ -1,10 +1,11 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {useNotifications} from './Notifications.jsx';
+import {suggestSoundEffects} from './soundSuggestions.js';
 
 const TYPES=['All','Atmosphere','Nature','Weather','People','Machines','Impacts','Music','Other'];
-export default function SoundEffects({api,onInsert=null,compact=false,sectionId=null,refreshKey=0,disabled=false}){
+export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestText='',compact=false,sectionId=null,refreshKey=0,disabled=false}){
  const {notify,confirm}=useNotifications();
- const [items,setItems]=useState([]),[query,setQuery]=useState(''),[category,setCategory]=useState('All'),[uploading,setUploading]=useState(false),[selected,setSelected]=useState(null),[editing,setEditing]=useState(null),[editName,setEditName]=useState(''),[editCategory,setEditCategory]=useState('Other'),[position,setPosition]=useState('after'),[volume,setVolume]=useState(80);
+ const [items,setItems]=useState([]),[query,setQuery]=useState(''),[category,setCategory]=useState('All'),[uploading,setUploading]=useState(false),[selected,setSelected]=useState(null),[editing,setEditing]=useState(null),[editName,setEditName]=useState(''),[editCategory,setEditCategory]=useState('Other'),[position,setPosition]=useState('after'),[volume,setVolume]=useState(80),[fadeIn,setFadeIn]=useState(0),[fadeOut,setFadeOut]=useState(0),[showSuggestions,setShowSuggestions]=useState(false),[suggesting,setSuggesting]=useState(false),[modelSuggestions,setModelSuggestions]=useState(null),[suggestionSource,setSuggestionSource]=useState('keywords');
  const fileRef=useRef(null),audioRef=useRef(null),[playing,setPlaying]=useState(null);
  async function load(){
   if(disabled)return;
@@ -12,6 +13,7 @@ export default function SoundEffects({api,onInsert=null,compact=false,sectionId=
  }
  useEffect(()=>{load()},[refreshKey,disabled]);
  useEffect(()=>()=>{audioRef.current?.pause()},[]);
+ useEffect(()=>{setModelSuggestions(null);setSuggestionSource('keywords')},[suggestText]);
  async function upload(files){
   if(!files?.length||disabled)return;
   setUploading(true);
@@ -39,6 +41,27 @@ export default function SoundEffects({api,onInsert=null,compact=false,sectionId=
   if(!await confirm('Delete "'+item.name+'" from your library?',{title:'Delete sound effect',danger:true,confirmLabel:'Delete'}))return;
   try{await api('sound-effects/'+item.id,{method:'DELETE'});if(playing===item.id)audioRef.current?.pause();await load();notify('Sound effect deleted','success')}catch(err){notify(err.message,'error')}
  }
+ const fallbackSuggestions=suggestSoundEffects(suggestText,items);
+ const suggested=modelSuggestions??fallbackSuggestions;
+ async function toggleSuggestions(){
+  if(showSuggestions){setShowSuggestions(false);return}
+  setShowSuggestions(true);
+  if(!suggestText?.trim())return;
+  setSuggesting(true);
+  try{
+   const result=await api('sound-effects/suggest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:suggestText})});
+   const matched=result.suggestions.map(choice=>{
+    const item=items.find(sound=>sound.id===choice.sound_id);
+    return item?{...item,reason:choice.reason}:null;
+   }).filter(Boolean);
+   setModelSuggestions(matched);
+   setSuggestionSource(result.source);
+  }catch(err){
+   setModelSuggestions(null);
+   setSuggestionSource('keywords');
+   notify('Using local keyword suggestions: '+err.message,'info');
+  }finally{setSuggesting(false)}
+ }
  const filtered=items.filter(item=>(category==='All'||item.category===category)&&(!query||item.name.toLowerCase().includes(query.toLowerCase())||(item.category||'').toLowerCase().includes(query.toLowerCase())));
  return <div className={'sound-library '+(compact?'sound-library-compact':'')}>
   <div className="sound-library-head">
@@ -52,11 +75,18 @@ export default function SoundEffects({api,onInsert=null,compact=false,sectionId=
    <select aria-label="Filter sound category" value={category} onChange={e=>setCategory(e.target.value)}>{TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
   </div>
   <audio ref={audioRef} hidden onEnded={()=>setPlaying(null)} onPause={()=>setPlaying(null)}/>
+  {onInsert&&suggestText?.trim()&&<div className="sound-suggestion-area">
+   <button type="button" className="sound-suggest-trigger" onClick={toggleSuggestions} aria-expanded={showSuggestions} disabled={suggesting}><i className={'fa-solid '+(suggesting?'fa-spinner fa-spin':'fa-wand-magic-sparkles')} aria-hidden="true"/> {suggesting?'Finding sounds…':'Suggest sounds for this section'}</button>
+   {showSuggestions&&<div className="sound-suggestions">
+    <small>{suggesting?'Analyzing narration with an available local model…':suggestionSource==='ollama'?'Suggestions from your local Ollama model; review before adding.':'Suggestions matched to your library using offline keywords; review before adding.'}</small>
+    {!suggesting&&suggested.length?suggested.map(item=><div className="sound-suggestion" key={item.id}><div><strong>{item.name}</strong><small>Matched: {item.reason}</small></div><button type="button" aria-label={'Add suggested '+item.name} onClick={()=>onInsert(sectionId,item,{position,volume:volume/100,fade_in:fadeIn,fade_out:fadeOut})}><i className="fa-solid fa-plus"/></button></div>):!suggesting&&<small>No matching sounds found. Import relevant sounds or choose one manually.</small>}
+   </div>}
+  </div>}
   <div className="sound-items">
    {filtered.length===0?<p className="sound-empty">{items.length?'No sounds match your search.':'Your sound library is empty. Import WAV, MP3 or another supported audio file to begin.'}</p>:filtered.map(item=><div className={'sound-item '+(selected===item.id?'selected':'')} key={item.id}>
     <button type="button" className="sound-preview" title={playing===item.id?'Stop preview':'Preview sound'} aria-label={(playing===item.id?'Stop':'Preview')+' '+item.name} onClick={()=>preview(item)}><i className={'fa-solid '+(playing===item.id?'fa-stop':'fa-play')}/></button>
     <button type="button" className="sound-item-title" onClick={()=>setSelected(id=>id===item.id?null:item.id)} aria-expanded={selected===item.id}><strong>{item.name}</strong><small>{item.category||'Other'} · {item.duration}s</small></button>
-    {onInsert?<button type="button" className="sound-insert" onClick={()=>onInsert(sectionId,item,{position,volume:volume/100})} title={'Add '+item.name+' to section'} aria-label={'Add '+item.name+' to section'}><i className="fa-solid fa-plus"/></button>:<button type="button" className="sound-item-menu" onClick={()=>edit(item)} title="Rename or categorize" aria-label={'Edit '+item.name}><i className="fa-solid fa-pen"/></button>}
+    {onInsert?<button type="button" className="sound-insert" onClick={()=>onInsert(sectionId,item,{position,volume:volume/100,fade_in:fadeIn,fade_out:fadeOut})} title={'Add '+item.name+' to section'} aria-label={'Add '+item.name+' to section'}><i className="fa-solid fa-plus"/></button>:onAmbience?<button type="button" className="sound-insert" onClick={()=>onAmbience(item)} title={'Use '+item.name+' as background ambience'} aria-label={'Use '+item.name+' as background ambience'}><i className="fa-solid fa-check"/></button>:<button type="button" className="sound-item-menu" onClick={()=>edit(item)} title="Rename or categorize" aria-label={'Edit '+item.name}><i className="fa-solid fa-pen"/></button>}
     {!compact&&<button type="button" className="sound-item-delete" onClick={()=>remove(item)} title={'Delete '+item.name} aria-label={'Delete '+item.name}><i className="fa-solid fa-trash-can"/></button>}
    </div>)}
   </div>
@@ -68,7 +98,12 @@ export default function SoundEffects({api,onInsert=null,compact=false,sectionId=
      <div className="sound-edit-actions"><button type="button" onClick={()=>setEditing(null)}>Cancel</button><button className="primary" type="submit">Save</button></div>
     </form>
    </div>}
-  {onInsert&&<div className="sound-insert-settings"><label>Position<select value={position} onChange={e=>setPosition(e.target.value)}><option value="before">Before narration</option><option value="after">After narration</option></select></label><label>Volume <span>{volume}%</span><input type="range" min="0" max="150" step="5" value={volume} onChange={e=>setVolume(Number(e.target.value))}/></label></div>}
+  {onInsert&&<div className="sound-insert-settings">
+   <label>Position<select value={position} onChange={e=>setPosition(e.target.value)}><option value="before">Before narration</option><option value="after">After narration</option></select></label>
+   <label>Volume <span>{volume}%</span><input type="range" min="0" max="150" step="5" value={volume} onChange={e=>setVolume(Number(e.target.value))}/></label>
+   <label>Fade in <input type="number" aria-label="Effect fade in seconds" min="0" max="10" step="0.1" value={fadeIn} onChange={e=>setFadeIn(Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
+   <label>Fade out <input type="number" aria-label="Effect fade out seconds" min="0" max="10" step="0.1" value={fadeOut} onChange={e=>setFadeOut(Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
+  </div>}
   </>}
  </div>;
 }

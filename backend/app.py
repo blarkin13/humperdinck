@@ -22,6 +22,8 @@ from backend.jobs import JobStore
 from backend import catalog
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
+from backend.sound_mix import fade_clip, assemble_narration
+from backend.sound_suggest import recommend
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path(os.environ.get('HUMPERDINCK_DATA', ROOT / 'data'))
@@ -427,6 +429,13 @@ class EffectMetadata(BaseModel):
     name: str | None = Field(default=None,max_length=120)
     category: str | None = Field(default=None,max_length=60)
 
+class SoundSuggestionRequest(BaseModel):
+    text: str = Field(min_length=1,max_length=10000)
+
+@app.post('/api/sound-effects/suggest')
+def suggest_sound_effects(request: SoundSuggestionRequest):
+    return recommend(request.text,sound_effects.list())
+
 @app.get('/api/sound-effects')
 def list_sound_effects():
     return sound_effects.list()
@@ -465,6 +474,15 @@ class NarrationEffect(BaseModel):
     sound_id: str = Field(min_length=32,max_length=32)
     position: str = 'after'
     volume: float = Field(default=0.8,ge=0,le=2)
+    fade_in: float = Field(default=0,ge=0,le=10)
+    fade_out: float = Field(default=0,ge=0,le=10)
+
+class NarrationAmbience(BaseModel):
+    sound_id: str = Field(min_length=32,max_length=32)
+    volume: float = Field(default=0.25,ge=0,le=1.5)
+    ducking: float = Field(default=0.35,ge=0,le=1)
+    fade_in: float = Field(default=0.5,ge=0,le=10)
+    fade_out: float = Field(default=0.5,ge=0,le=10)
 
 class NarrationBlock(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
@@ -476,6 +494,7 @@ class MultiNarrationRequest(BaseModel):
     blocks: list[NarrationBlock] = Field(min_length=1, max_length=80)
     format: str = 'mp3'
     name: str = Field(default='Narration', max_length=120)
+    ambience: NarrationAmbience | None = None
 
 def require_engine(role):
     choice = settings.load()[role]
@@ -644,7 +663,7 @@ def run_multi(job_id, request, references):
         import numpy as np
         with engine_lock:
             job.update(status='running',message='Generating narration')
-            clips=[]; target_rate=24000
+            sections=[]; target_rate=24000
             choice=settings.load()['clone']
             for index,(block,(reference,ref_text)) in enumerate(zip(request.blocks,references)):
                 temp=DATA/'outputs'/f'{job_id}-{index}.wav'
@@ -681,17 +700,28 @@ def run_multi(job_id, request, references):
                             if sound.ndim==2:sound=sound.mean(axis=1)
                             if sound_rate!=target_rate:
                                 raise ValueError('Sound effect must be normalized to 24000 Hz')
-                            rendered.append(np.clip(sound*assigned.volume,-1,1))
+                            scaled=np.clip(sound*assigned.volume,-1,1)
+                            rendered.append(fade_clip(scaled,target_rate,assigned.fade_in,assigned.fade_out))
                         return rendered
-                    clips.extend(effect_clips('before'))
-                    clips.append(audio)
-                    clips.extend(effect_clips('after'))
-                    if index<len(references)-1 and block.delay_after>0:
-                        clips.append(np.zeros(round(target_rate*block.delay_after),dtype='float32'))
+                    delay=round(target_rate*block.delay_after) if index<len(references)-1 else 0
+                    sections.append((effect_clips('before'),audio,effect_clips('after'),delay))
                 finally: temp.unlink(missing_ok=True)
                 job.update(progress=round((index+1)/len(references)*95),message=f'Generated block {index+1}/{len(references)}')
+            ambience_audio=None
+            ambience=request.ambience
+            if ambience is not None:
+                ambience_audio,ambience_rate=sf.read(sound_effects.get_path(ambience.sound_id),dtype='float32',always_2d=False)
+                if ambience_audio.ndim==2:ambience_audio=ambience_audio.mean(axis=1)
+                if ambience_rate!=target_rate:raise ValueError('Ambience must use 24000 Hz audio')
+            mixed=assemble_narration(
+                sections,ambience_audio,sample_rate=target_rate,
+                ambience_volume=ambience.volume if ambience else 0.25,
+                ducking=ambience.ducking if ambience else 0.35,
+                fade_in=ambience.fade_in if ambience else 0.5,
+                fade_out=ambience.fade_out if ambience else 0.5
+            )
             wav=DATA/'outputs'/f'{job_id}.wav'
-            sf.write(wav,np.concatenate(clips),target_rate,subtype='PCM_16')
+            sf.write(wav,mixed,target_rate,subtype='PCM_16')
             if request.format=='mp3': export_mp3(wav,DATA/'outputs'/f'{job_id}.mp3')
             job.update(status='complete',progress=100,download_url=f'/api/outputs/{job_id}.{request.format}',message='Narration ready')
     except Exception as exc:
@@ -709,6 +739,11 @@ def create_narration(request: MultiNarrationRequest):
                 sound_effects.get_path(effect.sound_id)
             except (ValueError,FileNotFoundError):
                 raise HTTPException(404,'A narration sound effect is missing from the library')
+    if request.ambience is not None:
+        try:
+            sound_effects.get_path(request.ambience.sound_id)
+        except (ValueError,FileNotFoundError):
+            raise HTTPException(404,'The background ambience is missing from the library')
     references=[resolve_voice_key(b.voice_key) for b in request.blocks]
     if any(reference is not None for reference, _ in references):
         require_engine('clone')

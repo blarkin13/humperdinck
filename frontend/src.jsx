@@ -61,7 +61,7 @@ function App(){
  const {notify,confirm:askConfirm,input:askInput}=useNotifications();
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
- const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[effectPicker,setEffectPicker]=useState(null),[format]=useState('mp3'),[downloadOpen,setDownloadOpen]=useState(false),[narrationJob,setNarrationJob]=useState(null),[wholeAudio,setWholeAudio]=useState(null),[wholeAudible,setWholeAudible]=useState(false),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[videoPreviewMode,setVideoPreviewMode]=useState('source'),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
+ const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[effectPicker,setEffectPicker]=useState(null),[ambiencePicker,setAmbiencePicker]=useState(false),[ambience,setAmbience]=useState(null),[format]=useState('mp3'),[downloadOpen,setDownloadOpen]=useState(false),[narrationJob,setNarrationJob]=useState(null),[wholeAudio,setWholeAudio]=useState(null),[wholeAudible,setWholeAudible]=useState(false),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[videoPreviewMode,setVideoPreviewMode]=useState('source'),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
  const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null),wholeAudioRef=useRef(null),wholeCompletedRef=useRef(null),downloadWrapRef=useRef(null);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[accent,setAccent]=useState(''),[style,setStyle]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
  useEffect(()=>{
@@ -194,9 +194,20 @@ function App(){
  useEffect(()=>{if(speakerEditor===null)return;const onEscape=e=>{if(e.key==='Escape')setSpeakerEditor(null)};window.addEventListener('keydown',onEscape);return()=>window.removeEventListener('keydown',onEscape)},[speakerEditor]);
  function addAfter(index){setBlocks(old=>insertSection(old,index))}
  function attachSound(sectionId,sound,options){
-  setBlocks(old=>old.map(b=>b.id===sectionId?{...b,effects:[...(b.effects||[]),{sound_id:sound.id,name:sound.name,position:options.position,volume:options.volume}]}:b));
+  setBlocks(old=>old.map(b=>b.id===sectionId?{...b,effects:[...(b.effects||[]),{sound_id:sound.id,name:sound.name,position:options.position,volume:options.volume,fade_in:options.fade_in??0,fade_out:options.fade_out??0}]}:b));
   setEffectPicker(null);
   notify('Added '+sound.name+' to narration','success');
+ }
+ function setCue(sectionId,index,field,value){
+  setBlocks(old=>old.map(b=>b.id===sectionId?{...b,effects:(b.effects||[]).map((effect,i)=>i===index?{...effect,[field]:value}:effect)}:b));
+ }
+ function selectAmbience(sound){
+  setAmbience({sound_id:sound.id,name:sound.name,volume:0.25,ducking:0.35,fade_in:0.5,fade_out:0.5});
+  setAmbiencePicker(false);
+  notify('Background ambience: '+sound.name,'success');
+ }
+ function changeAmbience(field,value){
+  setAmbience(old=>old?{...old,[field]:value}:old);
  }
  function detachSound(sectionId,index){
   setBlocks(old=>old.map(b=>b.id===sectionId?{...b,effects:(b.effects||[]).filter((_,i)=>i!==index)}:b));
@@ -281,7 +292,7 @@ function App(){
   document.addEventListener('keydown',onKey);
   return()=>{document.removeEventListener('pointerdown',dismiss);document.removeEventListener('keydown',onKey)};
  },[downloadOpen]);
- const fullNarrationSignature=JSON.stringify([format,blocks.map(b=>[b.text,b.voice_key,sectionDelay(b.delay_after),(b.effects||[]).map(e=>[e.sound_id,e.position,e.volume])])]);
+ const fullNarrationSignature=JSON.stringify([format,blocks.map(b=>[b.text,b.voice_key,sectionDelay(b.delay_after),(b.effects||[]).map(e=>[e.sound_id,e.position,e.volume,e.fade_in,e.fade_out])]),ambience]);
  function stopWholeNarration(){
   const player=wholeAudioRef.current;
   if(player){player.pause();player.currentTime=0}
@@ -302,7 +313,7 @@ function App(){
   try{
    if(blocks.some(b=>!spokenText(b.text)||!b.voice_key))throw Error('Every section needs text and a narrator');
    stopWholeNarration();
-   const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:spokenText(b.text),voice_key:b.voice_key,delay_after:sectionDelay(b.delay_after),effects:(b.effects||[]).map(e=>({sound_id:e.sound_id,position:e.position,volume:e.volume}))})),format}));
+   const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:spokenText(b.text),voice_key:b.voice_key,delay_after:sectionDelay(b.delay_after),effects:(b.effects||[]).map(e=>({sound_id:e.sound_id,position:e.position,volume:e.volume,fade_in:e.fade_in||0,fade_out:e.fade_out||0}))})),format,ambience:ambience?{sound_id:ambience.sound_id,volume:ambience.volume,ducking:ambience.ducking,fade_in:ambience.fade_in,fade_out:ambience.fade_out}:null}));
    wholeCompletedRef.current=null;
    setNarrationJob({...j,signature:fullNarrationSignature});
    setStatus('Generating narration...');
@@ -416,15 +427,36 @@ function App(){
        </div>
       </div>
     </div>
-    {!!b.effects?.length&&<div className="section-sound-effects" aria-label={'Sound effects for section '+(i+1)}>{b.effects.map((effect,index)=><span key={effect.sound_id+'-'+index} className="section-sound-chip"><i className="fa-solid fa-volume-high" aria-hidden="true"/><span>{effect.name} · {effect.position} · {Math.round(effect.volume*100)}%</span><button type="button" aria-label={'Remove '+effect.name} title="Remove effect" onClick={()=>detachSound(b.id,index)}><i className="fa-solid fa-xmark"/></button></span>)}</div>}
-    {effectPicker===b.id&&<div className="section-sound-picker"><div className="section-sound-picker-head"><strong>Add a sound to Section {i+1}</strong><button type="button" onClick={()=>setEffectPicker(null)} aria-label="Close sound picker"><i className="fa-solid fa-xmark"/></button></div><SoundEffects api={api} compact sectionId={b.id} onInsert={attachSound}/></div>}
+    {!!b.effects?.length&&<div className="section-sound-effects" aria-label={'Sound effects for section '+(i+1)}>{b.effects.map((effect,index)=><details key={effect.sound_id+'-'+index} className="section-sound-chip"><summary><i className="fa-solid fa-volume-high" aria-hidden="true"/><span>{effect.name} · {effect.position} · {Math.round(effect.volume*100)}%</span><i className="fa-solid fa-chevron-down" aria-hidden="true"/></summary><div className="sound-cue-settings">
+  <label>Volume <input type="range" min="0" max="200" step="5" value={Math.round(effect.volume*100)} onChange={e=>setCue(b.id,index,'volume',Number(e.target.value)/100)}/></label>
+  <label>Fade in <input type="number" min="0" max="10" step="0.1" value={effect.fade_in??0} onChange={e=>setCue(b.id,index,'fade_in',Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
+  <label>Fade out <input type="number" min="0" max="10" step="0.1" value={effect.fade_out??0} onChange={e=>setCue(b.id,index,'fade_out',Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
+  <button type="button" className="sound-cue-remove" onClick={()=>detachSound(b.id,index)}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Remove</button>
+ </div></details>)}</div>}
+    {effectPicker===b.id&&<div className="section-sound-picker"><div className="section-sound-picker-head"><strong>Add a sound to Section {i+1}</strong><button type="button" onClick={()=>setEffectPicker(null)} aria-label="Close sound picker"><i className="fa-solid fa-xmark"/></button></div><SoundEffects api={api} compact sectionId={b.id} suggestText={b.text} onInsert={attachSound}/></div>}
     {sectionPlayError?.id===b.id&&<p className="section-play-error" role="alert">{sectionPlayError.message}</p>}
    </div>
   </div>
  </div>)}
 
 
+
  </div>
+ {!PUBLIC_STUDIO&&<div className="narration-ambience-panel">
+  <div className="ambience-header"><div><h3><i className="fa-solid fa-water" aria-hidden="true"/> Background ambience</h3><small>Loop a sound behind the entire narration. The mixer lowers it when a narrator speaks.</small></div>
+   <button type="button" aria-label="Choose background ambience" title="Choose a sound from the library" onClick={()=>setAmbiencePicker(old=>!old)}><i className="fa-solid fa-music" aria-hidden="true"/> {ambience?'Change':'Choose sound'}</button>
+  </div>
+  {ambience&&<div className="ambience-track">
+   <div className="ambience-track-name"><i className="fa-solid fa-wave-square" aria-hidden="true"/><strong>{ambience.name}</strong><button type="button" title="Remove background ambience" aria-label="Remove background ambience" onClick={()=>setAmbience(null)}><i className="fa-solid fa-xmark"/></button></div>
+   <div className="ambience-controls">
+    <label>Volume <span>{Math.round(ambience.volume*100)}%</span><input type="range" min="0" max="100" step="5" value={Math.round(ambience.volume*100)} onChange={e=>changeAmbience('volume',Number(e.target.value)/100)}/></label>
+    <label>Ducking <span>{Math.round((1-ambience.ducking)*100)}% lower during speech</span><input type="range" min="0" max="100" step="5" value={Math.round((1-ambience.ducking)*100)} onChange={e=>changeAmbience('ducking',1-Number(e.target.value)/100)}/></label>
+    <label>Fade in <input aria-label="Ambience fade in seconds" type="number" min="0" max="10" step="0.1" value={ambience.fade_in} onChange={e=>changeAmbience('fade_in',Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
+    <label>Fade out <input aria-label="Ambience fade out seconds" type="number" min="0" max="10" step="0.1" value={ambience.fade_out} onChange={e=>changeAmbience('fade_out',Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
+   </div>
+  </div>}
+  {ambiencePicker&&<div className="ambience-picker"><SoundEffects api={api} compact onAmbience={selectAmbience}/></div>}
+ </div>}
  {speakerEditor!==null&&(()=>{
   const sectionIndex=blocks.findIndex(b=>b.id===speakerEditor);
   const current=blocks[sectionIndex];
