@@ -3,7 +3,7 @@ import './BrowserKokoro.css';
 
 export const KOKORO_LIMIT=500;
 function countCharacters(value){return Array.from(value).length}
-export default function BrowserKokoro({voices,voice,text='',sectionNumber=1,playRequest=null,onPlaybackState,onSectionAudio,onSectionError}){
+export default function BrowserKokoro({voices,voice,text='',sectionNumber=1,playRequest=null,onPlaybackState,onSectionAudio,onSectionError,compact=false}){
  const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const [progress,setProgress]=useState(null),[error,setError]=useState('');
  const [audioUrl,setAudioUrl]=useState(null);
@@ -81,6 +81,10 @@ export default function BrowserKokoro({voices,voice,text='',sectionNumber=1,play
   if(activeSection.current!==null)callbacks.current.onPlaybackState?.(activeSection.current,'idle');
   setError('Engine reset. You can try again.');
  }
+ if(compact)return <div className="browser-kokoro-compact" aria-live="polite">
+  {busy&&<small>{message}</small>}
+  {error&&<p className="section-play-error" role="alert">{error}</p>}
+ </div>;
  return <div className="browser-kokoro" aria-label="Generate Kokoro voice audio in your browser">
   <div className="browser-kokoro-head"><div><strong><i className="fa-solid fa-wave-square" aria-hidden="true"/> Generate narration</strong><p>Choose a built-in voice and generate speech from your text directly in your browser.</p></div><span className="browser-kokoro-chip">BUILT-IN VOICE</span></div>
   <p className="hint">Selected: section {sectionNumber} · {voices.find(v=>v[0]===voice)?.[1]||'Choose a voice'} · {length} characters</p>
