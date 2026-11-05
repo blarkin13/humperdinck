@@ -518,6 +518,18 @@ class SoundSuggestionRequest(BaseModel):
 def suggest_sound_effects(request: SoundSuggestionRequest):
     return recommend(request.text,sound_effects.list())
 
+@app.post('/api/sound-effects/import-pack')
+async def bulk_import_sound_pack(file: UploadFile=File(...)):
+    if not (file.filename or '').lower().endswith('.zip'):
+        raise HTTPException(400,'Choose a Humperdinck sound pack ZIP file')
+    raw=await file.read(150*1024*1024+1)
+    if len(raw)>150*1024*1024:
+        raise HTTPException(413,'Sound pack exceeds 150 MB')
+    try:
+        return sound_effects.import_pack(raw)
+    except (ValueError,KeyError) as exc:
+        raise HTTPException(400,str(exc))
+
 @app.get('/api/sound-effects/curated')
 def curated_sound_catalog():
     return public_catalog(sound_effects.list())
