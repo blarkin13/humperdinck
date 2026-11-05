@@ -450,7 +450,27 @@ function App(){
  {PUBLIC_STUDIO&&<p className="hint">The browser generates one selected section at a time. To export a combined multi-speaker narration, use the desktop app.</p>}
  {narrationJob&&<div className="job"><p>{narrationJob.message}</p><progress max="100" value={narrationJob.progress}/>{narrationJob.status==='complete'&&<><button onClick={()=>setTab('video')}>Add to Video →</button>
   <AudioEditor src={narrationJob.download_url.replace(/\.mp3$/,'.wav')} source={'output:'+narrationJob.job_id} saveLabel="Apply edits" onSaved={j=>{setNarrationJob({...j,job_id:j.download_url.split('/').pop().split('.')[0]});setStatus('Edited narration ready. Video Studio will use this version.')}}/></>}</div>}</section>}
- {tab==='video'&&<section><h2>Video Studio</h2><p>Upload a video, place your narration at a timestamp, and export an MP4.</p><div className="panel"><DropZone disabled={PUBLIC_STUDIO} accept=".mp4,.mov,.mkv,.webm" onFile={f=>upload(f,'videos')} title="Drop a video" hint="MP4, MOV, MKV or WEBM"/>{video&&<><p>{video.filename}</p><video className="video-preview" controls src={'/api/videos/'+video.video_id}/></>}</div><div className="panel"><h3>Narration track</h3>{narrationJob?.status==='complete'?<><audio controls src={narrationJob.download_url}/><label>Start narration at (seconds)</label><input type="number" min="0" step="0.1" value={offset} onChange={e=>setOffset(e.target.value)}/><label className="check"><input type="checkbox" checked={mix} onChange={e=>setMix(e.target.checked)}/> Mix with original video audio</label><button className="primary" disabled={!video||busy(videoJob)} onClick={renderVideo}>Render Video</button></>:<div className="notice">Generate your narration in Narration Studio first. <button onClick={()=>setTab('narration')}>Open Narration Studio</button></div>}{videoJob&&<div className="job"><p>{videoJob.message}</p><progress max="100" value={videoJob.progress}/>{videoJob.status==='complete'&&<><video className="video-preview" controls src={videoJob.download_url}/><a className="download" href={videoJob.download_url} download>Download MP4</a></>}</div>}</div><p className="hint">Current video support: one combined narration track with a start offset. Multi-track drag-and-drop editing and automatic synchronization are future work.</p></section>}
+ {tab==='video'&&<section className="video-studio">
+ <div className="video-studio-heading"><div><h2>Video Studio</h2><p>Combine a video with your finished narration.</p></div></div>
+ <div className="panel video-studio-panel">
+  <div className="video-panel-heading"><h3><i className="fa-solid fa-film" aria-hidden="true"/> Video</h3></div>
+  <DropZone disabled={PUBLIC_STUDIO} accept=".mp4,.mov,.mkv,.webm" onFile={f=>upload(f,'videos')} title="Drop a video" hint="MP4, MOV, MKV or WEBM"/>
+  {video&&<div className="video-loaded"><small>{video.filename}</small><video className="video-preview" controls preload="metadata" src={'/api/videos/'+video.video_id}/></div>}
+ </div>
+ <div className="panel video-studio-panel">
+  <div className="video-panel-heading"><h3><i className="fa-solid fa-sliders" aria-hidden="true"/> Narration &amp; render</h3>
+   {narrationJob?.status==='complete'&&<button type="button" className="video-icon-action primary" aria-label="Render video" title="Render video" disabled={!video||busy(videoJob)||PUBLIC_STUDIO} onClick={renderVideo}><i className={'fa-solid '+(busy(videoJob)?'fa-spinner fa-spin':'fa-clapperboard')} aria-hidden="true"/></button>}
+  </div>
+  {narrationJob?.status==='complete'?<div className="video-render-settings">
+   <label className="video-offset-field">Narration starts at <span><input type="number" min="0" step="0.1" value={offset} onChange={e=>setOffset(e.target.value)}/> seconds</span></label>
+   <label className="check video-mix-option"><input type="checkbox" checked={mix} onChange={e=>setMix(e.target.checked)}/> Keep original video audio</label>
+  </div>:<div className="video-no-narration"><span>Generate a narration track before rendering your video.</span><button type="button" className="video-icon-action" aria-label="Open Narration Studio" title="Open Narration Studio" onClick={()=>setTab('narration')}><i className="fa-solid fa-arrow-right" aria-hidden="true"/></button></div>}
+  {videoJob&&<div className="job video-output"><div className="video-output-header"><span>{videoJob.message}</span>{videoJob.status==='complete'&&<a className="video-icon-action" href={videoJob.download_url} download aria-label="Download rendered MP4" title="Download MP4"><i className="fa-solid fa-download" aria-hidden="true"/></a>}</div>
+   {videoJob.status!=='complete'&&<progress max="100" value={videoJob.progress||0}/>}
+   {videoJob.status==='complete'&&<video className="video-preview" controls preload="metadata" src={videoJob.download_url}/>}
+  </div>}
+ </div>
+ </section>}
  {tab==='models'&&(PUBLIC_STUDIO?<section><h2>Models</h2><p>Download Humperdinck to install and manage local voice models.</p><div className="panel"><h3>Built-in voices</h3><p>The browser preview offers six voices. Other models and downloads are available in the desktop app.</p><button disabled>Install / Download · desktop only</button></div></section>:<Models/>)}
  </main>
 }
