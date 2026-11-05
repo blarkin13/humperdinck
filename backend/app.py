@@ -24,6 +24,7 @@ from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAIT
 from backend.sound_effects import SoundEffects
 from backend.sound_mix import fade_clip, assemble_narration
 from backend.sound_suggest import recommend
+from backend.voice_refinement import normalize_refinement,refine_wav,suggest_sliders,DEFAULTS
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path(os.environ.get('HUMPERDINCK_DATA', ROOT / 'data'))
@@ -59,6 +60,7 @@ class GenerateRequest(BaseModel):
     designed_voice_id: str = ''
     designed_version: int | None = None
     designed_mode: str = 'auto'  # auto, design, or reference
+    refinement_override: dict | None = None
 
 class RenameInput(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
@@ -105,6 +107,8 @@ def list_voices():
             duration = rate = channels = None
         return {'voice_id':p.stem, 'filename':meta.get(p.stem,{}).get('name',p.name), 'category':meta.get(p.stem,{}).get('category',''),
                 'origin':meta.get(p.stem,{}).get('origin','uploaded'),
+                'refinement':meta.get(p.stem,{}).get('refinement',{'sliders':DEFAULTS,'description':''}),
+                'refinement_versions':len(meta.get(p.stem,{}).get('refinement_history',[])),
                 'duration':duration, 'sample_rate':rate, 'channels':channels, 'size_kb':round(p.stat().st_size/1024),
                 'added_at':datetime.fromtimestamp(p.stat().st_mtime, timezone.utc).isoformat()}
     return [info(p) for p in sorted((DATA/'voices').glob('*.wav'))]
@@ -122,6 +126,74 @@ def update_voice(voice_id: str, request: RenameInput):
     if request.category is not None: entry['category'] = request.category.strip()
     save_voice_meta(meta)
     return {'voice_id':voice_id, 'filename':entry['name'], 'category':entry['category']}
+
+class VoiceRefinementInput(BaseModel):
+    sliders: dict[str,int] = Field(default_factory=lambda: DEFAULTS.copy())
+    description: str = Field(default='',max_length=1200)
+
+class VoiceRefinementPreviewInput(VoiceRefinementInput):
+    text: str = Field(min_length=1,max_length=600)
+
+class VoiceGuidanceInput(BaseModel):
+    description: str = Field(min_length=1,max_length=1200)
+    sliders: dict[str,int] = Field(default_factory=lambda: DEFAULTS.copy())
+
+@app.post('/api/voice-refinement/suggest')
+def suggest_voice_refinement(request: VoiceGuidanceInput):
+    try:
+        current=normalize_refinement({'sliders':request.sliders,'description':request.description})
+        return {'sliders':suggest_sliders(request.description,current),'method':'local keyword guidance'}
+    except ValueError as exc:
+        raise HTTPException(422,str(exc))
+
+@app.get('/api/voices/{voice_id}/refinement')
+def get_voice_refinement(voice_id: str):
+    upload_path(voice_id)
+    entry=voice_meta().get(voice_id,{})
+    return {'refinement':entry.get('refinement',{'sliders':DEFAULTS,'description':''}),
+            'history':entry.get('refinement_history',[])}
+
+@app.put('/api/voices/{voice_id}/refinement')
+def save_voice_refinement(voice_id: str, request: VoiceRefinementInput):
+    upload_path(voice_id)
+    try:
+        updated=normalize_refinement(request.model_dump())
+    except ValueError as exc:
+        raise HTTPException(422,str(exc))
+    meta=voice_meta()
+    entry=meta.setdefault(voice_id,{'name':voice_id,'category':''})
+    previous=entry.get('refinement',{'sliders':DEFAULTS.copy(),'description':''})
+    if updated!=previous:
+        history=entry.setdefault('refinement_history',[])
+        history.append({'version':len(history)+1,'settings':updated,
+                        'created_at':datetime.now(timezone.utc).isoformat()})
+        entry['refinement']=updated
+        save_voice_meta(meta)
+    return {'refinement':entry.get('refinement',previous),
+            'history':entry.get('refinement_history',[])}
+
+@app.post('/api/voices/{voice_id}/refinement/restore/{version}')
+def restore_voice_refinement(voice_id: str,version:int):
+    upload_path(voice_id)
+    meta=voice_meta()
+    entry=meta.get(voice_id,{})
+    prior=next((item['settings'] for item in entry.get('refinement_history',[])
+                if item['version']==version),None)
+    if prior is None:raise HTTPException(404,'Refinement version not found')
+    entry['refinement']=prior
+    save_voice_meta(meta)
+    return {'refinement':prior,'history':entry.get('refinement_history',[])}
+
+@app.post('/api/voices/{voice_id}/refinement-preview')
+def preview_voice_refinement(voice_id:str,request:VoiceRefinementPreviewInput):
+    upload_path(voice_id)
+    try:
+        refine=normalize_refinement(request.model_dump())
+    except ValueError as exc:
+        raise HTTPException(422,str(exc))
+    return generate(GenerateRequest(text=request.text,voice_id=voice_id,
+                                    engine='qwen-clone',format='wav',
+                                    refinement_override=refine))
 
 @app.delete('/api/voices/{voice_id}')
 def delete_voice(voice_id: str):
@@ -357,6 +429,10 @@ def run_generation(job_id, request):
                 if not reference or not reference.is_file():
                     raise ValueError('Approved reference audio is missing')
                 engines.clone(choice['clone'], wav, request.text, reference, ref_text, progress)
+                if request.engine=='qwen-clone':
+                    entry=voice_meta().get(request.voice_id,{})
+                    refine= request.refinement_override if request.refinement_override is not None else entry.get('refinement')
+                    if refine:refine_wav(wav,refine)
             if request.designed_voice_id and request.engine == 'qwen-design':
                 job['sample'] = library.sample(request.designed_voice_id,request.designed_version,request.text,wav)
             if request.format == 'mp3':
@@ -387,6 +463,10 @@ def generate(request: GenerateRequest):
         raise HTTPException(400, 'Voice description required')
     if request.engine == 'qwen-design' and len(request.voice_description) > 1200:
         raise HTTPException(400, 'Voice description too long')
+    if request.refinement_override is not None:
+        if request.engine!='qwen-clone':raise HTTPException(422,'Refinements require an uploaded voice')
+        try:request.refinement_override=normalize_refinement(request.refinement_override)
+        except ValueError as exc:raise HTTPException(422,str(exc))
     if request.engine == 'qwen-clone' and (not request.voice_id.isalnum() or not (DATA/'voices'/f'{request.voice_id}.wav').is_file()):
         raise HTTPException(404, 'Voice profile not found')
     require_engine('design' if request.engine == 'qwen-design' else 'clone')
@@ -560,6 +640,8 @@ def preview_recipe(key):
             choice = settings.load()['clone']
     source = {'voice': key, 'mode': mode, 'choice': choice,
               'prompt': VOICE_PREVIEW_TEXT}
+    if key.startswith('upload:'):
+        source['refinement']=voice_meta().get(key[7:],{}).get('refinement')
     if reference is not None:
         source['reference'] = str(reference)
         source['reference_mtime'] = reference.stat().st_mtime_ns
@@ -571,7 +653,7 @@ def preview_recipe(key):
     return mode, choice, reference, ref_text, digest
 
 
-def generate_library_preview(job_id, mode, choice, reference, ref_text, digest):
+def generate_library_preview(job_id, mode, choice, reference, ref_text, digest, refinement=None):
     job = jobs[job_id]
     path = PREVIEW_DIR / (digest + '.wav')
     temp = PREVIEW_DIR / (digest + '-' + job_id + '.wav')
@@ -586,6 +668,7 @@ def generate_library_preview(job_id, mode, choice, reference, ref_text, digest):
                 engines.design(choice, temp, VOICE_PREVIEW_TEXT, ref_text, on_progress=progress)
             else:
                 engines.clone(choice, temp, VOICE_PREVIEW_TEXT, reference, ref_text, on_progress=progress)
+                if refinement:refine_wav(temp,refinement)
             temp.replace(path)
         job.update(status='complete', progress=100, message='Voice preview ready',
                    download_url=f'/api/voice-previews/{digest}.wav')
@@ -611,8 +694,9 @@ def create_library_preview(request: LibraryPreviewRequest):
         jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0,
                         'message': 'Waiting to generate comparison preview'}
         preview_pending[digest] = job_id
+    refinement=voice_meta().get(request.voice_key[7:],{}).get('refinement') if request.voice_key.startswith('upload:') else None
     Thread(target=generate_library_preview,
-           args=(job_id, mode, choice, reference, ref_text, digest), daemon=True).start()
+           args=(job_id, mode, choice, reference, ref_text, digest,refinement), daemon=True).start()
     return jobs[job_id]
 
 
@@ -687,6 +771,15 @@ def run_multi(job_id, request, references):
                         subprocess.run(['ffmpeg','-v','error','-y','-i',str(temp),'-ar',str(target_rate),'-ac','1',str(resampled)],check=True,timeout=120)
                         audio,_=sf.read(resampled,dtype='float32')
                         resampled.unlink(missing_ok=True)
+                    if block.voice_key.startswith('upload:'):
+                        current=voice_meta().get(block.voice_key[7:],{}).get('refinement')
+                        if current:
+                            refined=DATA/'outputs'/f'{job_id}-{index}-refined.wav'
+                            sf.write(refined,audio,target_rate)
+                            try:
+                                refine_wav(refined,current)
+                                audio,_=sf.read(refined,dtype='float32')
+                            finally:refined.unlink(missing_ok=True)
                     for effect in block.effects:
                         if effect.position not in ('before','after'):
                             raise ValueError('Invalid sound effect position')
