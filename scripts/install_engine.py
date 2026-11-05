@@ -112,6 +112,22 @@ def use_cuda(python):
              'Check the driver version and GPU compatibility with the selected CUDA runtime.')
 
 
+def install_packages_for_platform(engine_id, packages, platform_name=None):
+    """Use prebuilt-only friendly dependencies on Windows for Kokoro.
+
+    Misaki's [ja] extra pulls pyopenjtalk, whose Windows source build requires
+    a working MSVC/NMake toolchain. Japanese phonemization can be installed
+    separately with appropriate native dependencies; core English/Mandarin
+    narration must not depend on compiling pyopenjtalk.
+    """
+    platform_name = platform_name or sys.platform
+    result = list(packages)
+    if engine_id == 'kokoro' and platform_name == 'win32':
+        result = [p.replace('misaki-fork[ja,zh]', 'misaki-fork[zh]')
+                  for p in result]
+    return result
+
+
 def download_kokoro():
     """Fetch pinned ONNX + voicepack release files atomically into protected data/."""
     import urllib.request
@@ -170,7 +186,9 @@ def main():
     # already-installed but incompatible mlx-audio package.
     command = [str(python), '-m', 'pip', 'install',
                *(['--upgrade'] if args.engine == 'qwen-mlx' else []),
-               *engine['packages']]
+               *install_packages_for_platform(args.engine, engine['packages'])]
+    if args.engine == 'kokoro' and sys.platform == 'win32':
+        step('Using Windows-compatible Kokoro dependencies without the Japanese pyopenjtalk source build')
     step(f"Installing {engine['label']} packages (this can take several minutes)")
     subprocess.run(command, check=True)
     if engine.get('torch') and sys.platform in ('win32', 'linux') and shutil.which('nvidia-smi'):
