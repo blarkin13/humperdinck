@@ -60,7 +60,7 @@ function App(){
  const {notify,confirm:askConfirm,input:askInput}=useNotifications();
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
- const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[format]=useState('mp3'),[downloadOpen,setDownloadOpen]=useState(false),[narrationJob,setNarrationJob]=useState(null),[wholeAudio,setWholeAudio]=useState(null),[wholeAudible,setWholeAudible]=useState(false),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
+ const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[format]=useState('mp3'),[downloadOpen,setDownloadOpen]=useState(false),[narrationJob,setNarrationJob]=useState(null),[wholeAudio,setWholeAudio]=useState(null),[wholeAudible,setWholeAudible]=useState(false),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[videoPreviewMode,setVideoPreviewMode]=useState('source'),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
  const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null),wholeAudioRef=useRef(null),wholeCompletedRef=useRef(null),downloadWrapRef=useRef(null);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[accent,setAccent]=useState(''),[style,setStyle]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
  useEffect(()=>{
@@ -75,7 +75,7 @@ function App(){
  useEffect(()=>{if(tab==='narration'||tab==='voices')refresh()},[tab]);
  useEffect(()=>{if(!previewJob||!['queued','running'].includes(previewJob.status))return;const timer=setInterval(async()=>{try{const j=await api('jobs/'+previewJob.job_id);setPreviewJob({...j,design_instruction:previewJob.design_instruction,design_model:previewJob.design_model});if(j.status==='complete'){setCandidates(old=>old.some(c=>c.job_id===j.job_id)?old:[...old,{...j,recipe:previewJob.recipe,design_instruction:previewJob.design_instruction,design_model:previewJob.design_model}]);setChosen(j.job_id);setStatus('Preview ready. Listen and select your favorite.')}else if(j.status==='failed')setStatus(j.message)}catch(e){setStatus(e.message)}},1000);return()=>clearInterval(timer)},[previewJob?.job_id,previewJob?.status]);
  useEffect(()=>{if(!narrationJob||!['queued','running'].includes(narrationJob.status))return;const timer=setInterval(async()=>{try{const j=await api('jobs/'+narrationJob.job_id);setNarrationJob(old=>({...j,signature:old?.signature}));if(j.status==='failed')setStatus(j.message)}catch(e){setStatus(e.message)}},1000);return()=>clearInterval(timer)},[narrationJob?.job_id,narrationJob?.status]);
- useEffect(()=>{if(!videoJob||!['queued','running'].includes(videoJob.status))return;const timer=setInterval(async()=>{try{const j=await api('jobs/'+videoJob.job_id);setVideoJob(j);if(j.status==='failed')setStatus(j.message)}catch(e){setStatus(e.message)}},1000);return()=>clearInterval(timer)},[videoJob?.job_id,videoJob?.status]);
+ useEffect(()=>{if(!videoJob||!['queued','running'].includes(videoJob.status))return;const timer=setInterval(async()=>{try{const j=await api('jobs/'+videoJob.job_id);setVideoJob(j);if(j.status==='complete')setVideoPreviewMode('rendered');if(j.status==='failed')setStatus(j.message)}catch(e){setStatus(e.message)}},1000);return()=>clearInterval(timer)},[videoJob?.job_id,videoJob?.status]);
  function designTraits(){return method==='prompt'?{...defaults}:settings}
  function recipe(){return JSON.stringify({gender,description,settings:designTraits(),method,accent,style})}
   function voicePrompt(){
@@ -87,7 +87,7 @@ function App(){
   }
  function newVoice(){setSelected('');setUploadSel('');setDetail(null);setName('New voice');setDescription('');setGender('masculine');setSettings({...defaults});setAccent('');setStyle('');setCategory('');setCandidates([]);setChosen('');setSavedJobs([]);setSavedReference(false)}
  async function openVoice(id){try{const d=await api('designed-voices/'+id);const v=d.versions.find(v=>v.version===d.active_version);setSelected(id);setUploadSel('');setDetail(d);setName(d.name);setCategory(d.category||'');setDescription(v.description);setSettings({...defaults,...v.characteristics});setMethod('prompt');setCandidates([]);setChosen('');setSavedReference(!!v.approved_sample_id);setTab('creator');setStatus('')}catch(e){setStatus(e.message)}}
- async function upload(file,type){if(!file)return;const form=new FormData();form.append('file',file);try{setStatus('Uploading...');const result=await api(type,{method:'POST',body:form});if(type==='voices'){await refresh();setStatus('Voice imported. It is available for narration.')}else{setVideo(result);setStatus('Video uploaded. Generate narration and position it on the timeline.')}return result}catch(e){setStatus(e.message)}}
+ async function upload(file,type){if(!file)return;const form=new FormData();form.append('file',file);try{setStatus('Uploading...');const result=await api(type,{method:'POST',body:form});if(type==='voices'){await refresh();setStatus('Voice imported. It is available for narration.')}else{setVideo(result);setVideoJob(null);setVideoPreviewMode('source');setStatus('Video uploaded. Set narration timing and render when ready.')}return result}catch(e){setStatus(e.message)}}
  async function preview(){try{const prompt=voicePrompt();if(!prompt)throw Error('Describe the voice first');const key=recipe();const j=await api('designed-voices/draft-preview',json('POST',{text:previewText,description:prompt,characteristics:designTraits()}));setPreviewJob({...j,recipe:key});setStatus('Generating preview...')}catch(e){setStatus(e.message)}}
  async function saveVoice(approve){
   try{
@@ -451,24 +451,53 @@ function App(){
  {narrationJob&&<div className="job"><p>{narrationJob.message}</p><progress max="100" value={narrationJob.progress}/>{narrationJob.status==='complete'&&<><button onClick={()=>setTab('video')}>Add to Video →</button>
   <AudioEditor src={narrationJob.download_url.replace(/\.mp3$/,'.wav')} source={'output:'+narrationJob.job_id} saveLabel="Apply edits" onSaved={j=>{setNarrationJob({...j,job_id:j.download_url.split('/').pop().split('.')[0]});setStatus('Edited narration ready. Video Studio will use this version.')}}/></>}</div>}</section>}
  {tab==='video'&&<section className="video-studio">
- <div className="video-studio-heading"><div><h2>Video Studio</h2><p>Combine a video with your finished narration.</p></div></div>
- <div className="panel video-studio-panel">
-  <div className="video-panel-heading"><h3><i className="fa-solid fa-film" aria-hidden="true"/> Video</h3></div>
-  <DropZone disabled={PUBLIC_STUDIO} accept=".mp4,.mov,.mkv,.webm" onFile={f=>upload(f,'videos')} title="Drop a video" hint="MP4, MOV, MKV or WEBM"/>
-  {video&&<div className="video-loaded"><small>{video.filename}</small><video className="video-preview" controls preload="metadata" src={'/api/videos/'+video.video_id}/></div>}
+ <div className="video-studio-heading">
+  <div><h2>Video Studio</h2><p>Position narration, preview the result, and download your video.</p></div>
  </div>
- <div className="panel video-studio-panel">
-  <div className="video-panel-heading"><h3><i className="fa-solid fa-sliders" aria-hidden="true"/> Narration &amp; render</h3>
-   {narrationJob?.status==='complete'&&<button type="button" className="video-icon-action primary" aria-label="Render video" title="Render video" disabled={!video||busy(videoJob)||PUBLIC_STUDIO} onClick={renderVideo}><i className={'fa-solid '+(busy(videoJob)?'fa-spinner fa-spin':'fa-clapperboard')} aria-hidden="true"/></button>}
+ <div className="video-workspace">
+  <div className="panel video-stage">
+   <div className="video-stage-header">
+    <div className="video-stage-title"><i className="fa-solid fa-film" aria-hidden="true"/><strong>Preview</strong></div>
+    {videoJob?.status==='complete'&&<div className="video-preview-tabs" role="group" aria-label="Video preview version">
+     <button type="button" aria-pressed={videoPreviewMode==='source'} className={videoPreviewMode==='source'?'active':''} onClick={()=>setVideoPreviewMode('source')}>Source</button>
+     <button type="button" aria-pressed={videoPreviewMode==='rendered'} className={videoPreviewMode==='rendered'?'active':''} onClick={()=>setVideoPreviewMode('rendered')}>Rendered</button>
+    </div>}
+   </div>
+   {video?
+    <div className="video-stage-player"><video key={videoPreviewMode==='rendered'&&videoJob?.status==='complete'?videoJob.download_url:video.video_id} className="video-preview" controls preload="metadata" src={videoPreviewMode==='rendered'&&videoJob?.status==='complete'?videoJob.download_url:'/api/videos/'+video.video_id}/></div>
+    :<div className="video-stage-empty"><DropZone disabled={PUBLIC_STUDIO} accept=".mp4,.mov,.mkv,.webm" onFile={file=>upload(file,'videos')} title="Add a video" hint="MP4, MOV, MKV or WEBM"/></div>}
+   <div className="video-stage-footer">
+    <div className="video-stage-meta">{video?<><i className="fa-regular fa-file-video" aria-hidden="true"/><span title={video.filename}>{video.filename}</span></>:<span>Choose a video to get started</span>}</div>
+    <div className="video-stage-actions">
+     {video&&<details className="video-replace"><summary title="Replace source video" aria-label="Replace source video"><i className="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"/><span>Replace</span></summary><div className="video-replace-picker"><DropZone disabled={PUBLIC_STUDIO} accept=".mp4,.mov,.mkv,.webm" onFile={file=>upload(file,'videos')} title="Choose replacement video" hint="MP4, MOV, MKV or WEBM"/></div></details>}
+     {videoJob?.status==='complete'&&<a className="video-icon-action video-download" href={videoJob.download_url} download aria-label="Download rendered MP4" title="Download rendered MP4"><i className="fa-solid fa-download" aria-hidden="true"/></a>}
+    </div>
+   </div>
   </div>
-  {narrationJob?.status==='complete'?<div className="video-render-settings">
-   <label className="video-offset-field">Narration starts at <span><input type="number" min="0" step="0.1" value={offset} onChange={e=>setOffset(e.target.value)}/> seconds</span></label>
-   <label className="check video-mix-option"><input type="checkbox" checked={mix} onChange={e=>setMix(e.target.checked)}/> Keep original video audio</label>
-  </div>:<div className="video-no-narration"><span>Generate a narration track before rendering your video.</span><button type="button" className="video-icon-action" aria-label="Open Narration Studio" title="Open Narration Studio" onClick={()=>setTab('narration')}><i className="fa-solid fa-arrow-right" aria-hidden="true"/></button></div>}
-  {videoJob&&<div className="job video-output"><div className="video-output-header"><span>{videoJob.message}</span>{videoJob.status==='complete'&&<a className="video-icon-action" href={videoJob.download_url} download aria-label="Download rendered MP4" title="Download MP4"><i className="fa-solid fa-download" aria-hidden="true"/></a>}</div>
-   {videoJob.status!=='complete'&&<progress max="100" value={videoJob.progress||0}/>}
-   {videoJob.status==='complete'&&<video className="video-preview" controls preload="metadata" src={videoJob.download_url}/>}
-  </div>}
+  <div className="panel video-controls">
+   <div className="video-panel-heading"><h3><i className="fa-solid fa-microphone-lines" aria-hidden="true"/> Narration</h3>
+    <button type="button" className="video-icon-action" title="Open Narration Studio" aria-label="Open Narration Studio" onClick={()=>setTab('narration')}><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"/></button>
+   </div>
+   {narrationJob?.status==='complete'?<>
+     <div className="video-track-status"><i className="fa-solid fa-circle-check" aria-hidden="true"/><span>Audio track ready</span></div>
+     <div className="video-setting-row">
+      <label htmlFor="video-start-offset">Start time</label>
+      <div className="video-time-control"><input id="video-start-offset" type="number" min="0" step="0.1" value={offset} onChange={e=>setOffset(e.target.value)} aria-label="Narration start time in seconds"/><span>seconds</span></div>
+     </div>
+     <label className="check video-mix-option"><input type="checkbox" checked={mix} onChange={e=>setMix(e.target.checked)}/> Keep original video sound</label>
+   </>:<div className="video-no-narration"><i className="fa-solid fa-wave-square" aria-hidden="true"/><p>Generate your narration in Narration Studio to add a soundtrack.</p></div>}
+   <div className="video-render-footer">
+    <div className="video-render-status">
+     <strong>{busy(videoJob)?'Rendering video':videoJob?.status==='complete'?'Render complete':video&&narrationJob?.status==='complete'?'Ready to render':'Waiting for media'}</strong>
+     <small>{busy(videoJob)?'Processing your video and narration':videoJob?.status==='complete'?'Preview or download your MP4':video&&narrationJob?.status==='complete'?'Create the finished MP4':'Add a video and narration track'}</small>
+    </div>
+    <button type="button" className="video-icon-action primary video-render-action" aria-label="Render video" title="Render video" disabled={!video||narrationJob?.status!=='complete'||busy(videoJob)||PUBLIC_STUDIO} onClick={()=>{setVideoPreviewMode('source');renderVideo()}}><i className={'fa-solid '+(busy(videoJob)?'fa-spinner fa-spin':'fa-clapperboard')} aria-hidden="true"/></button>
+   </div>
+   {videoJob&&<div className="video-render-progress" role="status">
+    {videoJob.status!=='complete'&&videoJob.status!=='failed'&&<progress max="100" value={videoJob.progress||0}/>}
+    {videoJob.status==='failed'&&<small className="video-render-error">{videoJob.message}</small>}
+   </div>}
+  </div>
  </div>
  </section>}
  {tab==='models'&&(PUBLIC_STUDIO?<section><h2>Models</h2><p>Download Humperdinck to install and manage local voice models.</p><div className="panel"><h3>Built-in voices</h3><p>The browser preview offers six voices. Other models and downloads are available in the desktop app.</p><button disabled>Install / Download · desktop only</button></div></section>:<Models/>)}
