@@ -92,3 +92,21 @@ export function suggestSpeechDirections(text){
  }
  return result;
 }
+
+/** Kokoro supports speaking-rate adjustments, not true emotion/whisper controls.
+ * Apply approximate pacing for direction-marked passages while never vocalizing tags.
+ */
+export function directionSegments(text){
+ const source=String(text||'');
+ const re=/\[(whispering|excited|curious|calm|sad|serious)\]/gi;
+ const speed={whispering:0.85,excited:1.12,curious:1,calm:0.9,sad:0.88,serious:0.94};
+ const result=[];let previous=0,current=1;let match;
+ const append=chunk=>{const spoken=chunk.trim();if(spoken)result.push({text:spoken,speed:current})};
+ while((match=re.exec(source))!==null){
+  append(source.slice(previous,match.index));
+  current=speed[match[1].toLowerCase()]||1;
+  previous=re.lastIndex;
+ }
+ append(source.slice(previous));
+ return result;
+}
