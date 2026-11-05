@@ -14,6 +14,9 @@ export default function StarterVoicePack({api,voices,disabled=false}){
   try{
    const result=await api('starter-voices');
    setApproved(Object.fromEntries(result.approved.map(v=>[v.source_voice_id,v])));
+   // New publishing sessions should include the previously approved voices as well.
+   // Publishing a new ZIP replaces the release asset, so older voices must remain listed.
+   setSelected(previous=>[...new Set([...previous,...result.approved.map(v=>v.source_voice_id)])]);
   }catch(err){notify(err.message,'error')}
  }
  useEffect(()=>{if(open)refresh()},[open,disabled]);
@@ -96,6 +99,7 @@ export default function StarterVoicePack({api,voices,disabled=false}){
     </div>;
    })}</div>
    {!candidates.length&&<p className="hint">Upload and edit a voice first. It will appear here.</p>}
+   <p><strong>Adding more later?</strong> Approve the new voice and export again with all previously published voices selected. Then replace the ZIP in your GitHub Release. The installer adds only new voices; existing voices and user deletions are preserved.</p>
    <div className="starter-voice-pack-footer">
     <small>Only approved generated lighthouse samples, names, and metadata are exported. Your original recordings stay private.</small>
     <button type="button" className="primary" disabled={disabled||!!busy||!selected.length} onClick={exportPack}>
