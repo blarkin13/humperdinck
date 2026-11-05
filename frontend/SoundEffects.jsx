@@ -243,7 +243,7 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
        <i className={'fa-solid '+(on?'fa-stop':'fa-play')} aria-hidden="true"/></button>
       <div className="sound-row-details">
        <strong title={item.name}>{item.name}</strong>
-       <span>{item.category||'Other'}<span className="sound-source-dot">·</span>{item.origin==='starter'?'Included':'My upload'}</span>
+       <span>{item.category||'Other'}<span className="sound-source-dot">·</span>{item.origin==='starter'||item.origin==='curated-cc0'?'Included':'My upload'}{item.creator?' · '+item.creator:''}</span>
       </div>
       <Waveform item={item} progress={progress} onSeek={fraction=>seek(item,fraction)}/>
       <span className="sound-row-time" aria-label={'Duration '+clock(item.duration)}>
