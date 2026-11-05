@@ -10,28 +10,40 @@ export default function Updates(){
  const panelRef=useRef(null),checkingRef=useRef(false),stateRef=useRef('idle');
  const check=useCallback(async (showPanel=false)=>{
   if(showPanel)setOpen(true);
-  if(checkingRef.current||stateRef.current==='installing'||!navigator.onLine)return;
-  checkingRef.current=true;setState('checking');setMsg('');
+  if(checkingRef.current||stateRef.current==='installing')return;
+  checkingRef.current=true;stateRef.current='checking';setState('checking');setMsg('');
+  const controller=new AbortController();
+  const deadline=setTimeout(()=>controller.abort(),20000);
   try{
-   const response=await fetch('/api/updates/check',{cache:'no-store'});
-   if(!response.ok)throw Error('Update service unavailable (HTTP '+response.status+')');
+   // navigator.onLine is unreliable on Windows and can incorrectly report
+   // offline while GitHub is reachable. Always make the actual API request.
+   const response=await fetch('/api/updates/check?t='+Date.now(),
+    {cache:'no-store',signal:controller.signal,headers:{'Cache-Control':'no-cache'}});
+   if(!response.ok){
+    const detail=await response.json().catch(()=>null);
+    throw Error(detail?.detail||'Update service unavailable (HTTP '+response.status+')');
+   }
    const j=await response.json();
-   setInfo(j);setState('checked');
+   setInfo(j);stateRef.current='checked';setState('checked');
   }catch(e){
-   setMsg(e.message||'Could not check for updates');
-   setState('error');
-  }finally{checkingRef.current=false}
+   setInfo(null);
+   setMsg(e.name==='AbortError'?'Update check timed out':e.message||'Could not check for updates');
+   stateRef.current='error';setState('error');
+  }finally{clearTimeout(deadline);checkingRef.current=false}
  },[]);
  useEffect(()=>{stateRef.current=state},[state]);
  useEffect(()=>{
-  // Check on startup, every five minutes while this tab is visible and online,
-  // and immediately after the network reconnects. Never install automatically.
-  const tick=()=>{if(document.visibilityState==='visible'&&navigator.onLine)check(false)};
+  // Poll while the app is running, including Windows tabs that stay open
+  // for hours. Refocus/visibility/network events check immediately too.
+  // User confirmation is always required before installing an update.
+  const tick=()=>check(false);
+  const refocus=()=>{if(document.visibilityState==='visible')tick()};
   tick();
-  const id=setInterval(tick,5*60*1000);
+  const id=setInterval(tick,2*60*1000);
   window.addEventListener('online',tick);
-  document.addEventListener('visibilitychange',tick);
-  return()=>{clearInterval(id);window.removeEventListener('online',tick);document.removeEventListener('visibilitychange',tick)};
+  window.addEventListener('focus',refocus);
+  document.addEventListener('visibilitychange',refocus);
+  return()=>{clearInterval(id);window.removeEventListener('online',tick);window.removeEventListener('focus',refocus);document.removeEventListener('visibilitychange',refocus)};
  },[check]);
  useEffect(()=>{
   if(!open||state==='installing')return;
@@ -51,10 +63,11 @@ export default function Updates(){
    setMsg('Humperdinck has not come back yet. Check the terminal window, then reload this page.')}catch(e){setMsg('Update failed: '+e.message);setState('checked')}}
  const files=info?[...info.changed_files,...info.removed_files.map(f=>f+' (removed)')]:[];
  return <div className="updates-control" ref={panelRef}>
-  <button type="button" className="update-btn" aria-label={info?.available?'Update available · view update':'Check for updates'} title={info?.available?'Update available':'Check for updates'} aria-expanded={open} onClick={()=>{if(open)setOpen(false);else if(info)setOpen(true);else check(true)}} disabled={state==='installing'}><i className={'fa-solid '+(state==='checking'?'fa-arrows-rotate fa-spin':'fa-rotate')} aria-hidden="true"/>{info?.available&&<span className="update-available-dot" aria-hidden="true"/>}</button>
+  <button type="button" className="update-btn" aria-label={info?.available?'Update available · view update':'Check for updates'} title={info?.available?'Update available':'Check for updates'} aria-expanded={open} onClick={()=>{if(open)setOpen(false);else check(true)}} disabled={state==='installing'}><i className={'fa-solid '+(state==='checking'?'fa-arrows-rotate fa-spin':'fa-rotate')} aria-hidden="true"/>{info?.available&&<span className="update-available-dot" aria-hidden="true"/>}</button>
   {open&&<div className="update-panel" role="dialog" aria-label="Updates">
    <div className="editor-head"><strong>Updates</strong><div className="update-actions"><button type="button" className="update-check-icon" onClick={()=>check(false)} disabled={state==='checking'||state==='installing'} aria-label="Check now" title="Check now"><i className="fa-solid fa-rotate"/></button><button type="button" className="update-check-icon" onClick={()=>setOpen(false)} disabled={state==='installing'} aria-label="Close updates" title="Close"><i className="fa-solid fa-xmark"/></button></div></div>
-   {state==='error'&&<p>{msg}</p>}
+   {state==='checking'&&<p role="status">Checking GitHub for updates…</p>}
+   {state==='error'&&<p role="alert">{msg}</p>}
    {info&&!info.available&&<p>✓ {info.reason}.</p>}
    {info?.available&&<>
     <p><strong>{info.latest}</strong> {info.summary}<br/><small>{info.date&&new Date(info.date).toLocaleString()} · <a href={info.url} target="_blank" rel="noreferrer">View on GitHub</a></small></p>
