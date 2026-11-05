@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+<title id="title">Humperdinck H microphone emblem</title>
+<circle cx="128" cy="128" r="114" fill="#FFFDF7" stroke="#34515D" stroke-width="5"/>
+<circle cx="128" cy="128" r="104" fill="none" stroke="#137B87" stroke-width="1.5" opacity=".65"/>
+<g fill="#34515D">
+<path d="M51 59h31v138H51zM174 59h31v138h-31z"/>
+<path d="M72 113h112v28H72z"/>
+</g>
+<path d="M114 69a14 14 0 0 1 28 0v53a14 14 0 0 1-28 0z" fill="#FFFDF7" stroke="#C28A37" stroke-width="6"/>
+<path d="M103 112v12a25 25 0 0 0 50 0v-12M128 150v21M109 171h38" fill="none" stroke="#C28A37" stroke-width="6" stroke-linecap="round"/>
+<path d="M119 85h18M119 96h18M119 107h18" stroke="#C28A37" stroke-width="4" stroke-linecap="round"/>
+<path d="M32 104v48M22 116v24M43 93v70M213 93v70M224 104v48M234 116v24" stroke="#137B87" stroke-width="5" stroke-linecap="round"/>
+</svg>
