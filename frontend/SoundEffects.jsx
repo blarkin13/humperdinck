@@ -172,7 +172,7 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
      onChange={e=>{upload(Array.from(e.target.files));e.target.value=''}}/>
   </div>
   {disabled?<p className="hint">The Sound Effects Library is available in the desktop app.</p>:<>
-   {!compact&&<CuratedSounds api={api} onInstalled={load}/>}
+   {!compact&&<CuratedSounds api={api} onInstalled={load} expanded={items.length===0}/>}
    <div className="sound-search-shell">
     <i className="fa-solid fa-magnifying-glass" aria-hidden="true"/>
     <input type="search" value={query} onChange={e=>setQuery(e.target.value)}
