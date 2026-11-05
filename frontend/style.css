@@ -373,3 +373,15 @@ button.active small,.primary small{color:#3a3122}
 .narration-export-actions label.inline{margin:0}
 .narration-full-play{display:inline-flex;align-items:center;justify-content:center;width:54px;min-width:54px;height:48px;padding:0!important}
 .narration-full-play i{font-size:19px;margin:0}
+
+
+/* Two compact selectable file-format icons, replacing the Export dropdown. */
+.narration-format-choice{display:inline-flex;align-items:center;gap:9px}
+.narration-export-actions .narration-format-icon{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:55px;height:55px;padding:5px 8px!important;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--muted);font-size:10px;line-height:1}
+.narration-format-icon i{font-size:19px}
+.narration-format-icon span{font-size:10px;font-weight:700;letter-spacing:.4px}
+.narration-export-actions .narration-format-icon.selected{color:var(--brass-hi);border-color:var(--brass-hi);background:rgba(198,164,106,.10)}
+.narration-export-actions .narration-format-icon:hover:not(:disabled){border-color:var(--brass-hi);color:var(--brass-hi)}
+.narration-export-actions .narration-format-icon:focus-visible{outline:2px solid var(--brass-hi);outline-offset:2px}
+:root[data-theme="modern"] .narration-export-actions .narration-format-icon.selected{background:rgba(255,255,255,.10)}
+:root[data-mode="light"] .narration-export-actions .narration-format-icon.selected{background:var(--light-hover);color:var(--brass-hi)}
