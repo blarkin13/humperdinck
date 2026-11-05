@@ -40,14 +40,15 @@ def install_pack(data_dir=None,reader=None):
     data_dir=Path(data_dir or os.environ.get("HUMPERDINCK_DATA",ROOT/"data"))
     directory=data_dir/"voices"
     marker=directory/MARKER
-    if marker.exists():return {"installed":0,"skipped":True}
+    # Re-read the published pack during upgrades to discover any new voices.
+    # The importer tracks individual IDs, so existing/deleted voices stay untouched.
     raw=reader() if reader else find_pack()
     if raw is None:return {"installed":0,"skipped":True}
     if len(raw)>MAX_BYTES:raise ValueError("Built-In Humperdinck Voices pack too large")
     result=install(data_dir,raw)
     marker.parent.mkdir(parents=True,exist_ok=True)
     temp=marker.with_suffix(".tmp")
-    temp.write_text("Installed Built-In Humperdinck Voices v1\n")
+    temp.write_text("Checked Built-In Humperdinck Voices v1 for additions\n")
     temp.replace(marker)
     return result
 
