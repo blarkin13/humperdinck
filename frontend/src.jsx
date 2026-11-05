@@ -15,7 +15,7 @@ import Recorder from './Recorder.jsx';
 import Models from './Models.jsx';
 import ThemePicker from './ThemePicker.jsx';
 import BrowserKokoro from './BrowserKokoro.jsx';
-import {SECTION_LIMIT,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,suggestSpeechDirections} from './narrationSections.js';
+import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,suggestSpeechDirections} from './narrationSections.js';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 const PUBLIC_STUDIO=import.meta.env.VITE_PUBLIC_STUDIO==='1';
 const PUBLIC_VOICES=[['af_heart','Heart','American English · female'],['af_bella','Bella','American English · female'],['af_nicole','Nicole','American English · female'],['am_michael','Michael','American English · male'],['bf_emma','Emma','British English · female'],['bm_daniel','Daniel','British English · male']].map(([key,name,accent])=>({key,name,accent}));
@@ -60,7 +60,7 @@ function App(){
  const {notify,confirm:askConfirm,input:askInput}=useNotifications();
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
- const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[format,setFormat]=useState('mp3'),[narrationJob,setNarrationJob]=useState(null),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
+ const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[format,setFormat]=useState('mp3'),[narrationJob,setNarrationJob]=useState(null),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
  const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[accent,setAccent]=useState(''),[style,setStyle]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
  useEffect(()=>{
@@ -151,14 +151,43 @@ function App(){
   link.download='humperdinck-section-'+blocks.findIndex(b=>b.id===block.id)+'.wav';
   document.body.appendChild(link);link.click();link.remove();
  }
- function changeSectionSpeed(id){
-  const steps=[1,1.25,1.5,0.75];
+ function setSectionWpm(id,wpm){
+  const value=Number(wpm);
+  const next=Math.max(60,Math.min(360,Number.isFinite(value)?Math.round(value):180));
+  setSectionSpeed(old=>({...old,[id]:next/180}));
+ }
+ function adjustSectionWpm(id,step){
   setSectionSpeed(old=>{
-   const current=old[id]||1,next=steps[(steps.indexOf(current)+1)%steps.length];
-   if(hiddenAudio.current)hiddenAudio.current.playbackRate=next;
-   return {...old,[id]:next};
+   const wpm=Math.max(60,Math.min(360,Math.round((old[id]||1)*180/10)*10+step));
+   return {...old,[id]:wpm/180};
   });
  }
+ function toggleSectionPopover(id,type){
+  setSectionMenu(null);
+  setSectionPopover(old=>old?.id===id&&old.type===type?null:{id,type});
+ }
+ function duplicateSection(index){
+  setBlocks(old=>{
+   const original=old[index];
+   if(!original)return old;
+   const duplicated={...original,id:makeSection().id};
+   return [...old.slice(0,index+1),duplicated,...old.slice(index+1)];
+  });
+  setSectionMenu(null);
+ }
+ function resetSectionAudio(id){
+  setSectionAudio(old=>{const copy={...old};delete copy[id];return copy});
+  setSectionMenu(null);
+ }
+ useEffect(()=>{
+  if(!sectionPopover&&!sectionMenu)return;
+  const onPointer=e=>{
+   if(!e.target.closest('[data-section-floating-control]')){setSectionPopover(null);setSectionMenu(null)}
+  };
+  const onKey=e=>{if(e.key==='Escape'){setSectionPopover(null);setSectionMenu(null)}};
+  document.addEventListener('pointerdown',onPointer);document.addEventListener('keydown',onKey);
+  return()=>{document.removeEventListener('pointerdown',onPointer);document.removeEventListener('keydown',onKey)};
+ },[sectionPopover,sectionMenu]);
  function openSpeaker(id){setVoiceSearch('');setSpeakerEditor(id)}
  function selectSpeaker(value){if(speakerEditor!==null)changeBlock(speakerEditor,'voice_key',value);setSpeakerEditor(null)}
  useEffect(()=>{if(speakerEditor===null)return;const onEscape=e=>{if(e.key==='Escape')setSpeakerEditor(null)};window.addEventListener('keydown',onEscape);return()=>window.removeEventListener('keydown',onEscape)},[speakerEditor]);
@@ -276,23 +305,43 @@ function App(){
        <button type="button" className="icon-action section-play" aria-label={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated audio':'Generate section audio')+(b.voice_key?'':' · select a narrator first')} disabled={sectionPlayingId!==null} onClick={()=>playSection(b)}>
         <i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':sectionAudio[b.id]?.signature===audioSignature(b)?'fa-play':'fa-wave-square')} aria-hidden="true"/>
        </button>
-       <button type="button" className="icon-action section-speed" onClick={()=>changeSectionSpeed(b.id)} title="Playback speed (click to change)" aria-label={'Playback speed '+(sectionSpeed[b.id]||1)+' times'}>
-         <i className="fa-solid fa-gauge-high" aria-hidden="true"/><span>{sectionSpeed[b.id]||1}x</span>
-       </button>
+       <div className="section-floating-wrap section-speed-wrap" data-section-floating-control>
+        <button type="button" className="icon-action section-speed" onClick={()=>toggleSectionPopover(b.id,'speed')} title="Adjust playback speed" aria-expanded={sectionPopover?.id===b.id&&sectionPopover.type==='speed'} aria-label={'Playback speed '+(sectionSpeed[b.id]||1).toFixed(2).replace(/\\.?0+$/,'')+' times. Adjust speed'}>
+          <i className="fa-solid fa-gauge-high" aria-hidden="true"/><span>{Number((sectionSpeed[b.id]||1).toFixed(2))}x</span>
+        </button>
+        {sectionPopover?.id===b.id&&sectionPopover.type==='speed'&&<div className="section-setting-popover" role="group" aria-label={'Speed for section '+(i+1)}>
+         <div className="section-setting-heading"><strong>Speed</strong><span>{Number((sectionSpeed[b.id]||1).toFixed(2))}x</span></div>
+         <div className="section-setting-adjust">
+          <button type="button" aria-label="Decrease speed by 10 words per minute" onClick={()=>adjustSectionWpm(b.id,-10)} disabled={(sectionSpeed[b.id]||1)*180<=60}><i className="fa-solid fa-minus"/></button>
+          <label><input type="number" min="60" max="360" step="10" value={Math.round((sectionSpeed[b.id]||1)*180)} onChange={e=>setSectionWpm(b.id,e.target.value)} aria-label="Words per minute"/><span>WPM</span></label>
+          <button type="button" aria-label="Increase speed by 10 words per minute" onClick={()=>adjustSectionWpm(b.id,10)} disabled={(sectionSpeed[b.id]||1)*180>=360}><i className="fa-solid fa-plus"/></button>
+         </div>
+         <small>Playback speed · 180 WPM = 1x</small>
+        </div>}
+       </div>
       </div>
-      <label className="section-delay-pill" title="Delay before next section" aria-label={'Delay after section '+(i+1)+' in seconds'}>
-       <input type="number" min="0" max="30" step="0.1" value={b.delay_after??0} onChange={e=>changeBlock(b.id,'delay_after',sectionDelay(e.target.value))}/><span>s</span>
-      </label>
+      <div className="section-floating-wrap section-delay-wrap" data-section-floating-control>
+       <button type="button" className="section-delay-pill" title="Adjust delay before next section" aria-label={'Delay after section '+(i+1)+': '+(b.delay_after??0)+' seconds. Adjust delay'} aria-expanded={sectionPopover?.id===b.id&&sectionPopover.type==='delay'} onClick={()=>toggleSectionPopover(b.id,'delay')}>{b.delay_after??0}<span>s</span></button>
+       {sectionPopover?.id===b.id&&sectionPopover.type==='delay'&&<div className="section-setting-popover section-delay-popover" role="group" aria-label={'Delay after section '+(i+1)}>
+        <div className="section-setting-heading"><strong>Delay</strong><span>{b.delay_after??0}s</span></div>
+        <div className="section-setting-adjust">
+         <button type="button" aria-label="Decrease delay by half a second" onClick={()=>changeBlock(b.id,'delay_after',sectionDelay(Math.round(((b.delay_after??0)-0.5)*10)/10))} disabled={(b.delay_after??0)===0}><i className="fa-solid fa-minus"/></button>
+         <label><input type="number" min="0" max="30" step="0.5" value={b.delay_after??0} onChange={e=>changeBlock(b.id,'delay_after',sectionDelay(e.target.value))} aria-label="Delay in seconds"/><span>sec</span></label>
+         <button type="button" aria-label="Increase delay by half a second" onClick={()=>changeBlock(b.id,'delay_after',sectionDelay(Math.round(((b.delay_after??0)+0.5)*10)/10))} disabled={(b.delay_after??0)>=30}><i className="fa-solid fa-plus"/></button>
+        </div>
+        <small>Silence before the following section</small>
+       </div>}
+      </div>
       <div className="compact-toolbar-right">
        <button type="button" className="icon-action" aria-label={'Insert section after '+(i+1)} title="Insert section below" onClick={()=>addAfter(i)}><i className="fa-solid fa-plus" aria-hidden="true"/></button>
        <button type="button" className="icon-action" aria-label={'Suggest speech directions for section '+(i+1)} title="Suggest speech directions" onClick={()=>suggestTags(b.id)}><i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"/></button>
        <button type="button" className="icon-action" aria-label={'Download section '+(i+1)} title="Download generated audio" onClick={()=>downloadSection(b)}><i className="fa-solid fa-download" aria-hidden="true"/></button>
-       <div className="section-menu-wrap">
-        <button type="button" className="icon-action" aria-label={'More options for section '+(i+1)} title="More options" aria-expanded={sectionMenu===b.id} onClick={()=>setSectionMenu(old=>old===b.id?null:b.id)}><i className="fa-solid fa-ellipsis-vertical" aria-hidden="true"/></button>
+       <div className="section-menu-wrap" data-section-floating-control>
+        <button type="button" className="icon-action" aria-label={'More options for section '+(i+1)} title="More options" aria-expanded={sectionMenu===b.id} onClick={()=>{setSectionPopover(null);setSectionMenu(old=>old===b.id?null:b.id)}}><i className="fa-solid fa-ellipsis-vertical" aria-hidden="true"/></button>
         {sectionMenu===b.id&&<div className="section-options-menu">
-         <div className="section-options-title">Insert speech direction</div>
-         {DIRECTION_TAGS.map(tag=><button type="button" key={tag} onClick={()=>{insertTag(b.id,tag);setSectionMenu(null)}}>[{tag}]</button>)}
-         {blocks.length>1&&<button type="button" className="section-options-remove" onClick={()=>{removeBlock(b.id);setSectionMenu(null)}}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Remove section</button>}
+         <button type="button" onClick={()=>duplicateSection(i)}><i className="fa-regular fa-copy" aria-hidden="true"/> Duplicate section</button>
+         {sectionAudio[b.id]?.signature===audioSignature(b)&&<button type="button" onClick={()=>resetSectionAudio(b.id)}><i className="fa-solid fa-rotate" aria-hidden="true"/> Regenerate audio</button>}
+         {blocks.length>1&&<button type="button" className="section-options-remove" onClick={()=>{removeBlock(b.id);setSectionMenu(null)}}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Delete section</button>}
         </div>}
        </div>
       </div>
