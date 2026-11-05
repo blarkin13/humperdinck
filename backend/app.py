@@ -22,6 +22,7 @@ from backend.jobs import JobStore
 from backend import catalog
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
+from backend.curated_sounds import BY_SLUG,public_catalog
 from backend.sound_mix import fade_clip, assemble_narration
 from backend.sound_suggest import recommend
 from backend.voice_refinement import normalize_refinement,refine_wav,suggest_sliders,DEFAULTS
@@ -209,7 +210,7 @@ async def upload_voice(file: UploadFile = File(...)):
         raise HTTPException(400, 'Supported formats: WAV, MP3, FLAC, M4A, OGG (or a browser recording)')
     if not shutil.which('ffmpeg'):
         raise HTTPException(503, 'FFmpeg is required to normalize voice recordings')
-    raw = await file.read(30 * 1024 * 1024 + 1)
+    raw = await file.read(65 * 1024 * 1024 + 1)
     if len(raw) > 30 * 1024 * 1024:
         raise HTTPException(413, 'Voice recording exceeds 30 MB')
     key = uuid4().hex
@@ -516,6 +517,46 @@ class SoundSuggestionRequest(BaseModel):
 @app.post('/api/sound-effects/suggest')
 def suggest_sound_effects(request: SoundSuggestionRequest):
     return recommend(request.text,sound_effects.list())
+
+@app.get('/api/sound-effects/curated')
+def curated_sound_catalog():
+    return public_catalog(sound_effects.list())
+
+@app.post('/api/sound-effects/curated/{slug}/import')
+async def import_curated_sound(slug:str,file:UploadFile=File(...)):
+    source=BY_SLUG.get(slug)
+    if source is None:raise HTTPException(404,'Unknown CC0 recording')
+    # The selected file is supplied by the user after downloading at Freesound.
+    raw=await file.read(65*1024*1024+1)
+    if len(raw)>65*1024*1024:
+        raise HTTPException(413,'Recording exceeds 65 MB')
+    try:
+        return sound_effects.import_curated(source,raw,file.filename or 'recording.wav')
+    except ValueError as exc:raise HTTPException(400,str(exc))
+
+@app.post('/api/sound-effects/curated/{slug}/install')
+def install_curated_sound(slug:str):
+    """Only pre-approved public Wikimedia URL; never arbitrary URL fetch."""
+    from urllib.request import urlopen,Request
+    from urllib.error import URLError,HTTPError
+    import hashlib
+    source=BY_SLUG.get(slug)
+    if source is None:raise HTTPException(404,'Unknown CC0 recording')
+    if 'download_url' not in source:
+        raise HTTPException(400,'Download the original at Freesound, then import the file')
+    existing=next((v for v in sound_effects.list() if v.get('curated_slug')==slug),None)
+    if existing:return existing
+    try:
+        request=Request(source['download_url'],headers={'User-Agent':'Humperdinck-CC0-library/1.0'})
+        with urlopen(request,timeout=20) as response:
+            raw=response.read(12*1024*1024+1)
+    except (OSError,URLError,HTTPError) as exc:
+        raise HTTPException(502,'Could not download the public-domain recording') from exc
+    if len(raw)>12*1024*1024 or hashlib.sha1(raw).hexdigest()!=source['sha1']:
+        raise HTTPException(502,'Source checksum did not match the verified Commons recording')
+    try:
+        return sound_effects.import_curated(source,raw,source['filename'])
+    except ValueError as exc:raise HTTPException(400,str(exc))
 
 @app.get('/api/sound-effects')
 def list_sound_effects():
