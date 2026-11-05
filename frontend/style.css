@@ -130,3 +130,15 @@ button.active small,.primary small{color:#3a3122}
 .public-app-download,.public-app-home{font-size:12px;color:var(--brass-hi,#fff);border:1px solid var(--line,#555);border-radius:7px;padding:8px 11px;text-decoration:none;white-space:nowrap}
 .public-app-download:hover,.public-app-home:hover{border-color:var(--brass-hi,#aaa)}
 @media(max-width:700px){.public-build-version{float:none;display:block;margin-left:0;margin-top:5px}.public-app-banner{margin-top:0}.header-actions{flex-wrap:wrap}}
+
+/* Shared Narration Studio section editor */
+.narration-sections{display:grid;gap:12px;margin:18px 0}
+.narration-section{margin:0;padding:17px;border-radius:12px;border:1px solid var(--line,#34494a);background:var(--teal,#1a2f35)}
+.narration-section.section-selected{border-color:var(--brass-hi,#c6a46a)}
+.narration-section .block-head{flex-wrap:wrap;justify-content:flex-start;margin-bottom:12px}
+.section-speaker{display:flex;align-items:center;gap:9px;margin-left:auto;font-size:13px;color:var(--muted,#b5aa94)}
+.section-speaker select{min-width:160px;max-width:320px}
+.narration-section textarea{display:block;width:100%;min-height:120px;resize:vertical;line-height:1.6}
+.section-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:9px}
+.section-add{justify-self:start}
+@media(max-width:650px){.section-speaker{width:100%;margin-left:0}.section-speaker select{flex:1;min-width:0}.narration-section{padding:12px}}
