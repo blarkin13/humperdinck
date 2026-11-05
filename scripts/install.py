@@ -25,6 +25,8 @@ subprocess.run(['npm.cmd' if sys.platform=='win32' else 'npm','install'],cwd=roo
 # GitHub Release asset with a known SHA-256, then installs into local user data.
 print('Installing nine original CC0 nature recordings...')
 subprocess.run([str(python),str(root/'scripts/install_sound_pack.py')],check=True)
+print('Checking for the optional Built-In Humperdinck Voices pack...')
+subprocess.run([str(python),str(root/'scripts/install_voice_pack.py')],check=True)
 # Voice design engine for this platform, in its own environment (see backend/catalog.py).
 engine = 'qwen-mlx' if sys.platform == 'darwin' and platform.machine() == 'arm64' else 'qwen-torch'
 print(f'\nInstalling the {engine} voice design engine...')
