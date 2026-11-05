@@ -23,7 +23,7 @@ from backend import catalog
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
 from backend.curated_sounds import BY_SLUG,public_catalog
-from backend.sound_mix import fade_clip, assemble_narration
+from backend.sound_mix import fade_clip, assemble_narration, assemble_with_section_cues
 from backend.sound_suggest import recommend
 from backend.voice_refinement import normalize_refinement,refine_wav,suggest_sliders,DEFAULTS
 from backend.starter_voice_packs import StarterVoices, SENTENCE as STARTER_VOICE_TEXT, PACK_NAME as STARTER_VOICE_PACK_NAME
@@ -663,10 +663,13 @@ def delete_sound_effect(effect_id: str):
 
 class NarrationEffect(BaseModel):
     sound_id: str = Field(min_length=32,max_length=32)
-    position: str = 'after'
+    position: str = 'after'  # before, after, or mix (layer with speech)
     volume: float = Field(default=0.8,ge=0,le=2)
     fade_in: float = Field(default=0,ge=0,le=10)
     fade_out: float = Field(default=0,ge=0,le=10)
+    loop: bool = False
+    ending: str = 'section'  # section boundary or natural end across sections
+    ducking: float = Field(default=1,ge=0,le=1)
 
 class NarrationAmbience(BaseModel):
     sound_id: str = Field(min_length=32,max_length=32)
@@ -858,7 +861,7 @@ def run_multi(job_id, request, references):
         import numpy as np
         with engine_lock:
             job.update(status='running',message='Generating narration')
-            sections=[]; target_rate=24000
+            sections=[]; section_cues=[]; target_rate=24000
             choice=settings.load()['clone']
             for index,(block,(reference,ref_text)) in enumerate(zip(request.blocks,references)):
                 temp=DATA/'outputs'/f'{job_id}-{index}.wav'
@@ -892,7 +895,7 @@ def run_multi(job_id, request, references):
                                 audio,_=sf.read(refined,dtype='float32')
                             finally:refined.unlink(missing_ok=True)
                     for effect in block.effects:
-                        if effect.position not in ('before','after'):
+                        if effect.position not in ('before','after','mix'):
                             raise ValueError('Invalid sound effect position')
                     # Sounds are rendered in sequence around their assigned narration block.
                     def effect_clips(position):
@@ -907,8 +910,22 @@ def run_multi(job_id, request, references):
                             scaled=np.clip(sound*assigned.volume,-1,1)
                             rendered.append(fade_clip(scaled,target_rate,assigned.fade_in,assigned.fade_out))
                         return rendered
+                    layers=[]
+                    for effect in block.effects:
+                        if effect.position!='mix':continue
+                        if effect.ending not in ('section','natural'):
+                            raise ValueError('Unknown sound effect ending')
+                        sound,sound_rate=sf.read(sound_effects.get_path(effect.sound_id),dtype='float32',always_2d=False)
+                        if sound.ndim==2:sound=sound.mean(axis=1)
+                        if sound_rate!=target_rate:
+                            raise ValueError('Sound effect must be normalized to 24000 Hz')
+                        layers.append({'audio':sound,'volume':effect.volume,
+                                       'loop':effect.loop,'ending':effect.ending,
+                                       'ducking':effect.ducking,
+                                       'fade_in':effect.fade_in,'fade_out':effect.fade_out})
                     delay=round(target_rate*block.delay_after) if index<len(references)-1 else 0
                     sections.append((effect_clips('before'),audio,effect_clips('after'),delay))
+                    section_cues.append(layers)
                 finally: temp.unlink(missing_ok=True)
                 job.update(progress=round((index+1)/len(references)*95),message=f'Generated block {index+1}/{len(references)}')
             ambience_audio=None
@@ -917,13 +934,19 @@ def run_multi(job_id, request, references):
                 ambience_audio,ambience_rate=sf.read(sound_effects.get_path(ambience.sound_id),dtype='float32',always_2d=False)
                 if ambience_audio.ndim==2:ambience_audio=ambience_audio.mean(axis=1)
                 if ambience_rate!=target_rate:raise ValueError('Ambience must use 24000 Hz audio')
-            mixed=assemble_narration(
-                sections,ambience_audio,sample_rate=target_rate,
-                ambience_volume=ambience.volume if ambience else 0.25,
-                ducking=ambience.ducking if ambience else 0.35,
-                fade_in=ambience.fade_in if ambience else 0.5,
-                fade_out=ambience.fade_out if ambience else 0.5
-            )
+            mixed=assemble_with_section_cues(sections,section_cues,sample_rate=target_rate)
+            # Backward compatibility with narration requests using a global bed.
+            if ambience_audio is not None:
+                from backend.sound_mix import mix_ambience
+                dry_masks=[]
+                for before,voice,after,silence in sections:
+                    for effect_audio in before: dry_masks.extend([False]*len(effect_audio))
+                    dry_masks.extend([True]*len(voice))
+                    for effect_audio in after: dry_masks.extend([False]*len(effect_audio))
+                    dry_masks.extend([False]*silence)
+                mixed=mix_ambience(mixed,ambience_audio,np.array(dry_masks,dtype=bool),
+                    sample_rate=target_rate,volume=ambience.volume,ducking=ambience.ducking,
+                    fade_in=ambience.fade_in,fade_out=ambience.fade_out)
             wav=DATA/'outputs'/f'{job_id}.wav'
             sf.write(wav,mixed,target_rate,subtype='PCM_16')
             if request.format=='mp3': export_mp3(wav,DATA/'outputs'/f'{job_id}.mp3')
@@ -937,8 +960,10 @@ def create_narration(request: MultiNarrationRequest):
     if request.format=='mp3' and not shutil.which('ffmpeg'): raise HTTPException(503,'FFmpeg is required')
     for block in request.blocks:
         for effect in block.effects:
-            if effect.position not in ('before','after'):
-                raise HTTPException(400,'Sound effect position must be before or after narration')
+            if effect.position not in ('before','after','mix'):
+                raise HTTPException(400,'Sound effect position must be before, after, or mixed with narration')
+            if effect.ending not in ('section','natural'):
+                raise HTTPException(400,'Sound effect ending must be section or natural')
             try:
                 sound_effects.get_path(effect.sound_id)
             except (ValueError,FileNotFoundError):
