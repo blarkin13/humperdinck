@@ -137,7 +137,7 @@ function App(){
  async function deleteVoice(){if(!selected||!await askConfirm('Delete this voice?',{title:'Delete voice',confirmLabel:'Delete voice',danger:true}))return;try{await api('designed-voices/'+selected,{method:'DELETE'});newVoice();await refresh()}catch(e){setStatus(e.message)}}
  async function approveExisting(sample,version){try{await api(`designed-voices/${selected}/versions/${version}/approve/${sample}`,{method:'POST'});await openVoice(selected);setStatus('Reference approved.')}catch(e){setStatus(e.message)}}
  const duplicatedPresetNames=new Set(presets.map(v=>v.name).filter((name,i,all)=>all.indexOf(name)!==i));
-  const voiceOptions=[...presets.map(v=>({value:v.key,label:v.name+(duplicatedPresetNames.has(v.name)?' · '+v.accent.split(' · ')[0]:'')})),...designed.filter(v=>v.narration_sample_id).map(v=>({value:'design:'+v.id,label:v.name})),...uploads.map(v=>({value:'upload:'+v.voice_id,label:v.filename}))];
+  const voiceOptions=[...presets.map(v=>({value:v.key,label:v.name+(duplicatedPresetNames.has(v.name)?' · '+(v.accent||'').split(' · ')[0]:''),accent:v.accent||'Built-in voice'})),...designed.filter(v=>v.narration_sample_id).map(v=>({value:'design:'+v.id,label:v.name,accent:v.description||'Custom designed voice'})),...uploads.map(v=>({value:'upload:'+v.voice_id,label:v.filename,accent:'Recorded / uploaded voice'}))];
  const busy=job=>['queued','running'].includes(job?.status);
  function changeBlock(id,field,value){setBlocks(old=>field==='text'?replaceSectionText(old,id,value):field==='voice_key'?assignSectionSpeaker(old,id,value):old.map(b=>b.id===id?{...b,[field]:value}:b))}
  function openSpeaker(id){setVoiceSearch('');setSpeakerEditor(id)}
