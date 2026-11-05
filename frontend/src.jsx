@@ -232,14 +232,14 @@ function App(){
   if(audio){audio.pause();audio.currentTime=0}
   setAudibleSectionId(null);
  }
- async function playSection(block){
-  if(audibleSectionId===block.id){stopSection();return}
+ async function playSection(block,forceNew=false){
+  if(audibleSectionId===block.id){stopSection();if(!forceNew)return}
   const clean=spokenText(block.text);
   if(!block.voice_key){openSpeaker(block.id);return}
   if(!clean){setSectionPlayError({id:block.id,message:'Enter text before generating audio.'});return}
   const signature=audioSignature(block);
   const existing=sectionAudio[block.id];
-  if(existing?.signature===signature){replaySection(existing.url,block.id);return}
+  if(!forceNew&&existing?.signature===signature){replaySection(existing.url,block.id);return}
   if(sectionPlayingId!==null)return;
   setSectionPlayingId(block.id);setSectionPlayError(null);
   pendingSignature.current={sectionId:block.id,signature};
@@ -308,10 +308,10 @@ function App(){
   player.currentTime=0;
   player.play().then(()=>setWholeAudible(true)).catch(()=>setStatus('Playback was blocked. Click Play again.'));
  }
- async function generateNarration(){
-  if(wholeAudible){stopWholeNarration();return}
+ async function generateNarration(forceNew=false){
+  if(wholeAudible){stopWholeNarration();if(!forceNew)return}
   if(narrationJob&&['queued','running'].includes(narrationJob.status))return;
-  if(wholeAudio?.signature===fullNarrationSignature){playWholeNarration(wholeAudio.url);return}
+  if(!forceNew&&wholeAudio?.signature===fullNarrationSignature){playWholeNarration(wholeAudio.url);return}
   try{
    if(blocks.some(b=>!spokenText(b.text)||!b.voice_key))throw Error('Every section needs text and a narrator');
    stopWholeNarration();
@@ -387,6 +387,12 @@ function App(){
       <div className="compact-toolbar-left">
        <button type="button" className="icon-action section-play" aria-label={(sectionPlayingId===b.id?'Generating':audibleSectionId===b.id?'Stop':sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionPlayingId===b.id?'Generating audio':audibleSectionId===b.id?'Stop playback':sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated audio':'Generate section audio')+(b.voice_key?'':' · select a narrator first')} disabled={sectionPlayingId!==null} onClick={()=>playSection(b)}>
         <i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':audibleSectionId===b.id?'fa-stop':'fa-play')} aria-hidden="true"/>
+       </button>
+       <button type="button" className="icon-action section-regenerate" aria-label={'Regenerate new take for section '+(i+1)}
+        title="Generate a fresh take using the same text and voice"
+        disabled={sectionPlayingId!==null||!b.voice_key||!spokenText(b.text)}
+        onClick={()=>playSection(b,true)}>
+        <i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':'fa-arrows-rotate')} aria-hidden="true"/>
        </button>
        <div className="section-floating-wrap section-speed-wrap" data-section-floating-control>
         <button type="button" className="icon-action section-speed" onClick={()=>toggleSectionPopover(b.id,'speed')} title="Adjust playback speed" aria-expanded={sectionPopover?.id===b.id&&sectionPopover.type==='speed'} aria-label={'Playback speed '+Number((sectionSpeed[b.id]||1).toFixed(2))+' times. Adjust speed'}>
@@ -487,7 +493,11 @@ function App(){
     return available?<a className="narration-download-option" href={href} download={'humperdinck-narration.'+type} key={type} onClick={()=>setDownloadOpen(false)}><i className="fa-solid fa-file-audio" aria-hidden="true"/><span><strong>{type.toUpperCase()}</strong><small>{type==='mp3'?'Smaller, widely compatible file':'Uncompressed, best for editing'}</small></span><i className="fa-solid fa-download" aria-hidden="true"/></a>:<div className="narration-download-option unavailable" key={type} aria-disabled="true"><i className="fa-solid fa-file-audio" aria-hidden="true"/><span><strong>{type.toUpperCase()}</strong><small>{type==='mp3'?'Generate audio to download MP3':'Generate audio to download WAV'}</small></span></div>
    })}
  </div>}
- </div><button type="button" className="primary narration-full-play" aria-label={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} title={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} onClick={generateNarration} disabled={!voiceOptions.length||(['queued','running'].includes(narrationJob?.status))}><i className={'fa-solid '+(['queued','running'].includes(narrationJob?.status)?'fa-spinner fa-spin':wholeAudible?'fa-stop':'fa-play')} aria-hidden="true"/></button><audio ref={wholeAudioRef} className="hidden-section-audio" preload="auto" aria-hidden="true" onPlay={()=>setWholeAudible(true)} onPause={()=>setWholeAudible(false)} onEnded={()=>setWholeAudible(false)}/></div>}
+ </div><button type="button" className="narration-regenerate" disabled={!voiceOptions.length||PUBLIC_STUDIO||['queued','running'].includes(narrationJob?.status)}
+ title="Generate a fresh version of the complete narration, including sound effects"
+ aria-label="Regenerate complete narration" onClick={()=>generateNarration(true)}>
+ <i className="fa-solid fa-arrows-rotate" aria-hidden="true"/> <span>Regenerate</span>
+ </button><button type="button" className="primary narration-full-play" aria-label={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} title={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} onClick={()=>generateNarration()} disabled={!voiceOptions.length||(['queued','running'].includes(narrationJob?.status))}><i className={'fa-solid '+(['queued','running'].includes(narrationJob?.status)?'fa-spinner fa-spin':wholeAudible?'fa-stop':'fa-play')} aria-hidden="true"/></button><audio ref={wholeAudioRef} className="hidden-section-audio" preload="auto" aria-hidden="true" onPlay={()=>setWholeAudible(true)} onPause={()=>setWholeAudible(false)} onEnded={()=>setWholeAudible(false)}/></div>}
  {PUBLIC_STUDIO&&<p className="hint">The browser generates one selected section at a time. To export a combined multi-speaker narration, use the desktop app.</p>}
  {narrationJob&&<div className="job"><p>{narrationJob.message}</p><progress max="100" value={narrationJob.progress}/>{narrationJob.status==='complete'&&<><button onClick={()=>setTab('video')}>Add to Video →</button>
   <AudioEditor src={narrationJob.download_url.replace(/\.mp3$/,'.wav')} source={'output:'+narrationJob.job_id} saveLabel="Apply edits" onSaved={j=>{setNarrationJob({...j,job_id:j.download_url.split('/').pop().split('.')[0]});setStatus('Edited narration ready. Video Studio will use this version.')}}/></>}</div>}</section>}
