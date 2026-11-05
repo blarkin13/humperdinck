@@ -375,13 +375,24 @@ button.active small,.primary small{color:#3a3122}
 .narration-full-play i{font-size:19px;margin:0}
 
 
-/* Two compact selectable file-format icons, replacing the Export dropdown. */
-.narration-format-choice{display:inline-flex;align-items:center;gap:9px}
-.narration-export-actions .narration-format-icon{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:55px;height:55px;padding:5px 8px!important;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--muted);font-size:10px;line-height:1}
-.narration-format-icon i{font-size:19px}
-.narration-format-icon span{font-size:10px;font-weight:700;letter-spacing:.4px}
-.narration-export-actions .narration-format-icon.selected{color:var(--brass-hi);border-color:var(--brass-hi);background:rgba(198,164,106,.10)}
-.narration-export-actions .narration-format-icon:hover:not(:disabled){border-color:var(--brass-hi);color:var(--brass-hi)}
-.narration-export-actions .narration-format-icon:focus-visible{outline:2px solid var(--brass-hi);outline-offset:2px}
-:root[data-theme="modern"] .narration-export-actions .narration-format-icon.selected{background:rgba(255,255,255,.10)}
-:root[data-mode="light"] .narration-export-actions .narration-format-icon.selected{background:var(--light-hover);color:var(--brass-hi)}
+
+/* Download icon with a compact MP3 / WAV popover. */
+.narration-download-wrap{position:relative;display:inline-flex;align-items:center}
+.narration-export-actions .narration-download-trigger{display:grid;place-items:center;width:48px;height:48px;min-width:48px;padding:0!important;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--ivory)}
+.narration-download-trigger i{font-size:20px}
+.narration-export-actions .narration-download-trigger:hover,.narration-export-actions .narration-download-trigger[aria-expanded="true"]{color:var(--brass-hi);border-color:var(--brass-hi)}
+.narration-download-popover{position:absolute;z-index:80;bottom:calc(100% + 10px);left:0;width:270px;max-width:calc(100vw - 30px);padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--teal);color:var(--ivory);box-shadow:0 18px 52px #0007}
+.narration-download-heading{font-size:12px;font-weight:650;letter-spacing:.3px;padding:8px 11px;color:var(--muted)}
+.narration-download-option,.narration-download-option.unavailable{display:flex;align-items:center;gap:12px;padding:10px 11px;border-radius:8px;min-height:56px;text-decoration:none!important;color:var(--ivory);background:transparent;border:0}
+.narration-download-option:hover:not(.unavailable){background:rgba(198,164,106,.12);color:var(--brass-hi)}
+.narration-download-option > i:first-child{font-size:20px;color:var(--brass-hi)}
+.narration-download-option > i:last-child{margin-left:auto;font-size:14px}
+.narration-download-option span{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.narration-download-option strong{font-size:13px}
+.narration-download-option small{font-size:11px;color:var(--muted);line-height:1.35}
+.narration-download-option.unavailable{opacity:.55;cursor:not-allowed}
+:root[data-theme="modern"] .narration-download-popover{background:#202020;border-color:#454545}
+:root[data-mode="light"] .narration-download-popover{background:var(--light-surface);border-color:var(--line);color:var(--ivory)}
+:root[data-mode="light"] .narration-download-option{color:var(--ivory)}
+:root[data-mode="light"] .narration-download-option:hover:not(.unavailable){background:var(--light-hover)}
+@media(max-width:620px){.narration-download-popover{left:0}}
