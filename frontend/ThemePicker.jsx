@@ -14,8 +14,8 @@ function initialTheme(){
  try {
   const stored=window.localStorage.getItem(STORAGE_KEY);
   // Migrate installations using the former Ultra Modern theme.
-  return stored==='ultra'?'modern':valid.has(stored)?stored:(import.meta.env.VITE_PUBLIC_STUDIO==='1'?'modern':'vintage');
- }catch{return import.meta.env.VITE_PUBLIC_STUDIO==='1'?'modern':'vintage'}
+  return stored==='ultra'?'modern':valid.has(stored)?stored:'modern';
+ }catch{return 'modern'}
 }
 function initialMode(){
  try{return window.localStorage.getItem(MODE_KEY)==='light'?'light':'dark'}catch{return 'dark'}
