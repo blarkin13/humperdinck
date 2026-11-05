@@ -70,3 +70,25 @@ export function sectionDelay(seconds){
  const value=Number(seconds);
  return Number.isFinite(value)?Math.min(30,Math.max(0,value)):0;
 }
+
+/** Direction markers are annotations, never words to speak aloud. */
+export const DIRECTION_TAGS=['whispering','excited','curious','calm','sad','serious'];
+const DIRECTION_PATTERN=/\[(?:whispering|excited|curious|calm|sad|serious)\]\s*/gi;
+export const spokenText=text=>String(text||'').replace(DIRECTION_PATTERN,'').trim();
+export const audioSignature=section=>JSON.stringify([section.voice_key,section.text]);
+/** Rule-based, opt-in editorial suggestions. Does not claim model inference. */
+export function suggestSpeechDirections(text){
+ const raw=String(text||'');
+ if(!raw.trim())return raw;
+ const chunks=raw.match(/[^.!?\n]+[.!?]+(?:["’”']*)\s*|[^.!?\n]+(?:\n|$)/gu)||[raw];
+ let result='';
+ for(const chunk of chunks){
+  const plain=chunk.trim();
+  if(!plain){result+=chunk;continue}
+  if(/^\[(?:whispering|excited|curious|calm|sad|serious)\]/i.test(plain)){result+=chunk;continue}
+  const tag=/!["’”']?\s*$/.test(plain)?'excited':/\?["’”']?\s*$/.test(plain)?'curious':/\b(whispered|whispers|hushed|quietly)\b/i.test(plain)?'whispering':/\b(wept|cried|sorrow|mourned|grief)\b/i.test(plain)?'sad':null;
+  const prefix=(chunk.match(/^\s*/u)||[''])[0];
+  result+=tag?prefix+'['+tag+'] '+chunk.slice(prefix.length):chunk;
+ }
+ return result;
+}
