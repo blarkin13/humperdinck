@@ -26,6 +26,7 @@ from backend.curated_sounds import BY_SLUG,public_catalog
 from backend.sound_mix import fade_clip, assemble_narration
 from backend.sound_suggest import recommend
 from backend.voice_refinement import normalize_refinement,refine_wav,suggest_sliders,DEFAULTS
+from backend.starter_voice_packs import StarterVoices, SENTENCE as STARTER_VOICE_TEXT, PACK_NAME as STARTER_VOICE_PACK_NAME
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path(os.environ.get('HUMPERDINCK_DATA', ROOT / 'data'))
@@ -43,6 +44,8 @@ jobs = JobStore(DATA / 'jobs.sqlite3')
 library = VoiceLibrary(DATA)
 settings = catalog.Settings(DATA / 'settings.json')
 sound_effects = SoundEffects(DATA)
+starter_voices = StarterVoices(DATA)
+starter_voice_jobs = {}
 
 class Sentence(BaseModel):
     text: str
@@ -96,6 +99,59 @@ def upload_path(voice_id):
     path = DATA/'voices'/f'{voice_id}.wav'
     if not path.is_file(): raise HTTPException(404,'Voice not found')
     return path
+
+@app.get('/api/starter-voices')
+def list_starter_voices():
+    return {'sentence':STARTER_VOICE_TEXT,'approved':starter_voices.list()}
+
+@app.post('/api/starter-voices/{voice_id}/generate')
+def generate_starter_voice_sample(voice_id:str):
+    upload_path(voice_id)
+    original=voice_meta().get(voice_id,{})
+    if original.get('origin')=='starter-voice':
+        raise HTTPException(400,'Use an original editable voice to prepare starter samples')
+    job=generate(GenerateRequest(text=STARTER_VOICE_TEXT,
+            voice_id=voice_id,engine='qwen-clone',format='wav'))
+    starter_voice_jobs[job['job_id']]=voice_id
+    return job
+
+class StarterApproval(BaseModel):
+    job_id:str = Field(min_length=32,max_length=32)
+
+@app.post('/api/starter-voices/{voice_id}/approve')
+def approve_starter_voice_sample(voice_id:str,request:StarterApproval):
+    upload_path(voice_id)
+    if starter_voice_jobs.get(request.job_id)!=voice_id:
+        raise HTTPException(400,'Sample was not generated for this voice')
+    job=jobs.get(request.job_id)
+    if not job or job.get('status')!='complete':
+        raise HTTPException(409,'Generate and listen to the completed sample first')
+    wav=DATA/'outputs'/f'{request.job_id}.wav'
+    meta=voice_meta().get(voice_id,{})
+    try:
+        approved=starter_voices.approve(voice_id,wav,{
+            'name':meta.get('name',voice_id),
+            'category':meta.get('category',''),
+            'refinement':meta.get('refinement',{})
+        })
+    except (OSError,ValueError) as exc:
+        raise HTTPException(400,str(exc))
+    starter_voice_jobs.pop(request.job_id,None)
+    return approved
+
+class StarterExportInput(BaseModel):
+    voice_ids:list[str] = Field(min_length=1,max_length=30)
+
+@app.post('/api/starter-voices/export')
+def export_starter_voice_pack(request:StarterExportInput):
+    from fastapi.responses import Response
+    try:
+        archive=starter_voices.export(request.voice_ids)
+    except (OSError,ValueError) as exc:
+        raise HTTPException(400,str(exc))
+    return Response(content=archive,media_type='application/zip',
+        headers={'Content-Disposition':'attachment; filename="'+STARTER_VOICE_PACK_NAME+'"',
+                 'Cache-Control':'no-store'})
 
 @app.get('/api/voices')
 def list_voices():
@@ -427,6 +483,7 @@ def run_generation(job_id, request):
                     ref_text = library.sample_text(sample_id) if sample_id else None
                 else:
                     reference = DATA/'voices'/f'{request.voice_id}.wav'
+                    ref_text=voice_meta().get(request.voice_id,{}).get('reference_text')
                 if not reference or not reference.is_file():
                     raise ValueError('Approved reference audio is missing')
                 engines.clone(choice['clone'], wav, request.text, reference, ref_text, progress)
@@ -787,7 +844,7 @@ def resolve_voice_key(key):
         identifier = key[7:]
         if not identifier.isalnum(): raise HTTPException(400,'Invalid voice')
         path = DATA/'voices'/f'{identifier}.wav'
-        text = None
+        text = voice_meta().get(identifier,{}).get('reference_text')
     else:
         raise HTTPException(400,'Unknown voice selection')
     if not path or not path.is_file():
