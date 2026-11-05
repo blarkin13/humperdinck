@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {useNotifications} from './Notifications.jsx';
 import {suggestSoundEffects} from './soundSuggestions.js';
+import CuratedSounds from './CuratedSounds.jsx';
 
 const CATEGORIES=['All','Rain','Weather','Wind','Water','Forest','Birds','Insects','Wildlife','Nature','Atmosphere','People','Machines','Impacts','Music','Other'];
 const FORMATS='.wav,.mp3,.flac,.ogg,.m4a,.aac,.webm';
@@ -171,6 +172,7 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
      onChange={e=>{upload(Array.from(e.target.files));e.target.value=''}}/>
   </div>
   {disabled?<p className="hint">The Sound Effects Library is available in the desktop app.</p>:<>
+   {!compact&&<CuratedSounds api={api} onInstalled={load} expanded={items.length===0}/>}
    <div className="sound-search-shell">
     <i className="fa-solid fa-magnifying-glass" aria-hidden="true"/>
     <input type="search" value={query} onChange={e=>setQuery(e.target.value)}
