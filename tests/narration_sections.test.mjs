@@ -70,9 +70,9 @@ test('section pauses are bounded and valid',()=>{
  assert.equal(sectionDelay('1.5'),1.5);
  assert.equal(sectionDelay('-1'),0);
  assert.equal(sectionDelay('999'),30);
- assert.equal(sectionDelay('nope'),0.3);
+ assert.equal(sectionDelay('nope'),0);
 });
-test('new sections get the default 0.3-second pause',()=>{
+test('new sections have zero delay by default',()=>{
  const result=insertSection([{id:1,text:'First',voice_key:'af_heart',delay_after:2}],0);
- assert.equal(result[1].delay_after,0.3);
+ assert.equal(result[1].delay_after,0);
 });
