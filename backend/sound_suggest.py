@@ -86,5 +86,6 @@ def ollama_suggestions(text,library,limit=3):
 
 def recommend(text,library,limit=3):
     ai=ollama_suggestions(text,library,limit)
-    return {'source':'ollama','suggestions':ai} if ai is not None else {
-        'source':'keywords','suggestions':keyword_suggestions(text,library,limit)}
+    if ai:
+        return {'source':'ollama','suggestions':ai}
+    return {'source':'keywords','suggestions':keyword_suggestions(text,library,limit)}
