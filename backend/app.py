@@ -416,7 +416,7 @@ def download_output(filename: str):
 class NarrationBlock(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
     voice_key: str = Field(min_length=1)
-    delay_after: float = Field(default=0.3, ge=0, le=30)
+    delay_after: float = Field(default=0, ge=0, le=30)
 
 class MultiNarrationRequest(BaseModel):
     blocks: list[NarrationBlock] = Field(min_length=1, max_length=80)
