@@ -217,3 +217,13 @@ button.active small,.primary small{color:#3a3122}
 .section-inline-audio{display:block;width:100%;margin-top:10px}
 
 .section-play-error{color:#f1a9a3;font-size:12px;line-height:1.5;margin:9px 0 0;overflow-wrap:anywhere}
+
+
+/* Per-section synthesis and speech-direction editing, without an audio control bar. */
+.hidden-section-audio{display:none!important}
+.section-directions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:8px 0 2px}
+.section-directions label{display:flex;align-items:center;gap:8px;margin:0;font-size:12px;font-weight:500;color:var(--muted,#b5aa94)}
+.section-directions select{width:auto;max-width:185px;padding:7px;font-size:12px}
+.narration-section .section-directions button{padding:7px 10px;background:transparent;font-size:12px}
+.narration-section .section-directions button i{margin-right:5px}
+.narration-section .section-foot .section-play{font-size:16px}
