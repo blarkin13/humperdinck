@@ -252,3 +252,15 @@ button.active small,.primary small{color:#3a3122}
 .browser-kokoro-compact{margin:0;color:var(--muted,#b5aa94);font-size:12px}
 .browser-kokoro-compact:empty{display:none}
 @media(max-width:650px){.narration-compact-toolbar{gap:5px}.compact-toolbar-left,.compact-toolbar-right{gap:0}.narration-section .narration-compact-toolbar .icon-action{padding:6px!important;min-width:30px}.narration-section .narration-compact-toolbar .icon-action i{font-size:15px}.section-delay-pill{min-width:57px;padding:0 5px}.section-delay-pill input[type=number]{width:27px!important;min-width:27px!important}}
+
+
+/* Full-width script, with the narrator unboxed in the upper-right header. */
+.narration-section-main{display:block!important}
+.narration-section .narration-editor-header{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px}
+.narration-section .narration-editor-header .narrator-trigger{display:inline-flex!important;flex-direction:row!important;align-items:center;gap:8px;width:auto!important;max-width:60%;padding:2px!important;text-align:right}
+.narration-section .narration-editor-header .narrator-avatar{width:34px;height:34px;flex:0 0 34px;font-size:14px}
+.narration-section .narration-editor-header .narrator-name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.narration-text-wrap{position:relative}
+.narration-section .narration-text-wrap textarea{padding-bottom:32px;min-height:166px}
+.narration-character-count{position:absolute;bottom:9px;right:14px;font-size:12px;color:var(--muted,#b5aa94);pointer-events:none;font-variant-numeric:tabular-nums}
+@media(max-width:620px){.narration-section .narration-editor-header .narrator-trigger{max-width:50%}.narration-section .narration-editor-header .narrator-avatar{width:30px;height:30px;flex-basis:30px}}
