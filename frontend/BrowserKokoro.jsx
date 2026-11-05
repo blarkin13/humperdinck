@@ -70,7 +70,7 @@ export default function BrowserKokoro({voices,voice,text='',sectionNumber=1,play
   <div className="browser-kokoro-controls"><small className={length>KOKORO_LIMIT?'warn':''}>{voice?'':'Choose a narrator above · '}{length} / {KOKORO_LIMIT} characters</small><button type="button" className="primary" disabled={!valid||busy} onClick={()=>start()}><i className={'fa-solid '+(busy?'fa-spinner fa-spin':'fa-play')} aria-hidden="true"/> {busy?'Generating…':'Generate speech'}</button>{busy&&<button type="button" onClick={restart}>Stop / reset</button>}</div>
   {busy&&<div className="browser-kokoro-progress" role="status"><span>{message}</span>{progress!==null&&<progress max="100" value={progress}/>}<small>First use downloads the Kokoro model. It may take time, memory, and CPU resources.</small></div>}
   {error&&<p className="warn" role="alert">{error}</p>}
-  {audioUrl&&<div className="browser-kokoro-result"><strong>Generated voice</strong><audio controls src={audioUrl}/><a className="download" download={'humperdinck-kokoro-'+voice+'.wav'} href={audioUrl}><i className="fa-solid fa-download" aria-hidden="true"/> Download WAV</a></div>}
+  {audioUrl&&<div className="browser-kokoro-result"><strong>Generated voice</strong><audio autoPlay controls src={audioUrl}/><a className="download" download={'humperdinck-kokoro-'+voice+'.wav'} href={audioUrl}><i className="fa-solid fa-download" aria-hidden="true"/> Download WAV</a></div>}
   <p className="browser-kokoro-footnote"><i className="fa-solid fa-circle-info" aria-hidden="true"/> Generate the selected section using its assigned speaker. Processing runs on your device; the browser limit is {KOKORO_LIMIT} characters per section.</p>
  </div>;
 }
