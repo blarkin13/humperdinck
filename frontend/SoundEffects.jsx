@@ -1,19 +1,68 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {useNotifications} from './Notifications.jsx';
 import {suggestSoundEffects} from './soundSuggestions.js';
 
-const TYPES=['All','Atmosphere','Nature','Weather','People','Machines','Impacts','Music','Other'];
+const CATEGORIES=['All','Rain','Weather','Wind','Water','Forest','Birds','Insects','Wildlife','Nature','Atmosphere','People','Machines','Impacts','Music','Other'];
+const FORMATS='.wav,.mp3,.flac,.ogg,.m4a,.aac,.webm';
+const clock=seconds=>{
+ const n=Math.max(0,Math.floor(Number(seconds)||0));
+ return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');
+};
+const sortBy=(items,sort)=>{
+ const copy=[...items];
+ if(sort==='name')copy.sort((a,b)=>a.name.localeCompare(b.name));
+ else if(sort==='short')copy.sort((a,b)=>a.duration-b.duration||a.name.localeCompare(b.name));
+ else if(sort==='long')copy.sort((a,b)=>b.duration-a.duration||a.name.localeCompare(b.name));
+ else if(sort==='recent')copy.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+ else copy.sort((a,b)=>Number(Boolean(b.favorite))-Number(Boolean(a.favorite))||
+     Number(a.origin!=='starter')-Number(b.origin!=='starter')||a.name.localeCompare(b.name));
+ return copy;
+};
+
+function Waveform({item,progress,onSeek}){
+ const peaks=item.waveform?.length===56?item.waveform:Array.from({length:56},()=>.23);
+ return <div className="sound-wave-track">
+  <div className="sound-wave-bars" aria-hidden="true">{peaks.map((peak,i)=><span key={i}
+   className={(i/peaks.length<=progress?'played ':'')+'sound-wave-bar'}
+   style={{height:Math.max(8,Math.round(peak*100))+'%'}}/>)}</div>
+  <input type="range" min="0" max="1000" step="1"
+    value={Math.round(progress*1000)}
+    onChange={e=>onSeek(Number(e.target.value)/1000)}
+    aria-label={'Seek in '+item.name} title="Seek through sound"/>
+ </div>;
+}
+
 export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestText='',compact=false,sectionId=null,refreshKey=0,disabled=false}){
  const {notify,confirm}=useNotifications();
- const [items,setItems]=useState([]),[query,setQuery]=useState(''),[category,setCategory]=useState('All'),[uploading,setUploading]=useState(false),[selected,setSelected]=useState(null),[editing,setEditing]=useState(null),[editName,setEditName]=useState(''),[editCategory,setEditCategory]=useState('Other'),[position,setPosition]=useState('after'),[volume,setVolume]=useState(80),[fadeIn,setFadeIn]=useState(0),[fadeOut,setFadeOut]=useState(0),[showSuggestions,setShowSuggestions]=useState(false),[suggesting,setSuggesting]=useState(false),[modelSuggestions,setModelSuggestions]=useState(null),[suggestionSource,setSuggestionSource]=useState('keywords');
- const fileRef=useRef(null),audioRef=useRef(null),[playing,setPlaying]=useState(null);
+ const [items,setItems]=useState([]),[loading,setLoading]=useState(!disabled);
+ const [query,setQuery]=useState(''),[category,setCategory]=useState('All'),
+       [duration,setDuration]=useState('all'),[sort,setSort]=useState('featured'),
+       [favoritesOnly,setFavoritesOnly]=useState(false);
+ const [uploading,setUploading]=useState(false),[editing,setEditing]=useState(null),
+       [editName,setEditName]=useState(''),[editCategory,setEditCategory]=useState('Other');
+ const [position,setPosition]=useState('after'),[volume,setVolume]=useState(80),
+       [fadeIn,setFadeIn]=useState(0),[fadeOut,setFadeOut]=useState(0);
+ const [showSuggestions,setShowSuggestions]=useState(false),[suggesting,setSuggesting]=useState(false),
+       [modelSuggestions,setModelSuggestions]=useState(null),[suggestionSource,setSuggestionSource]=useState('keywords');
+ const fileRef=useRef(null),audioRef=useRef(null);
+ const [playing,setPlaying]=useState(null),[currentTime,setCurrentTime]=useState(0);
  async function load(){
   if(disabled)return;
-  try{setItems(await api('sound-effects'))}catch(err){notify(err.message,'error')}
+  setLoading(true);
+  try{setItems(await api('sound-effects'))}
+  catch(err){notify(err.message,'error')}
+  finally{setLoading(false)}
  }
  useEffect(()=>{load()},[refreshKey,disabled]);
  useEffect(()=>()=>{audioRef.current?.pause()},[]);
  useEffect(()=>{setModelSuggestions(null);setSuggestionSource('keywords')},[suggestText]);
+ useEffect(()=>{
+  if(editing===null)return;
+  const handler=e=>{if(e.key==='Escape')setEditing(null)};
+  window.addEventListener('keydown',handler);
+  return()=>window.removeEventListener('keydown',handler);
+ },[editing]);
+
  async function upload(files){
   if(!files?.length||disabled)return;
   setUploading(true);
@@ -26,21 +75,51 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
   }
   await load();setUploading(false);
  }
+
  function preview(item){
-  if(playing===item.id){audioRef.current?.pause();setPlaying(null);return}
-  if(!audioRef.current)return;
-  audioRef.current.src='/api/sound-effects/'+item.id+'/audio';
-  audioRef.current.play().then(()=>setPlaying(item.id)).catch(()=>notify('Unable to play the selected sound','error'));
+  const audio=audioRef.current;
+  if(!audio)return;
+  if(playing===item.id){audio.pause();audio.currentTime=0;setPlaying(null);setCurrentTime(0);return}
+  audio.pause();setPlaying(null);setCurrentTime(0);
+  audio.src='/api/sound-effects/'+item.id+'/audio';
+  audio.currentTime=0;
+  audio.play().then(()=>setPlaying(item.id)).catch(()=>notify('Unable to play '+item.name,'error'));
+ }
+ function seek(item,fraction){
+  const audio=audioRef.current;
+  if(!audio)return;
+  const seconds=Math.min(1,Math.max(0,fraction))*item.duration;
+  if(playing===item.id){audio.currentTime=seconds;setCurrentTime(seconds)}
+  else{preview(item);audio.addEventListener('loadedmetadata',()=>{audio.currentTime=seconds;setCurrentTime(seconds)},{once:true})}
+ }
+
+ async function favorite(item){
+  try{
+   const value=!item.favorite;
+   setItems(old=>old.map(v=>v.id===item.id?{...v,favorite:value}:v));
+   await api('sound-effects/'+item.id,{method:'PATCH',
+       headers:{'Content-Type':'application/json'},body:JSON.stringify({favorite:value})});
+  }catch(err){await load();notify(err.message,'error')}
  }
  function edit(item){setEditing(item.id);setEditName(item.name);setEditCategory(item.category||'Other')}
  async function saveEdit(){
-  try{await api('sound-effects/'+editing,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:editName,category:editCategory})});setEditing(null);await load();notify('Sound details saved','success')}
-  catch(err){notify(err.message,'error')}
+  try{
+   await api('sound-effects/'+editing,{method:'PATCH',
+       headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({name:editName,category:editCategory})});
+   setEditing(null);await load();notify('Sound details saved','success');
+  }catch(err){notify(err.message,'error')}
  }
  async function remove(item){
-  if(!await confirm('Delete "'+item.name+'" from your library?',{title:'Delete sound effect',danger:true,confirmLabel:'Delete'}))return;
-  try{await api('sound-effects/'+item.id,{method:'DELETE'});if(playing===item.id)audioRef.current?.pause();await load();notify('Sound effect deleted','success')}catch(err){notify(err.message,'error')}
+  if(!await confirm('Delete "'+item.name+'" from your library?',{
+     title:'Delete sound effect',danger:true,confirmLabel:'Delete'}))return;
+  try{
+   await api('sound-effects/'+item.id,{method:'DELETE'});
+   if(playing===item.id){audioRef.current?.pause();setPlaying(null)}
+   await load();notify('Sound effect deleted','success');
+  }catch(err){notify(err.message,'error')}
  }
+
  const fallbackSuggestions=suggestSoundEffects(suggestText,items);
  const suggested=modelSuggestions??fallbackSuggestions;
  async function toggleSuggestions(){
@@ -49,61 +128,167 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
   if(!suggestText?.trim())return;
   setSuggesting(true);
   try{
-   const result=await api('sound-effects/suggest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:suggestText})});
-   const matched=result.suggestions.map(choice=>{
+   const result=await api('sound-effects/suggest',{method:'POST',
+     headers:{'Content-Type':'application/json'},body:JSON.stringify({text:suggestText})});
+   const found=result.suggestions.map(choice=>{
     const item=items.find(sound=>sound.id===choice.sound_id);
     return item?{...item,reason:choice.reason}:null;
    }).filter(Boolean);
-   setModelSuggestions(matched);
-   setSuggestionSource(result.source);
+   setModelSuggestions(found);setSuggestionSource(result.source);
   }catch(err){
-   setModelSuggestions(null);
-   setSuggestionSource('keywords');
-   notify('Using local keyword suggestions: '+err.message,'info');
+   setModelSuggestions(null);setSuggestionSource('keywords');
+   notify('Using offline matching: '+err.message,'info');
   }finally{setSuggesting(false)}
  }
- const filtered=items.filter(item=>(category==='All'||item.category===category)&&(!query||item.name.toLowerCase().includes(query.toLowerCase())||(item.category||'').toLowerCase().includes(query.toLowerCase())));
- return <div className={'sound-library '+(compact?'sound-library-compact':'')}>
+
+ const categories=useMemo(()=>{
+  const present=new Set(items.map(item=>item.category));
+  return CATEGORIES.filter(cat=>cat==='All'||present.has(cat));
+ },[items]);
+ const filtered=useMemo(()=>sortBy(items.filter(item=>{
+  const searchable=[item.name,item.category,...(item.tags||[])].join(' ').toLowerCase();
+  if(query.trim()&&!searchable.includes(query.trim().toLowerCase()))return false;
+  if(category!=='All'&&item.category!==category)return false;
+  if(favoritesOnly&&!item.favorite)return false;
+  if(duration==='short'&&item.duration>=10)return false;
+  if(duration==='medium'&&(item.duration<10||item.duration>30))return false;
+  if(duration==='long'&&item.duration<=30)return false;
+  return true;
+ }),sort),[items,query,category,favoritesOnly,duration,sort]);
+
+ return <div className={'sound-library sound-library-pixabay '+(compact?'sound-library-compact':'')}>
   <div className="sound-library-head">
-   <div>{!compact&&<><h2>Sound Effects</h2><p>Import and organize your own licensed sounds. Play them or add them to narration.</p></>}</div>
-   <button className="sound-import" type="button" disabled={disabled||uploading} onClick={()=>fileRef.current?.click()} title="Import sound effects"><i className={'fa-solid '+(uploading?'fa-spinner fa-spin':'fa-file-import')}/><span>{uploading?'Importing':'Import sounds'}</span></button>
-   <input ref={fileRef} type="file" multiple hidden accept=".wav,.mp3,.flac,.ogg,.m4a,.aac,.webm" onChange={e=>{upload(Array.from(e.target.files));e.target.value=''}}/>
+   <div>{!compact&&<><h2>Sound Effects</h2>
+    <p>30 original synthesized nature sounds included. Preview, favorite, or import your own field recordings.</p></>}</div>
+   {!compact&&<a className="sound-browse-reference" href="https://pixabay.com/sound-effects/" target="_blank" rel="noopener noreferrer" title="Find sound recordings on Pixabay; download there and import here">
+     <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"/> Find recordings</a>}
+   <button className="sound-import" type="button" disabled={disabled||uploading}
+      onClick={()=>fileRef.current?.click()} title="Import sound effects">
+    <i className={'fa-solid '+(uploading?'fa-spinner fa-spin':'fa-file-import')} aria-hidden="true"/>
+    <span>{uploading?'Importing':'Import sounds'}</span>
+   </button>
+   <input ref={fileRef} type="file" multiple hidden accept={FORMATS}
+     onChange={e=>{upload(Array.from(e.target.files));e.target.value=''}}/>
   </div>
   {disabled?<p className="hint">The Sound Effects Library is available in the desktop app.</p>:<>
-  <div className="sound-filters">
-   <label><i className="fa-solid fa-magnifying-glass" aria-hidden="true"/><input aria-label="Search sounds" placeholder="Search sound effects" value={query} onChange={e=>setQuery(e.target.value)}/></label>
-   <select aria-label="Filter sound category" value={category} onChange={e=>setCategory(e.target.value)}>{TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
-  </div>
-  <audio ref={audioRef} hidden onEnded={()=>setPlaying(null)} onPause={()=>setPlaying(null)}/>
-  {onInsert&&suggestText?.trim()&&<div className="sound-suggestion-area">
-   <button type="button" className="sound-suggest-trigger" onClick={toggleSuggestions} aria-expanded={showSuggestions} disabled={suggesting}><i className={'fa-solid '+(suggesting?'fa-spinner fa-spin':'fa-wand-magic-sparkles')} aria-hidden="true"/> {suggesting?'Finding sounds…':'Suggest sounds for this section'}</button>
-   {showSuggestions&&<div className="sound-suggestions">
-    <small>{suggesting?'Analyzing narration with an available local model…':suggestionSource==='ollama'?'Suggestions from your local Ollama model; review before adding.':'Suggestions matched to your library using offline keywords; review before adding.'}</small>
-    {!suggesting&&suggested.length?suggested.map(item=><div className="sound-suggestion" key={item.id}><div><strong>{item.name}</strong><small>Matched: {item.reason}</small></div><button type="button" aria-label={'Add suggested '+item.name} onClick={()=>onInsert(sectionId,item,{position,volume:volume/100,fade_in:fadeIn,fade_out:fadeOut})}><i className="fa-solid fa-plus"/></button></div>):!suggesting&&<small>No matching sounds found. Import relevant sounds or choose one manually.</small>}
+   <div className="sound-search-shell">
+    <i className="fa-solid fa-magnifying-glass" aria-hidden="true"/>
+    <input type="search" value={query} onChange={e=>setQuery(e.target.value)}
+     aria-label="Search sound effects" placeholder="Search rain, forest, ocean, birds…"/>
+    {query&&<button type="button" aria-label="Clear search" title="Clear search" onClick={()=>setQuery('')}><i className="fa-solid fa-xmark"/></button>}
+   </div>
+   <div className="sound-category-strip" role="group" aria-label="Sound categories">
+    {categories.map(cat=><button type="button" key={cat}
+      className={cat===category?'selected':''} aria-pressed={cat===category}
+      onClick={()=>setCategory(cat)}>{cat}</button>)}
+   </div>
+   <div className="sound-library-options">
+    <span className="sound-result-count">{filtered.length} {filtered.length===1?'sound':'sounds'}{items.some(item=>item.origin==='starter')&&!compact?' · original starter library':''}</span>
+    <div className="sound-option-actions">
+     <button type="button" className={'sound-favorites-toggle '+(favoritesOnly?'selected':'')}
+       aria-pressed={favoritesOnly} title="Only favorites" onClick={()=>setFavoritesOnly(x=>!x)}>
+      <i className={favoritesOnly?'fa-solid fa-heart':'fa-regular fa-heart'} aria-hidden="true"/><span>Favorites</span>
+     </button>
+     <select aria-label="Filter by duration" value={duration} onChange={e=>setDuration(e.target.value)}>
+      <option value="all">Any duration</option><option value="short">Under 10 seconds</option>
+      <option value="medium">10–30 seconds</option><option value="long">Over 30 seconds</option>
+     </select>
+     <select aria-label="Sort sound effects" value={sort} onChange={e=>setSort(e.target.value)}>
+      <option value="featured">Featured</option><option value="recent">Newest</option>
+      <option value="name">Name A–Z</option><option value="short">Shortest</option><option value="long">Longest</option>
+     </select>
+    </div>
+   </div>
+   <audio ref={audioRef} hidden onTimeUpdate={e=>setCurrentTime(e.currentTarget.currentTime||0)}
+       onEnded={()=>{setPlaying(null);setCurrentTime(0)}}
+       onPause={e=>{if(e.currentTarget.ended)setPlaying(null)}}/>
+   {onInsert&&suggestText?.trim()&&<div className="sound-suggestion-area">
+    <button type="button" className="sound-suggest-trigger" onClick={toggleSuggestions}
+      aria-expanded={showSuggestions} disabled={suggesting}>
+     <i className={'fa-solid '+(suggesting?'fa-spinner fa-spin':'fa-wand-magic-sparkles')}/>
+     {suggesting?'Finding sounds…':'Suggest sounds for this section'}
+    </button>
+    {showSuggestions&&<div className="sound-suggestions">
+     <small>{suggesting?'Looking for relevant sounds…':suggestionSource==='ollama'?
+      'Local AI suggestions. Review each before adding.':
+      'Offline suggestions matched to your library. Review before adding.'}</small>
+     {!suggesting&&suggested.length?suggested.map(item=><div className="sound-suggestion" key={item.id}>
+      <div><strong>{item.name}</strong><small>Matched: {item.reason}</small></div>
+      <button type="button" aria-label={'Add suggested '+item.name}
+        onClick={()=>onInsert(sectionId,item,{position,volume:volume/100,fade_in:fadeIn,fade_out:fadeOut})}>
+       <i className="fa-solid fa-plus"/></button>
+     </div>):!suggesting&&<small>No matching sounds. Search manually or import a relevant sound.</small>}
+    </div>}
    </div>}
-  </div>}
-  <div className="sound-items">
-   {filtered.length===0?<p className="sound-empty">{items.length?'No sounds match your search.':'Your sound library is empty. Import WAV, MP3 or another supported audio file to begin.'}</p>:filtered.map(item=><div className={'sound-item '+(selected===item.id?'selected':'')} key={item.id}>
-    <button type="button" className="sound-preview" title={playing===item.id?'Stop preview':'Preview sound'} aria-label={(playing===item.id?'Stop':'Preview')+' '+item.name} onClick={()=>preview(item)}><i className={'fa-solid '+(playing===item.id?'fa-stop':'fa-play')}/></button>
-    <button type="button" className="sound-item-title" onClick={()=>setSelected(id=>id===item.id?null:item.id)} aria-expanded={selected===item.id}><strong>{item.name}</strong><small>{item.category||'Other'} · {item.duration}s</small></button>
-    {onInsert?<button type="button" className="sound-insert" onClick={()=>onInsert(sectionId,item,{position,volume:volume/100,fade_in:fadeIn,fade_out:fadeOut})} title={'Add '+item.name+' to section'} aria-label={'Add '+item.name+' to section'}><i className="fa-solid fa-plus"/></button>:onAmbience?<button type="button" className="sound-insert" onClick={()=>onAmbience(item)} title={'Use '+item.name+' as background ambience'} aria-label={'Use '+item.name+' as background ambience'}><i className="fa-solid fa-check"/></button>:<button type="button" className="sound-item-menu" onClick={()=>edit(item)} title="Rename or categorize" aria-label={'Edit '+item.name}><i className="fa-solid fa-pen"/></button>}
-    {!compact&&<button type="button" className="sound-item-delete" onClick={()=>remove(item)} title={'Delete '+item.name} aria-label={'Delete '+item.name}><i className="fa-solid fa-trash-can"/></button>}
-   </div>)}
-  </div>
-  {editing!==null&&<div className="sound-edit-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null)}}>
-    <form className="sound-edit-modal" role="dialog" aria-modal="true" aria-label="Edit sound details" onSubmit={e=>{e.preventDefault();saveEdit()}}>
+   <div className="sound-list" role="list" aria-label="Available sounds">
+    {loading?<div className="sound-loading" role="status"><i className="fa-solid fa-spinner fa-spin" aria-hidden="true"/><span>Loading sound library and preparing starter effects…</span></div>:filtered.length===0?<div className="sound-no-results">
+     <i className="fa-solid fa-wave-square"/><strong>No matching sounds</strong>
+     <span>Try another search or category. You can import your own files at any time.</span>
+     <button type="button" onClick={()=>{setQuery('');setCategory('All');setDuration('all');setFavoritesOnly(false)}}>Clear filters</button>
+    </div>:filtered.map(item=>{
+     const on=playing===item.id;
+     const progress=on?Math.min(1,currentTime/(item.duration||1)):0;
+     return <div className={'sound-list-row '+(on?'is-playing':'')} role="listitem" key={item.id}>
+      <button type="button" className="sound-row-play" aria-label={(on?'Stop':'Play')+' '+item.name}
+       title={on?'Stop preview':'Play preview'} onClick={()=>preview(item)}>
+       <i className={'fa-solid '+(on?'fa-stop':'fa-play')} aria-hidden="true"/></button>
+      <div className="sound-row-details">
+       <strong title={item.name}>{item.name}</strong>
+       <span>{item.category||'Other'}<span className="sound-source-dot">·</span>{item.origin==='starter'?'Included':'My upload'}</span>
+      </div>
+      <Waveform item={item} progress={progress} onSeek={fraction=>seek(item,fraction)}/>
+      <span className="sound-row-time" aria-label={'Duration '+clock(item.duration)}>
+       {on?clock(currentTime)+' / ':''}{clock(item.duration)}
+      </span>
+      <div className="sound-row-actions">
+       <button type="button" className={'sound-fav-button '+(item.favorite?'is-favorite':'')}
+          aria-label={(item.favorite?'Remove from':'Add to')+' favorites: '+item.name}
+          title={item.favorite?'Remove from favorites':'Favorite'}
+          onClick={()=>favorite(item)}><i className={item.favorite?'fa-solid fa-heart':'fa-regular fa-heart'}/></button>
+       {onInsert?<button type="button" className="sound-row-primary" title="Add to section" aria-label={'Add '+item.name+' to section'}
+         onClick={()=>onInsert(sectionId,item,{position,volume:volume/100,fade_in:fadeIn,fade_out:fadeOut})}><i className="fa-solid fa-plus"/></button>:
+        onAmbience?<button type="button" className="sound-row-primary" title="Use as ambience" aria-label={'Use '+item.name+' as ambience'}
+         onClick={()=>onAmbience(item)}><i className="fa-solid fa-check"/></button>:
+        <a className="sound-row-primary" title={'Download '+item.name} aria-label={'Download '+item.name}
+         href={'/api/sound-effects/'+item.id+'/audio'} download={item.name.replace(/[^a-z0-9-]/gi,'-')+'.wav'}><i className="fa-solid fa-download"/></a>}
+       {!compact&&<details className="sound-row-menu">
+        <summary aria-label={'More options for '+item.name} title="More options"><i className="fa-solid fa-ellipsis-vertical"/></summary>
+        <div className="sound-row-dropdown">
+         <button type="button" onClick={e=>{e.currentTarget.closest('details').open=false;edit(item)}}>
+          <i className="fa-solid fa-pen"/> Rename / categorize</button>
+         <button type="button" className="sound-menu-danger" onClick={e=>{e.currentTarget.closest('details').open=false;remove(item)}}>
+          <i className="fa-solid fa-trash-can"/> Delete sound</button>
+        </div>
+       </details>}
+      </div>
+     </div>;
+    })}
+   </div>
+   {editing!==null&&<div className="sound-edit-modal-backdrop"
+       onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null)}}>
+    <form className="sound-edit-modal" role="dialog" aria-modal="true"
+      aria-label="Edit sound details" onSubmit={e=>{e.preventDefault();saveEdit()}}>
      <h3>Edit sound effect</h3>
      <label>Sound name<input maxLength="120" required value={editName} onChange={e=>setEditName(e.target.value)}/></label>
-     <label>Category<select value={TYPES.includes(editCategory)?editCategory:'Other'} onChange={e=>setEditCategory(e.target.value)}>{TYPES.slice(1).map(t=><option key={t}>{t}</option>)}</select></label>
-     <div className="sound-edit-actions"><button type="button" onClick={()=>setEditing(null)}>Cancel</button><button className="primary" type="submit">Save</button></div>
+     <label>Category<select value={CATEGORIES.includes(editCategory)?editCategory:'Other'}
+       onChange={e=>setEditCategory(e.target.value)}>
+       {CATEGORIES.slice(1).map(cat=><option key={cat} value={cat}>{cat}</option>)}
+      </select></label>
+     <div className="sound-edit-actions"><button type="button" onClick={()=>setEditing(null)}>Cancel</button>
+      <button className="primary" type="submit">Save</button></div>
     </form>
    </div>}
-  {onInsert&&<div className="sound-insert-settings">
-   <label>Position<select value={position} onChange={e=>setPosition(e.target.value)}><option value="before">Before narration</option><option value="after">After narration</option></select></label>
-   <label>Volume <span>{volume}%</span><input type="range" min="0" max="150" step="5" value={volume} onChange={e=>setVolume(Number(e.target.value))}/></label>
-   <label>Fade in <input type="number" aria-label="Effect fade in seconds" min="0" max="10" step="0.1" value={fadeIn} onChange={e=>setFadeIn(Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
-   <label>Fade out <input type="number" aria-label="Effect fade out seconds" min="0" max="10" step="0.1" value={fadeOut} onChange={e=>setFadeOut(Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
-  </div>}
+   {onInsert&&<div className="sound-insert-settings">
+    <label>Position<select value={position} onChange={e=>setPosition(e.target.value)}>
+     <option value="before">Before narration</option><option value="after">After narration</option>
+    </select></label>
+    <label>Volume <span>{volume}%</span><input type="range" min="0" max="150" step="5"
+      value={volume} onChange={e=>setVolume(Number(e.target.value))}/></label>
+    <label>Fade in <input type="number" aria-label="Effect fade in seconds" min="0" max="10" step="0.1"
+      value={fadeIn} onChange={e=>setFadeIn(Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
+    <label>Fade out <input type="number" aria-label="Effect fade out seconds" min="0" max="10" step="0.1"
+      value={fadeOut} onChange={e=>setFadeOut(Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
+   </div>}
   </>}
  </div>;
 }

@@ -6,8 +6,11 @@ from pathlib import Path
 from uuid import uuid4
 import json
 import subprocess
+from threading import Lock
 
+import numpy as np
 import soundfile as sf
+from backend.starter_sounds import seed_catalog
 
 ALLOWED={'.wav','.mp3','.flac','.ogg','.m4a','.aac','.webm'}
 MAX_BYTES=30*1024*1024
@@ -19,6 +22,8 @@ class SoundEffects:
         self.folder=data/'sound_effects'
         self.folder.mkdir(parents=True,exist_ok=True)
         self.catalog=self.folder/'catalog.json'
+        self.starter_marker=self.folder/'.starter-nature-v1-installed'
+        self.seed_lock=Lock()
 
     def _load(self):
         if not self.catalog.is_file():return {}
@@ -33,14 +38,45 @@ class SoundEffects:
         temp.write_text(json.dumps(entries,indent=2))
         temp.replace(self.catalog)
 
+    def _ensure_starters(self):
+        # Install once, not on every run. Deleted starter sounds stay deleted.
+        if self.starter_marker.exists():return
+        with self.seed_lock:
+            if self.starter_marker.exists():return
+            catalog=seed_catalog(self.folder,self._load())
+            self._write(catalog)
+            self.starter_marker.write_text('Humperdinck original synthesized nature sounds v1\n')
+
+    @staticmethod
+    def _waveform(path,parts=56):
+        data,_=sf.read(str(path),dtype='float32',always_2d=False)
+        if data.ndim>1:data=np.mean(data,axis=1)
+        chunks=np.array_split(data,parts)
+        peaks=[float(np.sqrt(np.mean(np.square(chunk)))) if len(chunk) else 0 for chunk in chunks]
+        highest=max(peaks) if peaks else 0
+        return [round(0.07+0.93*min(1.0,v/(highest+1e-8)),3) for v in peaks]
+
     def list(self):
+        self._ensure_starters()
+        catalog=self._load()
+        changed=False
+        for entry in catalog.values():
+            path=self.folder/(entry['id']+'.wav')
+            if path.exists() and not entry.get('waveform'):
+                try:
+                    entry['waveform']=self._waveform(path)
+                    changed=True
+                except (OSError,ValueError):pass
+        if changed:self._write(catalog)
         return sorted(
-            (entry for entry in self._load().values()
+            (entry for entry in catalog.values()
              if (self.folder/(entry['id']+'.wav')).is_file()),
-            key=lambda x:x.get('created_at',''),reverse=True
+            key=lambda x:(not x.get('favorite',False), x.get('origin')!='starter',
+                          x.get('name','').casefold())
         )
 
     def get_path(self,effect_id:str)->Path:
+        self._ensure_starters()
         if len(effect_id)!=32 or any(c not in '0123456789abcdef' for c in effect_id):
             raise ValueError('Invalid sound effect ID')
         item=self._load().get(effect_id)
@@ -69,6 +105,7 @@ class SoundEffects:
                 'id':effect_id,'name':Path(filename).stem[:120] or 'Sound effect',
                 'category':'Other','duration':round(duration,2),
                 'created_at':datetime.now(timezone.utc).isoformat(),
+                'origin':'imported','favorite':False,'waveform':self._waveform(destination),
             }
             catalog=self._load();catalog[effect_id]=info;self._write(catalog)
             return info
@@ -78,13 +115,14 @@ class SoundEffects:
             source.unlink(missing_ok=True)
             if effect_id not in self._load():destination.unlink(missing_ok=True)
 
-    def update(self,effect_id:str,name:str|None,category:str|None):
+    def update(self,effect_id:str,name:str|None,category:str|None,favorite:bool|None=None):
         self.get_path(effect_id)
         catalog=self._load();entry=catalog[effect_id]
         if name is not None:
             if not name.strip():raise ValueError('Name must not be empty')
             entry['name']=name.strip()[:120]
         if category is not None:entry['category']=category.strip()[:60] or 'Other'
+        if favorite is not None:entry['favorite']=favorite
         self._write(catalog)
         return entry
 
