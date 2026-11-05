@@ -188,10 +188,16 @@ function App(){
  },[sectionJob?.job_id,sectionJob?.status]);
  function insertTag(id,tag){
   if(!DIRECTION_TAGS.includes(tag))return;
-  setBlocks(old=>old.map(b=>b.id===id?{...b,text:'['+tag+'] '+b.text}:b));
+  setBlocks(old=>{
+   const b=old.find(section=>section.id===id);
+   return b?replaceSectionText(old,id,'['+tag+'] '+b.text):old;
+  });
  }
  function suggestTags(id){
-  setBlocks(old=>old.map(b=>b.id===id?{...b,text:suggestSpeechDirections(b.text)}:b));
+  setBlocks(old=>{
+   const b=old.find(section=>section.id===id);
+   return b?replaceSectionText(old,id,suggestSpeechDirections(b.text)):old;
+  });
  }
  function removeBlock(id){setBlocks(old=>old.length>1?old.filter(b=>b.id!==id):old);if(activePreview===id)setActivePreview(blocks.find(b=>b.id!==id)?.id||1)}
  async function generateNarration(){try{if(blocks.some(b=>!spokenText(b.text)||!b.voice_key))throw Error('Every block needs text and an approved voice');const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:spokenText(b.text),voice_key:b.voice_key,delay_after:sectionDelay(b.delay_after)})),format}));setNarrationJob(j);setStatus('Generating narration...')}catch(e){setStatus(e.message)}}
@@ -242,7 +248,7 @@ function App(){
  onDragEnd={()=>setDraggingSection(null)}><i className="fa-solid fa-grip-vertical" aria-hidden="true"/></button><strong>Section {i+1}</strong></div><span>{Array.from(b.text).length} / {SECTION_LIMIT}</span></div>
     <textarea aria-label={'Text for section '+(i+1)} placeholder="Paste or type narration here..." value={b.text} onChange={e=>changeBlock(b.id,'text',e.target.value)}/>
     <div className="section-directions"><label>Speech direction <select value="" aria-label={'Insert direction in section '+(i+1)} onChange={e=>{if(e.target.value)insertTag(b.id,e.target.value)}}><option value="">Add tag…</option>{DIRECTION_TAGS.map(tag=><option value={tag} key={tag}>[{tag}]</option>)}</select></label>
-    <button type="button" className="section-tag-wand" onClick={()=>suggestTags(b.id)} title="Suggest direction tags based on punctuation and wording"><i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"/> Suggest tags</button></div>
+    <button type="button" className="section-tag-wand" onClick={()=>suggestTags(b.id)} title="Suggest speech direction tags from punctuation and wording (rule-based)"><i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"/> Suggest tags</button></div>
     <div className="section-foot">
      <button type="button" className="section-play" aria-label={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated':'Generate')+' audio for section '+(i+1)} disabled={!spokenText(b.text)||!b.voice_key||sectionPlayingId!==null} onClick={()=>playSection(b)}><i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':sectionAudio[b.id]?.signature===audioSignature(b)?'fa-play':'fa-wave-square')} aria-hidden="true"/></button>
      <label className="section-delay">Delay <input type="number" aria-label={'Delay after section '+(i+1)+' in seconds'} min="0" max="30" step="0.1" value={b.delay_after??0} onChange={e=>changeBlock(b.id,'delay_after',sectionDelay(e.target.value))}/> <span>s</span></label>
