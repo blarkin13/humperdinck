@@ -53,7 +53,7 @@ export default function ThemePicker(){
     <span className={'theme-thumbnail theme-thumbnail-'+t.id} aria-hidden="true">
      <span className="theme-thumbnail-top"/><span className="theme-thumbnail-card"/><span className="theme-thumbnail-card second"/>
     </span>
-    <span className="theme-option-text"><strong>{t.name}</strong><small>{t.subtitle}</small></span>
+    <span className="theme-option-text"><strong>{t.name}</strong><small>{mode==='light'?(t.id==='modern'?'White, graphite and soft gray':'Warm ivory, brass and parchment'):t.subtitle}</small></span>
     {t.id===theme&&<i className="fa-solid fa-check theme-selected" aria-hidden="true"/>}
    </button>)}</div>
   </div>}
