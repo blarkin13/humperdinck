@@ -40,3 +40,18 @@ export function insertSection(blocks,index){
  const previous=blocks[index];
  return [...blocks.slice(0,index+1),makeSection('',previous?.voice_key||''),...blocks.slice(index+1)];
 }
+
+/**
+ * Assign a speaker to one section. Sections created by a previous paste with no
+ * speaker inherit it until the next explicitly assigned section. Never override
+ * speakers already chosen for later dialogue.
+ */
+export function assignSectionSpeaker(blocks,id,voice_key){
+ const index=blocks.findIndex(b=>b.id===id);
+ if(index<0)return blocks;
+ return blocks.map((block,i)=>{
+  if(i===index)return {...block,voice_key};
+  if(i>index&&blocks.slice(index+1,i+1).every(b=>!b.voice_key))return {...block,voice_key};
+  return block;
+ });
+}

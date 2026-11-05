@@ -9,7 +9,7 @@ export default function BrowserKokoro({voices,voice,text='',sectionNumber=1}){
  const [progress,setProgress]=useState(null),[error,setError]=useState('');
  const [audioUrl,setAudioUrl]=useState(null);
  const worker=useRef(null),request=useRef(0),urlRef=useRef(null),mounted=useRef(true);
- const length=countCharacters(text),valid=length>0&&length<=KOKORO_LIMIT;
+ const length=countCharacters(text),valid=length>0&&length<=KOKORO_LIMIT&&!!voice;
  useEffect(()=>{
   mounted.current=true;
   return()=>{
@@ -63,7 +63,7 @@ export default function BrowserKokoro({voices,voice,text='',sectionNumber=1}){
  return <div className="browser-kokoro" aria-label="Generate Kokoro voice audio in your browser">
   <div className="browser-kokoro-head"><div><strong><i className="fa-solid fa-wave-square" aria-hidden="true"/> Generate narration</strong><p>Choose a built-in voice and generate speech from your text directly in your browser.</p></div><span className="browser-kokoro-chip">BUILT-IN VOICE</span></div>
   <p className="hint">Selected: section {sectionNumber} · {voices.find(v=>v[0]===voice)?.[1]||'Choose a voice'} · {length} characters</p>
-  <div className="browser-kokoro-controls"><small className={length>KOKORO_LIMIT?'warn':''}>{length} / {KOKORO_LIMIT} characters</small><button type="button" className="primary" disabled={!valid||busy} onClick={start}><i className={'fa-solid '+(busy?'fa-spinner fa-spin':'fa-play')} aria-hidden="true"/> {busy?'Generating…':'Generate speech'}</button>{busy&&<button type="button" onClick={restart}>Stop / reset</button>}</div>
+  <div className="browser-kokoro-controls"><small className={length>KOKORO_LIMIT?'warn':''}>{voice?'':'Choose a narrator above · '}{length} / {KOKORO_LIMIT} characters</small><button type="button" className="primary" disabled={!valid||busy} onClick={start}><i className={'fa-solid '+(busy?'fa-spinner fa-spin':'fa-play')} aria-hidden="true"/> {busy?'Generating…':'Generate speech'}</button>{busy&&<button type="button" onClick={restart}>Stop / reset</button>}</div>
   {busy&&<div className="browser-kokoro-progress" role="status"><span>{message}</span>{progress!==null&&<progress max="100" value={progress}/>}<small>First use downloads the Kokoro model. It may take time, memory, and CPU resources.</small></div>}
   {error&&<p className="warn" role="alert">{error}</p>}
   {audioUrl&&<div className="browser-kokoro-result"><strong>Generated voice</strong><audio controls src={audioUrl}/><a className="download" download={'humperdinck-kokoro-'+voice+'.wav'} href={audioUrl}><i className="fa-solid fa-download" aria-hidden="true"/> Download WAV</a></div>}
