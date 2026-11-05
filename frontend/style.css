@@ -366,3 +366,10 @@ button.active small,.primary small{color:#3a3122}
 .voice-creator-icon-actions .voice-icon-action{width:52px;min-width:52px;height:48px;padding:0!important;display:grid;place-items:center}
 .voice-creator-icon-actions .voice-icon-action i{font-size:19px}
 @media(max-width:650px){.updates-control .update-panel{right:-65px}.update-btn{width:36px;height:36px;min-width:36px}}
+
+
+/* Full narration uses the same compact play/spinner/stop interaction as sections. */
+.narration-export-actions{align-items:center;gap:18px}
+.narration-export-actions label.inline{margin:0}
+.narration-full-play{display:inline-flex;align-items:center;justify-content:center;width:54px;min-width:54px;height:48px;padding:0!important}
+.narration-full-play i{font-size:19px;margin:0}
