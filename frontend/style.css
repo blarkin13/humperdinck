@@ -788,3 +788,22 @@ button.active small,.primary small{color:#3a3122}
 .starter-voice-pack-footer small{font-size:11px;max-width:450px;line-height:1.5;color:var(--muted)}
 .starter-voice-pack-footer button{min-width:185px}
 @media(max-width:800px){.starter-voice-pack-row{align-items:flex-start;flex-direction:column}.starter-voice-pack-actions{justify-content:flex-start}.starter-voice-pack-footer{flex-direction:column;align-items:flex-start}}
+
+
+/* Voice Library: separate audio actions from sleeve art and heading text. */
+.voice-card .voice-playback-row{display:flex;align-items:center;gap:12px;margin:0 0 6px;min-width:0}
+.voice-card .voice-playback-button{position:static;display:inline-flex;align-items:center;justify-content:center;gap:9px;max-width:100%;min-height:37px;padding:8px 12px;border-radius:7px;background:transparent;color:var(--brass-hi,#d8bd88);border:1px solid var(--line,#34494a);font-family:var(--label,Inter,sans-serif);font-size:12px;line-height:1.25;letter-spacing:.35px;box-shadow:none;white-space:normal;text-align:left}
+.voice-card .voice-playback-button:hover:not(:disabled){background:rgba(198,164,106,.12);border-color:var(--brass-hi,#d8bd88)}
+.voice-card .voice-playback-button.on{background:rgba(198,164,106,.14);border-color:var(--brass-hi,#d8bd88)}
+.voice-card .voice-playback-button i{font-size:12px;flex-shrink:0}
+.voice-card .voice-playback-indicator{display:flex;align-items:center;gap:3px;height:23px}
+.voice-card .voice-playback-indicator i{display:block;width:3px;height:8px;background:var(--brass-hi,#d8bd88);border-radius:3px;animation:voice-playing-meter .75s ease-in-out infinite alternate}
+.voice-card .voice-playback-indicator i:nth-child(2){animation-delay:.12s}
+.voice-card .voice-playback-indicator i:nth-child(3){animation-delay:.26s}
+.voice-card .voice-playback-indicator i:nth-child(4){animation-delay:.38s}
+.voice-card .voice-playback-indicator i:nth-child(5){animation-delay:.19s}
+@keyframes voice-playing-meter{to{height:21px}}
+@media(prefers-reduced-motion:reduce){.voice-card .voice-playback-indicator i{animation:none;height:12px}}
+.voice-card .sleeve{overflow:hidden}
+.voice-card .sleeve-art{pointer-events:none}
+.builtin-publisher{margin:15px 0 10px}
