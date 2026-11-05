@@ -807,3 +807,12 @@ button.active small,.primary small{color:#3a3122}
 .voice-card .sleeve{overflow:hidden}
 .voice-card .sleeve-art{pointer-events:none}
 .builtin-publisher{margin:15px 0 10px}
+
+
+/* Narration Studio — explicit new-take controls, separate from Play. */
+.section-regenerate{color:var(--brass-hi,#d8bd88)}
+.section-regenerate:hover:not(:disabled){border-color:var(--brass-hi,#d8bd88)}
+.narration-regenerate{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:9px 13px;border:1px solid var(--line,#34494a);border-radius:8px;background:transparent;color:var(--brass-hi,#d8bd88);font-size:12px;font-weight:600;white-space:nowrap}
+.narration-regenerate:hover:not(:disabled){background:rgba(198,164,106,.12);border-color:var(--brass-hi,#d8bd88)}
+.narration-regenerate:disabled{opacity:.45}
+@media(max-width:480px){.narration-regenerate{padding:9px 10px;font-size:11px}}
