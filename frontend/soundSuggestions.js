@@ -30,7 +30,7 @@ export function suggestSoundEffects(text,library,max=3){
    return theme.sounds.some(word=>haystack.includes(word));
   });
   const best=options.sort((a,b)=>{
-   const score=entry=>theme.sounds.reduce((n,word)=>n+(entry.name||'').toLowerCase().includes(word)?n+1:n,0);
+   const score=entry=>theme.sounds.reduce((n,word)=>n+((entry.name||'').toLowerCase().includes(word)?1:0),0);
    return score(b)-score(a);
   })[0];
   if(best&&!results.some(item=>item.id===best.id)){
