@@ -40,7 +40,7 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
        [favoritesOnly,setFavoritesOnly]=useState(false);
  const [uploading,setUploading]=useState(false),[editing,setEditing]=useState(null),
        [editName,setEditName]=useState(''),[editCategory,setEditCategory]=useState('Other');
- const [position,setPosition]=useState('after'),[volume,setVolume]=useState(80),
+ const [position,setPosition]=useState('mix'),[loop,setLoop]=useState(false),[ending,setEnding]=useState('section'),[ducking,setDucking]=useState(35),[volume,setVolume]=useState(80),
        [fadeIn,setFadeIn]=useState(0),[fadeOut,setFadeOut]=useState(0);
  const [showSuggestions,setShowSuggestions]=useState(false),[suggesting,setSuggesting]=useState(false),
        [modelSuggestions,setModelSuggestions]=useState(null),[suggestionSource,setSuggestionSource]=useState('keywords');
@@ -220,7 +220,7 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
      {!suggesting&&suggested.length?suggested.map(item=><div className="sound-suggestion" key={item.id}>
       <div><strong>{item.name}</strong><small>Matched: {item.reason}</small></div>
       <button type="button" aria-label={'Add suggested '+item.name}
-        onClick={()=>onInsert(sectionId,item,{position,volume:volume/100,fade_in:fadeIn,fade_out:fadeOut})}>
+        onClick={()=>onInsert(sectionId,item,{position,volume:volume/100,fade_in:fadeIn,fade_out:fadeOut,loop,ending,ducking:1-ducking/100})}>
        <i className="fa-solid fa-plus"/></button>
      </div>):!suggesting&&<small>No matching sounds. Search manually or import a relevant sound.</small>}
     </div>}
@@ -289,8 +289,16 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
    </div>}
    {onInsert&&<div className="sound-insert-settings">
     <label>Position<select value={position} onChange={e=>setPosition(e.target.value)}>
-     <option value="before">Before narration</option><option value="after">After narration</option>
+     <option value="mix">Mix with narration</option><option value="before">Before narration</option><option value="after">After narration</option>
     </select></label>
+    {position==='mix'&&<>
+     <label className="sound-option-checkbox"><input type="checkbox" checked={loop} onChange={e=>setLoop(e.target.checked)}/> Loop sound</label>
+     <label>End sound<select value={ending} onChange={e=>setEnding(e.target.value)}>
+      <option value="section">Cut off at end of section</option><option value="natural">Continue into next section until finished</option>
+     </select></label>
+     <label>Lower sound during speech <span>{ducking}%</span><input type="range" min="0" max="90" step="5" value={ducking} onChange={e=>setDucking(Number(e.target.value))}/></label>
+     {loop&&ending==='natural'&&<small>Looping continues until the whole narration ends.</small>}
+    </>}
     <label>Volume <span>{volume}%</span><input type="range" min="0" max="150" step="5"
       value={volume} onChange={e=>setVolume(Number(e.target.value))}/></label>
     <label>Fade in <input type="number" aria-label="Effect fade in seconds" min="0" max="10" step="0.1"

@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from backend.sound_mix import fade_clip, loop_to_duration, mix_ambience, assemble_narration
+from backend.sound_mix import fade_clip, loop_to_duration, mix_ambience, assemble_narration, assemble_with_section_cues
 
 
 def test_fade_has_smooth_endpoints():
@@ -62,3 +62,49 @@ def test_effect_cues_are_sequential_and_looped_bed_is_overlay():
 def test_rejects_unaligned_speech_mask():
     with pytest.raises(ValueError):
         mix_ambience(np.zeros(5),np.ones(2),np.zeros(3,dtype=bool))
+
+
+def test_section_mix_overlaps_speech_and_stops_at_section_boundary():
+    sections=[([],np.ones(4,dtype=np.float32)*.2,[],0),
+              ([],np.ones(4,dtype=np.float32)*.3,[],0)]
+    cues=[[{"audio":np.array([.1,.1],dtype=np.float32),"volume":1,
+            "loop":True,"ending":"section"}],[]]
+    result=assemble_with_section_cues(sections,cues,sample_rate=10)
+    assert np.allclose(result[:4],.3)
+    assert np.allclose(result[4:],.3)
+
+
+def test_unlooped_cue_continues_into_following_section_only_until_audio_ends():
+    sections=[([],np.zeros(4,dtype=np.float32),[],0),
+              ([],np.zeros(5,dtype=np.float32),[],0)]
+    cues=[[{"audio":np.ones(7,dtype=np.float32)*.2,"volume":1,
+            "ending":"natural","loop":False}],[]]
+    result=assemble_with_section_cues(sections,cues,sample_rate=10)
+    assert np.allclose(result[:7],.2)
+    assert np.allclose(result[7:],0)
+
+
+def test_looping_continuation_stops_at_end_of_full_narration():
+    sections=[([],np.zeros(4,dtype=np.float32),[],0),
+              ([],np.zeros(3,dtype=np.float32),[],0)]
+    cues=[[{"audio":np.array([.1,.2],dtype=np.float32),"loop":True,
+            "ending":"natural","volume":1}],[]]
+    result=assemble_with_section_cues(sections,cues,sample_rate=10)
+    assert np.allclose(result,[.1,.2,.1,.2,.1,.2,.1])
+
+
+def test_multiple_simultaneous_cues_mix_together_and_clip():
+    sections=[([],np.ones(4,dtype=np.float32)*.5,[],0)]
+    cues=[[{"audio":np.ones(4,dtype=np.float32)*.3},
+           {"audio":np.ones(4,dtype=np.float32)*.4}]]
+    result=assemble_with_section_cues(sections,cues,sample_rate=10)
+    assert np.allclose(result,np.ones(4))
+
+
+def test_ducking_reduces_mixed_effect_only_under_speech():
+    sections=[([],np.ones(3,dtype=np.float32)*.2,[],2)]
+    cues=[[{"audio":np.ones(5,dtype=np.float32)*.6,
+            "ducking":0,"volume":1}]]
+    result=assemble_with_section_cues(sections,cues,sample_rate=10)
+    assert np.allclose(result[:3],.2)
+    assert np.allclose(result[3:],.6)

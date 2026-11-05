@@ -196,7 +196,7 @@ function App(){
  useEffect(()=>{if(speakerEditor===null)return;const onEscape=e=>{if(e.key==='Escape')setSpeakerEditor(null)};window.addEventListener('keydown',onEscape);return()=>window.removeEventListener('keydown',onEscape)},[speakerEditor]);
  function addAfter(index){setBlocks(old=>insertSection(old,index))}
  function attachSound(sectionId,sound,options){
-  setBlocks(old=>old.map(b=>b.id===sectionId?{...b,effects:[...(b.effects||[]),{sound_id:sound.id,name:sound.name,position:options.position,volume:options.volume,fade_in:options.fade_in??0,fade_out:options.fade_out??0}]}:b));
+  setBlocks(old=>old.map(b=>b.id===sectionId?{...b,effects:[...(b.effects||[]),{sound_id:sound.id,name:sound.name,position:options.position,volume:options.volume,fade_in:options.fade_in??0,fade_out:options.fade_out??0,loop:options.loop??false,ending:options.ending||'section',ducking:options.ducking??1}]}:b));
   setEffectPicker(null);
   notify('Added '+sound.name+' to narration','success');
  }
@@ -294,7 +294,7 @@ function App(){
   document.addEventListener('keydown',onKey);
   return()=>{document.removeEventListener('pointerdown',dismiss);document.removeEventListener('keydown',onKey)};
  },[downloadOpen]);
- const fullNarrationSignature=JSON.stringify([format,blocks.map(b=>[b.text,b.voice_key,sectionDelay(b.delay_after),(b.effects||[]).map(e=>[e.sound_id,e.position,e.volume,e.fade_in,e.fade_out])]),ambience]);
+ const fullNarrationSignature=JSON.stringify([format,blocks.map(b=>[b.text,b.voice_key,sectionDelay(b.delay_after),(b.effects||[]).map(e=>[e.sound_id,e.position,e.volume,e.fade_in,e.fade_out,e.loop,e.ending,e.ducking])]),ambience]);
  function stopWholeNarration(){
   const player=wholeAudioRef.current;
   if(player){player.pause();player.currentTime=0}
@@ -315,7 +315,7 @@ function App(){
   try{
    if(blocks.some(b=>!spokenText(b.text)||!b.voice_key))throw Error('Every section needs text and a narrator');
    stopWholeNarration();
-   const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:spokenText(b.text),voice_key:b.voice_key,delay_after:sectionDelay(b.delay_after),effects:(b.effects||[]).map(e=>({sound_id:e.sound_id,position:e.position,volume:e.volume,fade_in:e.fade_in||0,fade_out:e.fade_out||0}))})),format,ambience:ambience?{sound_id:ambience.sound_id,volume:ambience.volume,ducking:ambience.ducking,fade_in:ambience.fade_in,fade_out:ambience.fade_out}:null}));
+   const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:spokenText(b.text),voice_key:b.voice_key,delay_after:sectionDelay(b.delay_after),effects:(b.effects||[]).map(e=>({sound_id:e.sound_id,position:e.position,volume:e.volume,fade_in:e.fade_in||0,fade_out:e.fade_out||0,loop:e.loop||false,ending:e.ending||'section',ducking:e.ducking??1}))})),format,ambience:ambience?{sound_id:ambience.sound_id,volume:ambience.volume,ducking:ambience.ducking,fade_in:ambience.fade_in,fade_out:ambience.fade_out}:null}));
    wholeCompletedRef.current=null;
    setNarrationJob({...j,signature:fullNarrationSignature});
    setStatus('Generating narration...');
@@ -418,7 +418,7 @@ function App(){
       <div className="compact-toolbar-right">
        <button type="button" className="icon-action" aria-label={'Insert section after '+(i+1)} title="Insert section below" onClick={()=>addAfter(i)}><i className="fa-solid fa-plus" aria-hidden="true"/></button>
        <button type="button" className="icon-action" aria-label={'Suggest speech directions for section '+(i+1)} title="Suggest speech directions" onClick={()=>suggestTags(b.id)}><i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"/></button>
-       {!PUBLIC_STUDIO&&<button type="button" className="icon-action" aria-label={'Add sound effect to section '+(i+1)} title="Add sound effect" aria-expanded={effectPicker===b.id} onClick={()=>{setEffectPicker(old=>old===b.id?null:b.id);setSectionMenu(null);setSectionPopover(null)}}><i className="fa-solid fa-music" aria-hidden="true"/></button>}
+       {!PUBLIC_STUDIO&&<button type="button" className="icon-action" aria-label={'Add sound effect to section '+(i+1)} title="Add or mix sound with section" aria-expanded={effectPicker===b.id} onClick={()=>{setEffectPicker(old=>old===b.id?null:b.id);setSectionMenu(null);setSectionPopover(null)}}><i className="fa-solid fa-music" aria-hidden="true"/></button>}
        <button type="button" className="icon-action" aria-label={'Download section '+(i+1)} title="Download generated audio" onClick={()=>downloadSection(b)}><i className="fa-solid fa-download" aria-hidden="true"/></button>
        <div className="section-menu-wrap" data-section-floating-control>
         <button type="button" className="icon-action" aria-label={'More options for section '+(i+1)} title="More options" aria-expanded={sectionMenu===b.id} onClick={()=>{setSectionPopover(null);setSectionMenu(old=>old===b.id?null:b.id)}}><i className="fa-solid fa-ellipsis-vertical" aria-hidden="true"/></button>
@@ -430,8 +430,17 @@ function App(){
        </div>
       </div>
     </div>
-    {!!b.effects?.length&&<div className="section-sound-effects" aria-label={'Sound effects for section '+(i+1)}>{b.effects.map((effect,index)=><details key={effect.sound_id+'-'+index} className="section-sound-chip"><summary><i className="fa-solid fa-volume-high" aria-hidden="true"/><span>{effect.name} · {effect.position} · {Math.round(effect.volume*100)}%</span><i className="fa-solid fa-chevron-down" aria-hidden="true"/></summary><div className="sound-cue-settings">
-  <label>Volume <input type="range" min="0" max="200" step="5" value={Math.round(effect.volume*100)} onChange={e=>setCue(b.id,index,'volume',Number(e.target.value)/100)}/></label>
+    {!!b.effects?.length&&<div className="section-sound-effects" aria-label={'Sound effects for section '+(i+1)}>{b.effects.map((effect,index)=><details key={effect.sound_id+'-'+index} className="section-sound-chip"><summary><i className="fa-solid fa-volume-high" aria-hidden="true"/><span>{effect.name} · {effect.position==='mix'?'Mixed with speech':effect.position} · {Math.round(effect.volume*100)}%</span><i className="fa-solid fa-chevron-down" aria-hidden="true"/></summary><div className="sound-cue-settings">
+  <label>Placement<select value={effect.position} onChange={e=>setCue(b.id,index,'position',e.target.value)}><option value="mix">Mix with narration</option><option value="before">Before narration</option><option value="after">After narration</option></select></label>
+    <label>Volume <input type="range" min="0" max="200" step="5" value={Math.round(effect.volume*100)} onChange={e=>setCue(b.id,index,'volume',Number(e.target.value)/100)}/></label>
+  {effect.position==='mix'&&<>
+   <label className="sound-option-checkbox"><input type="checkbox" checked={!!effect.loop} onChange={e=>setCue(b.id,index,'loop',e.target.checked)}/> Loop sound</label>
+   <label>End sound<select value={effect.ending||'section'} onChange={e=>setCue(b.id,index,'ending',e.target.value)}>
+    <option value="section">Cut off at end of section</option><option value="natural">Continue into next section until finished</option>
+   </select></label>
+   <label>Lower volume during speech <input type="range" min="0" max="90" step="5" value={Math.round((1-(effect.ducking??1))*100)} onChange={e=>setCue(b.id,index,'ducking',1-Number(e.target.value)/100)}/></label>
+   {effect.loop&&effect.ending==='natural'&&<small>Looping continues through the end of the narration.</small>}
+  </>}
   <label>Fade in <input type="number" min="0" max="10" step="0.1" value={effect.fade_in??0} onChange={e=>setCue(b.id,index,'fade_in',Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
   <label>Fade out <input type="number" min="0" max="10" step="0.1" value={effect.fade_out??0} onChange={e=>setCue(b.id,index,'fade_out',Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
   <button type="button" className="sound-cue-remove" onClick={()=>detachSound(b.id,index)}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Remove</button>
@@ -445,21 +454,6 @@ function App(){
 
 
  </div>
- {!PUBLIC_STUDIO&&<div className="narration-ambience-panel">
-  <div className="ambience-header"><div><h3><i className="fa-solid fa-water" aria-hidden="true"/> Background ambience</h3><small>Loop a sound behind the entire narration. The mixer lowers it when a narrator speaks.</small></div>
-   <button type="button" aria-label="Choose background ambience" title="Choose a sound from the library" onClick={()=>setAmbiencePicker(old=>!old)}><i className="fa-solid fa-music" aria-hidden="true"/> {ambience?'Change':'Choose sound'}</button>
-  </div>
-  {ambience&&<div className="ambience-track">
-   <div className="ambience-track-name"><i className="fa-solid fa-wave-square" aria-hidden="true"/><strong>{ambience.name}</strong><button type="button" title="Remove background ambience" aria-label="Remove background ambience" onClick={()=>setAmbience(null)}><i className="fa-solid fa-xmark"/></button></div>
-   <div className="ambience-controls">
-    <label>Volume <span>{Math.round(ambience.volume*100)}%</span><input type="range" min="0" max="100" step="5" value={Math.round(ambience.volume*100)} onChange={e=>changeAmbience('volume',Number(e.target.value)/100)}/></label>
-    <label>Ducking <span>{Math.round((1-ambience.ducking)*100)}% lower during speech</span><input type="range" min="0" max="100" step="5" value={Math.round((1-ambience.ducking)*100)} onChange={e=>changeAmbience('ducking',1-Number(e.target.value)/100)}/></label>
-    <label>Fade in <input aria-label="Ambience fade in seconds" type="number" min="0" max="10" step="0.1" value={ambience.fade_in} onChange={e=>changeAmbience('fade_in',Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
-    <label>Fade out <input aria-label="Ambience fade out seconds" type="number" min="0" max="10" step="0.1" value={ambience.fade_out} onChange={e=>changeAmbience('fade_out',Math.max(0,Math.min(10,Number(e.target.value)||0)))}/> s</label>
-   </div>
-  </div>}
-  {ambiencePicker&&<div className="ambience-picker"><SoundEffects api={api} compact onAmbience={selectAmbience}/></div>}
- </div>}
  {speakerEditor!==null&&(()=>{
   const sectionIndex=blocks.findIndex(b=>b.id===speakerEditor);
   const current=blocks[sectionIndex];

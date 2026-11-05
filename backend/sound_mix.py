@@ -84,3 +84,70 @@ def assemble_narration(sections, ambience=None, *, sample_rate=24000,
     return mix_ambience(combined,ambience,spoken,sample_rate=sample_rate,
                         volume=ambience_volume,ducking=ducking,
                         fade_in=fade_in,fade_out=fade_out)
+
+
+def assemble_with_section_cues(sections, section_cues, *, sample_rate=24000):
+    """Render section-owned effects, including overlapping and cross-section audio.
+
+    Each cue has audio, volume, ducking, fade_in/out, loop and ending.
+    ending='section' stops at the end of its owner section;
+    ending='natural' continues into following sections while the source lasts.
+    A loop with natural ending continues only through the final narration sample.
+    Legacy before/after cues remain sequential in each section.
+    """
+    if len(section_cues)!=len(sections):
+        raise ValueError("Cue groups must match narration sections")
+    clips=[]
+    masks=[]
+    spans=[]
+    cursor=0
+    for before, voice, after, silence in sections:
+        start=cursor
+        for effect in before:
+            clip=np.asarray(effect,dtype=np.float32)
+            clips.append(clip);masks.append(np.zeros(len(clip),dtype=bool))
+            cursor+=len(clip)
+        speech_start=cursor
+        clip=np.asarray(voice,dtype=np.float32)
+        clips.append(clip);masks.append(np.ones(len(clip),dtype=bool))
+        cursor+=len(clip)
+        for effect in after:
+            clip=np.asarray(effect,dtype=np.float32)
+            clips.append(clip);masks.append(np.zeros(len(clip),dtype=bool))
+            cursor+=len(clip)
+        if silence>0:
+            clips.append(np.zeros(silence,dtype=np.float32))
+            masks.append(np.zeros(silence,dtype=bool))
+            cursor+=silence
+        spans.append((start,speech_start,cursor))
+    if not clips:raise ValueError("Narration has no audio")
+    result=np.concatenate(clips).astype(np.float32)
+    speech=np.concatenate(masks)
+    # Overlay each cue independently, enabling several effects at once.
+    for i,cues in enumerate(section_cues):
+        for cue in cues:
+            source=np.asarray(cue["audio"],dtype=np.float32)
+            if not len(source):continue
+            start=spans[i][1]  # begin alongside voice, after any before cues
+            stopping=spans[i][2] if cue.get("ending","section")=="section" else len(result)
+            available=max(0,stopping-start)
+            if not available:continue
+            length=available if cue.get("loop",False) else min(available,len(source))
+            if not length:continue
+            bed=loop_to_duration(source,length) if cue.get("loop",False) else source[:length].copy()
+            bed=fade_clip(bed,sample_rate,cue.get("fade_in",0),cue.get("fade_out",0))
+            ducking=float(cue.get("ducking",1))
+            if not 0<=ducking<=1:raise ValueError("Invalid ducking")
+            volume=float(cue.get("volume",.8))
+            if not 0<=volume<=2:raise ValueError("Invalid cue volume")
+            # Follow the same 35-ms envelope as full-length ambience beds.
+            mask=speech[start:start+length]
+            envelope=np.where(mask,ducking,1.0).astype(np.float32)
+            ramp=max(1,round(sample_rate*.035))
+            if ramp>1:
+                for edge in np.flatnonzero(mask[1:]!=mask[:-1])+1:
+                    finish=min(length,edge+ramp)
+                    envelope[edge:finish]=np.linspace(
+                        envelope[edge-1],float(envelope[edge]),finish-edge,dtype=np.float32)
+            result[start:start+length]+=bed*volume*envelope
+    return np.clip(result,-1,1).astype(np.float32)
