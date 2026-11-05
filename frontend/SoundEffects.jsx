@@ -159,9 +159,9 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
  return <div className={'sound-library sound-library-pixabay '+(compact?'sound-library-compact':'')}>
   <div className="sound-library-head">
    <div>{!compact&&<><h2>Sound Effects</h2>
-    <p>30 original synthesized nature sounds included. Preview, favorite, or import your own field recordings.</p></>}</div>
-   {!compact&&<a className="sound-browse-reference" href="https://pixabay.com/sound-effects/" target="_blank" rel="noopener noreferrer" title="Find sound recordings on Pixabay; download there and import here">
-     <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"/> Find recordings</a>}
+    <p>Browse and preview your real recordings. Import nature sounds you own or have permission to use.</p></>}</div>
+   {!compact&&<a className="sound-browse-reference" href="https://commons.wikimedia.org/wiki/Category:Sounds_of_nature" target="_blank" rel="noopener noreferrer" title="Browse freely licensed nature recordings on Wikimedia Commons; check each file's license before importing">
+     <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"/> Browse field recordings</a>}
    <button className="sound-import" type="button" disabled={disabled||uploading}
       onClick={()=>fileRef.current?.click()} title="Import sound effects">
     <i className={'fa-solid '+(uploading?'fa-spinner fa-spin':'fa-file-import')} aria-hidden="true"/>
@@ -221,10 +221,14 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
     </div>}
    </div>}
    <div className="sound-list" role="list" aria-label="Available sounds">
-    {loading?<div className="sound-loading" role="status"><i className="fa-solid fa-spinner fa-spin" aria-hidden="true"/><span>Loading sound library and preparing starter effects…</span></div>:filtered.length===0?<div className="sound-no-results">
-     <i className="fa-solid fa-wave-square"/><strong>No matching sounds</strong>
-     <span>Try another search or category. You can import your own files at any time.</span>
-     <button type="button" onClick={()=>{setQuery('');setCategory('All');setDuration('all');setFavoritesOnly(false)}}>Clear filters</button>
+    {loading?<div className="sound-loading" role="status"><i className="fa-solid fa-spinner fa-spin" aria-hidden="true"/><span>Loading sound library…</span></div>:filtered.length===0?<div className="sound-no-results">
+     <i className="fa-solid fa-wave-square"/><strong>{items.length?'No matching sounds':'No recordings imported yet'}</strong>
+     <span>{items.length?'Try another search or category.':'Import genuine nature recordings to start building your own sound library.'}</span>
+     {items.length?<button type="button" onClick={()=>{setQuery('');setCategory('All');setDuration('all');setFavoritesOnly(false)}}>Clear filters</button>:
+      <div className="sound-empty-import-actions">
+       <button type="button" onClick={()=>fileRef.current?.click()}><i className="fa-solid fa-file-import"/> Import recordings</button>
+       <a href="https://commons.wikimedia.org/wiki/Category:Sounds_of_nature" target="_blank" rel="noopener noreferrer">Find freely licensed recordings</a>
+      </div>}
     </div>:filtered.map(item=>{
      const on=playing===item.id;
      const progress=on?Math.min(1,currentTime/(item.duration||1)):0;

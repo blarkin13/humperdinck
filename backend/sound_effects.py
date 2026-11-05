@@ -10,7 +10,7 @@ from threading import Lock
 
 import numpy as np
 import soundfile as sf
-from backend.starter_sounds import seed_catalog
+from uuid import uuid5, NAMESPACE_URL
 
 ALLOWED={'.wav','.mp3','.flac','.ogg','.m4a','.aac','.webm'}
 MAX_BYTES=30*1024*1024
@@ -23,6 +23,7 @@ class SoundEffects:
         self.folder.mkdir(parents=True,exist_ok=True)
         self.catalog=self.folder/'catalog.json'
         self.starter_marker=self.folder/'.starter-nature-v1-installed'
+        self.cleanup_marker=self.folder/'.synthetic-nature-v1-removed'
         self.seed_lock=Lock()
 
     def _load(self):
@@ -39,13 +40,30 @@ class SoundEffects:
         temp.replace(self.catalog)
 
     def _ensure_starters(self):
-        # Install once, not on every run. Deleted starter sounds stay deleted.
-        if self.starter_marker.exists():return
+        """Remove the defective v1 synthetic pack once, without touching uploads.
+
+        We deliberately do not install synthesized sounds as replacements.
+        Legacy v1 IDs are deterministic and owned by Humperdinck; only those
+        exact IDs with origin='starter' are eligible for cleanup.
+        """
+        if self.cleanup_marker.exists():
+            return
         with self.seed_lock:
-            if self.starter_marker.exists():return
-            catalog=seed_catalog(self.folder,self._load())
-            self._write(catalog)
-            self.starter_marker.write_text('Humperdinck original synthesized nature sounds v1\n')
+            if self.cleanup_marker.exists():
+                return
+            entries=self._load()
+            changed=False
+            for seed in range(1,31):
+                identifier=uuid5(NAMESPACE_URL,'humperdinck:original-nature-v1:'+str(seed)).hex
+                entry=entries.get(identifier)
+                if not entry or entry.get('origin')!='starter':
+                    continue
+                (self.folder/(identifier+'.wav')).unlink(missing_ok=True)
+                del entries[identifier]
+                changed=True
+            if changed:
+                self._write(entries)
+            self.cleanup_marker.write_text('Retired synthetic nature starter pack v1\n')
 
     @staticmethod
     def _waveform(path,parts=56):
