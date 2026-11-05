@@ -416,6 +416,7 @@ def download_output(filename: str):
 class NarrationBlock(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
     voice_key: str = Field(min_length=1)
+    delay_after: float = Field(default=0.3, ge=0, le=30)
 
 class MultiNarrationRequest(BaseModel):
     blocks: list[NarrationBlock] = Field(min_length=1, max_length=80)
@@ -611,7 +612,8 @@ def run_multi(job_id, request, references):
                         audio,_=sf.read(resampled,dtype='float32')
                         resampled.unlink(missing_ok=True)
                     clips.append(audio)
-                    if index<len(references)-1: clips.append(np.zeros(int(target_rate*.3),dtype='float32'))
+                    if index<len(references)-1 and block.delay_after>0:
+                        clips.append(np.zeros(round(target_rate*block.delay_after),dtype='float32'))
                 finally: temp.unlink(missing_ok=True)
                 job.update(progress=round((index+1)/len(references)*95),message=f'Generated block {index+1}/{len(references)}')
             wav=DATA/'outputs'/f'{job_id}.wav'
