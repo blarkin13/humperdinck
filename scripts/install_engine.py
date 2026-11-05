@@ -19,8 +19,29 @@ root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 from backend.catalog import ENGINES, supported, preset_path  # noqa: E402
 
-# Newest first: the first index that has a CUDA build of the PyTorch version the engine needs is used.
-CUDA_INDEXES = [f'https://download.pytorch.org/whl/{tag}' for tag in ('cu130', 'cu129', 'cu128', 'cu126', 'cu124', 'cu121')]
+# Official PyTorch 2.15.x wheels are published for CUDA 13.2 / 13.4,
+# not cu130 or cu126. Avoid trying CUDA indexes that cannot host the
+# installed torch release; older versions retain older CUDA wheel channels.
+CUDA_INDEXES_BY_VERSION = {
+    15: ('cu132', 'cu134'),
+    14: ('cu132', 'cu130', 'cu126'),
+}
+LEGACY_CUDA_INDEXES = ('cu130', 'cu128', 'cu126', 'cu124', 'cu121')
+
+
+def cuda_indexes(torch_version):
+    """Return only plausible wheel indexes for the installed torch version."""
+    from urllib.parse import urlparse
+    parts = torch_version.split('.')
+    try:
+        major, minor = int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        raise ValueError('Could not determine installed PyTorch version')
+    if major != 2:
+        raise ValueError(f'Unsupported PyTorch version for automatic CUDA setup: {torch_version}')
+    versions = CUDA_INDEXES_BY_VERSION.get(minor, LEGACY_CUDA_INDEXES)
+    return [f'https://download.pytorch.org/whl/{tag}' for tag in versions]
+
 
 
 def step(message):
@@ -43,26 +64,52 @@ for name in ('torch', 'torchaudio'):
 
 
 def use_cuda(python):
-    """Swap in the CUDA build of the PyTorch version the engine installed.
+    """Install the matching CUDA wheel for the existing torch/torchaudio versions.
 
-    pip installs the CPU-only PyTorch from PyPI on Windows, and an extra CUDA index does not
-    help because pip prefers PyPI's newer version number. So reinstall the same versions
-    explicitly from PyTorch's CUDA index.
+    Use the per-release CUDA indexes, rather than searching obsolete channels
+    for a PyTorch version they never published. A successful pip install does
+    not by itself prove that the installed NVIDIA driver can run CUDA.
     """
     probe = 'import torch; print(torch.cuda.is_available())'
     if subprocess.run([str(python), '-c', probe], capture_output=True, text=True).stdout.strip() == 'True':
         step('NVIDIA GPU ready (CUDA PyTorch already installed)')
         return
-    versions = subprocess.run([str(python), '-c', VERSIONS_PROBE], capture_output=True, text=True).stdout.split()
-    step('NVIDIA GPU detected: installing the GPU (CUDA) build of PyTorch, about 2.5 GB')
-    for index in CUDA_INDEXES:
-        if subprocess.run([str(python), '-m', 'pip', 'install', '--force-reinstall', '--no-deps', *versions,
-                           '--index-url', index]).returncode == 0:
+    detected = subprocess.run([str(python), '-c', VERSIONS_PROBE], capture_output=True, text=True)
+    versions = detected.stdout.split()
+    if detected.returncode != 0 or not any(v.startswith('torch==') for v in versions):
+        step('PyTorch is missing. Cannot configure NVIDIA GPU acceleration.')
+        return
+    torch_version = next(v.split('==',1)[1] for v in versions if v.startswith('torch=='))
+    step(f'NVIDIA GPU detected: looking for CUDA-compatible PyTorch {torch_version} wheels')
+    installed = False
+    for index in cuda_indexes(torch_version):
+        step(f'Trying {index.rsplit("/",1)[-1]}')
+        result = subprocess.run(
+            [str(python), '-m', 'pip', 'install', '--force-reinstall', '--no-deps', '--quiet',
+             *versions, '--index-url', index], capture_output=True, text=True)
+        if result.returncode == 0:
+            installed = True
             break
-    ok = subprocess.run([str(python), '-c', 'import torch; print(torch.cuda.is_available() and torch.cuda.get_device_name(0))'],
-                        capture_output=True, text=True).stdout.strip()
-    step(f'Using GPU: {ok}' if ok and ok != 'False' else
-         'Could not enable the NVIDIA GPU; the engine will run on the CPU. Updating the NVIDIA driver usually fixes this.')
+        # Avoid dumping many full pip traces. Preserve a brief explanation.
+        reason = next((line.strip() for line in reversed(result.stderr.splitlines())
+                       if line.strip().startswith('ERROR:')), 'Compatible wheel not found')
+        step(f'CUDA channel unavailable: {reason}')
+    if not installed:
+        step(f'No CUDA wheel found for PyTorch {torch_version}; CPU execution remains available.')
+        return
+    status = subprocess.run(
+        [str(python), '-c',
+         'import torch; print(torch.__version__); print(torch.version.cuda); '
+         'print(torch.cuda.is_available()); '
+         'print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "")'],
+        capture_output=True, text=True)
+    lines = status.stdout.strip().splitlines()
+    if status.returncode == 0 and len(lines) >= 3 and lines[2] == 'True':
+        step(f'NVIDIA GPU ready: {lines[3] if len(lines)>3 else "CUDA enabled"} '
+             f'(PyTorch {lines[0]}, CUDA {lines[1]})')
+    else:
+        step('CUDA-enabled PyTorch installed, but the NVIDIA GPU is not available. '
+             'Check the driver version and GPU compatibility with the selected CUDA runtime.')
 
 
 def download_kokoro():
