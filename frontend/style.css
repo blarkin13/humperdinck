@@ -353,3 +353,16 @@ button.active small,.primary small{color:#3a3122}
  :root nav button{min-height:42px}
  :root main{padding:20px 16px 60px}
 }
+
+/* Icon-only status and voice creation actions. */
+.updates-control{position:relative;display:inline-flex;align-items:center}
+.update-btn{position:relative;width:40px;height:40px;min-width:40px;display:grid;place-items:center;padding:0!important;border:1px solid var(--line);border-radius:9px;flex:none}
+.update-btn i{font-size:16px}
+.update-available-dot{position:absolute;right:2px;top:2px;width:9px;height:9px;border-radius:50%;background:#46b96d;border:1px solid var(--teal,#193a3e)}
+.update-actions{display:flex;align-items:center;gap:5px}
+.update-check-icon{width:32px;height:32px;display:grid;place-items:center;padding:0!important}
+.updates-control .update-panel{right:0;top:calc(100% + 10px);z-index:200}
+.voice-creator-icon-actions{display:flex;align-items:center;gap:12px}
+.voice-creator-icon-actions .voice-icon-action{width:52px;min-width:52px;height:48px;padding:0!important;display:grid;place-items:center}
+.voice-creator-icon-actions .voice-icon-action i{font-size:19px}
+@media(max-width:650px){.updates-control .update-panel{right:-65px}.update-btn{width:36px;height:36px;min-width:36px}}
