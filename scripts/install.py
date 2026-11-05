@@ -32,6 +32,12 @@ engine = 'qwen-mlx' if sys.platform == 'darwin' and platform.machine() == 'arm64
 print(f'\nInstalling the {engine} voice design engine...')
 subprocess.run([str(python), str(root/'scripts/install_engine.py'), engine], check=True)
 print('Installing bundled narration voices for offline CPU use...')
-subprocess.run([str(python), str(root/'scripts/bootstrap_presets.py')], check=True)
+try:
+    subprocess.run([str(python), str(root/'scripts/bootstrap_presets.py')], check=True)
+except subprocess.CalledProcessError:
+    # These are optional CPU presets. Do not abort installation of Humperdinck
+    # or the Qwen engine if a platform-specific dependency fails.
+    print('WARNING: Some optional preset voices could not be installed.')
+    print('You can start Humperdinck now and retry preset voice setup from Models.')
 print('Additional Qwen model weights can be downloaded in the Models tab.')
 print('\nInstallation complete. Run start.sh (or double-click start.cmd on Windows).')
