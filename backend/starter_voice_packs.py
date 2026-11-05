@@ -134,6 +134,18 @@ def install(data:Path,raw:bytes):
         existing=json.loads(names_file.read_text()) if names_file.is_file() else {}
         if not isinstance(existing,dict):
             raise ValueError("Existing voice metadata invalid")
+        # Keep a separate record of public IDs that were already delivered,
+        # even if a user later deletes their sound file.
+        history_file=voice_dir/".builtin_humperdinck_seen.json"
+        try:
+            historic=json.loads(history_file.read_text()) if history_file.is_file() else []
+        except (OSError,ValueError):
+            historic=[]
+        if not isinstance(historic,list) or any(not isinstance(v,str) for v in historic):
+            raise ValueError("Invalid built-in voice history")
+        previously_seen=set(historic)
+        previously_seen.update(k for k,v in existing.items()
+                               if isinstance(v,dict) and v.get("origin")=="builtin-humperdinck")
         imported=[]
         seen=set()
         for item in voices:
@@ -152,8 +164,8 @@ def install(data:Path,raw:bytes):
             if info.samplerate!=24000 or info.channels!=1 or not 1<=info.duration<=60:
                 raise ValueError("Starter voice audio must be 24 kHz mono and 1-60s")
             path=voice_dir/(uid+".wav")
-            if path.is_file():
-                # Don't overwrite user-edited voices or resurrect removed ones.
+            if uid in previously_seen or path.is_file():
+                # Preserve user edits and don't resurrect deleted built-in voices.
                 continue
             tmp=path.with_suffix(".tmp")
             tmp.write_bytes(audio)
@@ -170,4 +182,7 @@ def install(data:Path,raw:bytes):
         temp=names_file.with_suffix(".tmp")
         temp.write_text(json.dumps(existing,indent=2))
         temp.replace(names_file)
-        return {"installed":len(imported),"voices":imported}
+        history_tmp=history_file.with_suffix(".tmp")
+        history_tmp.write_text(json.dumps(sorted(previously_seen|seen),indent=2))
+        history_tmp.replace(history_file)
+        return {"installed":len(imported),"voices":imported,"total_in_pack":len(voices)}

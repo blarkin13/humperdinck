@@ -80,5 +80,28 @@ def test_installer_marks_complete_and_does_not_restore_deleted_voice(tmp_path:Pa
     assert install_voice_pack.install_pack(target,reader=lambda:pack)["installed"]==1
     voice=target/"voices"/(stable_id("c"*32)+".wav")
     voice.unlink()
-    assert install_voice_pack.install_pack(target,reader=lambda:1/0)["skipped"] is True
+    assert install_voice_pack.install_pack(target,reader=lambda:pack)["installed"]==0
     assert not voice.exists()
+
+
+def test_expanded_pack_adds_only_new_voices(tmp_path:Path):
+    author=tmp_path/"creator"
+    sample=author/"sample.wav"
+    sample.parent.mkdir(parents=True)
+    sf.write(str(sample),np.ones(24000,dtype=np.float32)*.08,24000)
+    store=StarterVoices(author)
+    store.approve("1"*32,sample,{"name":"Voice One"})
+    first=store.export(["1"*32])
+    recipient=tmp_path/"install"
+    assert install_voice_pack.install_pack(recipient,reader=lambda:first)["installed"]==1
+    original=recipient/"voices"/(stable_id("1"*32)+".wav")
+    # The user decides to delete voice one after installation.
+    original.unlink()
+    store.approve("2"*32,sample,{"name":"Voice Two"})
+    second=store.export(["1"*32,"2"*32])
+    result=install_voice_pack.install_pack(recipient,reader=lambda:second)
+    assert result["installed"]==1
+    assert result["total_in_pack"]==2
+    assert not original.exists()
+    assert (recipient/"voices"/(stable_id("2"*32)+".wav")).exists()
+    assert install_voice_pack.install_pack(recipient,reader=lambda:second)["installed"]==0
