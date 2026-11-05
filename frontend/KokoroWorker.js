@@ -18,6 +18,29 @@ if(typeof self!=='undefined'&&self.location?.origin){
  // Model and tokenizer files stay on our origin.
  transformersEnv.remoteHost=new URL('/model/',self.location.origin).href;
  transformersEnv.remotePathTemplate='{model}/resolve/{revision}/';
+ // Kokoro's voice .bin files are fetched on the first generate() call, not
+ // during from_pretrained(). They use a hardcoded Hugging Face base URL and
+ // are not controlled by Transformers.js remoteHost.
+ const voiceOrigin='https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/';
+ const voiceLocal=new URL('/model/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/',self.location.origin).href;
+ const nativeFetch=self.fetch.bind(self);
+ self.fetch=async (input,init)=>{
+  const original=input instanceof Request?input.url:input instanceof URL?input.href:String(input);
+  const redirected=original.startsWith(voiceOrigin)?voiceLocal+original.slice(voiceOrigin.length):null;
+  const target=redirected||original;
+  try{
+   const response=await nativeFetch(redirected?(input instanceof Request?new Request(redirected,input):redirected):input,init);
+   if(!response.ok && redirected){
+    throw new Error('Voice asset '+new URL(target).pathname+' returned HTTP '+response.status);
+   }
+   return response;
+  }catch(error){
+   // Report the actual failing URL rather than the last *successful* model
+   // download progress entry.
+   lastFailedRequest=target;
+   throw error;
+  }
+ };
 }
 
 
@@ -25,6 +48,7 @@ const MODEL='onnx-community/Kokoro-82M-v1.0-ONNX';
 let modelPromise=null;
 let activeStage='startup';
 let lastDownload='';
+let lastFailedRequest='';
 const MODEL_ROOT=new URL('/model/'+MODEL+'/resolve/main/',self.location.origin).href;
 // A HEAD check does not download the ~92 MB ONNX model. It only diagnoses whether
 // the model host or its redirects are accessible from this visitor's browser.
@@ -37,6 +61,7 @@ async function testResource(name){
 const post=(type,details={})=>self.postMessage({type,...details});
 async function getModel(){
  if(!modelPromise){
+  lastFailedRequest='';
   activeStage='download / model initialization';
   post('status',{message:'Downloading Kokoro model (first use can take a while)…'});
   modelPromise=KokoroTTS.from_pretrained(MODEL,{
@@ -76,6 +101,7 @@ self.addEventListener('message',async event=>{
  try{
   const tts=await getModel();
   activeStage='audio generation';
+  lastFailedRequest='';
   post('status',{id,message:'Generating speech on your device…'});
   const result=await tts.generate(text.trim(),{voice});
   const samples=result.audio;
@@ -90,7 +116,7 @@ self.addEventListener('message',async event=>{
    const checks=await Promise.all([testResource('config.json'),testResource('onnx/model_quantized.onnx')]);
    diagnostics=' '+checks.join('; ')+'.';
   }
-  const location=lastDownload?' Last requested: '+lastDownload+'.':'';
+  const location=lastFailedRequest?' Failed request: '+lastFailedRequest+'.':lastDownload?' Last downloaded: '+lastDownload+'.':'';
   post('error',{id,message:'Voice engine '+activeStage+' failed: '+(reason||'Unknown error')+'.'+location+diagnostics+' If model requests succeed, inspect the local WebAssembly runtime or browser console.',stage:activeStage});
  }
 });
