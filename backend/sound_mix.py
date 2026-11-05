@@ -47,12 +47,14 @@ def mix_ambience(base, ambience, speech_mask, *, sample_rate=24000,
     ramp=max(1,round(sample_rate*.035))
     envelope=target.copy()
     if ramp>1:
-        # A one-pole filter gives smooth boundaries with constant time/memory overhead.
-        alpha=1.0/ramp
-        gain=float(target[0])
-        for i in range(len(target)):
-            gain+=alpha*(float(target[i])-gain)
-            envelope[i]=gain
+        # Only ramp at speech/non-speech boundaries, avoiding an expensive
+        # Python loop for every sample of a long audiobook.
+        edges=np.flatnonzero(mask[1:]!=mask[:-1])+1
+        for edge in edges:
+            end=min(len(envelope),edge+ramp)
+            start_level=float(envelope[edge-1])
+            end_level=float(target[edge])
+            envelope[edge:end]=np.linspace(start_level,end_level,end-edge,dtype=np.float32)
     return np.clip(foreground+bed*volume*envelope,-1,1).astype(np.float32)
 
 
