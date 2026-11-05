@@ -264,3 +264,80 @@ button.active small,.primary small{color:#3a3122}
 .narration-section .narration-text-wrap textarea{padding-bottom:32px;min-height:166px}
 .narration-character-count{position:absolute;bottom:9px;right:14px;font-size:12px;color:var(--muted,#b5aa94);pointer-events:none;font-variant-numeric:tabular-nums}
 @media(max-width:620px){.narration-section .narration-editor-header .narrator-trigger{max-width:50%}.narration-section .narration-editor-header .narrator-avatar{width:30px;height:30px;flex-basis:30px}}
+
+
+/* Floating speed / delay controls in the section toolbar. */
+.narration-section .section-floating-wrap{position:relative;display:flex;align-items:center;justify-content:center}
+.section-setting-popover{
+ position:absolute;z-index:80;left:0;top:calc(100% + 8px);
+ width:258px;max-width:calc(100vw - 32px);
+ background:var(--teal,#14252c);color:var(--ivory,#f0e5cf);
+ border:1px solid var(--line,#34494a);border-radius:13px;
+ box-shadow:0 18px 52px #0009;padding:14px;display:grid;gap:14px
+}
+.section-delay-popover{left:50%;transform:translateX(-50%)}
+.section-setting-heading{display:flex;align-items:center;justify-content:space-between;font-size:14px}
+.section-setting-heading strong{font-weight:650}
+.section-setting-heading span{color:var(--muted,#b5aa94);font-size:13px}
+.section-setting-adjust{display:flex;gap:6px;align-items:center;justify-content:space-between}
+.narration-section .section-setting-adjust button{
+ display:grid;place-items:center;padding:5px;min-width:31px;width:31px;height:36px;
+ flex:0 0 31px;border:0;border-radius:7px;background:transparent;
+ color:var(--ivory,#f0e5cf);font-size:14px
+}
+.narration-section .section-setting-adjust button:hover:not(:disabled){background:rgba(198,164,106,.12)}
+.narration-section .section-setting-adjust label{
+ margin:0;display:flex;align-items:center;justify-content:center;gap:7px;
+ min-width:0;height:42px;flex:1;border:1px solid var(--line,#34494a);
+ background:rgba(0,0,0,.10);border-radius:8px;font-size:12px;font-weight:500
+}
+.narration-section .section-setting-adjust input[type=number]{
+ width:65px!important;min-width:0;padding:5px!important;border:0!important;
+ box-shadow:none!important;background:transparent!important;color:var(--ivory,#f0e5cf)!important;
+ font-size:16px!important;text-align:right;appearance:textfield;-moz-appearance:textfield
+}
+.section-setting-adjust input::-webkit-outer-spin-button,.section-setting-adjust input::-webkit-inner-spin-button{-webkit-appearance:none}
+.section-setting-popover small{font-size:11px;color:var(--muted,#b5aa94);line-height:1.4}
+.narration-section .section-delay-pill{
+ display:flex;align-items:center;justify-content:center;gap:3px;
+ padding:0 10px!important;min-width:80px;height:34px;
+ border:1px solid var(--line,#34494a)!important;
+ border-radius:8px;background:rgba(255,255,255,.025)!important;
+ color:var(--muted,#b5aa94)!important;font-size:13px;white-space:nowrap
+}
+.narration-section .section-delay-pill:hover{border-color:var(--brass-hi,#c6a46a)!important}
+.section-options-menu{min-width:218px;width:max-content}
+.narration-section .section-options-menu button{display:flex;align-items:center;gap:9px}
+.narration-section .section-options-menu button i{width:17px;text-align:center}
+
+/* Modern should change palette, not compact the narration editor. */
+.narration-sections{gap:0;margin:18px 0}
+.narration-section.script-block,
+:root[data-theme="modern"] .narration-section.script-block{
+ display:block;margin:0;padding:18px 0 24px;
+ border:0;border-bottom:1px solid var(--line,#34494a);
+ border-radius:0;background:transparent;box-shadow:none;
+}
+.narration-section.script-block + .narration-section.script-block,
+:root[data-theme="modern"] .narration-section.script-block + .narration-section.script-block{
+ padding-top:24px;
+}
+.narration-section .narration-editor-header{margin-bottom:12px}
+.narration-section .narration-text-wrap textarea{min-height:170px;line-height:1.6}
+.narration-compact-toolbar{margin-top:6px;min-height:56px}
+:root[data-theme="modern"] .narration-compact-toolbar .icon-action{
+ background:transparent!important;border:0!important;box-shadow:none!important;
+}
+:root[data-theme="modern"] .section-setting-popover,
+:root[data-theme="modern"] .section-options-menu{
+ background:#202020;color:#f5f5f5;border-color:#454545;
+}
+:root[data-theme="modern"] .narration-section .section-delay-pill{
+ background:rgba(255,255,255,.025)!important;color:#b0b0b0!important;
+}
+@media(max-width:650px){
+ .section-setting-popover{left:-35px}
+ .section-delay-popover{left:50%;transform:translateX(-50%)}
+ .narration-section.script-block,:root[data-theme="modern"] .narration-section.script-block{padding:14px 0 18px}
+ .narration-compact-toolbar{gap:4px}
+}
