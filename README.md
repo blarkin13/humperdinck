@@ -30,7 +30,7 @@ bash install-voice.sh
 bash start.sh
 ```
 
-The core installer creates `.venv` and installs the frontend. The **separate voice installer** installs the Qwen3-TTS cloning engine, PyTorch, and audio dependencies. On systems with incompatible PyTorch wheels, the optional installer may fail: use the correct platform-specific PyTorch installation first, then retry. CUDA acceleration requires a compatible PyTorch build and drivers. Model weights are downloaded through the Models tab before generating.
+**Included Sound Effects:** The desktop installer automatically installs nine genuine CC0 nature recordings (rain on leaves, thunder, ocean, river, wind, birds, crickets, campfire and trickling water) into the regular **Sound Effects** library. Use the `humperdinck-desktop-with-nature-sounds.zip` release package for a fully bundled, offline-ready audio pack. Source checkouts instead download the checksum-verified pack during installation. Nothing needs to be manually imported. See [sound pack release instructions](docs/INSTALL_SOUND_PACK.md).\n\nThe core installer creates `.venv` and installs the frontend. The **separate voice installer** installs the Qwen3-TTS cloning engine, PyTorch, and audio dependencies. On systems with incompatible PyTorch wheels, the optional installer may fail: use the correct platform-specific PyTorch installation first, then retry. CUDA acceleration requires a compatible PyTorch build and drivers. Model weights are downloaded through the Models tab before generating.
 
 Open http://127.0.0.1:5173. Upload a clean voice recording under Voice Library, select it in Audio Studio, paste text, click Generate, then preview/download WAV or MP3. Each long text is segmented and concatenated with short pauses.
 

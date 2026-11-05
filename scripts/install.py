@@ -20,6 +20,11 @@ if not venv_dir.exists(): venv.create(venv_dir,with_pip=True)
 python=venv_dir/('Scripts/python.exe' if sys.platform=='win32' else 'bin/python')
 subprocess.run([str(python),'-m','pip','install','-r',str(root/'backend/requirements.txt')],check=True)
 subprocess.run(['npm.cmd' if sys.platform=='win32' else 'npm','install'],cwd=root/'frontend',check=True)
+# Sound effects are part of the installation, never a separate user import.
+# install_sound_pack.py checks a bundled ZIP first, or downloads the pinned
+# GitHub Release asset with a known SHA-256, then installs into local user data.
+print('Installing nine original CC0 nature recordings...')
+subprocess.run([str(python),str(root/'scripts/install_sound_pack.py')],check=True)
 # Voice design engine for this platform, in its own environment (see backend/catalog.py).
 engine = 'qwen-mlx' if sys.platform == 'darwin' and platform.machine() == 'arm64' else 'qwen-torch'
 print(f'\nInstalling the {engine} voice design engine...')
