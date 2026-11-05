@@ -23,6 +23,7 @@ from backend import catalog
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
 from backend.sound_mix import fade_clip, assemble_narration
+from backend.sound_suggest import recommend
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path(os.environ.get('HUMPERDINCK_DATA', ROOT / 'data'))
@@ -427,6 +428,13 @@ def remove_speech_direction_tags(text: str) -> str:
 class EffectMetadata(BaseModel):
     name: str | None = Field(default=None,max_length=120)
     category: str | None = Field(default=None,max_length=60)
+
+class SoundSuggestionRequest(BaseModel):
+    text: str = Field(min_length=1,max_length=10000)
+
+@app.post('/api/sound-effects/suggest')
+def suggest_sound_effects(request: SoundSuggestionRequest):
+    return recommend(request.text,sound_effects.list())
 
 @app.get('/api/sound-effects')
 def list_sound_effects():
