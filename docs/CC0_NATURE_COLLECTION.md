@@ -1,69 +1,53 @@
-# Curated CC0 nature collection
+# Import nature recordings into the existing Sound Effects Library
 
-Ten real nature recordings were selected by reviewing the exact public file pages.
-Each page identifies the recording as Creative Commons Zero (CC0 1.0).
-This collection does **not** create synthetic replacement sounds.
+There is **no separate CC0 section, tab, or collection** in Humperdinck.
 
-## How to install
+The user-supplied original CC0 recordings are packaged as a ZIP containing
+`humperdinck-sounds.json` and their audio originals. To import them:
 
-Open Humperdinck desktop > Sound Effects > **Real nature recordings · CC0
-collection**.
+1. Open **Sound Effects** in the desktop application.
+2. Click the existing **Import sounds** button.
+3. Select **humperdinck-cc0-nature-pack.zip**.
+4. The importer validates file checksums, source identifiers, supported file
+   types, and maximum file sizes, then adds all nine to the normal library.
 
-- **Trickling Water (Ksd5 / Wikimedia Commons)**: choose **Install**.
-  Humperdinck downloads the authentic file at a fixed, hard-coded URL, checks
-  the original file's SHA-1 checksum against the official Commons source
-  metadata, normalizes to the local audio format and records its provenance.
-  An Internet connection is required only for the initial installation.
-- **The other nine sounds (Freesound)**: choose **Source** to open the exact
-  recording page, log into Freesound and download the original file. Back in
-  Humperdinck, choose **Import file** beside that entry, then select the
-  downloaded file. Original-quality Freesound downloads are authenticated,
-  and the API requires OAuth2; the app does not bypass login or silently
-  replace the original with a preview-quality MP3.
-- Once imported, the sounds appear in the normal library as genuine playable
-  audio, with search, waveform, preview, favorites, narration cues, ambience
-  and downloads.
+The existing category/search/favorites/waveform controls work immediately.
+The user can place imported sounds before/after narration or use them as
+background ambience.
 
-## Verified source list
+The pack contains nine recordings the user provided:
+- Trickling Water — Ksd5, Wikimedia Commons
+- Campfire Crackling — Defaultv, Freesound
+- Wind Over Holehead Hill — Sandy-Ogilvie, Freesound
+- Atlantic Ocean Waves — INNORECORDS, Freesound
+- Thunderstorm — laribum, Freesound
+- Rain on Leaves — SamsterBirdies, Freesound
+- Summer Evening Crickets — RyanKingArt, Freesound
+- Forest Birds — Magnesus, Freesound
+- River and Creek — kentspublicdomain, Freesound
 
-| Name | Author | License | Source |
-| --- | --- | --- | --- |
-| Rain on Leaves | SamsterBirdies | CC0 | https://freesound.org/people/SamsterBirdies/sounds/584272/ |
-| Thunderstorm | laribum | CC0 | https://freesound.org/people/laribum/sounds/353025/ |
-| Atlantic Ocean Waves | INNORECORDS | CC0 | https://freesound.org/people/INNORECORDS/sounds/457740/ |
-| River and Creek | kentspublicdomain | CC0 | https://freesound.org/people/kentspublicdomain/sounds/325182/ |
-| Forest Birds — Seamless Loop | Magnesus | CC0 | https://freesound.org/people/Magnesus/sounds/723913/ |
-| Wind Over Holehead Hill | Sandy-Ogilvie | CC0 | https://freesound.org/people/Sandy-Ogilvie/sounds/847257/ |
-| Southern Summer Evening Crickets | RyanKingArt | CC0 | https://freesound.org/people/RyanKingArt/sounds/746366/ |
-| Frogs at a Pond | Hrothmeir | CC0 | https://freesound.org/people/Hrothmeir/sounds/850667/ |
-| Campfire Crackling | Defaultv | CC0 | https://freesound.org/people/Defaultv/sounds/536935/ |
-| Trickling Water | Ksd5 | CC0 | https://commons.wikimedia.org/wiki/File:Swale.ogg |
+The tenth selected recording, Frogs at a Pond — Hrothmeir, was not among
+the files supplied and is **not included**. The pack is separately delivered
+as a download in the project conversation rather than embedded in Git history
+because it contains approximately 70 MB of original audio.
 
-The Wikimedia audio uses
-`https://upload.wikimedia.org/wikipedia/commons/8/84/Swale.ogg`, SHA-1
-`4f97748c715d90fda6357073f14a12e68f294d73`.
+The importer stores the original author, catalog source URL, provider and
+CC0 license with each sound. Only the ten pinned source IDs in
+`backend/curated_sounds.py` can appear in a curated pack.
+Duplicates already imported under those IDs are skipped.
 
-## Packaging and licensing
+A ZIP has a manifest version of 1 and a `sounds` list with
+`slug`, `file`, and `sha256` for each recording. Each entry must match its
+own bytes. ZIP entries are read by filename only; the archive is never
+extracted to disk. Neither the standard file importer nor the installer
+automatically downloads from Freesound.
 
-- **No Freesound audio is committed or auto-downloaded.** The source listing
-  is a verified catalog, not a preinstalled audio bundle. The user supplies
-  those original files after authenticated download.
-- The one Commons audio is downloadable on demand, not embedded in Git.
-- Imported files retain source page, creator, provider, CC0 marking and
-  categorized title in the local catalog. The user's manually selected
-  Freesound file is not cryptographically verified against the original.
-  Inspect the selected recording before redistribution.
-- The uploader supports up to 65 MiB and ten minutes to accommodate the
-  wind recording and long pond ambience.
-- No automated Freesound API access or credentials are involved.
-
-## Validation
+## Test
 
 ```sh
-python -m pytest tests/test_curated_sounds.py tests/test_sound_effects.py
+python -m pytest tests/test_curated_pack.py
 npm run build --prefix frontend
 ```
 
-Manual tests required: direct Wikimedia install and checksum behavior, each
-authenticated Freesound download/import, playback, waveform/seek, narration
-effects, background ambience, install status, and Modern/Vintage themes.
+After merging, test pack import using the downloadable ZIP from this chat;
+also test repeat import, metadata display, playback and audio export.
