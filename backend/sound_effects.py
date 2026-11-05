@@ -161,6 +161,59 @@ class SoundEffects:
         self._write(entries)
         return saved
 
+    def import_pack(self,raw:bytes):
+        """Import an authenticated pack of approved curated CC0 recordings.
+
+        File names and slugs are checked against our curated catalog. No ZIP
+        extraction, arbitrary paths, or user-supplied license claims.
+        """
+        from io import BytesIO
+        from zipfile import ZipFile, BadZipFile
+        from hashlib import sha256
+        from backend.curated_sounds import BY_SLUG
+        if len(raw)>150*1024*1024:
+            raise ValueError('Pack exceeds 150 MB')
+        try:
+            archive=ZipFile(BytesIO(raw))
+        except BadZipFile as exc:
+            raise ValueError('Invalid sound pack ZIP') from exc
+        with archive:
+            if len(archive.infolist())>25:
+                raise ValueError('Sound pack contains too many files')
+            try:
+                manifest=json.loads(archive.read('humperdinck-sounds.json'))
+            except (KeyError,ValueError) as exc:
+                raise ValueError('Missing or invalid Humperdinck sound pack manifest') from exc
+            if manifest.get('version')!=1 or not isinstance(manifest.get('sounds'),list):
+                raise ValueError('Unsupported sound pack manifest')
+            imported=[];skipped=[];seen=set()
+            for item in manifest['sounds']:
+                if not isinstance(item,dict):
+                    raise ValueError('Invalid sound pack entry')
+                slug=item.get('slug')
+                filename=item.get('file')
+                source=BY_SLUG.get(slug)
+                if not source or slug in seen or not isinstance(filename,str):
+                    raise ValueError('Unknown or duplicated sound pack entry')
+                seen.add(slug)
+                if filename.startswith('/') or '\\\\' in filename or '/' in filename or filename.startswith('.'):
+                    raise ValueError('Unsafe sound pack file name')
+                details=archive.getinfo(filename)
+                if details.file_size>MAX_BYTES:
+                    raise ValueError('Recording exceeds 65 MB')
+                original=archive.read(filename)
+                if sha256(original).hexdigest()!=item.get('sha256'):
+                    raise ValueError('Sound pack checksum mismatch')
+                present=next((v for v in self._load().values()
+                              if v.get('curated_slug')==slug and
+                              (self.folder/(v['id']+'.wav')).is_file()),None)
+                if present:
+                    skipped.append(source['name'])
+                else:
+                    result=self.import_curated(source,original,filename)
+                    imported.append(result)
+            return {'imported':imported,'skipped':skipped,'count':len(imported)}
+
     def delete(self,effect_id:str):
         self.get_path(effect_id)
         catalog=self._load();catalog.pop(effect_id,None);self._write(catalog)
