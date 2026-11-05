@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {splitNarration,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay} from '../frontend/narrationSections.js';
+import {splitNarration,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,spokenText,audioSignature,suggestSpeechDirections,directionSegments} from '../frontend/narrationSections.js';
 
 test('splits long prose at sentence boundaries, each section under 500 characters',()=>{
  const script=('The moon rose over the old recording studio. ').repeat(42);
@@ -75,4 +75,28 @@ test('section pauses are bounded and valid',()=>{
 test('new sections have zero delay by default',()=>{
  const result=insertSection([{id:1,text:'First',voice_key:'af_heart',delay_after:2}],0);
  assert.equal(result[1].delay_after,0);
+});
+
+test('speech direction tags are never spoken aloud',()=>{
+ assert.equal(spokenText('[whispering] I found it. [excited] Run!'),'I found it. Run!');
+});
+test('automatic direction suggestions preserve every spoken word',()=>{
+ const source='Where is the ship? Run! He whispered quietly.';
+ const annotated=suggestSpeechDirections(source);
+ assert.equal(spokenText(annotated),source);
+ assert.match(annotated,/\[curious\]/);
+ assert.match(annotated,/\[excited\]/);
+ assert.match(annotated,/\[whispering\]/);
+});
+test('tagged passages preserve text and use gentle different pacing',()=>{
+ const pieces=directionSegments('[calm] Welcome home. [excited] Look out!');
+ assert.deepEqual(pieces.map(v=>v.text),['Welcome home.','Look out!']);
+ assert.equal(pieces[0].speed,0.9);
+ assert.equal(pieces[1].speed,1.12);
+});
+test('changing a section speaker or text invalidates generated audio',()=>{
+ const original={id:1,voice_key:'af_heart',text:'Hello',delay_after:0};
+ assert.equal(audioSignature(original),audioSignature({...original,delay_after:1}));
+ assert.notEqual(audioSignature(original),audioSignature({...original,text:'Hello!'}));
+ assert.notEqual(audioSignature(original),audioSignature({...original,voice_key:'af_bella'}));
 });
