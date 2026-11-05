@@ -10,7 +10,6 @@ from threading import Lock
 
 import numpy as np
 import soundfile as sf
-from backend.starter_sounds import STARTERS
 from uuid import uuid5, NAMESPACE_URL
 
 ALLOWED={'.wav','.mp3','.flac','.ogg','.m4a','.aac','.webm'}
@@ -54,7 +53,7 @@ class SoundEffects:
                 return
             entries=self._load()
             changed=False
-            for name,category,tags,kind,duration,seed in STARTERS:
+            for seed in range(1,31):
                 identifier=uuid5(NAMESPACE_URL,'humperdinck:original-nature-v1:'+str(seed)).hex
                 entry=entries.get(identifier)
                 if not entry or entry.get('origin')!='starter':
@@ -64,7 +63,7 @@ class SoundEffects:
                 changed=True
             if changed:
                 self._write(entries)
-            self.cleanup_marker.write_text('Retired synthetic nature starter pack v1\\n')
+            self.cleanup_marker.write_text('Retired synthetic nature starter pack v1\n')
 
     @staticmethod
     def _waveform(path,parts=56):
