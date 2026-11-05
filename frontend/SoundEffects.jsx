@@ -13,6 +13,7 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
  }
  useEffect(()=>{load()},[refreshKey,disabled]);
  useEffect(()=>()=>{audioRef.current?.pause()},[]);
+ useEffect(()=>{setModelSuggestions(null);setSuggestionSource('keywords')},[suggestText]);
  async function upload(files){
   if(!files?.length||disabled)return;
   setUploading(true);
