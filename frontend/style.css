@@ -193,3 +193,27 @@ button.active small,.primary small{color:#3a3122}
 .section-preview-player{display:grid;gap:10px;border:1px solid var(--line,#34494a);border-radius:9px;padding:12px;margin:10px 0}
 .section-preview-player audio{width:100%}
 @media(max-width:620px){.narration-section .section-foot .section-play{margin-right:0}.section-delay{margin-right:auto}}
+
+
+/* Narrator selector is only the round icon + name: no surrounding grey tile. */
+.narration-section .narrator-trigger,
+.narration-section .narrator-trigger:hover,
+.narration-section .narrator-trigger:focus,
+.narration-section .narrator-trigger:active {
+ background:transparent!important;
+ border:0!important;
+ box-shadow:none!important;
+ outline:0!important;
+ border-radius:0!important;
+ padding:0!important;
+ min-height:0!important;
+ width:100%;
+}
+.narration-section .narrator-trigger:focus-visible .narrator-avatar{outline:2px solid var(--brass-hi,#c6a46a);outline-offset:3px}
+.narration-section .section-foot .section-play{display:grid;place-items:center;width:37px;height:34px;flex:0 0 37px;padding:0;border:0;background:transparent;color:var(--brass-hi,#c6a46a)}
+.narration-section .section-foot .section-play i{margin:0;font-size:16px}
+.narration-section .section-foot .section-play:hover:not(:disabled){background:rgba(198,164,106,.1)}
+.narration-section .section-foot .section-play:disabled{opacity:.55}
+.section-inline-audio{display:block;width:100%;margin-top:10px}
+
+.section-play-error{color:#f1a9a3;font-size:12px;line-height:1.5;margin:9px 0 0;overflow-wrap:anywhere}
