@@ -701,6 +701,14 @@ def run_multi(job_id, request, references):
 def create_narration(request: MultiNarrationRequest):
     if request.format not in ('wav','mp3'): raise HTTPException(400,'Unsupported format')
     if request.format=='mp3' and not shutil.which('ffmpeg'): raise HTTPException(503,'FFmpeg is required')
+    for block in request.blocks:
+        for effect in block.effects:
+            if effect.position not in ('before','after'):
+                raise HTTPException(400,'Sound effect position must be before or after narration')
+            try:
+                sound_effects.get_path(effect.sound_id)
+            except (ValueError,FileNotFoundError):
+                raise HTTPException(404,'A narration sound effect is missing from the library')
     references=[resolve_voice_key(b.voice_key) for b in request.blocks]
     if any(reference is not None for reference, _ in references):
         require_engine('clone')
