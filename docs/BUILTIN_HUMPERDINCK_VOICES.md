@@ -53,6 +53,38 @@ work without the original recording.
 4. Users download that full installer, run the normal install command,
    and find the new voices in the same Voice Library. No manual import.
 
+
+### Adding more built-in voices later
+
+The initial six are **not a fixed limit**. For example, you can release six now,
+then add three more a month later:
+
+1. In Voice Library, create/edit additional private source voices as usual.
+2. Open **Built-In Humperdinck Voices**, generate the lighthouse sentence,
+   listen, and approve each new generated sample.
+3. The publisher automatically preselects previously approved voices. Keep
+   the original six selected **along with** your three new voices, then export
+   the updated `humperdinck-builtin-voices-v1.zip`.
+4. Open the same GitHub Release tagged `builtin-humperdinck-voices-v1`.
+   Delete its old ZIP asset and upload the new ZIP with **the same filename**.
+5. Run **Package desktop installer with nature sounds** again. Its newest
+   combined installer ZIP will now include all nine voices alongside the
+   nine nature recordings.
+6. Anyone installing from the refreshed installer gets the expanded collection.
+   Existing users can run `.venv/bin/python scripts/install_voice_pack.py`
+   again from an unbundled source checkout (it fetches the current release).
+   To refresh an older bundled installer, download the newer combined installer
+   or replace the bundled voice pack locally.
+
+The installer maintains a per-voice delivery history: voice IDs remain stable
+across releases, so existing voices are not overwritten or duplicated.
+If a user deleted one of the original six, publishing an updated pack will
+not restore it. New voices are added to the regular Voice Library with category
+**Built-In Humperdinck Voices**.
+
+The approved generated sample remains separate from the original uploaded
+recording. No source uploads go into either ZIP.
+
 ### Notes
 
 - These are **cloning references**, not pre-trained speaker-specific weights.
@@ -62,8 +94,8 @@ work without the original recording.
 - Saved adjustment settings are captured as metadata; the generated reference
   has the approved adjustments already rendered into it. The installer does
   not reapply those adjustments, to avoid double processing.
-- Stable exported IDs avoid duplicates. The first installer run marks the pack
-  present. Repeated installs do not recreate user-deleted voices.
+- Stable exported IDs and per-voice delivery history avoid duplicates, preserve
+  user edits and allow later additions. Repeated installs do not recreate deleted voices.
 - No additional CC0 or voice-type tab is introduced.
 - The pack is **not yet published**; first create/approve/export the six voices.
 
