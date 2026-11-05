@@ -15,7 +15,7 @@ import Recorder from './Recorder.jsx';
 import Models from './Models.jsx';
 import ThemePicker from './ThemePicker.jsx';
 import BrowserKokoro from './BrowserKokoro.jsx';
-import {SECTION_LIMIT,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay} from './narrationSections.js';
+import {SECTION_LIMIT,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,suggestSpeechDirections} from './narrationSections.js';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 const PUBLIC_STUDIO=import.meta.env.VITE_PUBLIC_STUDIO==='1';
 const PUBLIC_VOICES=[['af_heart','Heart','American English · female'],['af_bella','Bella','American English · female'],['af_nicole','Nicole','American English · female'],['am_michael','Michael','American English · male'],['bf_emma','Emma','British English · female'],['bm_daniel','Daniel','British English · male']].map(([key,name,accent])=>({key,name,accent}));
@@ -60,8 +60,8 @@ function App(){
  const {notify,confirm:askConfirm,input:askInput}=useNotifications();
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
- const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[browserSectionAudio,setBrowserSectionAudio]=useState(null),[format,setFormat]=useState('mp3'),[narrationJob,setNarrationJob]=useState(null),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
- const playSequence=useRef(0);
+ const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[format,setFormat]=useState('mp3'),[narrationJob,setNarrationJob]=useState(null),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
+ const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[accent,setAccent]=useState(''),[style,setStyle]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
  useEffect(()=>{
   if(!status)return;
@@ -146,15 +146,61 @@ function App(){
  useEffect(()=>{if(speakerEditor===null)return;const onEscape=e=>{if(e.key==='Escape')setSpeakerEditor(null)};window.addEventListener('keydown',onEscape);return()=>window.removeEventListener('keydown',onEscape)},[speakerEditor]);
  function addAfter(index){setBlocks(old=>insertSection(old,index))}
  function reorderSection(fromId,toId){setBlocks(old=>moveSection(old,fromId,toId));setDraggingSection(null)}
- async function playSection(block){
-  if(!block.text.trim()||!block.voice_key){setStatus('Choose a narrator and enter text before playing this section.');return}
-  setSectionPlayingId(block.id);setSectionPlayError(null);
-  if(PUBLIC_STUDIO){setActivePreview(block.id);setBrowserSectionAudio(null);setPlaySectionRequest({id:++playSequence.current,sectionId:block.id,text:block.text,voice:block.voice_key});return}
-  try{setSectionPreviewUrl('');const result=await api('narrations',json('POST',{blocks:[{text:block.text,voice_key:block.voice_key,delay_after:0}],format:'wav'}));setSectionJob({...result,sectionId:block.id});setStatus('Generating section preview...')}catch(e){setSectionPlayingId(null);setSectionPlayError({id:block.id,message:e.message});setStatus(e.message)}
+ function replaySection(url,id){
+  const audio=hiddenAudio.current;
+  if(!audio||!url)return;
+  audio.pause();
+  if(audio.src!==new URL(url,window.location.href).href)audio.src=url;
+  audio.currentTime=0;
+  audio.play().catch(()=>setSectionPlayError({id,message:'Your browser blocked automatic playback. Click the Play icon again to retry.'}));
  }
- useEffect(()=>{if(!sectionJob||!['queued','running'].includes(sectionJob.status))return;const timer=setInterval(async()=>{try{const next=await api('jobs/'+sectionJob.job_id);setSectionJob({...next,sectionId:sectionJob.sectionId});if(next.status==='complete'){setSectionPreviewUrl(next.download_url);setSectionPlayingId(null)}else if(next.status==='failed'){setSectionPlayingId(null);setSectionPlayError({id:sectionJob.sectionId,message:next.message});setStatus(next.message)}}catch(e){setSectionPlayingId(null);setStatus(e.message)}},1000);return()=>clearInterval(timer)},[sectionJob?.job_id,sectionJob?.status]);
+ async function playSection(block){
+  const clean=spokenText(block.text);
+  if(!clean||!block.voice_key){setSectionPlayError({id:block.id,message:'Choose a narrator and enter text before generating.'});return}
+  const signature=audioSignature(block);
+  const existing=sectionAudio[block.id];
+  if(existing?.signature===signature){replaySection(existing.url,block.id);return}
+  if(sectionPlayingId!==null)return;
+  setSectionPlayingId(block.id);setSectionPlayError(null);
+  pendingSignature.current={sectionId:block.id,signature};
+  if(PUBLIC_STUDIO){setActivePreview(block.id);setPlaySectionRequest({id:++playSequence.current,sectionId:block.id,text:block.text,voice:block.voice_key});return}
+  try{
+   const result=await api('narrations',json('POST',{blocks:[{text:clean,voice_key:block.voice_key,delay_after:0}],format:'wav'}));
+   setSectionJob({...result,sectionId:block.id,signature});
+  }catch(e){setSectionPlayingId(null);setSectionPlayError({id:block.id,message:e.message})}
+ }
+ useEffect(()=>{
+  if(!sectionJob||!['queued','running'].includes(sectionJob.status))return;
+  const timer=setInterval(async()=>{
+   try{
+    const next=await api('jobs/'+sectionJob.job_id);
+    setSectionJob({...next,sectionId:sectionJob.sectionId,signature:sectionJob.signature});
+    if(next.status==='complete'){
+     const {sectionId,signature}=sectionJob;
+     setSectionAudio(old=>({...old,[sectionId]:{signature,url:next.download_url}}));
+     setSectionPlayingId(null);replaySection(next.download_url,sectionId);
+    }else if(next.status==='failed'){
+     setSectionPlayingId(null);setSectionPlayError({id:sectionJob.sectionId,message:next.message});
+    }
+   }catch(e){setSectionPlayingId(null);setSectionPlayError({id:sectionJob.sectionId,message:e.message})}
+  },1000);
+  return()=>clearInterval(timer);
+ },[sectionJob?.job_id,sectionJob?.status]);
+ function insertTag(id,tag){
+  if(!DIRECTION_TAGS.includes(tag))return;
+  setBlocks(old=>{
+   const b=old.find(section=>section.id===id);
+   return b?replaceSectionText(old,id,'['+tag+'] '+b.text):old;
+  });
+ }
+ function suggestTags(id){
+  setBlocks(old=>{
+   const b=old.find(section=>section.id===id);
+   return b?replaceSectionText(old,id,suggestSpeechDirections(b.text)):old;
+  });
+ }
  function removeBlock(id){setBlocks(old=>old.length>1?old.filter(b=>b.id!==id):old);if(activePreview===id)setActivePreview(blocks.find(b=>b.id!==id)?.id||1)}
- async function generateNarration(){try{if(blocks.some(b=>!b.text.trim()||!b.voice_key))throw Error('Every block needs text and an approved voice');const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:b.text,voice_key:b.voice_key,delay_after:sectionDelay(b.delay_after)})),format}));setNarrationJob(j);setStatus('Generating narration...')}catch(e){setStatus(e.message)}}
+ async function generateNarration(){try{if(blocks.some(b=>!spokenText(b.text)||!b.voice_key))throw Error('Every block needs text and an approved voice');const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:spokenText(b.text),voice_key:b.voice_key,delay_after:sectionDelay(b.delay_after)})),format}));setNarrationJob(j);setStatus('Generating narration...')}catch(e){setStatus(e.message)}}
  async function renderVideo(){try{if(!video||narrationJob?.status!=='complete')throw Error('Upload a video and generate narration first');const j=await api('video-renders',json('POST',{video_id:video.video_id,narration_job_id:narrationJob.job_id,start_seconds:Number(offset),keep_original_audio:mix}));setVideoJob(j);setStatus('Rendering video...')}catch(e){setStatus(e.message)}}
  return <main>{PUBLIC_STUDIO&&<div className="public-app-banner">Browser Studio · Six built-in voices. Custom voice creation, uploads, multi-voice rendering and installs require the desktop app. <a href="/#download">Download info</a> <span className="public-build-version">Build {import.meta.env.VITE_BUILD_ID||'development'}</span></div>}<header><div className="brand"><img src={PUBLIC_STUDIO?"/studio/brand-mark.png":"/brand-mark.png"} alt="" className="brand-mark brand-mark-vintage"/><img src={PUBLIC_STUDIO?"/studio/brand-modern.png":"/brand-modern.png"} alt="" className="brand-mark brand-mark-modern"/><div><h1>Humperdinck</h1><small>A modern vintage recording studio</small></div></div><div className="header-actions"><ThemePicker/>{PUBLIC_STUDIO?<><a className="public-app-download" href="/#download">Get desktop app</a><a className="public-app-home" href="/">Website</a></>:<Updates/>}<span className="local"><i className="fa-solid fa-circle"/> {PUBLIC_STUDIO?'Browser preview':'On air · local'}</span></div></header>
  <nav>{[['voices','Voice Library','fa-record-vinyl'],['creator','Voice Creator','fa-wand-magic-sparkles'],['narration','Narration Studio','fa-sliders'],['video','Video Studio','fa-film'],['models','Models','fa-microchip']].map(([id,label,icon])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><i className={'fa-solid '+icon}/> {label}</button>)}</nav>
@@ -184,7 +230,7 @@ function App(){
  {detail&&<div className="saved"><h3>Saved voice history</h3>{detail.versions.map(v=><div className="version" key={v.version}><strong>Version {v.version}{v.version===detail.active_version?' · Current':''}{v.approved_sample_id?' · Approved':''}</strong><div className="actions tight">{v.version!==detail.active_version&&<button onClick={()=>restoreVersion(v.version)}>Restore this version</button>}{detail.versions.length>1&&<button className="danger" onClick={()=>deleteVersion(v.version)}>Delete version</button>}</div>{v.samples.map(s=><div key={s.id}><audio controls src={'/api/designed-samples/'+s.id}/><button disabled={v.approved_sample_id===s.id} onClick={()=>approveExisting(s.id,v.version)}>{v.approved_sample_id===s.id?'Approved voice':'Approve this sample'}</button></div>)}</div>)}<button className="danger" onClick={deleteVoice}>Delete Voice</button></div>}</div>}</section>}
  {tab==='narration'&&<section><div className="heading"><div><h2>Narration Studio</h2></div><span className="tag">Single or multi-voice</span></div>
  {voiceOptions.length===0&&<div className="notice">Install a Kokoro or Piper voice in Models for fast narration, or create and approve a custom voice in Voice Creator.</div>}
- <p className="hint">Paste a long script into any section. Narration Studio splits text into sections of up to {SECTION_LIMIT} characters, favoring sentence breaks. Each new section uses the previous speaker until you choose another.</p>
+ <p className="hint">Paste long scripts to split them into sections. Use speech direction tags or the suggestion wand for delivery cues. The wand uses punctuation and wording, not AI inference. Browser voices can adjust pacing; expression depends on the voice engine.</p>
  <div className="narration-sections">
  {blocks.map((b,i)=><div className={'script-block narration-section '+(PUBLIC_STUDIO&&activePreview===b.id?'section-selected':'')+(draggingSection===b.id?' section-dragging':'')} key={b.id}
  onDragOver={e=>{if(draggingSection!==null)e.preventDefault()}}
@@ -201,16 +247,16 @@ function App(){
  onDragStart={e=>{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(b.id));setDraggingSection(b.id)}}
  onDragEnd={()=>setDraggingSection(null)}><i className="fa-solid fa-grip-vertical" aria-hidden="true"/></button><strong>Section {i+1}</strong></div><span>{Array.from(b.text).length} / {SECTION_LIMIT}</span></div>
     <textarea aria-label={'Text for section '+(i+1)} placeholder="Paste or type narration here..." value={b.text} onChange={e=>changeBlock(b.id,'text',e.target.value)}/>
+    <div className="section-directions"><label>Speech direction <select value="" aria-label={'Insert direction in section '+(i+1)} onChange={e=>{if(e.target.value)insertTag(b.id,e.target.value)}}><option value="">Add tag…</option>{DIRECTION_TAGS.map(tag=><option value={tag} key={tag}>[{tag}]</option>)}</select></label>
+    <button type="button" className="section-tag-wand" onClick={()=>suggestTags(b.id)} title="Suggest speech direction tags from punctuation and wording (rule-based)"><i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"/> Suggest tags</button></div>
     <div className="section-foot">
-     <button type="button" className="section-play" aria-label={'Play section '+(i+1)} title={'Play section '+(i+1)} disabled={!b.text.trim()||!b.voice_key||sectionPlayingId!==null} onClick={()=>playSection(b)}><i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':'fa-play')} aria-hidden="true"/></button>
+     <button type="button" className="section-play" aria-label={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated':'Generate')+' audio for section '+(i+1)} disabled={!spokenText(b.text)||!b.voice_key||sectionPlayingId!==null} onClick={()=>playSection(b)}><i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':sectionAudio[b.id]?.signature===audioSignature(b)?'fa-play':'fa-wave-square')} aria-hidden="true"/></button>
      <label className="section-delay">Delay <input type="number" aria-label={'Delay after section '+(i+1)+' in seconds'} min="0" max="30" step="0.1" value={b.delay_after??0} onChange={e=>changeBlock(b.id,'delay_after',sectionDelay(e.target.value))}/> <span>s</span></label>
      <button type="button" onClick={()=>addAfter(i)} title={'Insert a section after section '+(i+1)}><i className="fa-solid fa-plus" aria-hidden="true"/> Insert below</button>
      {blocks.length>1&&<button type="button" onClick={()=>removeBlock(b.id)}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Remove</button>}
      
     </div>
     {sectionPlayError?.id===b.id&&<p className="section-play-error" role="alert">{sectionPlayError.message}</p>}
-    {PUBLIC_STUDIO&&browserSectionAudio?.sectionId===b.id&&<audio className="section-inline-audio" controls autoPlay src={browserSectionAudio.url}/>}
-    {!PUBLIC_STUDIO&&sectionPreviewUrl&&sectionJob?.sectionId===b.id&&<audio className="section-inline-audio" controls autoPlay src={sectionPreviewUrl}/>}
    </div>
   </div>
  </div>)}
@@ -237,7 +283,8 @@ function App(){
    </div>
   </div>;
  })()}
- {PUBLIC_STUDIO&&<BrowserKokoro voices={PUBLIC_VOICES.map(v=>[v.key,v.name,v.accent])} voice={blocks.find(b=>b.id===activePreview)?.voice_key||''} text={blocks.find(b=>b.id===activePreview)?.text||''} sectionNumber={Math.max(1,blocks.findIndex(b=>b.id===activePreview)+1)} playRequest={playSectionRequest} onPlaybackState={(id,state)=>{if(state==='ready'||state==='error'||state==='idle')setSectionPlayingId(old=>old===id?null:old);else if(state==='generating')setSectionPlayingId(id)}} onSectionAudio={(id,url)=>setBrowserSectionAudio(id===null?null:{sectionId:id,url})} onSectionError={(id,message)=>setSectionPlayError({id,message})} />}
+ <audio ref={hiddenAudio} className="hidden-section-audio" aria-hidden="true" preload="auto"/>
+ {PUBLIC_STUDIO&&<BrowserKokoro voices={PUBLIC_VOICES.map(v=>[v.key,v.name,v.accent])} voice={blocks.find(b=>b.id===activePreview)?.voice_key||''} text={blocks.find(b=>b.id===activePreview)?.text||''} sectionNumber={Math.max(1,blocks.findIndex(b=>b.id===activePreview)+1)} playRequest={playSectionRequest} onPlaybackState={(id,state)=>{if(state==='ready'||state==='error'||state==='idle')setSectionPlayingId(old=>old===id?null:old);else if(state==='generating')setSectionPlayingId(id)}} onSectionAudio={(id,url)=>{if(id===null)return;const pending=pendingSignature.current;if(pending?.sectionId!==id)return;setSectionAudio(old=>({...old,[id]:{signature:pending.signature,url}}));replaySection(url,id)}} onSectionError={(id,message)=>setSectionPlayError({id,message})} />}
  {!PUBLIC_STUDIO&&<div className="actions"><label className="inline">Export <select value={format} onChange={e=>setFormat(e.target.value)}><option value="mp3">MP3</option><option value="wav">WAV</option></select></label><button className="primary" onClick={generateNarration} disabled={busy(narrationJob)||!voiceOptions.length}>Generate Audio</button></div>}
  {PUBLIC_STUDIO&&<p className="hint">The browser generates one selected section at a time. To export a combined multi-speaker narration, use the desktop app.</p>}
  {narrationJob&&<div className="job"><p>{narrationJob.message}</p><progress max="100" value={narrationJob.progress}/>{narrationJob.status==='complete'&&<><audio controls src={narrationJob.download_url}/><a className="download" href={narrationJob.download_url} download>Save / Download {narrationJob.download_url.split('.').pop().toUpperCase()}</a><button onClick={()=>setTab('video')}>Add to Video →</button>

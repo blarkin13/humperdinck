@@ -3,6 +3,7 @@
 // package directly from a cross-origin CDN. Model weights load from Hugging Face.
 import { KokoroTTS, env } from 'kokoro-js';
 import { env as transformersEnv } from '@huggingface/transformers';
+import {directionSegments} from './narrationSections.js';
 
 // kokoro-js exposes a wrapper env with top-level wasmPaths (unlike Transformers.js).
 // Point at both matching, locally hosted ONNX runtime assets.
@@ -103,10 +104,22 @@ self.addEventListener('message',async event=>{
   activeStage='audio generation';
   lastFailedRequest='';
   post('status',{id,message:'Generating speech on your device…'});
-  const result=await tts.generate(text.trim(),{voice});
-  const samples=result.audio;
-  if(!samples||!samples.length)throw Error('Kokoro returned no audio.');
-  const buffer=wav(samples,result.sampling_rate||24000);
+  const segments=directionSegments(text);
+  if(!segments.length)throw Error('Enter some narration text after the direction tags.');
+  const clips=[];
+  let length=0;
+  let rate=24000;
+  for(const segment of segments){
+   const result=await tts.generate(segment.text,{voice,speed:segment.speed});
+   if(!result.audio?.length)throw Error('Kokoro returned no audio for a tagged passage.');
+   clips.push(result.audio);
+   length+=result.audio.length;
+   rate=result.sampling_rate||24000;
+  }
+  const samples=new Float32Array(length);
+  let cursor=0;
+  for(const clip of clips){samples.set(clip,cursor);cursor+=clip.length}
+  const buffer=wav(samples,rate);
   self.postMessage({type:'complete',id,buffer},[buffer]);
  }catch(err){
   const reason=err instanceof Error?err.message:String(err);

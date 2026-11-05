@@ -413,6 +413,12 @@ def download_output(filename: str):
     return FileResponse(path, media_type=MEDIA_TYPES[path.suffix], filename=filename, content_disposition_type='inline')
 
 
+def remove_speech_direction_tags(text: str) -> str:
+    """Known editorial tags should never be pronounced by desktop TTS engines."""
+    import re
+    return re.sub(r'\[(?:whispering|excited|curious|calm|sad|serious)\]\s*', '', text, flags=re.IGNORECASE).strip()
+
+
 class NarrationBlock(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
     voice_key: str = Field(min_length=1)
@@ -598,11 +604,14 @@ def run_multi(job_id, request, references):
                     def progress(done, total):
                         job.update(progress=round((index + done / total) / len(references) * 95),
                                    message=f'Block {index+1}/{len(references)} · {done}/{total} segments')
+                    narration_text = remove_speech_direction_tags(block.text)
+                    if not narration_text:
+                        raise ValueError('A narration section needs words beyond speech direction tags')
                     if reference is None:
                         preset_engine, preset_voice = ref_text
-                        engines.preset(preset_engine, preset_voice, temp, block.text, on_progress=progress)
+                        engines.preset(preset_engine, preset_voice, temp, narration_text, on_progress=progress)
                     else:
-                        engines.clone(choice, temp, block.text, reference, ref_text, on_progress=progress)
+                        engines.clone(choice, temp, narration_text, reference, ref_text, on_progress=progress)
                     audio,rate=sf.read(temp,dtype='float32',always_2d=False)
                     if audio.ndim==2: audio=audio.mean(axis=1)
                     if rate!=target_rate:
