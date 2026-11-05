@@ -15,7 +15,7 @@ import Recorder from './Recorder.jsx';
 import Models from './Models.jsx';
 import ThemePicker from './ThemePicker.jsx';
 import BrowserKokoro from './BrowserKokoro.jsx';
-import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection} from './narrationSections.js';
+import {SECTION_LIMIT,replaceSectionText,insertSection,assignSectionSpeaker} from './narrationSections.js';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 const PUBLIC_STUDIO=import.meta.env.VITE_PUBLIC_STUDIO==='1';
 const PUBLIC_VOICES=[['af_heart','Heart','American English · female'],['af_bella','Bella','American English · female'],['af_nicole','Nicole','American English · female'],['am_michael','Michael','American English · male'],['bf_emma','Emma','British English · female'],['bm_daniel','Daniel','British English · male']].map(([key,name,accent])=>({key,name,accent}));
@@ -60,7 +60,7 @@ function App(){
  const {notify,confirm:askConfirm,input:askInput}=useNotifications();
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
- const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:PUBLIC_STUDIO?'af_heart':''}]),[activePreview,setActivePreview]=useState(1),[format,setFormat]=useState('mp3'),[narrationJob,setNarrationJob]=useState(null),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
+ const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:''}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[format,setFormat]=useState('mp3'),[narrationJob,setNarrationJob]=useState(null),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[accent,setAccent]=useState(''),[style,setStyle]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
  useEffect(()=>{
   if(!status)return;
@@ -139,7 +139,10 @@ function App(){
  const duplicatedPresetNames=new Set(presets.map(v=>v.name).filter((name,i,all)=>all.indexOf(name)!==i));
   const voiceOptions=[...presets.map(v=>({value:v.key,label:v.name+(duplicatedPresetNames.has(v.name)?' · '+v.accent.split(' · ')[0]:'')})),...designed.filter(v=>v.narration_sample_id).map(v=>({value:'design:'+v.id,label:v.name})),...uploads.map(v=>({value:'upload:'+v.voice_id,label:v.filename}))];
  const busy=job=>['queued','running'].includes(job?.status);
- function changeBlock(id,field,value){setBlocks(old=>field==='text'?replaceSectionText(old,id,value):old.map(b=>b.id===id?{...b,[field]:value}:b))}
+ function changeBlock(id,field,value){setBlocks(old=>field==='text'?replaceSectionText(old,id,value):field==='voice_key'?assignSectionSpeaker(old,id,value):old.map(b=>b.id===id?{...b,[field]:value}:b))}
+ function openSpeaker(id){setVoiceSearch('');setSpeakerEditor(id)}
+ function selectSpeaker(value){if(speakerEditor!==null)changeBlock(speakerEditor,'voice_key',value);setSpeakerEditor(null)}
+ useEffect(()=>{if(speakerEditor===null)return;const onEscape=e=>{if(e.key==='Escape')setSpeakerEditor(null)};window.addEventListener('keydown',onEscape);return()=>window.removeEventListener('keydown',onEscape)},[speakerEditor]);
  function addAfter(index){setBlocks(old=>insertSection(old,index))}
  function removeBlock(id){setBlocks(old=>old.length>1?old.filter(b=>b.id!==id):old);if(activePreview===id)setActivePreview(blocks.find(b=>b.id!==id)?.id||1)}
  async function generateNarration(){try{if(blocks.some(b=>!b.text.trim()||!b.voice_key))throw Error('Every block needs text and an approved voice');const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:b.text,voice_key:b.voice_key})),format}));setNarrationJob(j);setStatus('Generating narration...')}catch(e){setStatus(e.message)}}
@@ -170,22 +173,51 @@ function App(){
  {candidates.filter(c=>c.recipe===recipe()).map((c,i)=><div className={'candidate '+(chosen===c.job_id?'chosen':'')} key={c.job_id}><label><input type="radio" checked={chosen===c.job_id} onChange={()=>setChosen(c.job_id)}/> Candidate {i+1}</label><Player src={c.download_url}/>{!selected&&(savedJobs.includes(c.job_id)?<small>Saved as a voice ✓</small>:<button onClick={()=>saveCandidateAsNew(c)}>Save as new voice</button>)}</div>)}
  {candidates.some(c=>c.recipe===recipe())&&<button className="primary" disabled={busy(previewJob)||savedJobs.includes(chosen)} onClick={()=>saveVoice(true)}>{selected?'Approve Selected & Save as New Version':'Approve Selected & Save Voice'}</button>}
  {detail&&<div className="saved"><h3>Saved voice history</h3>{detail.versions.map(v=><div className="version" key={v.version}><strong>Version {v.version}{v.version===detail.active_version?' · Current':''}{v.approved_sample_id?' · Approved':''}</strong><div className="actions tight">{v.version!==detail.active_version&&<button onClick={()=>restoreVersion(v.version)}>Restore this version</button>}{detail.versions.length>1&&<button className="danger" onClick={()=>deleteVersion(v.version)}>Delete version</button>}</div>{v.samples.map(s=><div key={s.id}><audio controls src={'/api/designed-samples/'+s.id}/><button disabled={v.approved_sample_id===s.id} onClick={()=>approveExisting(s.id,v.version)}>{v.approved_sample_id===s.id?'Approved voice':'Approve this sample'}</button></div>)}</div>)}<button className="danger" onClick={deleteVoice}>Delete Voice</button></div>}</div>}</section>}
- {tab==='narration'&&<section><div className="heading"><div><h2>Narration Studio</h2><p>Choose fast CPU preset voices from Kokoro or Piper, or your saved custom voices. Custom voices use the cloning engine and may take longer; preset voices keep their built-in accents.</p></div><span className="tag">Single or multi-voice</span></div>
+ {tab==='narration'&&<section><div className="heading"><div><h2>Narration Studio</h2></div><span className="tag">Single or multi-voice</span></div>
  {voiceOptions.length===0&&<div className="notice">Install a Kokoro or Piper voice in Models for fast narration, or create and approve a custom voice in Voice Creator.</div>}
  <p className="hint">Paste a long script into any section. Narration Studio splits text into sections of up to {SECTION_LIMIT} characters, favoring sentence breaks. Each new section uses the previous speaker until you choose another.</p>
  <div className="narration-sections">
  {blocks.map((b,i)=><div className={'script-block narration-section '+(PUBLIC_STUDIO&&activePreview===b.id?'section-selected':'')} key={b.id}>
-  <div className="block-head"><strong>Section {i+1}</strong>
-   <label className="section-speaker">Speaker <select aria-label={'Speaker for section '+(i+1)} value={b.voice_key} onChange={e=>changeBlock(b.id,'voice_key',e.target.value)}><option value="">Choose a voice</option>{voiceOptions.map(v=><option key={v.value} value={v.value}>{v.label}</option>)}</select></label>
-   <button type="button" onClick={()=>addAfter(i)} title={'Insert a section after section '+(i+1)}>+ Insert below</button>
-   {blocks.length>1&&<button type="button" onClick={()=>removeBlock(b.id)}>Remove</button>}
+  <div className="narration-section-main">
+   <button className="narrator-trigger" type="button" aria-label={'Change narrator for section '+(i+1)} onClick={()=>openSpeaker(b.id)} title="View narrator details or change narrator">
+    <span className="narrator-avatar"><i className={'fa-solid '+(b.voice_key?'fa-microphone-lines':'fa-user-plus')} aria-hidden="true"/></span>
+    <span className="narrator-name">{voiceOptions.find(v=>v.value===b.voice_key)?.label||'Choose narrator'}</span>
+    <i className="fa-solid fa-chevron-down narrator-chevron" aria-hidden="true"/>
+   </button>
+   <div className="narration-editor">
+    <div className="narration-editor-header"><strong>Section {i+1}</strong><span>{Array.from(b.text).length} / {SECTION_LIMIT}</span></div>
+    <textarea aria-label={'Text for section '+(i+1)} placeholder="Paste or type narration here..." value={b.text} onChange={e=>changeBlock(b.id,'text',e.target.value)}/>
+    <div className="section-foot">
+     <button type="button" onClick={()=>addAfter(i)} title={'Insert a section after section '+(i+1)}><i className="fa-solid fa-plus" aria-hidden="true"/> Insert below</button>
+     {blocks.length>1&&<button type="button" onClick={()=>removeBlock(b.id)}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Remove</button>}
+     {PUBLIC_STUDIO&&<button className={activePreview===b.id?'active':''} onClick={()=>setActivePreview(b.id)} type="button"><i className="fa-solid fa-play" aria-hidden="true"/> {activePreview===b.id?'Selected for preview':'Preview section'}</button>}
+    </div>
+   </div>
   </div>
-  <textarea aria-label={'Text for section '+(i+1)} placeholder="Paste or type narration here..." value={b.text} onChange={e=>changeBlock(b.id,'text',e.target.value)}/>
-  <div className="section-foot"><small>{Array.from(b.text).length} / {SECTION_LIMIT} characters</small>{PUBLIC_STUDIO&&<button className={activePreview===b.id?'active':''} onClick={()=>setActivePreview(b.id)} type="button">{activePreview===b.id?'Selected for preview':'Preview this section'}</button>}</div>
  </div>)}
  <button className="section-add" type="button" onClick={()=>addAfter(blocks.length-1)}>+ Add section</button>
  </div>
- {PUBLIC_STUDIO&&<BrowserKokoro voices={PUBLIC_VOICES.map(v=>[v.key,v.name,v.accent])} voice={blocks.find(b=>b.id===activePreview)?.voice_key||blocks[0]?.voice_key||'af_heart'} text={blocks.find(b=>b.id===activePreview)?.text||''} sectionNumber={Math.max(1,blocks.findIndex(b=>b.id===activePreview)+1)} />}
+ {speakerEditor!==null&&(()=>{
+  const sectionIndex=blocks.findIndex(b=>b.id===speakerEditor);
+  const current=blocks[sectionIndex];
+  const selectedVoice=voiceOptions.find(v=>v.value===current?.voice_key);
+  const filter=voiceSearch.trim().toLowerCase();
+  const filtered=voiceOptions.filter(v=>!filter||v.label.toLowerCase().includes(filter)||String(v.accent||'').toLowerCase().includes(filter));
+  return <div className="narrator-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSpeakerEditor(null)}}>
+   <div className="narrator-modal" role="dialog" aria-modal="true" aria-label={'Choose narrator for section '+(sectionIndex+1)}>
+    <div className="narrator-modal-head"><div><h3>Section {sectionIndex+1} narrator</h3><p>Choose a voice for this section. Unassigned following sections will inherit it.</p></div><button type="button" className="narrator-close" onClick={()=>setSpeakerEditor(null)} aria-label="Close narrator selector"><i className="fa-solid fa-xmark"/></button></div>
+    <div className="narrator-current"><span className="narrator-avatar"><i className="fa-solid fa-microphone-lines"/></span><div><strong>{selectedVoice?.label||'No narrator selected'}</strong><small>{selectedVoice?.accent||'Select a voice from the library below.'}</small></div></div>
+    <label className="narrator-search"><i className="fa-solid fa-magnifying-glass" aria-hidden="true"/><input autoFocus value={voiceSearch} onChange={e=>setVoiceSearch(e.target.value)} placeholder="Search voices" aria-label="Search narrator voices"/></label>
+    <div className="narrator-options">{filtered.length?filtered.map(v=><button type="button" className={'narrator-option '+(current?.voice_key===v.value?'selected':'')} key={v.value} onClick={()=>selectSpeaker(v.value)}>
+     <span className="narrator-avatar"><i className={'fa-solid '+(v.value.startsWith('design:')?'fa-wand-magic-sparkles':v.value.startsWith('upload:')?'fa-file-audio':'fa-microphone-lines')}/></span>
+     <span className="narrator-option-text"><strong>{v.label}</strong><small>{v.accent|| (v.value.startsWith('design:')?'Custom designed voice':v.value.startsWith('upload:')?'Uploaded voice':'Built-in voice')}</small></span>
+     {current?.voice_key===v.value&&<i className="fa-solid fa-check" aria-label="Selected"/>}
+    </button>):<p className="hint">No voices match this search.</p>}</div>
+    <div className="narrator-modal-footer"><button type="button" onClick={()=>selectSpeaker('')}>Clear narrator</button><button type="button" onClick={()=>setSpeakerEditor(null)}>Cancel</button></div>
+   </div>
+  </div>;
+ })()}
+ {PUBLIC_STUDIO&&<BrowserKokoro voices={PUBLIC_VOICES.map(v=>[v.key,v.name,v.accent])} voice={blocks.find(b=>b.id===activePreview)?.voice_key||''} text={blocks.find(b=>b.id===activePreview)?.text||''} sectionNumber={Math.max(1,blocks.findIndex(b=>b.id===activePreview)+1)} />}
  {!PUBLIC_STUDIO&&<div className="actions"><label className="inline">Export <select value={format} onChange={e=>setFormat(e.target.value)}><option value="mp3">MP3</option><option value="wav">WAV</option></select></label><button className="primary" onClick={generateNarration} disabled={busy(narrationJob)||!voiceOptions.length}>Generate Audio</button></div>}
  {PUBLIC_STUDIO&&<p className="hint">The browser generates one selected section at a time. To export a combined multi-speaker narration, use the desktop app.</p>}
  {narrationJob&&<div className="job"><p>{narrationJob.message}</p><progress max="100" value={narrationJob.progress}/>{narrationJob.status==='complete'&&<><audio controls src={narrationJob.download_url}/><a className="download" href={narrationJob.download_url} download>Save / Download {narrationJob.download_url.split('.').pop().toUpperCase()}</a><button onClick={()=>setTab('video')}>Add to Video →</button>
