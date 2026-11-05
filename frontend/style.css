@@ -142,3 +142,41 @@ button.active small,.primary small{color:#3a3122}
 .section-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:9px}
 .section-add{justify-self:start}
 @media(max-width:650px){.section-speaker{width:100%;margin-left:0}.section-speaker select{flex:1;min-width:0}.narration-section{padding:12px}}
+
+
+/* Narration script editor — compact narrator column and text editor */
+.narration-section{background:transparent;border:0;border-bottom:1px solid var(--line,#34494a);border-radius:0;padding:14px 0 18px;margin:0}
+.narration-section.section-selected{border-color:var(--brass-hi,#c6a46a)}
+.narration-section-main{display:grid;grid-template-columns:136px minmax(0,1fr);gap:16px;align-items:start}
+.narrator-trigger{border:0;background:transparent;padding:12px 4px;display:flex;align-items:center;flex-direction:column;text-align:center;gap:7px;min-width:0;color:var(--ivory,#f0e5cf)}
+.narrator-trigger:hover,.narrator-trigger:focus-visible{background:rgba(198,164,106,.08);border:0;outline:1px solid var(--brass-hi,#c6a46a)}
+.narrator-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,#2b5d63,#112a32);border:1px solid var(--line,#34494a);color:var(--brass-hi,#c6a46a);font-size:17px}
+.narrator-name{font-size:13px;line-height:1.35;font-weight:600;overflow-wrap:anywhere}
+.narrator-chevron{font-size:10px;color:var(--muted,#b5aa94)}
+.narration-editor{min-width:0}
+.narration-editor-header{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--muted,#b5aa94);font-size:12px;margin:0 0 7px}
+.narration-editor-header strong{font-size:13px;color:var(--brass-hi,#c6a46a)}
+.narration-section .narration-editor textarea{margin:0;min-height:145px;width:100%;background:rgba(9,20,25,.45);border-radius:8px;line-height:1.65}
+.narration-section .section-foot{justify-content:flex-end;flex-wrap:wrap}
+.narration-section .section-foot button{font-size:12px;padding:7px 10px;background:transparent}
+.narration-section .section-foot i{margin-right:5px}
+.narrator-modal-backdrop{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.7);display:flex;justify-content:center;align-items:center;padding:16px}
+.narrator-modal{background:var(--teal,#14252c);color:var(--ivory,#f0e5cf);border:1px solid var(--line,#34494a);border-radius:15px;box-shadow:0 20px 85px #0009;width:min(520px,100%);max-height:min(85vh,740px);display:flex;flex-direction:column;overflow:hidden}
+.narrator-modal-head{padding:20px 20px 12px;display:flex;justify-content:space-between;gap:20px;align-items:start}
+.narrator-modal-head h3{margin:0;font-size:20px}
+.narrator-modal-head p{font-size:12px;margin:7px 0 0}
+.narrator-close{border:0;background:transparent;font-size:19px;padding:4px 8px}
+.narrator-current{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line,#34494a);background:rgba(0,0,0,.13)}
+.narrator-current>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.narrator-current small,.narrator-option small{color:var(--muted,#b5aa94);font-size:12px}
+.narrator-search{position:relative;margin:16px 20px 10px}
+.narrator-search i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted,#b5aa94)}
+.narrator-search input{width:100%!important;padding-left:40px!important}
+.narrator-options{overflow-y:auto;min-height:80px;padding:4px 12px 12px}
+.narrator-option{width:100%;display:flex;align-items:center;gap:12px;border:1px solid transparent;background:transparent;text-align:left;padding:10px 12px}
+.narrator-option:hover,.narrator-option.selected{border-color:var(--brass-hi,#c6a46a);background:rgba(198,164,106,.09)}
+.narrator-option .narrator-avatar{width:38px;height:38px;flex-basis:38px;font-size:14px}
+.narrator-option-text{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.narrator-option-text small{overflow-wrap:anywhere}
+.narrator-modal-footer{border-top:1px solid var(--line,#34494a);display:flex;justify-content:space-between;gap:12px;padding:14px 20px}
+@media(max-width:620px){.narration-section-main{grid-template-columns:82px minmax(0,1fr);gap:9px}.narrator-trigger{padding:8px 0}.narrator-name{font-size:11px}.narrator-avatar{width:36px;height:36px;flex-basis:36px}.narration-section .section-foot button{font-size:11px;padding:6px}}
