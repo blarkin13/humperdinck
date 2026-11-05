@@ -11,7 +11,7 @@ export default function Updates(){
  const check=useCallback(async (showPanel=false)=>{
   if(showPanel)setOpen(true);
   if(checkingRef.current||stateRef.current==='installing')return;
-  checkingRef.current=true;stateRef.current='checking';setState('checking');setMsg('');
+  checkingRef.current=true;stateRef.current='checking';setState('checking');setInfo(null);setMsg('');
   const controller=new AbortController();
   const deadline=setTimeout(()=>controller.abort(),20000);
   try{
