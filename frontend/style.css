@@ -722,3 +722,9 @@ button.active small,.primary small{color:#3a3122}
  .sound-library-pixabay .sound-import span{display:none}
 }
 @media(prefers-reduced-motion:reduce){.sound-list-row,.sound-wave-bar{transition:none}}
+
+.sound-library-pixabay .sound-browse-reference{display:inline-flex;align-items:center;gap:7px;margin-left:auto;white-space:nowrap;font-size:12px;color:var(--brass-hi);text-decoration:none;padding:9px}
+.sound-library-pixabay .sound-browse-reference:hover{text-decoration:underline}
+.sound-loading{min-height:180px;display:flex;align-items:center;justify-content:center;gap:12px;color:var(--muted);font-size:13px;text-align:center}
+.sound-loading i{font-size:19px;color:var(--brass-hi)}
+@media(max-width:720px){.sound-library-pixabay .sound-browse-reference{margin-left:0}.sound-library-pixabay .sound-library-head{flex-wrap:wrap}}
