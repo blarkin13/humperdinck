@@ -17,12 +17,28 @@ MAX_BYTES=30*1024*1024
 MAX_EFFECT_SECONDS=600.0
 
 def imported_sound_metadata(filename:str):
-    """Human-friendly titles and conservative categories for uploaded recordings."""
-    import re
-    stem=Path(filename).stem
-    # Pixabay filenames often append a numeric asset identifier.
-    clean=re.sub(r'-\\d{4,}
-
+    """Provide readable titles and categories for imported sound files."""
+    stem=Path(filename).stem.replace('_','-')
+    tokens=stem.split('-')
+    if tokens and tokens[-1].isdigit() and len(tokens[-1])>=4:
+        tokens=tokens[:-1]
+    if len(tokens)>=2 and tokens[0].lower()=='dragon' and tokens[1].lower()=='studio':
+        tokens=tokens[2:]
+    tokens=[word for word in tokens if word]
+    name=' '.join(tokens).strip().title() or 'Imported Sound'
+    lower=name.lower()
+    for category,words in [
+        ('Rain',('rain','drizzle','downpour','rainstorm')),
+        ('Wind',('wind','breeze')),
+        ('Water',('ocean','waves','underwater','river','stream','water')),
+        ('Wildlife',('horse','animal','wildlife')),
+        ('Nature',('fireplace','campfire','fire crackle','fire')),
+        ('Birds',('bird','owl')),
+        ('Insects',('cricket','cicada','bee'))
+    ]:
+        if any(word in lower for word in words):
+            return name,category
+    return name,'Other'
 
 class SoundEffects:
     def __init__(self,data:Path):
