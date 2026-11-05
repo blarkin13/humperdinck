@@ -1,0 +1,51 @@
+name: Package desktop installer with nature sounds
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "GitHub Release containing the approved CC0 ZIP"
+        type: string
+        required: true
+        default: nature-sounds-v1
+
+permissions:
+  contents: write
+
+jobs:
+  package-desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout installer source
+        uses: actions/checkout@v4
+      - name: Download and verify the curated nature audio pack
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded
+          gh release download "$RELEASE_TAG" --pattern humperdinck-cc0-nature-pack.zip --dir downloaded --clobber
+          echo "37c94fa9f2c27df851899d9ac8ed3c8076e0476ea313de838db590a6304c17a7  downloaded/humperdinck-cc0-nature-pack.zip" | sha256sum -c -
+      - name: Make the offline-ready installer archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/humperdinck/assets/sound-packs
+          git archive HEAD | tar -x -C dist/humperdinck
+          cp downloaded/humperdinck-cc0-nature-pack.zip dist/humperdinck/assets/sound-packs/
+          cd dist
+          zip -q -r humperdinck-desktop-with-nature-sounds.zip humperdinck
+      - name: Publish combined installer ZIP on GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release upload "$RELEASE_TAG" dist/humperdinck-desktop-with-nature-sounds.zip --clobber
+      - name: Upload installer ZIP to workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: humperdinck-desktop-with-nature-sounds
+          path: dist/humperdinck-desktop-with-nature-sounds.zip
+          if-no-files-found: error
