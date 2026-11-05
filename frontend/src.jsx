@@ -257,16 +257,20 @@ function App(){
  onDrop={e=>{e.preventDefault();if(draggingSection!==null)reorderSection(draggingSection,b.id)}}
  >
   <div className="narration-section-main">
-   <button className="narrator-trigger" type="button" aria-label={'Change narrator for section '+(i+1)} onClick={()=>openSpeaker(b.id)} title="Change narrator">
-    <span className="narrator-avatar"><i className={'fa-solid '+(b.voice_key?'fa-microphone-lines':'fa-user-plus')} aria-hidden="true"/></span>
-    <span className="narrator-name">{voiceOptions.find(v=>v.value===b.voice_key)?.label||'Choose narrator'}</span>
-    <i className="fa-solid fa-chevron-down narrator-chevron" aria-hidden="true"/>
-   </button>
    <div className="narration-editor">
-    <div className="narration-editor-header"><div className="narration-section-title"><button type="button" className="section-drag-handle" draggable="true" aria-label={'Drag to reorder section '+(i+1)} title="Drag to reorder"
+    <div className="narration-editor-header">
+     <div className="narration-section-title"><button type="button" className="section-drag-handle" draggable="true" aria-label={'Drag to reorder section '+(i+1)} title="Drag to reorder"
  onDragStart={e=>{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(b.id));setDraggingSection(b.id)}}
- onDragEnd={()=>setDraggingSection(null)}><i className="fa-solid fa-grip-vertical" aria-hidden="true"/></button><strong>Section {i+1}</strong></div><span>{Array.from(b.text).length} / {SECTION_LIMIT}</span></div>
-    <textarea aria-label={'Text for section '+(i+1)} placeholder="Paste or type narration here..." value={b.text} onChange={e=>changeBlock(b.id,'text',e.target.value)}/>
+ onDragEnd={()=>setDraggingSection(null)}><i className="fa-solid fa-grip-vertical" aria-hidden="true"/></button><strong>Section {i+1}</strong></div>
+     <button className="narrator-trigger" type="button" aria-label={'Change narrator for section '+(i+1)} onClick={()=>openSpeaker(b.id)} title="Change narrator">
+      <span className="narrator-avatar"><i className={'fa-solid '+(b.voice_key?'fa-microphone-lines':'fa-user-plus')} aria-hidden="true"/></span>
+      <span className="narrator-name">{voiceOptions.find(v=>v.value===b.voice_key)?.label||'Choose narrator'}</span>
+      <i className="fa-solid fa-chevron-down narrator-chevron" aria-hidden="true"/>
+     </button>
+    </div>
+    <div className="narration-text-wrap"><textarea aria-label={'Text for section '+(i+1)} placeholder="Paste or type narration here..." value={b.text} onChange={e=>changeBlock(b.id,'text',e.target.value)}/>
+     <span className="narration-character-count">{Array.from(b.text).length} / {SECTION_LIMIT}</span>
+    </div>
     <div className="narration-compact-toolbar">
       <div className="compact-toolbar-left">
        <button type="button" className="icon-action section-play" aria-label={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated audio':'Generate section audio')+(b.voice_key?'':' · select a narrator first')} disabled={sectionPlayingId!==null} onClick={()=>playSection(b)}>
