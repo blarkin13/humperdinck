@@ -4,8 +4,7 @@ import './BrowserKokoro.css';
 export const KOKORO_LIMIT=500;
 const STARTER='Good evening. Welcome to Humperdinck. You can hear this voice in your own words.';
 function countCharacters(value){return Array.from(value).length}
-export default function BrowserKokoro({voices,voice,onVoiceChange}){
- const [text,setText]=useState(STARTER);
+export default function BrowserKokoro({voices,voice,text='',sectionNumber=1}){
  const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const [progress,setProgress]=useState(null),[error,setError]=useState('');
  const [audioUrl,setAudioUrl]=useState(null);
@@ -22,7 +21,7 @@ export default function BrowserKokoro({voices,voice,onVoiceChange}){
  },[]);
  function start(){
   if(!valid||busy)return;
-  setError('');setBusy(true);setMessage('Starting Kokoro…');setProgress(null);
+  setError('');setBusy(true);setMessage('Starting voice engine…');setProgress(null);
   if(urlRef.current){URL.revokeObjectURL(urlRef.current);urlRef.current=null;setAudioUrl(null)}
   if(!worker.current){
    try{
@@ -63,15 +62,11 @@ export default function BrowserKokoro({voices,voice,onVoiceChange}){
  }
  return <div className="browser-kokoro" aria-label="Generate Kokoro voice audio in your browser">
   <div className="browser-kokoro-head"><div><strong><i className="fa-solid fa-wave-square" aria-hidden="true"/> Generate narration</strong><p>Choose a built-in voice and generate speech from your text directly in your browser.</p></div><span className="browser-kokoro-chip">BUILT-IN VOICE</span></div>
-  <div className="field-row">
-   <div className="field"><label htmlFor="browser-kokoro-voice">Voice</label><select id="browser-kokoro-voice" disabled={busy} value={voice} onChange={e=>onVoiceChange(e.target.value)}>{voices.map(([id,name,accent])=><option key={id} value={id}>{name} · {accent}</option>)}</select></div>
-  </div>
-  <label htmlFor="browser-kokoro-text">Text to speak</label>
-  <textarea id="browser-kokoro-text" value={text} onChange={e=>setText(e.target.value)} maxLength={KOKORO_LIMIT} disabled={busy} placeholder="Type up to 500 characters…" rows={4}/>
+  <p className="hint">Selected: section {sectionNumber} · {voices.find(v=>v[0]===voice)?.[1]||'Choose a voice'} · {length} characters</p>
   <div className="browser-kokoro-controls"><small className={length>KOKORO_LIMIT?'warn':''}>{length} / {KOKORO_LIMIT} characters</small><button type="button" className="primary" disabled={!valid||busy} onClick={start}><i className={'fa-solid '+(busy?'fa-spinner fa-spin':'fa-play')} aria-hidden="true"/> {busy?'Generating…':'Generate speech'}</button>{busy&&<button type="button" onClick={restart}>Stop / reset</button>}</div>
   {busy&&<div className="browser-kokoro-progress" role="status"><span>{message}</span>{progress!==null&&<progress max="100" value={progress}/>}<small>First use downloads the Kokoro model. It may take time, memory, and CPU resources.</small></div>}
   {error&&<p className="warn" role="alert">{error}</p>}
   {audioUrl&&<div className="browser-kokoro-result"><strong>Generated voice</strong><audio controls src={audioUrl}/><a className="download" download={'humperdinck-kokoro-'+voice+'.wav'} href={audioUrl}><i className="fa-solid fa-download" aria-hidden="true"/> Download WAV</a></div>}
-  <p className="browser-kokoro-footnote"><i className="fa-solid fa-circle-info" aria-hidden="true"/> Voice processing runs on your device. The first use downloads the voice model; performance depends on your browser and available memory. Maximum {KOKORO_LIMIT} characters per generation.</p>
+  <p className="browser-kokoro-footnote"><i className="fa-solid fa-circle-info" aria-hidden="true"/> Generate the selected section using its assigned speaker. Processing runs on your device; the browser limit is {KOKORO_LIMIT} characters per section.</p>
  </div>;
 }
