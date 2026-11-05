@@ -306,7 +306,7 @@ function App(){
         <i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':sectionAudio[b.id]?.signature===audioSignature(b)?'fa-play':'fa-wave-square')} aria-hidden="true"/>
        </button>
        <div className="section-floating-wrap section-speed-wrap" data-section-floating-control>
-        <button type="button" className="icon-action section-speed" onClick={()=>toggleSectionPopover(b.id,'speed')} title="Adjust playback speed" aria-expanded={sectionPopover?.id===b.id&&sectionPopover.type==='speed'} aria-label={'Playback speed '+(sectionSpeed[b.id]||1).toFixed(2).replace(/\\.?0+$/,'')+' times. Adjust speed'}>
+        <button type="button" className="icon-action section-speed" onClick={()=>toggleSectionPopover(b.id,'speed')} title="Adjust playback speed" aria-expanded={sectionPopover?.id===b.id&&sectionPopover.type==='speed'} aria-label={'Playback speed '+Number((sectionSpeed[b.id]||1).toFixed(2))+' times. Adjust speed'}>
           <i className="fa-solid fa-gauge-high" aria-hidden="true"/><span>{Number((sectionSpeed[b.id]||1).toFixed(2))}x</span>
         </button>
         {sectionPopover?.id===b.id&&sectionPopover.type==='speed'&&<div className="section-setting-popover" role="group" aria-label={'Speed for section '+(i+1)}>
