@@ -443,7 +443,7 @@ function App(){
 
  </div>
  {!PUBLIC_STUDIO&&<div className="narration-ambience-panel">
-  <div className="ambience-header"><div><h3><i className="fa-solid fa-waves" aria-hidden="true"/> Background ambience</h3><small>Loop a sound behind the entire narration. The mixer lowers it when a narrator speaks.</small></div>
+  <div className="ambience-header"><div><h3><i className="fa-solid fa-water" aria-hidden="true"/> Background ambience</h3><small>Loop a sound behind the entire narration. The mixer lowers it when a narrator speaks.</small></div>
    <button type="button" aria-label="Choose background ambience" title="Choose a sound from the library" onClick={()=>setAmbiencePicker(old=>!old)}><i className="fa-solid fa-music" aria-hidden="true"/> {ambience?'Change':'Choose sound'}</button>
   </div>
   {ambience&&<div className="ambience-track">
