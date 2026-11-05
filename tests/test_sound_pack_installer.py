@@ -35,7 +35,8 @@ def sample_pack():
     return out.getvalue()
 
 
-def test_wrong_pack_checksum_fails_without_marking_installed(tmp_path):
+def test_wrong_pack_checksum_fails_without_marking_installed(tmp_path,monkeypatch):
+    monkeypatch.setattr(installer.shutil,"which",lambda _: "/usr/bin/ffmpeg")
     with pytest.raises(ValueError,match="checksum"):
         installer.install_pack(tmp_path,read=lambda:b"not the approved pack")
     assert not (tmp_path/"sound_effects"/installer.INSTALLED_MARKER).exists()
