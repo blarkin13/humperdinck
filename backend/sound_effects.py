@@ -13,8 +13,8 @@ import soundfile as sf
 from uuid import uuid5, NAMESPACE_URL
 
 ALLOWED={'.wav','.mp3','.flac','.ogg','.m4a','.aac','.webm'}
-MAX_BYTES=30*1024*1024
-MAX_EFFECT_SECONDS=180.0
+MAX_BYTES=65*1024*1024
+MAX_EFFECT_SECONDS=600.0
 
 
 class SoundEffects:
@@ -105,7 +105,7 @@ class SoundEffects:
     def add(self,filename:str,raw:bytes):
         suffix=Path(filename).suffix.lower()
         if suffix not in ALLOWED:raise ValueError('Unsupported sound format')
-        if not raw or len(raw)>MAX_BYTES:raise ValueError('Sound effects must be under 30 MB')
+        if not raw or len(raw)>MAX_BYTES:raise ValueError('Sound effects must be under 65 MB')
         effect_id=uuid4().hex
         source=self.folder/(effect_id+'.upload'+suffix)
         destination=self.folder/(effect_id+'.wav')
@@ -118,7 +118,7 @@ class SoundEffects:
             )
             duration=sf.info(str(destination)).duration
             if duration<=0 or duration>MAX_EFFECT_SECONDS:
-                raise ValueError('Sound effects must be between 0 and 180 seconds')
+                raise ValueError('Sound effects must be between 0 and 600 seconds')
             info={
                 'id':effect_id,'name':Path(filename).stem[:120] or 'Sound effect',
                 'category':'Other','duration':round(duration,2),
@@ -143,6 +143,23 @@ class SoundEffects:
         if favorite is not None:entry['favorite']=favorite
         self._write(catalog)
         return entry
+
+    def import_curated(self,entry,raw:bytes,filename:str):
+        """Use existing audio decoder; do not install a link as a playable asset."""
+        existing=next((v for v in self._load().values() if v.get('curated_slug')==entry['slug']),None)
+        if existing and (self.folder/(existing['id']+'.wav')).is_file():
+            return existing
+        added=self.add(filename,raw)
+        entries=self._load()
+        saved=entries[added['id']]
+        saved.update({
+            'name':entry['name'],'category':entry['category'],
+            'curated_slug':entry['slug'],'creator':entry['creator'],
+            'source_url':entry['source_url'],'license':'CC0 1.0',
+            'origin':'curated-cc0','provider':entry['provider']
+        })
+        self._write(entries)
+        return saved
 
     def delete(self,effect_id:str):
         self.get_path(effect_id)
