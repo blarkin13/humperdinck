@@ -14,7 +14,7 @@ from uuid import uuid5, NAMESPACE_URL
 
 ALLOWED={'.wav','.mp3','.flac','.ogg','.m4a','.aac','.webm'}
 MAX_BYTES=30*1024*1024
-MAX_EFFECT_SECONDS=180.0
+MAX_EFFECT_SECONDS=600.0
 
 
 class SoundEffects:
@@ -118,7 +118,7 @@ class SoundEffects:
             )
             duration=sf.info(str(destination)).duration
             if duration<=0 or duration>MAX_EFFECT_SECONDS:
-                raise ValueError('Sound effects must be between 0 and 180 seconds')
+                raise ValueError('Sound effects must be between 0 and 600 seconds')
             info={
                 'id':effect_id,'name':Path(filename).stem[:120] or 'Sound effect',
                 'category':'Other','duration':round(duration,2),
