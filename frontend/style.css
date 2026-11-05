@@ -215,3 +215,5 @@ button.active small,.primary small{color:#3a3122}
 .narration-section .section-foot .section-play:hover:not(:disabled){background:rgba(198,164,106,.1)}
 .narration-section .section-foot .section-play:disabled{opacity:.55}
 .section-inline-audio{display:block;width:100%;margin-top:10px}
+
+.section-play-error{color:#f1a9a3;font-size:12px;line-height:1.5;margin:9px 0 0;overflow-wrap:anywhere}
