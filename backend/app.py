@@ -21,6 +21,7 @@ from backend.audio_edit import AudioEdit, render
 from backend.jobs import JobStore
 from backend import catalog
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
+from backend.sound_effects import SoundEffects
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path(os.environ.get('HUMPERDINCK_DATA', ROOT / 'data'))
@@ -37,6 +38,7 @@ engine_lock = Lock()
 jobs = JobStore(DATA / 'jobs.sqlite3')
 library = VoiceLibrary(DATA)
 settings = catalog.Settings(DATA / 'settings.json')
+sound_effects = SoundEffects(DATA)
 
 class Sentence(BaseModel):
     text: str
@@ -419,10 +421,56 @@ def remove_speech_direction_tags(text: str) -> str:
     return re.sub(r'\[(?:whispering|excited|curious|calm|sad|serious)\]\s*', '', text, flags=re.IGNORECASE).strip()
 
 
+
+# Locally imported sound effects are never sent to an external service.
+class EffectMetadata(BaseModel):
+    name: str | None = Field(default=None,max_length=120)
+    category: str | None = Field(default=None,max_length=60)
+
+@app.get('/api/sound-effects')
+def list_sound_effects():
+    return sound_effects.list()
+
+@app.post('/api/sound-effects')
+async def upload_sound_effect(file: UploadFile = File(...)):
+    try:
+        raw = await file.read(30 * 1024 * 1024 + 1)
+        return sound_effects.add(file.filename or '',raw)
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+
+@app.get('/api/sound-effects/{effect_id}/audio')
+def play_sound_effect(effect_id: str):
+    try:
+        path=sound_effects.get_path(effect_id)
+    except (ValueError,FileNotFoundError) as exc:
+        raise HTTPException(404,str(exc))
+    return FileResponse(path,media_type='audio/wav')
+
+@app.patch('/api/sound-effects/{effect_id}')
+def update_sound_effect(effect_id: str,metadata: EffectMetadata):
+    try:
+        return sound_effects.update(effect_id,metadata.name,metadata.category)
+    except (ValueError,FileNotFoundError) as exc:
+        raise HTTPException(404,str(exc))
+
+@app.delete('/api/sound-effects/{effect_id}')
+def delete_sound_effect(effect_id: str):
+    try:
+        return sound_effects.delete(effect_id)
+    except (ValueError,FileNotFoundError) as exc:
+        raise HTTPException(404,str(exc))
+
+class NarrationEffect(BaseModel):
+    sound_id: str = Field(min_length=32,max_length=32)
+    position: str = 'after'
+    volume: float = Field(default=0.8,ge=0,le=2)
+
 class NarrationBlock(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
     voice_key: str = Field(min_length=1)
     delay_after: float = Field(default=0, ge=0, le=30)
+    effects: list[NarrationEffect] = Field(default_factory=list,max_length=8)
 
 class MultiNarrationRequest(BaseModel):
     blocks: list[NarrationBlock] = Field(min_length=1, max_length=80)
@@ -620,7 +668,24 @@ def run_multi(job_id, request, references):
                         subprocess.run(['ffmpeg','-v','error','-y','-i',str(temp),'-ar',str(target_rate),'-ac','1',str(resampled)],check=True,timeout=120)
                         audio,_=sf.read(resampled,dtype='float32')
                         resampled.unlink(missing_ok=True)
+                    for effect in block.effects:
+                        if effect.position not in ('before','after'):
+                            raise ValueError('Invalid sound effect position')
+                    # Sounds are rendered in sequence around their assigned narration block.
+                    def effect_clips(position):
+                        rendered=[]
+                        for assigned in block.effects:
+                            if assigned.position!=position:continue
+                            effect_path=sound_effects.get_path(assigned.sound_id)
+                            sound,sound_rate=sf.read(effect_path,dtype='float32',always_2d=False)
+                            if sound.ndim==2:sound=sound.mean(axis=1)
+                            if sound_rate!=target_rate:
+                                raise ValueError('Sound effect must be normalized to 24000 Hz')
+                            rendered.append(np.clip(sound*assigned.volume,-1,1))
+                        return rendered
+                    clips.extend(effect_clips('before'))
                     clips.append(audio)
+                    clips.extend(effect_clips('after'))
                     if index<len(references)-1 and block.delay_after>0:
                         clips.append(np.zeros(round(target_rate*block.delay_after),dtype='float32'))
                 finally: temp.unlink(missing_ok=True)
@@ -636,6 +701,14 @@ def run_multi(job_id, request, references):
 def create_narration(request: MultiNarrationRequest):
     if request.format not in ('wav','mp3'): raise HTTPException(400,'Unsupported format')
     if request.format=='mp3' and not shutil.which('ffmpeg'): raise HTTPException(503,'FFmpeg is required')
+    for block in request.blocks:
+        for effect in block.effects:
+            if effect.position not in ('before','after'):
+                raise HTTPException(400,'Sound effect position must be before or after narration')
+            try:
+                sound_effects.get_path(effect.sound_id)
+            except (ValueError,FileNotFoundError):
+                raise HTTPException(404,'A narration sound effect is missing from the library')
     references=[resolve_voice_key(b.voice_key) for b in request.blocks]
     if any(reference is not None for reference, _ in references):
         require_engine('clone')
