@@ -208,6 +208,7 @@ function App(){
      {blocks.length>1&&<button type="button" onClick={()=>removeBlock(b.id)}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Remove</button>}
      
     </div>
+    {sectionPlayError?.id===b.id&&<p className="section-play-error" role="alert">{sectionPlayError.message}</p>}
     {PUBLIC_STUDIO&&browserSectionAudio?.sectionId===b.id&&<audio className="section-inline-audio" controls autoPlay src={browserSectionAudio.url}/>}
     {!PUBLIC_STUDIO&&sectionPreviewUrl&&sectionJob?.sectionId===b.id&&<audio className="section-inline-audio" controls autoPlay src={sectionPreviewUrl}/>}
    </div>
