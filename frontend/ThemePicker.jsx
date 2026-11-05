@@ -1,4 +1,4 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useState,useRef} from 'react';
 import './themes.css';
 
 const STORAGE_KEY='humperdinck-theme';
@@ -24,6 +24,7 @@ export default function ThemePicker(){
  const [theme,setTheme]=useState(initialTheme);
  const [mode,setMode]=useState(initialMode);
  const [open,setOpen]=useState(false);
+ const pickerRef=useRef(null);
  useEffect(()=>{
   document.documentElement.dataset.theme=theme;
   document.documentElement.dataset.mode=mode;
@@ -32,11 +33,13 @@ export default function ThemePicker(){
  useEffect(()=>{
   if(!open)return;
   const onKey=e=>{if(e.key==='Escape')setOpen(false)};
+  const onPointer=e=>{if(pickerRef.current&&!pickerRef.current.contains(e.target))setOpen(false)};
   document.addEventListener('keydown',onKey);
-  return ()=>document.removeEventListener('keydown',onKey);
+  document.addEventListener('pointerdown',onPointer);
+  return ()=>{document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer)};
  },[open]);
  const active=THEMES.find(t=>t.id===theme)||THEMES[0];
- return <div className="theme-picker">
+ return <div className="theme-picker" ref={pickerRef}>
   <button type="button" className="theme-trigger" aria-haspopup="true" aria-expanded={open}
    title="Change Humperdinck appearance" onClick={()=>setOpen(v=>!v)}>
    <i className="fa-solid fa-palette" aria-hidden="true"/>

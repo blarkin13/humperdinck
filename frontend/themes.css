@@ -117,7 +117,7 @@
 :root[data-theme="modern"] .model-row{background:#141414;border-color:#333;border-radius:8px}
 :root[data-theme="modern"] .model-row.chosen{border-color:#ddd}
 :root[data-theme="modern"] .local,:root[data-theme="modern"] .tag{color:#ccc;border-color:#454545}
-:root[data-theme="modern"] .local i{color:#eee;animation:none}
+:root[data-theme="modern"] .local i{color:#e47575;animation:onair 2.4s ease-in-out infinite}
 :root[data-theme="modern"] .update-panel,:root[data-theme="modern"] .theme-popover{
  background:#1b1b1b;border:1px solid #454545;box-shadow:0 20px 50px #000a;
 }
@@ -368,3 +368,17 @@
 :root[data-mode="light"] .narrator-option small{color:var(--muted)}
 :root[data-mode="light"] .theme-trigger{color:var(--ivory)}
 @media(prefers-reduced-motion:reduce){:root[data-mode="light"] .voice-card{transition:none}}
+
+/* Crisp SVG brand marks at any screen zoom; selection is independent of style. */
+.brand-mark-modern,.brand-mark-light{display:none}
+:root[data-theme="modern"][data-mode="dark"] .brand-mark-vintage,
+:root[data-mode="light"] .brand-mark-vintage{display:none}
+:root[data-theme="modern"][data-mode="dark"] .brand-mark-modern{display:block}
+:root[data-mode="light"] .brand-mark-light{display:block}
+:root[data-mode="light"] .brand-mark-modern{display:none}
+:root[data-mode="light"] .brand-mark{filter:none}
+:root[data-mode="light"] .local i{color:#c34242;animation:onair 2.4s ease-in-out infinite}
+:root[data-theme="modern"] .local i{animation:onair 2.4s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){
+ :root[data-theme="modern"] .local i,:root[data-mode="light"] .local i{animation:none}
+}
