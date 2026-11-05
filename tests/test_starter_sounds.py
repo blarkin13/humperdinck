@@ -1,62 +1,50 @@
-"""Regression tests for the royalty-safe nature starter library."""
+"""Regression tests: retire bad procedural nature assets without deleting uploads."""
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from uuid import uuid5, NAMESPACE_URL
 
-import numpy as np
 import soundfile as sf
+import numpy as np
 
 from backend.sound_effects import SoundEffects
-from backend.starter_sounds import STARTERS,RATE,synthesize
 
 
-def test_exactly_thirty_distinct_nature_sounds():
-    assert len(STARTERS)==30
-    assert len({entry[0] for entry in STARTERS})==30
-    assert len({entry[-1] for entry in STARTERS})==30
-    assert all(entry[4]>=7 for entry in STARTERS)
-    assert sum(entry[1] in ('Rain','Weather','Wind','Water','Forest','Birds','Insects','Wildlife','Nature')
-               for entry in STARTERS)==30
+def legacy_id(n):
+    return uuid5(NAMESPACE_URL, 'humperdinck:original-nature-v1:'+str(n)).hex
 
 
-def test_sample_generation_is_repeatable_and_audio_is_finite():
-    first=synthesize('rain',1.0,1)
-    second=synthesize('rain',1.0,1)
-    assert len(first)==RATE
-    assert first.dtype==np.float32
-    assert np.array_equal(first,second)
-    assert np.isfinite(first).all()
-    assert 0<np.max(np.abs(first))<=1
-
-
-def test_distinct_sounds_are_distinct():
-    rain=synthesize('rain',1.0,11)
-    wind=synthesize('wind',1.0,11)
-    assert not np.array_equal(rain,wind)
-
-
-def test_installation_is_once_and_preserves_user_deletions(tmp_path:Path):
+def test_new_library_is_empty_without_synthetic_defaults(tmp_path:Path):
     library=SoundEffects(tmp_path)
-    first=library.list()
-    assert len(first)==30
-    assert all(row['origin']=='starter' for row in first)
-    assert all(len(row['waveform'])==56 for row in first)
-    assert all(0<=height<=1 for row in first for height in row['waveform'])
-    assert library.starter_marker.exists()
-    sample=first[0]
-    saved=library.get_path(sample['id'])
-    data,rate=sf.read(saved)
-    assert rate==RATE
-    assert len(data)==round(sample['duration']*RATE)
-    assert np.isfinite(data).all()
-    # A user may remove a starter; do not silently restore it on next launch.
-    library.delete(sample['id'])
-    reopened=SoundEffects(tmp_path)
-    assert len(reopened.list())==29
-    assert not saved.exists()
+    assert library.list()==[]
+    assert library.cleanup_marker.exists()
+    assert library.list()==[]
 
 
-def test_favorite_is_persistent(tmp_path:Path):
+def test_old_pack_is_removed_safely_but_user_recordings_survive(tmp_path:Path):
     library=SoundEffects(tmp_path)
-    sound=library.list()[0]
-    library.update(sound['id'],None,None,True)
-    assert SoundEffects(tmp_path).list()[0]['favorite'] is True
+    custom='a'*32
+    old1,old2=legacy_id(1),legacy_id(2)
+    entries={
+        custom:{'id':custom,'name':'User Recording','category':'Rain','origin':'imported','duration':1.0},
+        old1:{'id':old1,'name':'Synthetic Rain','category':'Rain','origin':'starter','duration':8},
+        old2:{'id':old2,'name':'Synthetic Thunder','category':'Weather','origin':'starter','duration':9},
+    }
+    library._write(entries)
+    for id in (custom,old1,old2):
+        sf.write(library.folder/(id+'.wav'),np.ones(2400,dtype='float32')*.1,24000)
+    results=library.list()
+    assert [v['id'] for v in results]==[custom]
+    assert library.get_path(custom).exists()
+    assert not (library.folder/(old1+'.wav')).exists()
+    assert not (library.folder/(old2+'.wav')).exists()
+    # The cleanup marker keeps deleted starters from being restored on restart.
+    assert [v['id'] for v in SoundEffects(tmp_path).list()]==[custom]
+
+
+def test_no_cleanup_of_unrelated_or_custom_files(tmp_path:Path):
+    library=SoundEffects(tmp_path)
+    id=legacy_id(3)
+    library._write({id:{'id':id,'name':'Custom re-import','origin':'imported',
+                        'category':'Nature','duration':1.0}})
+    sf.write(library.folder/(id+'.wav'),np.ones(2400,dtype='float32')*.1,24000)
+    assert library.list()[0]['id']==id
+    assert (library.folder/(id+'.wav')).exists()
