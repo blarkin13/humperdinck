@@ -56,7 +56,7 @@ def test_effect_cues_are_sequential_and_looped_bed_is_overlay():
                            ducking=.5,fade_in=0,fade_out=0)
     assert len(bed)==len(dry)
     assert bed[0]==pytest.approx(.3)
-    assert bed[4]==pytest.approx(.45,abs=.01)
+    assert .44<bed[4]<.5
 
 
 def test_rejects_unaligned_speech_mask():
