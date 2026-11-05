@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {splitNarration,replaceSectionText,insertSection,assignSectionSpeaker} from '../frontend/narrationSections.js';
+import {splitNarration,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay} from '../frontend/narrationSections.js';
 
 test('splits long prose at sentence boundaries, each section under 500 characters',()=>{
  const script=('The moon rose over the old recording studio. ').repeat(42);
@@ -52,4 +52,27 @@ test('manual insert between voiced sections adopts preceding narrator',()=>{
  const inserted=insertSection(blocks,0);
  assert.equal(inserted[1].voice_key,'af_heart');
  assert.equal(inserted[2].voice_key,'bm_daniel');
+});
+
+test('drag reordering keeps text, narrator and timing attached to section',()=>{
+ const items=[
+  {id:1,text:'First',voice_key:'af_heart',delay_after:1.2},
+  {id:2,text:'Second',voice_key:'am_michael',delay_after:0},
+  {id:3,text:'Third',voice_key:'bf_emma',delay_after:3}
+ ];
+ const moved=moveSection(items,3,1);
+ assert.deepEqual(moved.map(x=>x.id),[3,1,2]);
+ assert.deepEqual(moved.map(x=>x.delay_after),[3,1.2,0]);
+ assert.equal(moved[0].voice_key,'bf_emma');
+ assert.equal(items[0].id,1);
+});
+test('section pauses are bounded and valid',()=>{
+ assert.equal(sectionDelay('1.5'),1.5);
+ assert.equal(sectionDelay('-1'),0);
+ assert.equal(sectionDelay('999'),30);
+ assert.equal(sectionDelay('nope'),0.3);
+});
+test('new sections get the default 0.3-second pause',()=>{
+ const result=insertSection([{id:1,text:'First',voice_key:'af_heart',delay_after:2}],0);
+ assert.equal(result[1].delay_after,0.3);
 });
