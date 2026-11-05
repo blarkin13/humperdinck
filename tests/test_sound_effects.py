@@ -41,3 +41,12 @@ def test_catalog_roundtrip(tmp_path: Path):
     assert library.delete(effect_id)=={'deleted':True}
     assert library.list()==[]
     assert not (library.folder/(effect_id+'.wav')).exists()
+
+
+
+def test_nature_recording_import_metadata():
+    from backend.sound_effects import imported_sound_metadata, MAX_EFFECT_SECONDS
+    assert MAX_EFFECT_SECONDS >= 186.75
+    assert imported_sound_metadata('dragon-studio-rainstorm-with-wind-351117.mp3') == ('Rainstorm With Wind','Rain')
+    assert imported_sound_metadata('dragon-studio-horse-neigh-sfx-390299.mp3') == ('Horse Neigh Sfx','Wildlife')
+    assert imported_sound_metadata('dragon-studio-underwater-sounds-376891.mp3') == ('Underwater Sounds','Water')
