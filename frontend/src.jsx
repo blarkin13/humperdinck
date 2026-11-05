@@ -485,7 +485,7 @@ function App(){
       <div className="video-time-control"><input id="video-start-offset" type="number" min="0" step="0.1" value={offset} onChange={e=>setOffset(e.target.value)} aria-label="Narration start time in seconds"/><span>seconds</span></div>
      </div>
      <label className="check video-mix-option"><input type="checkbox" checked={mix} onChange={e=>setMix(e.target.checked)}/> Keep original video sound</label>
-   </>:<div className="video-no-narration"><i className="fa-solid fa-waveform-lines" aria-hidden="true"/><p>Generate your narration in Narration Studio to add a soundtrack.</p></div>}
+   </>:<div className="video-no-narration"><i className="fa-solid fa-wave-square" aria-hidden="true"/><p>Generate your narration in Narration Studio to add a soundtrack.</p></div>}
    <div className="video-render-footer">
     <div className="video-render-status">
      <strong>{busy(videoJob)?'Rendering video':videoJob?.status==='complete'?'Render complete':video&&narrationJob?.status==='complete'?'Ready to render':'Waiting for media'}</strong>
