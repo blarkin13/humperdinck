@@ -1,10 +1,9 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {useNotifications} from './Notifications.jsx';
 import {suggestSoundEffects} from './soundSuggestions.js';
-import CuratedSounds from './CuratedSounds.jsx';
 
 const CATEGORIES=['All','Rain','Weather','Wind','Water','Forest','Birds','Insects','Wildlife','Nature','Atmosphere','People','Machines','Impacts','Music','Other'];
-const FORMATS='.wav,.mp3,.flac,.ogg,.m4a,.aac,.webm';
+const FORMATS='.wav,.mp3,.flac,.ogg,.m4a,.aac,.webm,.zip';
 const clock=seconds=>{
  const n=Math.max(0,Math.floor(Number(seconds)||0));
  return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');
@@ -70,8 +69,13 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
   for(const file of files){
    const form=new FormData();form.append('file',file);
    try{
-    const item=await api('sound-effects',{method:'POST',body:form});
-    notify('Imported '+item.name,'success');
+    if(file.name.toLowerCase().endsWith('.zip')){
+     const result=await api('sound-effects/import-pack',{method:'POST',body:form});
+     notify('Imported '+result.count+' recordings'+(result.skipped.length?' ('+result.skipped.length+' already present)':''),'success');
+    }else{
+     const item=await api('sound-effects',{method:'POST',body:form});
+     notify('Imported '+item.name,'success');
+    }
    }catch(err){notify(err.message,'error')}
   }
   await load();setUploading(false);
@@ -172,7 +176,6 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
      onChange={e=>{upload(Array.from(e.target.files));e.target.value=''}}/>
   </div>
   {disabled?<p className="hint">The Sound Effects Library is available in the desktop app.</p>:<>
-   {!compact&&<CuratedSounds api={api} onInstalled={load} expanded={items.length===0}/>}
    <div className="sound-search-shell">
     <i className="fa-solid fa-magnifying-glass" aria-hidden="true"/>
     <input type="search" value={query} onChange={e=>setQuery(e.target.value)}
