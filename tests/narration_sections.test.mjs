@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {splitNarration,replaceSectionText,insertSection} from '../frontend/narrationSections.js';
+import {splitNarration,replaceSectionText,insertSection,assignSectionSpeaker} from '../frontend/narrationSections.js';
 
 test('splits long prose at sentence boundaries, each section under 500 characters',()=>{
  const script=('The moon rose over the old recording studio. ').repeat(42);
@@ -28,4 +28,28 @@ test('Unicode codepoints are the character limit',()=>{
  const result=splitNarration('🌟'.repeat(1100));
  assert.equal(result.length,3);
  assert.ok(result.every(part=>Array.from(part).length<=500));
+});
+
+test('choosing first narrator fills auto-split sections without a narrator',()=>{
+ const split=replaceSectionText([{id:1,text:'',voice_key:''}],1,'The voyage began at dawn. '.repeat(80));
+ assert.ok(split.length>2);
+ assert.ok(split.every(b=>b.voice_key===''));
+ const assigned=assignSectionSpeaker(split,1,'af_heart');
+ assert.ok(assigned.every(b=>b.voice_key==='af_heart'));
+});
+test('changing a narrator respects later explicitly chosen speakers',()=>{
+ const blocks=[
+  {id:1,text:'One',voice_key:''},
+  {id:2,text:'Two',voice_key:''},
+  {id:3,text:'Three',voice_key:'bm_daniel'},
+  {id:4,text:'Four',voice_key:''}
+ ];
+ const updated=assignSectionSpeaker(blocks,1,'af_heart');
+ assert.deepEqual(updated.map(b=>b.voice_key),['af_heart','af_heart','bm_daniel','']);
+});
+test('manual insert between voiced sections adopts preceding narrator',()=>{
+ const blocks=[{id:1,text:'One',voice_key:'af_heart'},{id:2,text:'Two',voice_key:'bm_daniel'}];
+ const inserted=insertSection(blocks,0);
+ assert.equal(inserted[1].voice_key,'af_heart');
+ assert.equal(inserted[2].voice_key,'bm_daniel');
 });
