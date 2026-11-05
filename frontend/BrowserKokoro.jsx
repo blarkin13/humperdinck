@@ -4,13 +4,13 @@ import './BrowserKokoro.css';
 export const KOKORO_LIMIT=500;
 const STARTER='Good evening. Welcome to Humperdinck. You can hear this voice in your own words.';
 function countCharacters(value){return Array.from(value).length}
-export default function BrowserKokoro({voices,voice,text='',sectionNumber=1,playRequest=null,onPlaybackState,onSectionAudio}){
+export default function BrowserKokoro({voices,voice,text='',sectionNumber=1,playRequest=null,onPlaybackState,onSectionAudio,onSectionError}){
  const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const [progress,setProgress]=useState(null),[error,setError]=useState('');
  const [audioUrl,setAudioUrl]=useState(null);
  const worker=useRef(null),request=useRef(0),urlRef=useRef(null),mounted=useRef(true);
- const callbacks=useRef({onPlaybackState,onSectionAudio}),activeSection=useRef(null),busyRef=useRef(false);
- callbacks.current={onPlaybackState,onSectionAudio};
+ const callbacks=useRef({onPlaybackState,onSectionAudio,onSectionError}),activeSection=useRef(null),busyRef=useRef(false);
+ callbacks.current={onPlaybackState,onSectionAudio,onSectionError};
  const length=countCharacters(text),valid=length>0&&length<=KOKORO_LIMIT&&!!voice;
  useEffect(()=>{
   mounted.current=true;
@@ -30,6 +30,7 @@ export default function BrowserKokoro({voices,voice,text='',sectionNumber=1,play
    return;
   }
   activeSection.current=sectionId;
+  if(sectionId===null)callbacks.current.onSectionAudio?.(null,null);
   busyRef.current=true;
   if(sectionId!==null)callbacks.current.onPlaybackState?.(sectionId,'generating');
   setError('');setBusy(true);setMessage('Starting voice engine…');setProgress(null);
@@ -51,27 +52,27 @@ export default function BrowserKokoro({voices,voice,text='',sectionNumber=1,play
       if(activeSection.current!==null){callbacks.current.onSectionAudio?.(activeSection.current,url);callbacks.current.onPlaybackState?.(activeSection.current,'ready')}
      }else if(data.type==='error'){
       setError(data.message||'Generation failed.');setBusy(false);setProgress(null);busyRef.current=false;
-      if(activeSection.current!==null)callbacks.current.onPlaybackState?.(activeSection.current,'error');
+      if(activeSection.current!==null){callbacks.current.onPlaybackState?.(activeSection.current,'error');callbacks.current.onSectionError?.(activeSection.current,data.message||'Generation failed.')}
      }
     });
     next.addEventListener('error',event=>{
      if(!mounted.current)return;
      setError('Kokoro worker could not start ('+(event.message||'unknown browser error')+'). Try reloading the page, or use Chrome if Safari blocks model downloads.');
      setBusy(false);setProgress(null);busyRef.current=false;
-     if(activeSection.current!==null)callbacks.current.onPlaybackState?.(activeSection.current,'error');
+     if(activeSection.current!==null){callbacks.current.onPlaybackState?.(activeSection.current,'error');callbacks.current.onSectionError?.(activeSection.current,event.message||'Browser voice engine failed.')}
      next.terminate();worker.current=null;
     });
     worker.current=next;
    }catch(err){
     setError(err?.message||'This browser does not support audio generation.');
     setBusy(false);busyRef.current=false;
-    if(activeSection.current!==null)callbacks.current.onPlaybackState?.(activeSection.current,'error');
+    if(activeSection.current!==null){callbacks.current.onPlaybackState?.(activeSection.current,'error');callbacks.current.onSectionError?.(activeSection.current,err?.message||'Unable to start voice engine.')}
     return;
    }
   }
   const id=++request.current;
   try{worker.current.postMessage({type:'generate',id,text:spokenText,voice:spokenVoice})}
-  catch(err){setError(err?.message||'Unable to start audio generation.');setBusy(false);busyRef.current=false;if(sectionId!==null)callbacks.current.onPlaybackState?.(sectionId,'error')}
+  catch(err){setError(err?.message||'Unable to start audio generation.');setBusy(false);busyRef.current=false;if(sectionId!==null){callbacks.current.onPlaybackState?.(sectionId,'error');callbacks.current.onSectionError?.(sectionId,err?.message||'Unable to generate speech.')}}
  }
  const playedRequest=useRef(null);
  useEffect(()=>{if(playRequest&&playRequest.id!==playedRequest.current){playedRequest.current=playRequest.id;start(playRequest)}},[playRequest?.id]);
