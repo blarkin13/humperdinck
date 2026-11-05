@@ -34,7 +34,7 @@ function Waveform({item,progress,onSeek}){
 
 export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestText='',compact=false,sectionId=null,refreshKey=0,disabled=false}){
  const {notify,confirm}=useNotifications();
- const [items,setItems]=useState([]);
+ const [items,setItems]=useState([]),[loading,setLoading]=useState(!disabled);
  const [query,setQuery]=useState(''),[category,setCategory]=useState('All'),
        [duration,setDuration]=useState('all'),[sort,setSort]=useState('featured'),
        [favoritesOnly,setFavoritesOnly]=useState(false);
@@ -48,8 +48,10 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
  const [playing,setPlaying]=useState(null),[currentTime,setCurrentTime]=useState(0);
  async function load(){
   if(disabled)return;
+  setLoading(true);
   try{setItems(await api('sound-effects'))}
   catch(err){notify(err.message,'error')}
+  finally{setLoading(false)}
  }
  useEffect(()=>{load()},[refreshKey,disabled]);
  useEffect(()=>()=>{audioRef.current?.pause()},[]);
@@ -157,7 +159,9 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
  return <div className={'sound-library sound-library-pixabay '+(compact?'sound-library-compact':'')}>
   <div className="sound-library-head">
    <div>{!compact&&<><h2>Sound Effects</h2>
-    <p>Explore nature ambience, preview instantly, and add sounds to your projects.</p></>}</div>
+    <p>30 original synthesized nature sounds included. Preview, favorite, or import your own field recordings.</p></>}</div>
+   {!compact&&<a className="sound-browse-reference" href="https://pixabay.com/sound-effects/" target="_blank" rel="noopener noreferrer" title="Find sound recordings on Pixabay; download there and import here">
+     <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"/> Find recordings</a>}
    <button className="sound-import" type="button" disabled={disabled||uploading}
       onClick={()=>fileRef.current?.click()} title="Import sound effects">
     <i className={'fa-solid '+(uploading?'fa-spinner fa-spin':'fa-file-import')} aria-hidden="true"/>
@@ -217,7 +221,7 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
     </div>}
    </div>}
    <div className="sound-list" role="list" aria-label="Available sounds">
-    {filtered.length===0?<div className="sound-no-results">
+    {loading?<div className="sound-loading" role="status"><i className="fa-solid fa-spinner fa-spin" aria-hidden="true"/><span>Loading sound library and preparing starter effects…</span></div>:filtered.length===0?<div className="sound-no-results">
      <i className="fa-solid fa-wave-square"/><strong>No matching sounds</strong>
      <span>Try another search or category. You can import your own files at any time.</span>
      <button type="button" onClick={()=>{setQuery('');setCategory('All');setDuration('all');setFavoritesOnly(false)}}>Clear filters</button>
