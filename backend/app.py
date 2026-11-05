@@ -508,6 +508,7 @@ def remove_speech_direction_tags(text: str) -> str:
 class EffectMetadata(BaseModel):
     name: str | None = Field(default=None,max_length=120)
     category: str | None = Field(default=None,max_length=60)
+    favorite: bool | None = None
 
 class SoundSuggestionRequest(BaseModel):
     text: str = Field(min_length=1,max_length=10000)
@@ -539,7 +540,7 @@ def play_sound_effect(effect_id: str):
 @app.patch('/api/sound-effects/{effect_id}')
 def update_sound_effect(effect_id: str,metadata: EffectMetadata):
     try:
-        return sound_effects.update(effect_id,metadata.name,metadata.category)
+        return sound_effects.update(effect_id,metadata.name,metadata.category,metadata.favorite)
     except (ValueError,FileNotFoundError) as exc:
         raise HTTPException(404,str(exc))
 
