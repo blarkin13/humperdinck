@@ -6,7 +6,6 @@ They are illustrative sound designs, not real wildlife/location recordings.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid5, NAMESPACE_URL
 import numpy as np
@@ -57,19 +56,15 @@ def _colored(n,rng,power=1.0):
     out-=out.mean()
     return out/(np.std(out)+1e-7)
 
-def _pulse(t,at,width,decay=1.0):
-    x=(t-at)/max(width,1e-3)
-    return np.exp(-np.maximum(x,0)*decay)*np.where(x>=0,1.0,0.0)
-
-def _bird(t,start,freq,duration,amp=.18):
-    phase=(t-start)
-    mask=(phase>=0)&(phase<duration)
-    x=np.maximum(phase,0)
-    envelope=np.sin(np.pi*np.clip(x/duration,0,1))**1.4
-    instantaneous=freq*(1+.12*np.sin(2*np.pi*5*x)+.08*np.sin(2*np.pi*2*x))
-    # Integrating varying frequency is unnecessary for stylized calls;
-    # phase modulation preserves the rise/fall contour.
-    return (amp*mask*envelope*np.sin(2*np.pi*instantaneous*x)).astype(np.float32)
+def _chirp(out,start,freq,duration,amp=.18):
+    """Render only the local chirp window (not a full-track temporary)."""
+    first=int(start*RATE)
+    last=min(len(out),first+max(1,int(duration*RATE)))
+    if first>=last:return
+    x=np.arange(last-first,dtype=np.float32)/RATE
+    shape=np.sin(np.pi*np.clip(x/duration,0,1))**1.4
+    inst=freq*(1+.12*np.sin(2*np.pi*5*x)+.08*np.sin(2*np.pi*2*x))
+    out[first:last]+=amp*shape*np.sin(2*np.pi*inst*x)
 
 def synthesize(kind,duration,seed):
     rng=np.random.default_rng(seed)
@@ -114,8 +109,10 @@ def synthesize(kind,duration,seed):
             at=float(rng.uniform(0,duration))
             f=float(rng.uniform(230,950))
             width=float(rng.uniform(.025,.11))
-            x=t-at
-            out+=(.055 if kind!='drips' else .11)*np.sin(2*np.pi*f*np.maximum(x,0))*np.exp(-np.maximum(x,0)/width)*(x>=0)
+            ix=int(at*RATE);end=min(n,ix+int(RATE*min(.45,width*7)))
+            if end>ix:
+                x=np.arange(end-ix,dtype=np.float32)/RATE
+                out[ix:end]+=(.055 if kind!='drips' else .11)*np.sin(2*np.pi*f*x)*np.exp(-x/width)
         if kind=='drips':out*=.5
     elif kind in ('forest','birds','dawn','singlebird','owl'):
         out=.09*mid+.09*low
@@ -125,7 +122,7 @@ def synthesize(kind,duration,seed):
             at=float(rng.uniform(0,duration))
             freq=float(rng.uniform(280,550) if kind=='owl' else rng.uniform(1300,4200))
             width=float(rng.uniform(.13,.38) if kind!='owl' else rng.uniform(.3,.7))
-            out+=_bird(t,at,freq,width,.10 if kind=='owl' else .07)
+            _chirp(out,at,freq,width,.10 if kind=='owl' else .07)
     elif kind in ('crickets','cicadas','meadow'):
         out=.065*low
         f={'crickets':4100,'cicadas':2300,'meadow':3700}[kind]
@@ -136,8 +133,10 @@ def synthesize(kind,duration,seed):
         out=.07*low+.04*mid
         for _ in range(22):
             at=float(rng.uniform(0,duration))
-            x=t-at;mask=(x>=0)&(x<.28)
-            out+=.16*mask*np.sin(2*np.pi*(160+25*np.sin(2*np.pi*7*np.maximum(x,0)))*np.maximum(x,0))*np.sin(np.pi*np.clip(x/.28,0,1))
+            ix=int(at*RATE);end=min(n,ix+int(.28*RATE))
+            if end>ix:
+                x=np.arange(end-ix,dtype=np.float32)/RATE
+                out[ix:end]+=.16*np.sin(2*np.pi*(160+25*np.sin(2*np.pi*7*x))*x)*np.sin(np.pi*x/.28)
     elif kind=='bee':
         out=.03*air+.16*np.sin(2*np.pi*(210+35*np.sin(2*np.pi*1.2*t))*t)*(.4+.6*slow)
     elif kind=='fire':
