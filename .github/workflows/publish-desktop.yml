@@ -51,7 +51,7 @@ jobs:
           fi
       - uses: actions/download-artifact@v4
         with:
-          pattern: humperdinck-*-unsigned
+          pattern: humperdinck-*-package
           path: packages
           merge-multiple: true
       - name: Verify and stage ONLY installers
