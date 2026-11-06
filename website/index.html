@@ -119,17 +119,34 @@
         </div>
       </section>
       <section id="download" class="section download">
-        <div class="section-kicker"><span>04</span> / GET STARTED</div>
-        <div class="download-inner">
-          <div><h2>Make some<br><span>noise.</span></h2><p>Humperdinck is under active development. Explore the source code and installation instructions while packaged desktop downloads are being prepared.</p>
-          <a class="button button-primary" href="https://github.com/blarkin13/humperdinck" target="_blank" rel="noopener noreferrer">View on GitHub <span aria-hidden="true">↗</span></a>
-          <a class="install-guide" href="https://github.com/blarkin13/humperdinck#install" target="_blank" rel="noopener noreferrer">Read installation instructions <span aria-hidden="true">↗</span></a></div>
-          <div class="download-side"><div class="download-platform"><span>⌘</span><div><strong>macOS</strong><small>Local setup instructions available</small></div><span class="status-muted">SOURCE</span></div><div class="download-platform"><span>▦</span><div><strong>Windows</strong><small>Local setup instructions available</small></div><span class="status-muted">SOURCE</span></div><div class="download-platform"><span>⌘</span><div><strong>Linux</strong><small>Local setup instructions available</small></div><span class="status-muted">SOURCE</span></div><p class="disclaimer">Installers and hosted accounts are not publicly available yet. Generation speed and model availability depend on your hardware.</p></div>
+        <div class="section-kicker"><span>04</span> / DOWNLOAD HUMPERDINCK</div>
+        <div class="download-heading"><h2>Your studio.<br><span>Your computer.</span></h2><p>Choose your operating system and install Humperdinck directly. The first-run setup helps you download the speech engines and models you need.</p></div>
+        <div class="download-cards" id="desktop-downloads" aria-live="polite">
+          <article class="download-card" data-platform="windows">
+            <span class="download-os-icon" aria-hidden="true">▦</span>
+            <h3>Windows</h3><p>64-bit Windows · Installer (.exe)</p>
+            <span class="download-version" data-version>Installer not published</span>
+            <span class="button download-action unavailable" data-download-action>Not available yet</span>
+          </article>
+          <article class="download-card" data-platform="macos">
+            <span class="download-os-icon" aria-hidden="true">⌘</span>
+            <h3>macOS</h3><p>Apple Silicon · Disk image (.dmg)</p>
+            <span class="download-version" data-version>Installer not published</span>
+            <span class="button download-action unavailable" data-download-action>Not available yet</span>
+          </article>
+          <article class="download-card" data-platform="linux">
+            <span class="download-os-icon" aria-hidden="true">⌁</span>
+            <h3>Linux</h3><p>Ubuntu / Debian 64-bit · Package (.deb)</p>
+            <span class="download-version" data-version>Installer not published</span>
+            <span class="button download-action unavailable" data-download-action>Not available yet</span>
+          </article>
         </div>
+        <p class="download-notice" id="download-notice">Desktop packages are in testing. Download links will appear here after installers are published and verified.</p>
+        <details class="developer-source"><summary>Prefer to build it yourself?</summary><p>Developers can clone the source repository and follow the installation instructions. This is optional; ordinary users won't need GitHub.</p><code>git clone https://github.com/blarkin13/humperdinck.git</code><p><a href="https://github.com/blarkin13/humperdinck#install" target="_blank" rel="noopener noreferrer">Developer installation guide ↗</a></p></details>
       </section>
-      <section id="accounts" class="account-note"><div><span class="section-kicker"><span>05</span> / COMING NEXT</span><h2>One place for your studio.</h2><p>Accounts, a downloadable app library, and interactive online voice demos are planned. The current website does not collect registrations or store user data.</p></div><span class="planned-chip">IN DEVELOPMENT</span></section>
+      <section id="accounts" class="account-note"><div><span class="section-kicker"><span>05</span> / COMING NEXT</span><h2>One place for your studio.</h2><p>Accounts and an online voice library are planned. The current website does not collect registrations or store user data.</p></div><span class="planned-chip">IN DEVELOPMENT</span></section>
     </main>
-    <footer class="footer"><a class="brand" href="/"><img src="/assets/brand-modern.png" alt="" width="36" height="36"><span>humperdinck<span class="brand-dot">.</span></span></a><span>A local-first voice studio.</span><div><a href="#features">Features</a><a href="/studio/">Studio preview</a><a href="#download">Download</a><a href="https://github.com/blarkin13/humperdinck" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div><small>© <span id="year"></span> Humperdinck · <span id="build-revision" title="Public website revision">Version pending</span></small></footer>
+    <footer class="footer"><a class="brand" href="/"><img src="/assets/brand-modern.png" alt="" width="36" height="36"><span>humperdinck<span class="brand-dot">.</span></span></a><span>A local-first voice studio.</span><div><a href="#features">Features</a><a href="/studio/">Studio preview</a><a href="#download">Download</a></div><small>© <span id="year"></span> Humperdinck · <span id="build-revision" title="Public website revision">Version pending</span></small></footer>
   </div>
 </body>
 </html>
