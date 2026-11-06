@@ -14,9 +14,9 @@ def test_manifest_uses_signed_release_assets(tmp_path):
     assert result["version"]=="0.2.0"
     assert set(result["platforms"])==set(PLATFORMS)
     assert result["platforms"]["darwin-aarch64"]["url"].startswith(
-        "https://github.com/blarkin13/humperdinck/releases/download/desktop-v0.2.0/"
+        "https://github.com/blarkin13/humperdinck-downloads/releases/download/v0.2.0/"
     )
 
 def test_manifest_rejects_missing_platform(tmp_path):
-    with pytest.raises(ValueError,match="three"):
+    with pytest.raises(ValueError,match="Both Windows and macOS"):
         manifest("0.2.0",{})
