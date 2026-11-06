@@ -38,6 +38,16 @@ def main() -> None:
         sources = native_runtime.source_root() / 'backend' / 'worker.py'
         if not sources.is_file():
             raise RuntimeError('Native Qwen/Piper worker files are missing')
+        # Verify the exact eSpeak data/library paths the frozen Kokoro tokenizer
+        # uses. Import-only smoke tests failed to catch a missing data directory.
+        import ctypes
+        import espeakng_loader
+        data_path = Path(espeakng_loader.get_data_path())
+        lib_path = Path(espeakng_loader.get_library_path())
+        if not data_path.is_dir() or not lib_path.is_file():
+            raise RuntimeError(f'Bundled Kokoro phonemizer is incomplete: {data_path}, {lib_path}')
+        ctypes.CDLL(str(lib_path))
+        print('Native Kokoro eSpeak data: ready', flush=True)
         subprocess.run([str(binary), '--version'], check=True, timeout=20)
         print('Native optional engine runtime: available', flush=True)
         return
