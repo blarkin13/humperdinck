@@ -79,7 +79,7 @@ def main():
 
     if not args.builtin_voices_pack.is_file():
         parser.error("Built-In Humperdinck Voices are required: run python scripts/prepare_native_voice_pack.py")
-    from scripts.prepare_native_voice_pack import validate as validate_builtin_voices
+    from prepare_native_voice_pack import validate as validate_builtin_voices
     builtin_count = validate_builtin_voices(args.builtin_voices_pack.read_bytes())
     print(f"Bundling {builtin_count} approved Built-In Humperdinck Voices")
 
