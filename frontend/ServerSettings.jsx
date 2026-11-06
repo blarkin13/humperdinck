@@ -12,7 +12,7 @@ export default function ServerSettings({onClose}){
   const close=e=>{if(e.key==='Escape')onClose()};
   document.addEventListener('keydown',close);
   return()=>{alive=false;document.removeEventListener('keydown',close)};
- },[onClose]);
+ },[]);
  const address=health?.url||window.location.origin;
  async function savePort(){
   const value=Number(port);
