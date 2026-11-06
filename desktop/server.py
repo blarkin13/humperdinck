@@ -43,7 +43,21 @@ def install_builtin_sounds(data_dir: Path) -> dict:
     return result
 
 
+def hide_child_consoles() -> None:
+    """On Windows, start every helper (uv, ffmpeg, engine workers) without a terminal window."""
+    if sys.platform != "win32":
+        return
+    import subprocess
+    original = subprocess.Popen.__init__
+
+    def init(self, *args, **kwargs):
+        kwargs["creationflags"] = kwargs.get("creationflags", 0) | subprocess.CREATE_NO_WINDOW
+        original(self, *args, **kwargs)
+    subprocess.Popen.__init__ = init
+
+
 def main() -> None:
+    hide_child_consoles()
     if "--native-runtime-check" in sys.argv:
         from backend import native_runtime
         import subprocess
