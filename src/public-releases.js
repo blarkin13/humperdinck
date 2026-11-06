@@ -12,7 +12,7 @@ export async function publicRelease(request,env){
   if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405});
   let release;
   try {
-    const response=await fetch(API,{headers:HEADERS});
+    const response=await fetch(API,{headers:HEADERS,cf:{cacheTtl:300,cacheEverything:true}});
     if(!response.ok)throw Error('No published distribution release');
     release=await response.json();
   } catch {
