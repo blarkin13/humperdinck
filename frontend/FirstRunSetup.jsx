@@ -33,7 +33,24 @@ export default function FirstRunSetup({onClose,onComplete}){
  useEffect(()=>{
   if(!busyJob(job))return;
   const interval=setInterval(async()=>{
-   try{const value=await request('jobs/'+job.job_id);setJob(value);if(!busyJob(value))await refresh()}
+   try{
+    const value=await request('jobs/'+job.job_id);
+    setJob(value);
+    if(!busyJob(value)){
+     if(value.status==='complete'&&value.model&&value.engine!=='kokoro'){
+      // Downloading a model in the wizard also chooses it for its task.
+      // Otherwise the Models tab could still point to an absent default.
+      const latest=await request('models');
+      const entry=latest.engines.find(e=>e.id===value.engine)?.models.find(m=>m.id===value.model);
+      const role=entry?.roles?.find(r=>['design','clone','preset'].includes(r));
+      if(role)await request('models/selection',{
+       method:'PUT',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({engine:value.engine,model:value.model,role})
+      });
+     }
+     await refresh();
+    }
+   }
    catch(e){setError(e.message)}
   },1400);
   return()=>clearInterval(interval);
@@ -77,12 +94,12 @@ export default function FirstRunSetup({onClose,onComplete}){
  }
  function action(e,model){
   if(!e?.supported)return <small>Not available on this computer.</small>;
-  if(model?.downloaded)return <span className="setup-ready"><i className="fa-solid fa-circle-check"/> Downloaded</span>;
   if(!e.installed){
    if(e.id==='kokoro'&&models?.native_package)return <button disabled={busyJob(job)} type="button" onClick={()=>start(e.id,'af_heart')}><i className="fa-solid fa-download"/> Download shared voices</button>;
    return <button disabled={busyJob(job)||!e.native_installable} type="button" onClick={()=>start(e.id)}><i className="fa-solid fa-gears"/> Install engine</button>;
   }
   if(!model)return <span className="setup-ready"><i className="fa-solid fa-circle-check"/> Engine installed</span>;
+  if(model.downloaded)return <span className="setup-ready"><i className="fa-solid fa-circle-check"/> Downloaded</span>;
   return <button disabled={busyJob(job)} type="button" onClick={()=>start(e.id,model.id)}><i className="fa-solid fa-download"/> Download {model.size_gb} GB</button>;
  }
  function modelOption(e,role,label){
