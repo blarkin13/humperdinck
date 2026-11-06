@@ -878,3 +878,5 @@ button.active small,.primary small{color:#3a3122}
 .server-settings-modal .server-mode.unsupported{opacity:.67}
 
 .server-settings-modal input[type=number]{width:126px;max-width:100%;margin:0}
+
+.native-installer-download{display:inline-flex;align-items:center;justify-content:center;margin:8px 0 4px;padding:10px 15px;text-decoration:none;border-radius:8px}

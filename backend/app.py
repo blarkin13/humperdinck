@@ -95,7 +95,7 @@ def get_server_settings():
     except (OSError, ValueError):
         configured={}
     port=configured.get('port',0)
-    if not isinstance(port,int) or port not in (0,*range(1024,65536)):
+    if not isinstance(port,int) or (port!=0 and not (1024<=port<=65535)):
         port=0
     return {'preferred_port':port,'mode':'local',
             'restart_required_after_change':True,'remote_access_enabled':False}
@@ -1142,8 +1142,11 @@ class UpdateInstallRequest(BaseModel):
 @app.get('/api/updates/check')
 def check_updates():
     if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
-        return {'available': False, 'reason': 'Unsigned native test builds do not yet support binary updates',
-                'changed_files': [], 'removed_files': [], 'can_install': False}
+        from backend import native_updates
+        try:
+            return native_updates.check()
+        except Exception as exc:
+            raise HTTPException(503,'Could not check official desktop releases: '+str(exc)) from exc
     try:
         result = updater.check()
     except updater.UpdateError as exc:

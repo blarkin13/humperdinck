@@ -72,10 +72,11 @@ export default function Updates(){
    {info&&!info.available&&<p>✓ {info.reason}.</p>}
    {info?.available&&<>
     <p><strong>{info.latest}</strong> {info.summary}<br/><small>{info.date&&new Date(info.date).toLocaleString()} · <a href={info.url} target="_blank" rel="noreferrer">View on GitHub</a></small></p>
-    <small>{files.length} file{files.length===1?'':'s'} will change:</small>
-    <ul className="update-files">{files.map(f=><li key={f}>{f}</li>)}</ul>
-    <p className="hint">Your voices, recordings, outputs and settings in data/ are never changed. Replaced files are backed up in .update/backups.</p>
-    {info.can_install?<button className="primary" onClick={install} disabled={state==='installing'}>{state==='installing'?'Installing...':'Install and restart'}</button>:<p className="hint">Start Humperdinck with start.sh to install updates from here.</p>}
+    {files.length>0&&<><small>{files.length} file{files.length===1?'':'s'} will change:</small><ul className="update-files">{files.map(f=><li key={f}>{f}</li>)}</ul></>}
+    <p className="hint">Your local voices, recordings, outputs and model files remain outside the replaceable app.</p>
+    {info.can_install?<button className="primary" onClick={install} disabled={state==='installing'}>{state==='installing'?'Installing...':'Install and restart'}</button>
+    :info.can_download&&info.download_url?<><a className="primary native-installer-download" href={info.download_url} target="_blank" rel="noopener noreferrer">Download {info.download_name||'desktop installer'}</a><p className="hint">The official installer opens in your browser. Quit Humperdinck to replace the application. Automatic installation requires a signed updater release.</p></>
+    :<p className="hint">There is no binary update available for this installation.</p>}
    </>}
    {state==='installing'&&<p>{msg}</p>}
   </div>}
