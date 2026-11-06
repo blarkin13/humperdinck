@@ -101,7 +101,8 @@ def main():
     # Windows uses --onedir: --onefile unpacks unsigned DLLs into a new %TEMP%
     # folder on every launch, which Smart App Control blocks. Files kept in the
     # install folder are identical every launch.
-    layout = ["--onedir", "--contents-directory", WINDOWS_ENGINE_DIR] if windows else ["--onefile"]
+    # --noconsole: no terminal window opens next to the app on Windows.
+    layout = ["--onedir", "--contents-directory", WINDOWS_ENGINE_DIR, "--noconsole"] if windows else ["--onefile"]
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm", "--clean", *layout,
