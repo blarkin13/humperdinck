@@ -14,6 +14,7 @@ import Updates from './Updates.jsx';
 import ServerSettings from './ServerSettings.jsx';
 import Recorder from './Recorder.jsx';
 import Models from './Models.jsx';
+import FirstRunSetup from './FirstRunSetup.jsx';
 import ThemePicker from './ThemePicker.jsx';
 import BrowserKokoro from './BrowserKokoro.jsx';
 import SoundEffects from './SoundEffects.jsx';
@@ -27,6 +28,16 @@ const PUBLIC_VOICES=[['af_heart','Heart','American English · female'],['af_bell
 function Player({src}){const [failed,setFailed]=useState(false);
  return failed?<p className="notice"><i className="fa-solid fa-triangle-exclamation"/> This browser could not play the clip. <a href={src} download>Download it</a> to listen.</p>
   :<audio controls preload="metadata" src={src} onError={()=>setFailed(true)}/>}
+
+// A failed update check must never take down the recording studios.
+class UpdateWidgetBoundary extends React.Component {
+ constructor(props){super(props);this.state={failed:false}}
+ static getDerivedStateFromError(){return {failed:true}}
+ componentDidCatch(error){console.error('Humperdinck update control failed:',error)}
+ render(){return this.state.failed
+  ?<span className="hint" title="Updates are temporarily unavailable. The rest of Humperdinck still works."><i className="fa-solid fa-circle-exclamation" aria-hidden="true"/> Updates unavailable</span>
+  :this.props.children}
+}
 
 // A one-line description of a voice's strongest traits for its card, falling back to the written description.
 function voiceSummary(v){
@@ -64,6 +75,7 @@ function App(){
  const {notify,confirm:askConfirm,input:askInput}=useNotifications();
  const [nativePackage,setNativePackage]=useState(null);
  const [serverSettingsOpen,setServerSettingsOpen]=useState(false);
+ const [setupOpen,setSetupOpen]=useState(false),[setupChecked,setSetupChecked]=useState(false);
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
  const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[effectPicker,setEffectPicker]=useState(null),[ambiencePicker,setAmbiencePicker]=useState(false),[ambience,setAmbience]=useState(null),[format]=useState('mp3'),[downloadOpen,setDownloadOpen]=useState(false),[wholeMenuOpen,setWholeMenuOpen]=useState(false),[narrationJob,setNarrationJob]=useState(null),[wholeAudio,setWholeAudio]=useState(null),[wholeAudible,setWholeAudible]=useState(false),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[videoPreviewMode,setVideoPreviewMode]=useState('source'),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
@@ -79,6 +91,7 @@ function App(){
  useEffect(()=>{refresh()},[]);
  // Publishing curated starter packs is an authoring tool, not a native end-user control.
  useEffect(()=>{if(!PUBLIC_STUDIO)api('health').then(h=>setNativePackage(!!h.native_package)).catch(()=>{});},[]);
+ useEffect(()=>{if(nativePackage===true&&!setupChecked){setSetupChecked(true);api('setup').then(s=>{if(!s.finished)setSetupOpen(true)}).catch(()=>{});}},[nativePackage,setupChecked]);
  // Read new preset downloads when returning from Models to Narration Studio.
  useEffect(()=>{if(tab==='narration'||tab==='voices')refresh()},[tab]);
  useEffect(()=>{if(!previewJob||!['queued','running'].includes(previewJob.status))return;const timer=setInterval(async()=>{try{const j=await api('jobs/'+previewJob.job_id);setPreviewJob({...j,design_instruction:previewJob.design_instruction,design_model:previewJob.design_model});if(j.status==='complete'){setCandidates(old=>old.some(c=>c.job_id===j.job_id)?old:[...old,{...j,recipe:previewJob.recipe,design_instruction:previewJob.design_instruction,design_model:previewJob.design_model}]);setChosen(j.job_id);setStatus('Preview ready. Listen and select your favorite.')}else if(j.status==='failed')setStatus(j.message)}catch(e){setStatus(e.message)}},1000);return()=>clearInterval(timer)},[previewJob?.job_id,previewJob?.status]);
@@ -350,8 +363,9 @@ function App(){
  },[fullNarrationSignature,wholeAudible,wholeAudio?.signature]);
 
  async function renderVideo(){try{if(!video||narrationJob?.status!=='complete')throw Error('Upload a video and generate narration first');const j=await api('video-renders',json('POST',{video_id:video.video_id,narration_job_id:narrationJob.job_id,start_seconds:Number(offset),keep_original_audio:mix}));setVideoJob(j);setStatus('Rendering video...')}catch(e){setStatus(e.message)}}
- return <main>{PUBLIC_STUDIO&&<div className="public-app-banner">Browser Studio · Six built-in voices. Custom voice creation, uploads, multi-voice rendering and installs require the desktop app. <a href="/#download">Download info</a> <span className="public-build-version">Build {import.meta.env.VITE_BUILD_ID||'development'}</span></div>}<header><div className="brand"><img src={PUBLIC_STUDIO?"/studio/brand-mark.png":"/brand-mark.png"} alt="" className="brand-mark brand-mark-vintage"/><img src={PUBLIC_STUDIO?"/studio/modern-logo-dark.png":"/modern-logo-dark.png"} alt="" className="brand-mark brand-mark-modern"/><img src={PUBLIC_STUDIO?"/studio/modern-logo-light.png":"/modern-logo-light.png"} alt="" className="brand-mark brand-mark-light"/><div><h1>Humperdinck</h1><small>A modern vintage recording studio</small></div></div><div className="header-actions"><ThemePicker/>{!PUBLIC_STUDIO&&<button type="button" className="header-server-icon" aria-label="Server settings" title="Local server settings" onClick={()=>setServerSettingsOpen(true)}><i className="fa-solid fa-server" aria-hidden="true"/></button>}{PUBLIC_STUDIO?<><a className="public-app-download" href="/#download">Get desktop app</a><a className="public-app-home" href="/">Website</a></>:<Updates/>}<span className="local"><i className="fa-solid fa-circle"/> {PUBLIC_STUDIO?'Browser preview':'On air · local'}</span></div></header>
+ return <main>{PUBLIC_STUDIO&&<div className="public-app-banner">Browser Studio · Six built-in voices. Custom voice creation, uploads, multi-voice rendering and installs require the desktop app. <a href="/#download">Download info</a> <span className="public-build-version">Build {import.meta.env.VITE_BUILD_ID||'development'}</span></div>}<header><div className="brand"><img src={PUBLIC_STUDIO?"/studio/brand-mark.png":"/brand-mark.png"} alt="" className="brand-mark brand-mark-vintage"/><img src={PUBLIC_STUDIO?"/studio/modern-logo-dark.png":"/modern-logo-dark.png"} alt="" className="brand-mark brand-mark-modern"/><img src={PUBLIC_STUDIO?"/studio/modern-logo-light.png":"/modern-logo-light.png"} alt="" className="brand-mark brand-mark-light"/><div><h1>Humperdinck</h1><small>A modern vintage recording studio</small></div></div><div className="header-actions"><ThemePicker/>{!PUBLIC_STUDIO&&<button type="button" className="header-server-icon" aria-label="Server settings" title="Local server settings" onClick={()=>setServerSettingsOpen(true)}><i className="fa-solid fa-server" aria-hidden="true"/></button>}{PUBLIC_STUDIO?<><a className="public-app-download" href="/#download">Get desktop app</a><a className="public-app-home" href="/">Website</a></>:<UpdateWidgetBoundary><Updates/></UpdateWidgetBoundary>}<span className="local"><i className="fa-solid fa-circle"/> {PUBLIC_STUDIO?'Browser preview':'On air · local'}</span></div></header>
  {serverSettingsOpen&&<ServerSettings onClose={()=>setServerSettingsOpen(false)}/>}
+ {setupOpen&&<FirstRunSetup onClose={()=>setSetupOpen(false)} onComplete={()=>{setSetupOpen(false);refresh()}}/>}
  <nav>{[['voices','Voice Library','fa-record-vinyl'],['creator','Voice Creator','fa-wand-magic-sparkles'],['narration','Narration Studio','fa-sliders'],['video','Video Studio','fa-film'],['effects','Sound Effects','fa-music'],['models','Models','fa-microchip']].map(([id,label,icon])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><i className={'fa-solid '+icon}/> {label}</button>)}</nav>
  {tab==='voices'&&<section><div className="heading"><div><h2>Voice Library</h2><p>Browse built-in and saved voices. Select a built-in voice for narration or edit your own voices in Voice Creator.</p></div><button className="primary" onClick={()=>{newVoice();setMethod('controls');setTab('creator')}}><i className="fa-solid fa-plus"/> New voice</button></div>
  <VoiceGrid builtinPublisher={!PUBLIC_STUDIO&&nativePackage===false?<StarterVoicePack api={api} voices={uploads}/>:null} previewDisabled={PUBLIC_STUDIO} onPreviewVoice={PUBLIC_STUDIO?(v)=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration')}:undefined} onCreate={()=>{newVoice();setMethod("controls");setTab("creator")}} items={[...presets.map(v=>({key:v.key,voiceKey:v.key,method:'preset',name:v.name,category:'Built-in · '+v.accent.split(' · ')[0],ready:true,status:'Ready for narration',summary:v.accent,traits:[v.accent],specs:[],onOpen:()=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration');}})),...designed.map(v=>({key:'d'+v.id,voiceKey:'design:'+v.id,method:v.method||'designed',name:v.name,category:'My Voices',selected:selected===v.id,ready:!!v.narration_sample_id,
@@ -566,7 +580,7 @@ function App(){
  </div>
  </section>}
  {tab==='effects'&&<section><SoundEffects api={api} disabled={PUBLIC_STUDIO}/></section>}
- {tab==='models'&&(PUBLIC_STUDIO?<section><h2>Models</h2><p>Download Humperdinck to install and manage local voice models.</p><div className="panel"><h3>Built-in voices</h3><p>The browser preview offers six voices. Other models and downloads are available in the desktop app.</p><button disabled>Install / Download · desktop only</button></div></section>:<Models/>)}
+ {tab==='models'&&(PUBLIC_STUDIO?<section><h2>Models</h2><p>Download Humperdinck to install and manage local voice models.</p><div className="panel"><h3>Built-in voices</h3><p>The browser preview offers six voices. Other models and downloads are available in the desktop app.</p><button disabled>Install / Download · desktop only</button></div></section>:<Models onOpenSetup={()=>setSetupOpen(true)}/>)}
  </main>
 }
 // If the React bundle crashes, display a readable error rather than leaving
