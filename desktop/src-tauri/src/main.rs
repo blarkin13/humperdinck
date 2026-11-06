@@ -20,7 +20,7 @@ fn trusted_updater(app: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updat
         .ok_or_else(|| "This unsigned test build cannot install updates automatically".to_string())?;
     app.updater_builder()
         .pubkey(pubkey)
-        .endpoints(vec![UPDATE_ENDPOINT.to_string()])
+        .endpoints(vec![url::Url::parse(UPDATE_ENDPOINT).map_err(|e| e.to_string())?])
         .map_err(|e| e.to_string())?
         .build()
         .map_err(|e| e.to_string())
