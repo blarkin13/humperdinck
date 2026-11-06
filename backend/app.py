@@ -1145,8 +1145,13 @@ def check_updates():
         from backend import native_updates
         try:
             return native_updates.check()
-        except Exception as exc:
-            raise HTTPException(503,'Could not check official desktop releases: '+str(exc)) from exc
+        except Exception:
+            # Release checks are best-effort. GitHub rate limits and temporary
+            # connectivity failures should not break the local desktop app.
+            return {'available':False,'checked':False,
+                    'reason':'Could not reach GitHub to check desktop releases; retry when online',
+                    'changed_files':[],'removed_files':[],
+                    'can_install':False,'can_download':False}
     try:
         result = updater.check()
     except updater.UpdateError as exc:
