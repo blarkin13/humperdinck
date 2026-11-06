@@ -22,8 +22,7 @@
       "nsis": {
         "installMode": "both",
         "installerIcon": "icons/icon.ico",
-        "uninstallerIcon": "icons/icon.ico",
-        "shortcutName": "Humperdinck"
+        "uninstallerIcon": "icons/icon.ico"
       }
     },
     "icon": [
