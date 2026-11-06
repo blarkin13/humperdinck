@@ -44,7 +44,8 @@ export default function Updates(){
    setInfo(j);stateRef.current='checked';setState('checked');
   }catch(e){
    setInfo(null);
-   setMsg(e.name==='AbortError'?'Update check timed out':e.message||'Could not check for updates');
+   // Tauri rejects with a plain string, not an Error.
+   setMsg(e?.name==='AbortError'?'Update check timed out':(typeof e==='string'?e:e?.message)||'Could not check for updates');
    stateRef.current='error';setState('error');
   }finally{clearTimeout(deadline);checkingRef.current=false}
  },[]);
@@ -84,7 +85,7 @@ export default function Updates(){
    setMsg(j.message);notify(j.message,j.installing?'info':'success');if(!j.installing){setState('checked');return}
    // Wait for the server to go down and come back, then load the new interface.
    let down=false;for(let i=0;i<180;i++){await wait(1000);try{const h=await fetch('/api/health',{cache:'no-store'});if(h.ok&&down){location.reload();return}if(!h.ok)down=true}catch{down=true}}
-   setMsg('Humperdinck has not come back yet. Check the terminal window, then reload this page.')}catch(e){setMsg('Update failed: '+e.message);setState('checked')}}
+   setMsg('Humperdinck has not come back yet. Check the terminal window, then reload this page.')}catch(e){setMsg('Update failed: '+(typeof e==='string'?e:e?.message));setState('checked')}}
  const files=formatUpdateFiles(info);
  return <div className="updates-control" ref={panelRef}>
   <button type="button" className="update-btn" aria-label={info?.available?'Update available · view update':'Check for updates'} title={info?.available?'Update available':'Check for updates'} aria-expanded={open} onClick={()=>{if(open)setOpen(false);else check(true)}} disabled={state==='installing'}><i className={'fa-solid '+(state==='checking'?'fa-arrows-rotate fa-spin':'fa-rotate')} aria-hidden="true"/>{info?.available&&<span className="update-available-dot" aria-hidden="true"/>}</button>
