@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import os
 import sys
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -20,6 +20,8 @@ from backend import updater
 from backend.audio_edit import AudioEdit, render
 from backend.jobs import JobStore
 from backend import catalog
+from backend import media_tools
+from backend import native_models
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
 from backend.curated_sounds import BY_SLUG,public_catalog
@@ -76,7 +78,48 @@ def health():
     return {'status':'ok', 'application':'humperdinck', 'version':'0.4.0', 'platform':catalog.platform_name(),
             'models':choice, 'design_ready':engines.installed(choice['design']['engine']),
             'clone_ready':engines.installed(choice['clone']['engine']),
-            'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status()}
+            'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status(),
+            'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'}
+
+class ServerSettingsInput(BaseModel):
+    port: int = Field(default=0, ge=0, le=65535)
+
+def server_settings_path():
+    return DATA / 'server-settings.json'
+
+@app.get('/api/server/settings')
+def get_server_settings():
+    path=server_settings_path()
+    try:
+        configured=json.loads(path.read_text()) if path.is_file() else {}
+    except (OSError, ValueError):
+        configured={}
+    port=configured.get('port',0)
+    if not isinstance(port,int) or (port!=0 and not (1024<=port<=65535)):
+        port=0
+    return {'preferred_port':port,'mode':'local',
+            'restart_required_after_change':True,'remote_access_enabled':False}
+
+@app.put('/api/server/settings')
+def save_server_settings(change: ServerSettingsInput):
+    if change.port!=0 and change.port<1024:
+        raise HTTPException(422,'Choose Auto (0) or a port between 1024 and 65535')
+    path=server_settings_path()
+    temporary=path.with_suffix('.tmp')
+    temporary.write_text(json.dumps({'port':change.port,'mode':'local'}))
+    temporary.replace(path)
+    return {'preferred_port':change.port,'saved':True,
+            'message':'Saved. Restart the desktop application to change the listening port.'}
+
+@app.get('/api/server/status')
+def server_status(request: Request):
+    """Report only the loopback service that serves this specific desktop UI."""
+    from urllib.parse import urlsplit
+    parsed=urlsplit(str(request.base_url))
+    return {'status':'running', 'mode':'local', 'url':str(request.base_url).rstrip('/'),
+            'port':parsed.port, 'host':'127.0.0.1',
+            'remote_access_enabled':False,
+            'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE')=='1'}
 
 @app.post('/api/engine/unload')
 def unload_engine():
@@ -1011,7 +1054,7 @@ def run_video_render(job_id,video_path,audio_path,request):
             filters=f'[1:a]adelay={delay}:all=1[n];[0:a][n]amix=inputs=2:duration=longest:normalize=0[a]'
         else:
             filters=f'[1:a]adelay={delay}:all=1[a]'
-        command=['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(video_path),'-i',str(audio_path),'-filter_complex',filters,'-map','0:v:0','-map','[a]','-c:v','libx264','-preset','veryfast','-crf','23','-c:a','aac','-b:a','192k','-movflags','+faststart','-shortest',str(output)]
+        command=['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(video_path),'-i',str(audio_path),'-filter_complex',filters,'-map','0:v:0','-map','[a]',*media_tools.video_encoder_args(),'-c:a','aac','-b:a','192k','-movflags','+faststart','-shortest',str(output)]
         subprocess.run(command,check=True,capture_output=True,text=True,timeout=3600)
         job.update(status='complete',progress=100,download_url=f'/api/outputs/{job_id}.mp4',message='Video ready')
     except Exception as exc:
@@ -1099,7 +1142,16 @@ class UpdateInstallRequest(BaseModel):
 @app.get('/api/updates/check')
 def check_updates():
     if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
-        return {'available': False, 'reason': 'Unsigned native test builds do not yet support binary updates'}
+        from backend import native_updates
+        try:
+            return native_updates.check()
+        except Exception:
+            # Release checks are best-effort. GitHub rate limits and temporary
+            # connectivity failures should not break the local desktop app.
+            return {'available':False,'checked':False,
+                    'reason':'Could not reach GitHub to check desktop releases; retry when online',
+                    'changed_files':[],'removed_files':[],
+                    'can_install':False,'can_download':False}
     try:
         result = updater.check()
     except updater.UpdateError as exc:
@@ -1151,13 +1203,18 @@ def list_models():
         engines_out.append({
             'id': engine_id, 'label': engine['label'], 'roles': engine['roles'], 'note': engine['note'],
             'supported': supported, 'installed': supported and engines.installed(engine_id),
+            'native_installable': (not (os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1')
+                                   or engine_id == 'kokoro'
+                                   or (engine_id in ('qwen-mlx','qwen-torch','piper') and supported)),
             'platforms': [{'darwin': 'macOS', 'win32': 'Windows', 'linux': 'Linux'}[p] for p in engine['platforms']],
             'requires_apple_silicon': bool(engine.get('requires_apple_silicon')),
             'models': [{'id': model_id, **info, 'downloaded': catalog.downloaded(model_id),
                         'tight': bool(memory and info['memory_gb'] > memory * 0.6)}
                        for model_id, info in engine['models'].items()]})
     return {'platform': catalog.platform_name(), 'memory_gb': round(memory, 1) if memory else None,
+            'shared_models': str(catalog.shared_models.model_home()),
             'native_package': os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1',
+            'ffmpeg_available': bool(shutil.which('ffmpeg')),
             'selected': settings.load(), 'engines': engines_out,
             'installing': next((j for j in [jobs.get(installing.get('job'))] if j and j.get('status') in ('queued','running')), None),
             'recent_install': jobs.get(installing.get('job')) if installing.get('job') else None}
@@ -1194,7 +1251,14 @@ def run_install(job_id, command):
                    if job.get('model') and job['engine'] == 'qwen-mlx'
                    else 'Installed and ready', log=log[-15:])
     except Exception as exc:
-        job.update(status='failed', message=f'Install failed: {exc}', log=log[-15:])
+        error_text = str(exc)
+        recent = "\n".join(log[-40:])
+        if any(token in recent.lower() for token in ("no space left on device", "os error 28", "disk quota exceeded")):
+            job.update(status='failed',
+                       message="Insufficient disk space for model download. Free space on the model-cache volume and retry; incomplete Hugging Face downloads may also be using space.",
+                       log=log[-15:])
+        else:
+            job.update(status='failed', message=f'Install failed: {error_text}', log=log[-15:])
     finally:
         install_lock.release()
 
@@ -1227,17 +1291,59 @@ def delete_model(request: ModelDelete):
             'message': 'Downloaded model files deleted.' if removed else 'No local model files found.'}
 
 
+def run_native_kokoro_install(job_id):
+    job = jobs[job_id]
+    try:
+        job.update(status='running', message='Downloading Kokoro weights into shared cache')
+        native_models.download_kokoro(lambda message: job.update(message=message))
+        if not catalog.downloaded('bm_george'):
+            raise RuntimeError('Required Kokoro files are still incomplete')
+        engines.forget('kokoro')
+        job.update(status='complete',progress=100,
+                   message='Kokoro is downloaded. Generate a short voice preview to test it.')
+    except Exception as exc:
+        job.update(status='failed', message=f'Kokoro download failed: {exc}')
+    finally:
+        install_lock.release()
+
+
 @app.post('/api/models/install')
 def install_model(request: ModelInstall):
     """Install an engine and/or download a model. Needs internet; runs in the background."""
-    if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
-        raise HTTPException(501, 'AI engine installation is not yet bundled with unsigned native test builds; use the existing source installer')
+    native = os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'
+    if native and request.engine != 'kokoro':
+        from backend import native_runtime
+        if not native_runtime.supported(request.engine):
+            raise HTTPException(501, 'This engine is not supported on this operating system')
     if request.engine not in catalog.ENGINES or not catalog.supported(request.engine):
         raise HTTPException(422, 'That engine is not available on this computer')
     if request.model and request.model not in catalog.ENGINES[request.engine]['models']:
         raise HTTPException(422, 'Unknown model for this engine')
     if not install_lock.acquire(blocking=False):
         raise HTTPException(409, 'Another installation is already running')
+    if native and request.engine in ('qwen-mlx', 'qwen-torch', 'piper'):
+        job_id = uuid4().hex
+        jobs[job_id] = {'job_id':job_id, 'status':'queued','progress':0,
+                        'message':'Preparing an isolated ' + request.engine + ' runtime',
+                        'engine':request.engine, 'model':request.model}
+        installing['job'] = job_id
+        command = [sys.executable, '--native-install-engine', request.engine]
+        if request.model:
+            command += ['--model', request.model]
+        Thread(target=run_install, args=(job_id, command), daemon=True).start()
+        return jobs[job_id]
+    if native:
+        voice = request.model or 'bm_george'
+        if voice not in catalog.PRESET_VOICES['kokoro']:
+            install_lock.release()
+            raise HTTPException(422, 'Unknown Kokoro voice')
+        job_id = uuid4().hex
+        jobs[job_id] = {'job_id':job_id,'status':'queued','progress':0,
+                        'message':'Waiting to download shared Kokoro weights',
+                        'engine':'kokoro','model':voice}
+        installing['job'] = job_id
+        Thread(target=run_native_kokoro_install, args=(job_id,), daemon=True).start()
+        return jobs[job_id]
     command = [sys.executable, str(ROOT/'scripts'/'install_engine.py'), request.engine]
     if request.model:
         command += ['--model', request.model]

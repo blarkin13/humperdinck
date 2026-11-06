@@ -28,6 +28,22 @@ unsigned test installer:
 Build artifacts appear on the workflow run; no GitHub Release is created, and
 no signing keys are required. macOS uses ad-hoc signing for testing only.
 
+**macOS library-validation fix:** The PyInstaller one-file server extracts its
+Python.framework into a temporary directory. Tauri's final app-signing step
+can leave that framework signed with a different identity than the server,
+causing macOS to reject it with `mapping process and mapped file ... have different Team IDs`.
+Tauri's macOS bundler currently applies the app entitlement but does
+**not** preserve it on the external PyInstaller sidecar. For the unsigned CI
+preview, the workflow mounts the DMG, copies the app, ad-hoc re-signs
+`Contents/MacOS/humperdinck-server` with the narrowly targeted
+`com.apple.security.cs.disable-library-validation` entitlement from
+`src-tauri/entitlements.plist`, re-signs the enclosing app, rebuilds the
+test DMG and verifies both its code signature and **real embedded Python
+startup from the final DMG**. This is not a substitute for Developer ID
+release signing or notarization; their final signing process also needs
+to preserve the helper entitlement. A successful server test alone does not
+prove the native GUI opens, so perform a Finder launch test as well.
+
 ## Local build prerequisites
 
 Build on the target OS (cross-compilation of a PyInstaller executable is not
@@ -39,7 +55,8 @@ cd frontend
 npm install --no-audit --no-fund
 npm run build
 cd ..
-python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7"
+python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7" "kokoro-onnx>=0.6,<1" "certifi>=2025.1"
+python scripts/prepare_native_voice_pack.py
 python scripts/build_native_sidecar.py --target <rust-target-triple>
 python scripts/smoke_native_server.py --target <rust-target-triple>
 cd desktop
@@ -53,12 +70,28 @@ Choose one target: `x86_64-pc-windows-msvc`,
 
 ## What still needs work
 
-**This starter package does not include the large inference engines or install
-them after installation.** In native builds, Models installation and the
-source-tree updater are deliberately disabled rather than pretending they work.
-The existing development/web install continues to offer Qwen, Kokoro and Piper.
-Before a user-ready native release, package and verify a per-platform model
-runtime, FFmpeg, optional model downloads, and proper updates/signatures.
+**The native preview includes the lightweight Kokoro ONNX CPU runtime.**
+Model weights are not bundled. Download a Kokoro voice in Models once to the
+shared cache, then preset narration can run in native and browser interfaces.
+All seven approved **Built-In Humperdinck Voices** reference samples are now
+bundled directly with native installers. They are imported on first launch into
+per-user voice storage (without overwriting, restoring deletions, or exposing
+source recordings). The native app hides the pack-publishing tools, which are
+for the source/developer installation. These are Qwen reference clips, not independent models. Apple Silicon
+installations can install a **separate Qwen MLX Base** engine and checkpoint
+through Models, using an isolated managed Python 3.12 runtime under per-user
+Humperdinck data. The installer bundles uv and worker Python sources, not
+Qwen model weights. Piper can likewise be installed in an isolated runtime.
+Qwen PyTorch can also be installed into a separate per-user native runtime on
+macOS, Windows and Linux through Models; it does not need to be embedded in
+the replaceable app bundle. On Apple Silicon, MLX is preferred, while PyTorch
+can be slower and consume more RAM. Qwen install and actual synthesis remain
+experimental until validated on each supported OS and hardware tier.
+Qwen custom cloning/design and GPL-licensed Piper are not in the native
+runtime yet. The source-code updater is disabled in native packages. Native
+WAV output can work without FFmpeg, but MP3/video exports require it.
+Real-device audio testing, other engines, binary updates, and signing remain
+release gates.
 
 Other release gates: real audio-generation smoke tests, migration/backup of an
 existing `data/` folder, production-grade one-instance handling, signing,
@@ -66,3 +99,131 @@ macOS notarization, clean install/uninstall, and reliable upgrade behavior.
 
 Do not expose the bundled localhost API to other computers as a shortcut to
 phone/tablet access.
+
+## Shared model storage
+
+Native and browser/source installs under the **same operating-system user**
+share model weights. Existing Qwen weights are already cached in the Hugging
+Face Hub. Kokoro and Piper are now stored under:
+
+- `~/.cache/huggingface/humperdinck/presets/kokoro/`
+- `~/.cache/huggingface/humperdinck/presets/piper/`
+
+If `HF_HOME` or `XDG_CACHE_HOME` is configured, those existing settings
+take precedence. Set `HUMPERDINCK_MODEL_HOME` to use a custom shared root,
+including its Hugging Face `hub/` directory. A source/browser launch safely
+copies older `data/models/` presets into the shared location once, keeping
+the source files and user projects intact.
+
+This shares **model weights, not model runtimes**. The native engine runtime
+still needs the next packaging phase; model compatibility is checked per OS.
+
+## Bundled FFmpeg and ffprobe (license gate)
+
+FFmpeg is not inherently incompatible with commercial apps, but the exact
+distributed executable, configure flags, dependencies, and corresponding
+source must satisfy its LGPL license. The desktop build supports **optional
+vetted binaries**, keeping this review separate from core UI/server packaging.
+
+Provide a `--ffmpeg-dir` containing:
+- `ffmpeg` and `ffprobe` (or `.exe` on Windows), matched to the build OS;
+- `COPYING.LGPLv2.1`, the corresponding license text;
+- `ffmpeg-bundle.json` containing `license` (LGPL-2.1-or-later or
+  LGPL-3.0-or-later), `source_url` pointing to **the exact corresponding source**,
+  `build_configuration` copied from `ffmpeg -buildconf`, and `sha256` with
+  individual hex digests for `ffmpeg` and `ffprobe`.
+
+For example:
+```sh
+python scripts/build_native_sidecar.py --target aarch64-apple-darwin \
+    --ffmpeg-dir /path/to/reviewed-ffmpeg
+```
+
+The packager refuses GPL/nonfree-enabled configurations, missing source
+provenance, and hash mismatches. Executables and license metadata are placed
+inside the sidecar; it adds their private directory to PATH at runtime, so
+existing FFmpeg calls work without a system installation. A bundled
+**LGPL-only build may omit libx264**; Video Studio falls back to FFmpeg's
+built-in MPEG-4 Part 2 encoder when H.264 is unavailable.
+
+**Before publishing a customer build:** document exact build flags and source
+distribution, provide FFmpeg source and required notices, verify runtime codec
+support and licenses of linked libraries, and test each OS. CI currently builds
+the unsigned shell **without** bundled FFmpeg until reviewed executables are
+provided. Do not infer that system-installed or random downloaded FFmpeg
+binaries are automatically safe to redistribute.
+
+## OS installation locations
+
+- Windows NSIS prompts for current-user installation under LocalAppData or
+  all-users installation under Program Files (requires administrator rights).
+- macOS uses a DMG that installs Humperdinck.app in Applications.
+- Linux DEB installs application executables and desktop entries in the normal
+  system directories, not under /home. Per-user data stays in the home directory.
+
+All three editions keep model weights outside their replaceable application
+files. The shared default follows the existing user Hugging Face cache.
+
+
+### Included Sound Effects
+
+Every native Windows, macOS and Linux package includes the pinned 9-recording
+`nature-sounds-v1` curated CC0 release ZIP. The final sidecar validates the
+SHA256-pinned archive and imports it on startup using the same authenticated
+sound-pack import code as the source-based app. Existing user recordings are
+preserved; already installed curated sounds are not duplicated. The native
+smoke test requires all nine curated effects to appear in `/api/sound-effects`.
+The downloadable native package includes the audio, not just a sound list.
+
+At build time, the released CC0 originals are SHA256-verified and converted
+with a build-only FFmpeg to mono 24kHz PCM WAV, then re-packed. This normalized
+archive is what ships inside the native app. No FFmpeg binary is needed to
+seed the nine recordings on first launch, although users' compressed sound
+uploads still require FFmpeg for transcoding.
+
+
+## Verified binary self-updates (signed releases)
+
+The **Updates** icon now prefers the native Tauri updater when a build has a
+baked-in `HUMPERDINCK_UPDATER_PUBKEY`. It checks the signed desktop update
+manifest at `https://github.com/blarkin13/humperdinck/releases/latest/download/latest.json`.
+Every automatic install requires the updater's cryptographic signature to be
+valid, and requires the user's explicit approval. Never auto-run an unsigned
+GitHub installer. The public key must match the private key used when publishing
+that version. Signatures are verified by the Tauri updater plugin.
+
+To build a signed update release (not yet enabled by default in CI):
+
+1. Generate an update signer key with `npx tauri signer generate -w ~/.tauri/humperdinck.key`.
+2. Store the **private** key and its password in secure GitHub Actions secrets.
+   Do not commit them or send them in chat.
+3. Build with `HUMPERDINCK_UPDATER_PUBKEY` containing the public key,
+   `TAURI_SIGNING_PRIVATE_KEY` containing the private key,
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` when applicable, and pass
+   `--config src-tauri/tauri.signed-updater.json` to the Tauri CLI.
+4. Publish the new binary packages, corresponding generated `.sig` files, and
+   `latest.json` with the version and `darwin-aarch64`, `windows-x86_64`,
+   and `linux-x86_64` entries on the GitHub **desktop** release.
+5. Increment both `desktop/src-tauri/Cargo.toml` and `tauri.conf.json` to the
+   new SemVer; otherwise the updater sees no newer version.
+
+Existing unsigned preview installers have no embedded public key, therefore
+cannot use in-place self-update. They check GitHub's public desktop releases
+and offer a platform installer download. After users manually install a signed
+release, they can receive future signed in-app updates. Developer CI still
+builds the unsigned preview without private keys or `createUpdaterArtifacts`.
+
+**macOS packaging warning:** because the PyInstaller helper is re-signed after
+Tauri packaging, ensure any signed updater `.app.tar.gz` and its signature are
+regenerated from the **final properly signed app**, not an earlier archive.
+Never publish a signature for a different version of the Mac bundle.
+
+
+Generate `latest.json` only **after** signed updater bundles for all three
+platforms and their `.sig` files have been built and verified:
+
+`python scripts/make_native_update_manifest.py --version X.Y.Z --darwin_aarch64_asset path/to/app.tar.gz --darwin_aarch64_signature path/to/app.tar.gz.sig --windows_x86_64_asset path/to/setup.exe --windows_x86_64_signature path/to/setup.exe.sig --linux_x86_64_asset path/to/app.AppImage --linux_x86_64_signature path/to/app.AppImage.sig`
+
+Upload `latest.json` to the latest GitHub desktop release alongside the exact
+referenced update bundles. On Linux, the Tauri updater installs **AppImage**
+packages; `.deb` remains a manual installer and is not an in-app update bundle.

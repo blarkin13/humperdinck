@@ -11,6 +11,7 @@ import DropZone from './DropZone.jsx';
 import AudioEditor from './AudioEditor.jsx';
 import VoiceGrid,{ago} from './VoiceGrid.jsx';
 import Updates from './Updates.jsx';
+import ServerSettings from './ServerSettings.jsx';
 import Recorder from './Recorder.jsx';
 import Models from './Models.jsx';
 import ThemePicker from './ThemePicker.jsx';
@@ -61,10 +62,12 @@ async function api(path,options){if(PUBLIC_STUDIO)throw Error('This feature requ
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function App(){
  const {notify,confirm:askConfirm,input:askInput}=useNotifications();
+ const [nativePackage,setNativePackage]=useState(null);
+ const [serverSettingsOpen,setServerSettingsOpen]=useState(false);
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
- const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[effectPicker,setEffectPicker]=useState(null),[ambiencePicker,setAmbiencePicker]=useState(false),[ambience,setAmbience]=useState(null),[format]=useState('mp3'),[downloadOpen,setDownloadOpen]=useState(false),[narrationJob,setNarrationJob]=useState(null),[wholeAudio,setWholeAudio]=useState(null),[wholeAudible,setWholeAudible]=useState(false),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[videoPreviewMode,setVideoPreviewMode]=useState('source'),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
- const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null),wholeAudioRef=useRef(null),wholeCompletedRef=useRef(null),downloadWrapRef=useRef(null);
+ const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[effectPicker,setEffectPicker]=useState(null),[ambiencePicker,setAmbiencePicker]=useState(false),[ambience,setAmbience]=useState(null),[format]=useState('mp3'),[downloadOpen,setDownloadOpen]=useState(false),[wholeMenuOpen,setWholeMenuOpen]=useState(false),[narrationJob,setNarrationJob]=useState(null),[wholeAudio,setWholeAudio]=useState(null),[wholeAudible,setWholeAudible]=useState(false),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[videoPreviewMode,setVideoPreviewMode]=useState('source'),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
+ const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null),wholeAudioRef=useRef(null),wholeCompletedRef=useRef(null),downloadWrapRef=useRef(null),narrationBusyRef=useRef(false);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[accent,setAccent]=useState(''),[style,setStyle]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
  useEffect(()=>{
   if(!status)return;
@@ -74,6 +77,8 @@ function App(){
  },[status,notify]);
  async function refresh(){try{if(PUBLIC_STUDIO){setDesigned([]);setUploads([]);setPresets(PUBLIC_VOICES);return}const [d,u,p]=await Promise.all([api('designed-voices'),api('voices'),api('preset-voices')]);setDesigned(d);setUploads(u);setPresets(p)}catch(e){setStatus(e.message)}}
  useEffect(()=>{refresh()},[]);
+ // Publishing curated starter packs is an authoring tool, not a native end-user control.
+ useEffect(()=>{if(!PUBLIC_STUDIO)api('health').then(h=>setNativePackage(!!h.native_package)).catch(()=>{});},[]);
  // Read new preset downloads when returning from Models to Narration Studio.
  useEffect(()=>{if(tab==='narration'||tab==='voices')refresh()},[tab]);
  useEffect(()=>{if(!previewJob||!['queued','running'].includes(previewJob.status))return;const timer=setInterval(async()=>{try{const j=await api('jobs/'+previewJob.job_id);setPreviewJob({...j,design_instruction:previewJob.design_instruction,design_model:previewJob.design_model});if(j.status==='complete'){setCandidates(old=>old.some(c=>c.job_id===j.job_id)?old:[...old,{...j,recipe:previewJob.recipe,design_instruction:previewJob.design_instruction,design_model:previewJob.design_model}]);setChosen(j.job_id);setStatus('Preview ready. Listen and select your favorite.')}else if(j.status==='failed')setStatus(j.message)}catch(e){setStatus(e.message)}},1000);return()=>clearInterval(timer)},[previewJob?.job_id,previewJob?.status]);
@@ -176,10 +181,6 @@ function App(){
    const duplicated={...original,id:makeSection().id};
    return [...old.slice(0,index+1),duplicated,...old.slice(index+1)];
   });
-  setSectionMenu(null);
- }
- function resetSectionAudio(id){
-  setSectionAudio(old=>{const copy={...old};delete copy[id];return copy});
   setSectionMenu(null);
  }
  useEffect(()=>{
@@ -287,13 +288,13 @@ function App(){
  }
  function removeBlock(id){setBlocks(old=>old.length>1?old.filter(b=>b.id!==id):old);if(activePreview===id)setActivePreview(blocks.find(b=>b.id!==id)?.id||1)}
  useEffect(()=>{
-  if(!downloadOpen)return;
-  const dismiss=e=>{if(downloadWrapRef.current&&!downloadWrapRef.current.contains(e.target))setDownloadOpen(false)};
-  const onKey=e=>{if(e.key==='Escape')setDownloadOpen(false)};
+  if(!downloadOpen&&!wholeMenuOpen)return;
+  const dismiss=e=>{if(downloadWrapRef.current&&!downloadWrapRef.current.contains(e.target)){setDownloadOpen(false);setWholeMenuOpen(false)}};
+  const onKey=e=>{if(e.key==='Escape'){setDownloadOpen(false);setWholeMenuOpen(false)}};
   document.addEventListener('pointerdown',dismiss);
   document.addEventListener('keydown',onKey);
   return()=>{document.removeEventListener('pointerdown',dismiss);document.removeEventListener('keydown',onKey)};
- },[downloadOpen]);
+ },[downloadOpen,wholeMenuOpen]);
  const fullNarrationSignature=JSON.stringify([format,blocks.map(b=>[b.text,b.voice_key,sectionDelay(b.delay_after),(b.effects||[]).map(e=>[e.sound_id,e.position,e.volume,e.fade_in,e.fade_out,e.loop,e.ending,e.ducking])]),ambience]);
  function stopWholeNarration(){
   const player=wholeAudioRef.current;
@@ -308,18 +309,34 @@ function App(){
   player.currentTime=0;
   player.play().then(()=>setWholeAudible(true)).catch(()=>setStatus('Playback was blocked. Click Play again.'));
  }
+ async function clearNarration(){
+  if(!await askConfirm('Clear the entire narration, including all sections and their generated audio? This cannot be undone.',{title:'Clear narration',confirmLabel:'Clear narration',danger:true}))return;
+  stopWholeNarration();stopSection();
+  setWholeMenuOpen(false);setDownloadOpen(false);
+  const blank=makeSection();
+  playSequence.current+=1;pendingSignature.current=null;wholeCompletedRef.current=null;
+  if(wholeAudioRef.current){wholeAudioRef.current.pause();wholeAudioRef.current.removeAttribute('src');wholeAudioRef.current.load()}
+  if(hiddenAudio.current){hiddenAudio.current.pause();hiddenAudio.current.removeAttribute('src');hiddenAudio.current.load()}
+  setBlocks([blank]);setActivePreview(blank.id);setSectionAudio({});setSectionJob(null);setSectionPlayingId(null);setSectionPlayError(null);
+  setWholeAudio(null);setWholeAudible(false);setNarrationJob(null);setAmbience(null);setEffectPicker(null);setSectionMenu(null);setSectionPopover(null);
+  narrationBusyRef.current=false;
+  setStatus('Narration cleared');
+ }
  async function generateNarration(forceNew=false){
   if(wholeAudible){stopWholeNarration();if(!forceNew)return}
-  if(narrationJob&&['queued','running'].includes(narrationJob.status))return;
+  if(narrationBusyRef.current||narrationJob&&['queued','running'].includes(narrationJob.status))return;
   if(!forceNew&&wholeAudio?.signature===fullNarrationSignature){playWholeNarration(wholeAudio.url);return}
   try{
    if(blocks.some(b=>!spokenText(b.text)||!b.voice_key))throw Error('Every section needs text and a narrator');
    stopWholeNarration();
+   narrationBusyRef.current=true;
+   setNarrationJob({status:'queued',message:'Preparing narration…',progress:0,signature:fullNarrationSignature});
    const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:spokenText(b.text),voice_key:b.voice_key,delay_after:sectionDelay(b.delay_after),effects:(b.effects||[]).map(e=>({sound_id:e.sound_id,position:e.position,volume:e.volume,fade_in:e.fade_in||0,fade_out:e.fade_out||0,loop:e.loop||false,ending:e.ending||'section',ducking:e.ducking??1}))})),format,ambience:ambience?{sound_id:ambience.sound_id,volume:ambience.volume,ducking:ambience.ducking,fade_in:ambience.fade_in,fade_out:ambience.fade_out}:null}));
    wholeCompletedRef.current=null;
    setNarrationJob({...j,signature:fullNarrationSignature});
    setStatus('Generating narration...');
-  }catch(e){setStatus(e.message)}
+  }catch(e){setNarrationJob(old=>old?.job_id?old:null);setStatus(e.message)}
+  finally{narrationBusyRef.current=false}
  }
  useEffect(()=>{
   if(narrationJob?.status!=='complete'||!narrationJob.download_url||wholeCompletedRef.current===narrationJob.job_id)return;
@@ -333,10 +350,11 @@ function App(){
  },[fullNarrationSignature,wholeAudible,wholeAudio?.signature]);
 
  async function renderVideo(){try{if(!video||narrationJob?.status!=='complete')throw Error('Upload a video and generate narration first');const j=await api('video-renders',json('POST',{video_id:video.video_id,narration_job_id:narrationJob.job_id,start_seconds:Number(offset),keep_original_audio:mix}));setVideoJob(j);setStatus('Rendering video...')}catch(e){setStatus(e.message)}}
- return <main>{PUBLIC_STUDIO&&<div className="public-app-banner">Browser Studio · Six built-in voices. Custom voice creation, uploads, multi-voice rendering and installs require the desktop app. <a href="/#download">Download info</a> <span className="public-build-version">Build {import.meta.env.VITE_BUILD_ID||'development'}</span></div>}<header><div className="brand"><img src={PUBLIC_STUDIO?"/studio/brand-mark.png":"/brand-mark.png"} alt="" className="brand-mark brand-mark-vintage"/><img src={PUBLIC_STUDIO?"/studio/modern-logo-dark.png":"/modern-logo-dark.png"} alt="" className="brand-mark brand-mark-modern"/><img src={PUBLIC_STUDIO?"/studio/modern-logo-light.png":"/modern-logo-light.png"} alt="" className="brand-mark brand-mark-light"/><div><h1>Humperdinck</h1><small>A modern vintage recording studio</small></div></div><div className="header-actions"><ThemePicker/>{PUBLIC_STUDIO?<><a className="public-app-download" href="/#download">Get desktop app</a><a className="public-app-home" href="/">Website</a></>:<Updates/>}<span className="local"><i className="fa-solid fa-circle"/> {PUBLIC_STUDIO?'Browser preview':'On air · local'}</span></div></header>
+ return <main>{PUBLIC_STUDIO&&<div className="public-app-banner">Browser Studio · Six built-in voices. Custom voice creation, uploads, multi-voice rendering and installs require the desktop app. <a href="/#download">Download info</a> <span className="public-build-version">Build {import.meta.env.VITE_BUILD_ID||'development'}</span></div>}<header><div className="brand"><img src={PUBLIC_STUDIO?"/studio/brand-mark.png":"/brand-mark.png"} alt="" className="brand-mark brand-mark-vintage"/><img src={PUBLIC_STUDIO?"/studio/modern-logo-dark.png":"/modern-logo-dark.png"} alt="" className="brand-mark brand-mark-modern"/><img src={PUBLIC_STUDIO?"/studio/modern-logo-light.png":"/modern-logo-light.png"} alt="" className="brand-mark brand-mark-light"/><div><h1>Humperdinck</h1><small>A modern vintage recording studio</small></div></div><div className="header-actions"><ThemePicker/>{!PUBLIC_STUDIO&&<button type="button" className="header-server-icon" aria-label="Server settings" title="Local server settings" onClick={()=>setServerSettingsOpen(true)}><i className="fa-solid fa-server" aria-hidden="true"/></button>}{PUBLIC_STUDIO?<><a className="public-app-download" href="/#download">Get desktop app</a><a className="public-app-home" href="/">Website</a></>:<Updates/>}<span className="local"><i className="fa-solid fa-circle"/> {PUBLIC_STUDIO?'Browser preview':'On air · local'}</span></div></header>
+ {serverSettingsOpen&&<ServerSettings onClose={()=>setServerSettingsOpen(false)}/>}
  <nav>{[['voices','Voice Library','fa-record-vinyl'],['creator','Voice Creator','fa-wand-magic-sparkles'],['narration','Narration Studio','fa-sliders'],['video','Video Studio','fa-film'],['effects','Sound Effects','fa-music'],['models','Models','fa-microchip']].map(([id,label,icon])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><i className={'fa-solid '+icon}/> {label}</button>)}</nav>
  {tab==='voices'&&<section><div className="heading"><div><h2>Voice Library</h2><p>Browse built-in and saved voices. Select a built-in voice for narration or edit your own voices in Voice Creator.</p></div><button className="primary" onClick={()=>{newVoice();setMethod('controls');setTab('creator')}}><i className="fa-solid fa-plus"/> New voice</button></div>
- <VoiceGrid builtinPublisher={!PUBLIC_STUDIO?<StarterVoicePack api={api} voices={uploads}/>:null} previewDisabled={PUBLIC_STUDIO} onPreviewVoice={PUBLIC_STUDIO?(v)=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration')}:undefined} onCreate={()=>{newVoice();setMethod("controls");setTab("creator")}} items={[...presets.map(v=>({key:v.key,voiceKey:v.key,method:'preset',name:v.name,category:'Built-in · '+v.accent.split(' · ')[0],ready:true,status:'Ready for narration',summary:v.accent,traits:[v.accent],specs:[],onOpen:()=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration');}})),...designed.map(v=>({key:'d'+v.id,voiceKey:'design:'+v.id,method:v.method||'designed',name:v.name,category:'My Voices',selected:selected===v.id,ready:!!v.narration_sample_id,
+ <VoiceGrid builtinPublisher={!PUBLIC_STUDIO&&nativePackage===false?<StarterVoicePack api={api} voices={uploads}/>:null} previewDisabled={PUBLIC_STUDIO} onPreviewVoice={PUBLIC_STUDIO?(v)=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration')}:undefined} onCreate={()=>{newVoice();setMethod("controls");setTab("creator")}} items={[...presets.map(v=>({key:v.key,voiceKey:v.key,method:'preset',name:v.name,category:'Built-in · '+v.accent.split(' · ')[0],ready:true,status:'Ready for narration',summary:v.accent,traits:[v.accent],specs:[],onOpen:()=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration');}})),...designed.map(v=>({key:'d'+v.id,voiceKey:'design:'+v.id,method:v.method||'designed',name:v.name,category:'My Voices',selected:selected===v.id,ready:!!v.narration_sample_id,
   status:v.narration_sample_id?'Ready · v'+v.narration_version+' approved':'Draft · v'+v.active_version,summary:voiceSummary(v),
   meters:['pitch','rasp','pace','warmth'].map(k=>[traitLabels[k][0],v.characteristics?.[k]??50,traitLabels[k][1],traitLabels[k][2]]),
   specs:[['fa-solid fa-code-branch',v.version_count,'Versions'],['fa-solid fa-compact-disc',v.sample_count,'Preview takes'],['fa-regular fa-calendar',ago(v.updated_at),'Last changed']],
@@ -388,12 +406,6 @@ function App(){
        <button type="button" className="icon-action section-play" aria-label={(sectionPlayingId===b.id?'Generating':audibleSectionId===b.id?'Stop':sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionPlayingId===b.id?'Generating audio':audibleSectionId===b.id?'Stop playback':sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated audio':'Generate section audio')+(b.voice_key?'':' · select a narrator first')} disabled={sectionPlayingId!==null} onClick={()=>playSection(b)}>
         <i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':audibleSectionId===b.id?'fa-stop':'fa-play')} aria-hidden="true"/>
        </button>
-       <button type="button" className="icon-action section-regenerate" aria-label={'Regenerate new take for section '+(i+1)}
-        title="Generate a fresh take using the same text and voice"
-        disabled={sectionPlayingId!==null||!b.voice_key||!spokenText(b.text)}
-        onClick={()=>playSection(b,true)}>
-        <i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':'fa-arrows-rotate')} aria-hidden="true"/>
-       </button>
        <div className="section-floating-wrap section-speed-wrap" data-section-floating-control>
         <button type="button" className="icon-action section-speed" onClick={()=>toggleSectionPopover(b.id,'speed')} title="Adjust playback speed" aria-expanded={sectionPopover?.id===b.id&&sectionPopover.type==='speed'} aria-label={'Playback speed '+Number((sectionSpeed[b.id]||1).toFixed(2))+' times. Adjust speed'}>
           <i className="fa-solid fa-gauge-high" aria-hidden="true"/><span>{Number((sectionSpeed[b.id]||1).toFixed(2))}x</span>
@@ -429,8 +441,8 @@ function App(){
        <div className="section-menu-wrap" data-section-floating-control>
         <button type="button" className="icon-action" aria-label={'More options for section '+(i+1)} title="More options" aria-expanded={sectionMenu===b.id} onClick={()=>{setSectionPopover(null);setSectionMenu(old=>old===b.id?null:b.id)}}><i className="fa-solid fa-ellipsis-vertical" aria-hidden="true"/></button>
         {sectionMenu===b.id&&<div className="section-options-menu">
+         <button type="button" disabled={sectionPlayingId!==null||!b.voice_key||!spokenText(b.text)} onClick={()=>{setSectionMenu(null);playSection(b,true)}}><i className="fa-solid fa-arrows-rotate" aria-hidden="true"/> Regenerate section</button>
          <button type="button" onClick={()=>duplicateSection(i)}><i className="fa-regular fa-copy" aria-hidden="true"/> Duplicate section</button>
-         {sectionAudio[b.id]?.signature===audioSignature(b)&&<button type="button" onClick={()=>resetSectionAudio(b.id)}><i className="fa-solid fa-rotate" aria-hidden="true"/> Regenerate audio</button>}
          {blocks.length>1&&<button type="button" className="section-options-remove" onClick={()=>{removeBlock(b.id);setSectionMenu(null)}}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Delete section</button>}
         </div>}
        </div>
@@ -482,7 +494,7 @@ function App(){
  })()}
  <audio ref={hiddenAudio} className="hidden-section-audio" aria-hidden="true" preload="auto" onPlay={e=>setAudibleSectionId(Number(e.currentTarget.dataset.sectionId)||null)} onPause={()=>setAudibleSectionId(null)} onEnded={()=>setAudibleSectionId(null)}/>
  {PUBLIC_STUDIO&&<BrowserKokoro voices={PUBLIC_VOICES.map(v=>[v.key,v.name,v.accent])} voice={blocks.find(b=>b.id===activePreview)?.voice_key||''} text={blocks.find(b=>b.id===activePreview)?.text||''} sectionNumber={Math.max(1,blocks.findIndex(b=>b.id===activePreview)+1)} compact playRequest={playSectionRequest} onPlaybackState={(id,state)=>{if(state==='ready'||state==='error'||state==='idle')setSectionPlayingId(old=>old===id?null:old);else if(state==='generating')setSectionPlayingId(id)}} onSectionAudio={(id,url)=>{if(id===null)return;const pending=pendingSignature.current;if(pending?.sectionId!==id)return;setSectionAudio(old=>({...old,[id]:{signature:pending.signature,url}}));replaySection(url,id)}} onSectionError={(id,message)=>setSectionPlayError({id,message})} />}
- {!PUBLIC_STUDIO&&<div className="actions narration-export-actions"><div className="narration-download-wrap" ref={downloadWrapRef}>
+ {!PUBLIC_STUDIO&&<div className="actions narration-export-actions" ref={downloadWrapRef}><div className="narration-download-wrap">
  <button type="button" className="narration-download-trigger" title="Download narration" aria-label="Download narration · MP3 or WAV" aria-haspopup="true" aria-expanded={downloadOpen} onClick={()=>setDownloadOpen(old=>!old)}><i className="fa-solid fa-download" aria-hidden="true"/></button>
  {downloadOpen&&<div className="narration-download-popover" role="group" aria-label="Download narration format">
    <div className="narration-download-heading">Download audio</div>
@@ -493,11 +505,13 @@ function App(){
     return available?<a className="narration-download-option" href={href} download={'humperdinck-narration.'+type} key={type} onClick={()=>setDownloadOpen(false)}><i className="fa-solid fa-file-audio" aria-hidden="true"/><span><strong>{type.toUpperCase()}</strong><small>{type==='mp3'?'Smaller, widely compatible file':'Uncompressed, best for editing'}</small></span><i className="fa-solid fa-download" aria-hidden="true"/></a>:<div className="narration-download-option unavailable" key={type} aria-disabled="true"><i className="fa-solid fa-file-audio" aria-hidden="true"/><span><strong>{type.toUpperCase()}</strong><small>{type==='mp3'?'Generate audio to download MP3':'Generate audio to download WAV'}</small></span></div>
    })}
  </div>}
- </div><button type="button" className="narration-regenerate" disabled={!voiceOptions.length||PUBLIC_STUDIO||['queued','running'].includes(narrationJob?.status)}
- title="Generate a fresh version of the complete narration, including sound effects"
- aria-label="Regenerate complete narration" onClick={()=>generateNarration(true)}>
- <i className="fa-solid fa-arrows-rotate" aria-hidden="true"/> <span>Regenerate</span>
- </button><button type="button" className="primary narration-full-play" aria-label={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} title={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} onClick={()=>generateNarration()} disabled={!voiceOptions.length||(['queued','running'].includes(narrationJob?.status))}><i className={'fa-solid '+(['queued','running'].includes(narrationJob?.status)?'fa-spinner fa-spin':wholeAudible?'fa-stop':'fa-play')} aria-hidden="true"/></button><audio ref={wholeAudioRef} className="hidden-section-audio" preload="auto" aria-hidden="true" onPlay={()=>setWholeAudible(true)} onPause={()=>setWholeAudible(false)} onEnded={()=>setWholeAudible(false)}/></div>}
+ </div><div className="narration-whole-options" data-section-floating-control>
+ <button type="button" className="narration-whole-menu-trigger" aria-label="More options for entire narration" title="Narration options" aria-expanded={wholeMenuOpen} aria-haspopup="true" onClick={()=>{setDownloadOpen(false);setWholeMenuOpen(open=>!open)}}><i className="fa-solid fa-ellipsis-vertical" aria-hidden="true"/></button>
+ {wholeMenuOpen&&<div className="section-options-menu narration-whole-menu" role="menu">
+  <button type="button" role="menuitem" disabled={!voiceOptions.length||['queued','running'].includes(narrationJob?.status)} onClick={()=>{setWholeMenuOpen(false);generateNarration(true)}}><i className="fa-solid fa-arrows-rotate" aria-hidden="true"/> Regenerate entire narration</button>
+  <button type="button" role="menuitem" className="section-options-remove" disabled={narrationBusyRef.current||['queued','running'].includes(narrationJob?.status)} onClick={()=>clearNarration()}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Clear narration</button>
+ </div>}
+ </div><button type="button" className="primary narration-full-play" aria-label={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} title={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} onClick={()=>generateNarration()} disabled={!voiceOptions.length||(['queued','running'].includes(narrationJob?.status))}><i className={'fa-solid '+(['queued','running'].includes(narrationJob?.status)?'fa-spinner fa-spin':wholeAudible?'fa-stop':'fa-play')} aria-hidden="true"/></button><audio ref={wholeAudioRef} className="hidden-section-audio" preload="auto" aria-hidden="true" onPlay={()=>setWholeAudible(true)} onPause={()=>setWholeAudible(false)} onEnded={()=>setWholeAudible(false)}/></div>}
  {PUBLIC_STUDIO&&<p className="hint">The browser generates one selected section at a time. To export a combined multi-speaker narration, use the desktop app.</p>}
  {narrationJob&&<div className="job"><p>{narrationJob.message}</p><progress max="100" value={narrationJob.progress}/>{narrationJob.status==='complete'&&<><button onClick={()=>setTab('video')}>Add to Video →</button>
   <AudioEditor src={narrationJob.download_url.replace(/\.mp3$/,'.wav')} source={'output:'+narrationJob.job_id} saveLabel="Apply edits" onSaved={j=>{setNarrationJob({...j,job_id:j.download_url.split('/').pop().split('.')[0]});setStatus('Edited narration ready. Video Studio will use this version.')}}/></>}</div>}</section>}
@@ -555,4 +569,16 @@ function App(){
  {tab==='models'&&(PUBLIC_STUDIO?<section><h2>Models</h2><p>Download Humperdinck to install and manage local voice models.</p><div className="panel"><h3>Built-in voices</h3><p>The browser preview offers six voices. Other models and downloads are available in the desktop app.</p><button disabled>Install / Download · desktop only</button></div></section>:<Models/>)}
  </main>
 }
-createRoot(document.getElementById('root')).render(<NotificationProvider><App/></NotificationProvider>);
+// If the React bundle crashes, display a readable error rather than leaving
+// the dark background and an apparently empty Windows native window.
+class StartupErrorBoundary extends React.Component {
+ constructor(props){super(props);this.state={error:null}}
+ static getDerivedStateFromError(error){return {error}}
+ componentDidCatch(error,info){console.error('Humperdinck UI startup failed',error,info)}
+ render(){
+  if(this.state.error)return <main role="alert"><h2>Humperdinck could not load its interface</h2><p>Try Open in Browser from the Humperdinck app menu. The desktop Startup Log also records WebView navigation and backend failures.</p><pre style={{whiteSpace:'pre-wrap'}}>{String(this.state.error.message||this.state.error)}</pre></main>;
+  return this.props.children;
+ }
+}
+function ClearStartupHelp(){useEffect(()=>{document.getElementById('startup-help')?.remove()},[]);return null}
+createRoot(document.getElementById('root')).render(<StartupErrorBoundary><NotificationProvider><ClearStartupHelp/><App/></NotificationProvider></StartupErrorBoundary>);

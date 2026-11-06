@@ -15,6 +15,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 from backend import updater  # noqa: E402  (stdlib only, safe before dependencies)
+from backend.shared_models import import_legacy_presets, configure_hf_home  # noqa: E402
 
 py = root/'.venv'/('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
 npm = 'npm.cmd' if sys.platform == 'win32' else 'npm'
@@ -106,6 +107,15 @@ def ensure_backend_packages():
 reinstall_dependencies()
 ensure_backend_packages()
 check_on_launch()
+# Preserve existing browser installs: copy old presets to the per-user shared
+# model cache before bootstrap can attempt to download them again.
+configure_hf_home()
+try:
+    imported = import_legacy_presets(root / 'data')
+    if imported:
+        say(f'Imported {len(imported)} preset model file(s) into shared model storage.')
+except OSError as exc:
+    say(f'Existing preset model migration could not finish: {exc}')
 # New and upgraded installs receive CPU narration voices automatically once.
 # Never prevent the app from opening when first-time downloads are unavailable.
 if os.environ.get('HUMPERDINCK_SKIP_PRESET_BOOTSTRAP') != '1':

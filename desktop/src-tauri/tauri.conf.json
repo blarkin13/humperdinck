@@ -8,6 +8,7 @@
   },
   "app": {
     "windows": [],
+    "withGlobalTauri": true,
     "security": {
       "csp": null
     }
@@ -18,6 +19,17 @@
     "externalBin": [
       "binaries/humperdinck-server"
     ],
+    "macOS": {
+      "entitlements": "entitlements.plist",
+      "infoPlist": "Info.plist"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "both",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

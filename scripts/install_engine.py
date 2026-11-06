@@ -18,6 +18,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 from backend.catalog import ENGINES, supported, preset_path  # noqa: E402
+from backend.shared_models import configure_hf_home  # noqa: E402
 
 # Official PyTorch 2.15.x wheels are published for CUDA 13.2 / 13.4,
 # not cu130 or cu126. Avoid trying CUDA indexes that cannot host the
@@ -162,6 +163,9 @@ def download_piper(python, voice):
 
 
 def main():
+    # An explicitly selected shared model cache must also control the
+    # subprocess that downloads Qwen checkpoints through huggingface_hub.
+    configure_hf_home()
     parser = argparse.ArgumentParser()
     parser.add_argument('engine', choices=sorted(ENGINES))
     parser.add_argument('--model', help='also download this model for offline use')

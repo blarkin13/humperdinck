@@ -816,3 +816,67 @@ button.active small,.primary small{color:#3a3122}
 .narration-regenerate:hover:not(:disabled){background:rgba(198,164,106,.12);border-color:var(--brass-hi,#d8bd88)}
 .narration-regenerate:disabled{opacity:.45}
 @media(max-width:480px){.narration-regenerate{padding:9px 10px;font-size:11px}}
+
+/* Model list: keep status, install/repair and delete controls in separate
+   stacking space. Earlier CSS placed every button in grid-row:1/3, causing
+   text and controls to draw on top of one another in the native WebView. */
+.engine .engine-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.engine .engine-head strong{flex:none}
+.engine .engine-head small{flex:1 1 180px;min-width:0}
+.engine .engine-head > button{margin-left:auto;flex:none;white-space:nowrap}
+.engine .model-row{display:grid;grid-template-columns:minmax(0,1fr) 190px;align-items:start;gap:14px;padding:14px 16px}
+.engine .model-row .model-info{min-width:0;display:grid;gap:5px}
+.engine .model-row .model-info .check{min-width:0;overflow-wrap:anywhere}
+.engine .model-row .model-info .check span{min-width:0}
+.engine .model-row .model-meta{grid-column:auto;display:block;line-height:1.5}
+.engine .model-row .model-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0}
+.engine .model-row .model-actions button{grid-column:auto;grid-row:auto;justify-self:auto;position:static;width:100%;min-width:0;margin:0;white-space:normal;line-height:1.35;text-align:center}
+.engine .model-row .model-actions .model-status,.engine .model-unavailable{grid-column:auto;grid-row:auto;display:block;text-align:right;line-height:1.4;overflow-wrap:anywhere}
+.engine .model-unavailable{font-size:12px;color:var(--muted);font-style:italic}
+.engine .model-row .mono{display:inline-block;max-width:100%;overflow-wrap:anywhere;word-break:break-word}
+@media(max-width:700px){.engine .model-row{grid-template-columns:minmax(0,1fr)}.engine .model-row .model-actions{max-width:240px}.engine .model-row .model-actions .model-status,.engine .model-unavailable{text-align:left}}
+
+/* Regenerate is an action in each three-dot section menu; the whole narration
+   also has its own three-dot action menu, never a duplicate spinning control. */
+.narration-whole-options{position:relative;display:inline-flex;align-items:center}
+.narration-whole-menu-trigger{min-height:40px;min-width:40px;display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;background:transparent;border:1px solid var(--line,#34494a);border-radius:8px;color:var(--ivory,#f1e5cb)}
+.narration-whole-menu-trigger:hover{background:rgba(198,164,106,.10)}
+.narration-whole-menu{right:0;top:calc(100% + 6px);width:235px}
+.narration-whole-menu button{width:100%;display:flex;align-items:center;gap:9px;background:transparent;border:0;text-align:left;padding:10px;border-radius:6px;font-size:12px;color:var(--ivory,#f1e5cb)}
+.narration-whole-menu button:hover:not(:disabled){background:rgba(198,164,106,.12)}
+.narration-whole-menu button:disabled{opacity:.45}
+.narration-whole-menu .section-options-remove{color:#e3a198;border-top:1px solid var(--line,#34494a)}
+
+/* Whole narration toolbar: three discrete unboxed icons, anchored as one group.
+   The whole-narration ellipsis is next to Play, never between Download/Play. */
+.narration-export-actions{display:flex!important;align-items:center!important;gap:12px!important;justify-content:flex-start;position:relative}
+.narration-export-actions .narration-download-wrap{order:1;position:relative;display:inline-flex;align-items:center}
+.narration-export-actions .narration-full-play{order:2}
+.narration-export-actions .narration-whole-options{order:3}
+.narration-export-actions .narration-download-trigger,
+.narration-export-actions .narration-full-play,
+.narration-export-actions .narration-whole-menu-trigger{display:inline-flex!important;align-items:center;justify-content:center;border:0!important;background:transparent!important;box-shadow:none!important;min-width:42px;width:44px;height:44px;min-height:44px;padding:9px!important;border-radius:8px!important;color:var(--ivory)!important}
+.narration-export-actions .narration-full-play i{font-size:24px}
+.narration-export-actions .narration-download-trigger i,
+.narration-export-actions .narration-whole-menu-trigger i{font-size:19px}
+.narration-export-actions .narration-download-trigger:hover,
+.narration-export-actions .narration-full-play:hover,
+.narration-export-actions .narration-whole-menu-trigger:hover{color:var(--brass-hi)!important;background:rgba(198,164,106,.10)!important}
+.narration-export-actions .narration-full-play:disabled{opacity:.7}
+.header-server-icon{min-height:40px;width:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--ivory);font-size:16px}
+.header-server-icon:hover{color:var(--brass-hi);border-color:var(--brass-hi)}
+.server-settings-overlay{position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:22px}
+.server-settings-modal{width:min(570px,100%);max-height:90vh;overflow:auto;background:var(--teal,#14252c);border:1px solid var(--line);border-radius:14px;box-shadow:0 25px 70px #0009;padding:25px;display:grid;gap:18px}
+.server-settings-modal header{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.server-settings-modal h2{margin:0;font-size:23px}
+.server-settings-modal p{margin:0;line-height:1.55;color:var(--muted)}
+.server-settings-modal .server-local-address{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.server-settings-modal code{flex:1;min-width:0;overflow-wrap:anywhere;padding:12px;border-radius:7px;background:rgba(0,0,0,.22)}
+.server-settings-modal .server-mode-options{display:grid;gap:10px}
+.server-settings-modal .server-mode{padding:13px;border:1px solid var(--line);border-radius:8px}
+.server-settings-modal .server-mode strong{display:block;margin-bottom:6px}
+.server-settings-modal .server-mode.unsupported{opacity:.67}
+
+.server-settings-modal input[type=number]{width:126px;max-width:100%;margin:0}
+
+.native-installer-download{display:inline-flex;align-items:center;justify-content:center;margin:8px 0 4px;padding:10px 15px;text-decoration:none;border-radius:8px}

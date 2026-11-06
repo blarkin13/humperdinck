@@ -84,10 +84,11 @@ def explain(error):
 
 def python_for(engine):
     """Return the first interpreter that can import the engine, or None."""
-    # Unsigned native shell previews bundle only the API. They deliberately do
-    # not claim that an ML worker is present or start the sidecar as Python.
     if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
-        return None
+        if engine == 'kokoro':
+            return Path(sys.executable) if installed(engine) else None
+        from backend import native_runtime
+        return native_runtime.runtime_python(engine) if native_runtime.supported(engine) and installed(engine) else None
     # Only successes are cached, so an engine installed later is found without a restart.
     if engine not in _resolved and catalog.supported(engine):
         for python in candidates(engine):
@@ -112,7 +113,22 @@ _FIND = 'import importlib.util as u, sys; sys.exit(0 if all(u.find_spec(m) for m
 def installed(engine):
     """Quick check for the Models tab and health: are the engine's packages present? Cached."""
     if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
-        return False
+        if engine == 'kokoro':
+            import importlib.util
+            return importlib.util.find_spec('kokoro_onnx') is not None
+        from backend import native_runtime
+        if not native_runtime.supported(engine):
+            return False
+        python = native_runtime.runtime_python(engine)
+        if not python.is_file():
+            return False
+        modules = [m.split('.')[0] for m in catalog.ENGINES[engine]['imports']]
+        try:
+            return subprocess.run([str(python), '-c', _FIND, *modules],
+                                  capture_output=True, timeout=12,
+                                  env=native_runtime.environment()).returncode == 0
+        except (OSError, subprocess.TimeoutExpired, RuntimeError):
+            return False
     if not catalog.supported(engine):
         return False
     if engine in _resolved:
@@ -140,7 +156,15 @@ class Worker:
         self.engine = engine
         self.model = model
         self.errors = tempfile.TemporaryFile('w+')
-        self.process = subprocess.Popen([str(python), '-m', 'backend.worker', '--serve'], cwd=ROOT, env=worker_env(),
+        native = os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'
+        bundled_worker = native and engine == 'kokoro'
+        command = ([str(python), '--native-engine-worker', '--serve'] if bundled_worker
+                   else [str(python), '-m', 'backend.worker', '--serve'])
+        env = worker_env()
+        if native and not bundled_worker:
+            from backend import native_runtime
+            env.update(native_runtime.environment())
+        self.process = subprocess.Popen(command, cwd=ROOT, env=env,
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errors,
                                         text=True, bufsize=1)
         self.messages = queue.Queue()

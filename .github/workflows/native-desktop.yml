@@ -6,6 +6,8 @@ on:
     paths:
       - 'desktop/**'
       - 'scripts/build_native_sidecar.py'
+      - 'scripts/prepare_native_voice_pack.py'
+      - 'scripts/prepare_native_sound_pack.py'
       - 'scripts/smoke_native_server.py'
       - 'backend/**'
       - 'frontend/**'
@@ -59,12 +61,27 @@ jobs:
         working-directory: frontend
         run: npm install --no-audit --no-fund
 
+      - name: Test frontend update-response handling
+        working-directory: frontend
+        run: npm test
+
       - name: Build the existing React UI
         working-directory: frontend
         run: npm run build
 
       - name: Install backend packaging dependencies
-        run: python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7"
+        run: python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7" "kokoro-onnx>=0.6,<1" "espeakng-loader" "certifi>=2025.1" "uv>=0.8,<1" "imageio-ffmpeg>=0.5,<1"
+
+      - name: Run native engine routing and Base-cloning regression tests
+        run: |
+          python -m pip install "pytest>=8,<10"
+          python -m pytest -q tests/test_native_runtime.py tests/test_qwen_mlx_base.py tests/test_native_disk_space.py tests/test_native_updates.py tests/test_native_update_manifest.py
+
+      - name: Download and verify seven approved Built-In Humperdinck Voices
+        run: python scripts/prepare_native_voice_pack.py
+
+      - name: Download and verify nine approved Humperdinck Sound Effects
+        run: python scripts/prepare_native_sound_pack.py
 
       - name: Compile the bundled localhost server
         run: python scripts/build_native_sidecar.py --target ${{ matrix.target }}
@@ -72,6 +89,13 @@ jobs:
       - name: Smoke-test the server executable
         timeout-minutes: 6
         run: python scripts/smoke_native_server.py --target ${{ matrix.target }}
+
+      - name: Generate real Kokoro speech with the frozen Mac worker
+        if: runner.os == 'macOS'
+        timeout-minutes: 10
+        run: |
+          python -c "from backend.native_models import download_kokoro; download_kokoro()"
+          python scripts/smoke_native_kokoro.py --target ${{ matrix.target }}
 
       - name: Install Tauri CLI
         working-directory: desktop
@@ -81,11 +105,79 @@ jobs:
         working-directory: desktop
         run: npx tauri icon ../frontend/public/humperdinck-favicon-512.png
 
+      - name: Verify Windows icon was generated
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ico = 'desktop/src-tauri/icons/icon.ico'
+          if (-not (Test-Path $ico)) { throw "Missing Windows icon: $ico" }
+          $data = [System.IO.File]::ReadAllBytes($ico)
+          if ($data.Length -lt 1024 -or $data[0] -ne 0 -or $data[1] -ne 0 -or $data[2] -ne 1 -or $data[3] -ne 0) { throw 'Invalid Windows icon resource' }
+          Write-Output "Windows icon generated: $($data.Length) bytes"
+
       - name: Package unsigned native app
         working-directory: desktop
         env:
           APPLE_SIGNING_IDENTITY: '-'
         run: npx tauri build --bundles ${{ matrix.bundle }}
+
+      # The macOS Tauri bundler re-signs externalBin sidecars without preserving
+      # the special PyInstaller entitlement. This ad-hoc-only test repack signs
+      # the helper itself and then re-signs the outer app, so the distributed
+      # DMG contains the executable with the entitlement it needs.
+      - name: Re-sign embedded macOS Python server and rebuild test DMG
+        if: runner.os == 'macOS'
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          DMG="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG" || { echo "DMG missing"; exit 1; }
+          ORIGINAL_MOUNT="$RUNNER_TEMP/humperdinck-original-dmg"
+          PAYLOAD="$RUNNER_TEMP/humperdinck-resigned-payload"
+          ENTITLEMENTS="$PWD/desktop/src-tauri/entitlements.plist"
+          mkdir -p "$ORIGINAL_MOUNT" "$PAYLOAD"
+          /usr/bin/hdiutil attach -readonly -nobrowse -mountpoint "$ORIGINAL_MOUNT" "$DMG"
+          /usr/bin/ditto "$ORIGINAL_MOUNT/Humperdinck.app" "$PAYLOAD/Humperdinck.app"
+          if test -L "$ORIGINAL_MOUNT/Applications"; then
+            ln -s /Applications "$PAYLOAD/Applications"
+          fi
+          /usr/bin/hdiutil detach "$ORIGINAL_MOUNT" -quiet
+          APP="$PAYLOAD/Humperdinck.app"
+          /usr/bin/codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP/Contents/MacOS/humperdinck-server"
+          /usr/bin/codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP"
+          /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
+          PATCHED_DMG="$RUNNER_TEMP/humperdinck-resigned.dmg"
+          /usr/bin/hdiutil create -volname "Humperdinck" -srcfolder "$PAYLOAD" -format UDZO "$PATCHED_DMG"
+          mv "$PATCHED_DMG" "$DMG"
+
+      # Pre-bundle smoke tests cannot catch macOS Library Validation when Tauri
+      # re-signs the PyInstaller onefile sidecar. Run the signed copy too.
+      - name: Verify signed macOS sidecar and embedded Python startup
+        if: runner.os == 'macOS'
+        timeout-minutes: 6
+        run: |
+          # Inspect the actual distributed DMG. Tauri may clean up or move
+          # the intermediate .app after producing the disk image.
+          DMG="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG" || { echo "No macOS DMG was produced"; exit 1; }
+          MOUNT="$RUNNER_TEMP/humperdinck-dmg-mount"
+          mkdir -p "$MOUNT"
+          /usr/bin/hdiutil attach -readonly -nobrowse -mountpoint "$MOUNT" "$DMG"
+          trap '/usr/bin/hdiutil detach "$MOUNT" -quiet || true' EXIT
+          APP="$MOUNT/Humperdinck.app"
+          test -d "$APP" || { echo "Humperdinck.app missing from DMG"; ls -la "$MOUNT"; exit 1; }
+          /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
+          /usr/bin/codesign --display --entitlements - --xml "$APP/Contents/MacOS/humperdinck-server" > /tmp/humperdinck-entitlements.plist
+          /usr/bin/plutil -lint /tmp/humperdinck-entitlements.plist
+          python - <<'PY'
+          import plistlib
+          with open("/tmp/humperdinck-entitlements.plist", "rb") as f:
+              entitlements = plistlib.load(f)
+          key = "com.apple.security.cs.disable-library-validation"
+          print("Signed Python sidecar entitlement:", key, "=", entitlements.get(key))
+          assert entitlements.get(key) is True, f"Missing required signed-sidecar entitlement: {entitlements}"
+          PY
+          python scripts/smoke_native_server.py --target ${{ matrix.target }} --binary "$APP/Contents/MacOS/humperdinck-server"
 
       - name: Upload test installer (no release/signing)
         uses: actions/upload-artifact@v4

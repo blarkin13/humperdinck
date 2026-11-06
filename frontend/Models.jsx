@@ -34,22 +34,32 @@ export default function Models(){
  if(!data)return <section><h2>Models</h2><p>Loading...</p></section>;
  const latest=job?.job_id?job:data.recent_install;
  const running=['queued','running'].includes(latest?.status);
- const repaired=(engine,model)=>latest?.engine===engine&&latest?.model===model&&latest?.status==='complete';
  return <section>
   <div className="heading"><div><h2>Models</h2><p>Pick which AI model does each job. Everything runs on this computer.</p></div><span className="tag">{data.platform}{data.memory_gb?` · ${data.memory_gb} GB RAM`:''}</span></div>
   {latest&&<div className="job"><p>{latest.status==='complete'?'Completed: ':latest.status==='failed'?'Failed: ':''}{latest.message}</p>{running&&<progress/>}{latest.status==='complete'&&<p className="hint">Checkpoint files have been checked. Run a short voice preview to confirm the audio decoder can load.</p>}{latest.status==='failed'&&latest.log&&<pre className="log">{latest.log.join('\n')}</pre>}</div>}
   {msg&&<p className="hint">{msg}</p>}
-  {data.native_package&&<p className="notice">Native desktop preview: this installer includes the local app and browser interface, but bundled AI engines and engine downloads are not ready yet. Use the existing source installation to generate speech during this packaging phase.</p>}
+  {data.native_package&&<p className="notice">Native desktop app: Kokoro is bundled. Qwen MLX (Apple Silicon), Qwen PyTorch (Mac, Windows and Linux), and Piper can be installed into separate per-user Python 3.12 runtimes. MLX is preferred on Apple Silicon; PyTorch may be substantially slower and use more RAM there. Models download to the shared cache. Installation requires internet access and significant free disk space. {data.ffmpeg_available?'FFmpeg is available.':'FFmpeg is missing: on macOS install it with Homebrew (brew install ffmpeg); WAV output remains available.'}</p>}
   {roles.map(([role,title,blurb])=><div className="panel" key={role}><h3>{title}</h3><p>{blurb}</p>
    {data.engines.filter(e=>e.roles.includes(role)).map(e=><div className={'engine'+(e.supported?'':' unavailable')} key={e.id}>
     <div className="engine-head"><strong>{e.label}</strong><small>{e.supported?(e.installed?'Installed':'Not installed'):`Not available on ${data.platform}${e.requires_apple_silicon?' (needs an Apple Silicon Mac)':''}`} · {e.platforms.join(', ')}</small>
-     {e.supported&&!e.installed&&<button disabled={running||data.native_package} title={data.native_package?'Native engine packaging is still in progress':''} onClick={()=>install(e.id)}>Install engine</button>}</div>
+     {e.supported&&!e.installed&&(data.native_package&&!e.native_installable
+      ?<span className="model-unavailable">Not supported by this installer</span>
+      :<button disabled={running} onClick={()=>install(e.id)}>Install engine</button>)}</div>
     <small>{e.note}</small>
     <div className="engine-model-scroll" role="region" aria-label={e.label+' models'} tabIndex={0}>{e.models.filter(m=>m.roles.includes(role)).slice(0,expanded[e.id]?undefined:4).map(m=>{const sel=role!=='preset'&&data.selected[role].engine===e.id&&data.selected[role].model===m.id,usable=e.supported&&e.installed&&m.downloaded;
      return <div className={'model-row'+(sel?' chosen':'')} key={m.id}>
-      <label className="check">{role!=='preset'&&<input type="radio" name={role} checked={sel} disabled={!usable} onChange={()=>choose(role,e.id,m.id)}/>} <span><strong>{m.label}</strong>{m.note&&<small> · {m.note}</small>}<br/><small className="mono">{m.id}</small></span></label>
-      <small className="model-meta">{e.id==='kokoro'?'Shared ~0.35 GB voice bundle':e.id==='piper'?'Separate voice download':m.size_gb+' GB download'} · ~{m.memory_gb} GB RAM{m.gpu_memory_gb?` (or ${m.gpu_memory_gb} GB on an NVIDIA GPU)`:''}{m.tight&&<b className="warn"> · may be too large for this computer</b>}</small>
-      {e.supported&&(m.downloaded?<><small className="ok">{repaired(e.id,m.id)?'Files verified · repair complete':'Downloaded'}{sel?' · In use':''}</small>{e.id==='qwen-mlx'&&<button disabled={running||data.native_package} title="Recheck model files, update the MLX engine and download any missing files" onClick={()=>install(e.id,m.id,m.size_gb)}>{repaired(e.id,m.id)?'Repair again':'Repair / update'}</button>}<button className="danger" disabled={running} title={e.id==='kokoro'?'Delete the shared Kokoro model and all Kokoro presets':'Delete only this model’s downloaded weights'} onClick={()=>removeModel(e.id,m.id,e.id==='kokoro',sel)}>Delete model</button></>:<button disabled={running||!e.installed||data.native_package} title={e.installed?'':'Install the engine first'} onClick={()=>install(e.id,m.id,m.size_gb)}>Download</button>)}
+      <div className="model-info">
+       <label className="check">{role!=='preset'&&<input type="radio" name={role} checked={sel} disabled={!usable} onChange={()=>choose(role,e.id,m.id)}/>} <span><strong>{m.label}</strong>{m.note&&<small> · {m.note}</small>}<br/><small className="mono">{m.id}</small></span></label>
+       <small className="model-meta">{e.id==='kokoro'?'Shared ~0.35 GB voice bundle':e.id==='piper'?'Separate voice download':m.size_gb+' GB download'} · ~{m.memory_gb} GB RAM{m.gpu_memory_gb?` (or ${m.gpu_memory_gb} GB on an NVIDIA GPU)`:''}{m.tight&&<b className="warn"> · may be too large for this computer</b>}</small>
+      </div>
+      <div className="model-actions">
+       {m.downloaded&&<small className="model-status ok">Downloaded{sel?' · In use':''}</small>}
+       {e.supported&&(data.native_package&&!e.native_installable
+        ?<span className="model-unavailable">Not supported in this installer</span>
+        :m.downloaded?<><button className="danger" disabled={running} title={e.id==='kokoro'?'Delete the shared Kokoro model and all Kokoro presets':'Delete only these downloaded model weights'} onClick={()=>removeModel(e.id,m.id,e.id==='kokoro',sel)}>Delete model</button></>
+        :e.installed?<button disabled={running} onClick={()=>install(e.id,m.id,m.size_gb)}>Download</button>
+        :<small className="model-status">Install the engine above first</small>)}
+      </div>
      </div>})}</div>
     {e.models.filter(m=>m.roles.includes(role)).length>4&&<button className="model-list-expand" type="button" onClick={()=>setExpanded(old=>({...old,[e.id]:!old[e.id]}))} aria-expanded={!!expanded[e.id]}><i className={'fa-solid '+(expanded[e.id]?'fa-chevron-up':'fa-chevron-down')}/> {expanded[e.id]?'Show fewer models':`Show all ${e.models.filter(m=>m.roles.includes(role)).length} models`}</button>}
    </div>)}

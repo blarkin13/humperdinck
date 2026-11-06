@@ -3,5 +3,6 @@
   "identifier": "main",
   "description": "Humperdinck desktop window. No shell or filesystem calls are exposed to web content.",
   "windows": ["main"],
+  "remote": {"urls": ["http://127.0.0.1:*/**"]},
   "permissions": ["core:default"]
 }

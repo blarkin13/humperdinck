@@ -1,7 +1,10 @@
 import React,{useState,useEffect,useRef,useCallback} from 'react';
 import {useNotifications} from './Notifications.jsx';
+import {formatUpdateFiles} from './updateFiles.js';
 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const signedUpdater=()=>globalThis.__TAURI__?.core?.invoke;
+
 
 // Non-intrusive background checks; installing an update always requires user approval.
 export default function Updates(){
@@ -15,6 +18,21 @@ export default function Updates(){
   const controller=new AbortController();
   const deadline=setTimeout(()=>controller.abort(),20000);
   try{
+   // Tauri's native updater verifies the signed artifact before installation.
+   // The localhost/browser edition uses HTTP release discovery as fallback.
+   const invoke=signedUpdater();
+   if(invoke){
+    const signed=await invoke('check_signed_update');
+    if(signed?.configured){
+     setInfo(signed.available?{
+       available:true,latest:signed.version,version:signed.version,
+       current_version:signed.current_version,summary:'Signed desktop application update',
+       can_install:true,can_download:false,changed_files:[],removed_files:[],
+       url:'https://github.com/blarkin13/humperdinck/releases'
+     }:{available:false,reason:'Up to date with signed desktop releases',can_install:false});
+     stateRef.current='checked';setState('checked');return;
+    }
+   }
    // navigator.onLine is unreliable on Windows and can incorrectly report
    // offline while GitHub is reachable. Always make the actual API request.
    const response=await fetch('/api/updates/check?t='+Date.now(),
@@ -56,12 +74,19 @@ export default function Updates(){
  async function install(){
   if(!await askConfirm('Install this update? Humperdinck will restart. Your voices, recordings and outputs are kept.',{title:'Install update',confirmLabel:'Install and restart'}))return;
   stateRef.current='installing';setState('installing');setMsg('Downloading and verifying...');
-  try{const r=await fetch('/api/updates/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({commit_sha:info.commit_sha})}),j=await r.json();if(!r.ok)throw Error(j.detail);
+  try{
+   if(info?.version&&signedUpdater()){
+    setMsg('Downloading and verifying signed desktop update…');
+    await signedUpdater()('install_signed_update',{version:info.version});
+    setMsg('Update installed. Restart Humperdinck to use the new version.');
+    setState('checked');return;
+   }
+   const r=await fetch('/api/updates/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({commit_sha:info.commit_sha})}),j=await r.json();if(!r.ok)throw Error(j.detail);
    setMsg(j.message);notify(j.message,j.installing?'info':'success');if(!j.installing){setState('checked');return}
    // Wait for the server to go down and come back, then load the new interface.
    let down=false;for(let i=0;i<180;i++){await wait(1000);try{const h=await fetch('/api/health',{cache:'no-store'});if(h.ok&&down){location.reload();return}if(!h.ok)down=true}catch{down=true}}
    setMsg('Humperdinck has not come back yet. Check the terminal window, then reload this page.')}catch(e){setMsg('Update failed: '+e.message);setState('checked')}}
- const files=info?[...info.changed_files,...info.removed_files.map(f=>f+' (removed)')]:[];
+ const files=formatUpdateFiles(info);
  return <div className="updates-control" ref={panelRef}>
   <button type="button" className="update-btn" aria-label={info?.available?'Update available · view update':'Check for updates'} title={info?.available?'Update available':'Check for updates'} aria-expanded={open} onClick={()=>{if(open)setOpen(false);else check(true)}} disabled={state==='installing'}><i className={'fa-solid '+(state==='checking'?'fa-arrows-rotate fa-spin':'fa-rotate')} aria-hidden="true"/>{info?.available&&<span className="update-available-dot" aria-hidden="true"/>}</button>
   {open&&<div className="update-panel" role="dialog" aria-label="Updates">
@@ -71,10 +96,11 @@ export default function Updates(){
    {info&&!info.available&&<p>✓ {info.reason}.</p>}
    {info?.available&&<>
     <p><strong>{info.latest}</strong> {info.summary}<br/><small>{info.date&&new Date(info.date).toLocaleString()} · <a href={info.url} target="_blank" rel="noreferrer">View on GitHub</a></small></p>
-    <small>{files.length} file{files.length===1?'':'s'} will change:</small>
-    <ul className="update-files">{files.map(f=><li key={f}>{f}</li>)}</ul>
-    <p className="hint">Your voices, recordings, outputs and settings in data/ are never changed. Replaced files are backed up in .update/backups.</p>
-    {info.can_install?<button className="primary" onClick={install} disabled={state==='installing'}>{state==='installing'?'Installing...':'Install and restart'}</button>:<p className="hint">Start Humperdinck with start.sh to install updates from here.</p>}
+    {files.length>0&&<><small>{files.length} file{files.length===1?'':'s'} will change:</small><ul className="update-files">{files.map(f=><li key={f}>{f}</li>)}</ul></>}
+    <p className="hint">Your local voices, recordings, outputs and model files remain outside the replaceable app.</p>
+    {info.can_install?<button className="primary" onClick={install} disabled={state==='installing'}>{state==='installing'?'Installing...':'Install and restart'}</button>
+    :info.can_download&&info.download_url?<><a className="primary native-installer-download" href={info.download_url} target="_blank" rel="noopener noreferrer">Download {info.download_name||'desktop installer'}</a><p className="hint">The official installer opens in your browser. Quit Humperdinck to replace the application. Automatic installation requires a signed updater release.</p></>
+    :<p className="hint">There is no binary update available for this installation.</p>}
    </>}
    {state==='installing'&&<p>{msg}</p>}
   </div>}
