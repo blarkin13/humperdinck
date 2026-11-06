@@ -26,3 +26,6 @@
 .developer-source p{line-height:1.8}.developer-source code{display:block;width:max-content;max-width:100%;overflow-wrap:anywhere;white-space:normal;padding:12px 15px;background:#1c1c1c;border:1px solid #383838;color:#ddd;margin:15px 0}
 .developer-source a{text-decoration:underline;text-underline-offset:4px}
 @media(max-width:880px){.download-cards{grid-template-columns:1fr}.download-heading{display:block}.download-heading>p{margin-top:25px}.download-card p{min-height:0}}
+
+/* Locally hosted platform logos: no icon-font CDN required. */
+.download-os-icon img{display:block;width:34px;height:34px;object-fit:contain;filter:invert(1)}
