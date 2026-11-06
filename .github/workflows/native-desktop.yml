@@ -225,10 +225,35 @@ jobs:
           PY
           python scripts/smoke_native_server.py --target ${{ matrix.target }} --binary "$APP/Contents/MacOS/humperdinck-server"
 
-      - name: Upload test installer (no release/signing)
+      - name: Verify Windows production signature
+        if: runner.os == 'Windows' && inputs.production_signing
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem 'desktop/src-tauri/target/release/bundle/nsis/*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'No NSIS installer found' }
+          $sig = Get-AuthenticodeSignature $installer.FullName
+          if ($sig.Status -ne 'Valid') { throw "Untrusted Windows installer: $($sig.Status)" }
+          Write-Output "Verified Windows publisher: $($sig.SignerCertificate.Subject)"
+
+      - name: Notarize macOS production DMG
+        if: runner.os == 'macOS' && inputs.production_signing
+        timeout-minutes: 20
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$APPLE_ID" && test -n "$APPLE_APP_PASSWORD" && test -n "$APPLE_TEAM_ID" || { echo 'Apple notarization credentials required'; exit 1; }
+          DMG="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG"
+          xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+      - name: Upload native installer
         uses: actions/upload-artifact@v4
         with:
-          name: humperdinck-${{ matrix.target }}-unsigned
+          name: humperdinck-${{ matrix.target }}-package
           path: |
             desktop/src-tauri/target/release/bundle/nsis/*.exe
             desktop/src-tauri/target/release/bundle/dmg/*.dmg
