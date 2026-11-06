@@ -1,5 +1,42 @@
 # Humperdinck public website
 
+## Direct desktop downloads (Windows, macOS and Linux)
+
+The homepage now has a dedicated downloadable-app section, not a prominent GitHub install call-to-action. The optional clone command is in a disclosure for developers.
+
+**Publication is intentionally gated:** The cards only become clickable after valid installer files are uploaded and `website/downloads.json` identifies them with `published: true`. No release-only GitHub URLs or 14-day Actions artifacts should be used as public download endpoints.
+
+### One-time hosting setup
+
+Use Cloudflare R2 for installer binaries (typically too large for a regular Workers static-asset upload). The Worker streams published binaries at `https://humperdinck.larki-brian.workers.dev/downloads/FILENAME`, so users remain on your domain.
+
+1. Create a private R2 bucket called `humperdinck-downloads` in the Cloudflare dashboard.
+2. Add an **R2 bucket binding** to the Humperdinck Worker named **`INSTALLER_BUCKET`**, pointing at that bucket. For a Wrangler-managed binding, add `"r2_buckets": [{"binding":"INSTALLER_BUCKET","bucket_name":"humperdinck-downloads"}]` to `wrangler.jsonc` **after** creating the bucket; do not add it earlier or deploys may fail. Since Wrangler deploy configuration is authoritative, prefer storing the binding in `wrangler.jsonc`.
+3. Run the native desktop build workflow and download the successful Windows .exe, macOS Apple Silicon .dmg, and Linux .deb from CI for testing. These are **unsigned preview packages**, not yet signed production distributions; the build/test and licenses must be reviewed before making them public.
+4. Upload each vetted installer to R2 using exact filenames, for example `humperdinck-windows-x64-0.1.0.exe`, `humperdinck-macos-arm64-0.1.0.dmg`, `humperdinck-linux-x64-0.1.0.deb`. Keep each file at the bucket root. Do not upload arbitrary filenames or overwrite files that users may have already downloaded.
+5. Verify the same-domain download path with a HEAD request and check its size and status. Test actual installation on the corresponding operating system.
+6. Edit `website/downloads.json` for each verified platform:
+
+```json
+{
+  "windows": {
+    "published": true,
+    "version": "0.1.0",
+    "url": "/downloads/humperdinck-windows-x64-0.1.0.exe",
+    "size": "120 MB"
+  },
+  "macos": {"published": false, "version": "", "url": "", "size": ""},
+  "linux": {"published": false, "version": "", "url": "", "size": ""}
+}
+```
+
+7. Deploy website and Worker together. The public script validates the manifest and enables only links under this site's `/downloads/` path, with the correct extension. Update build/publishing automation later to create and upload versioned assets, verify checksums and tests, and change the manifest only after upload succeeds.
+
+The Worker sends `Content-Disposition: attachment` and streams the file from R2. No app binary is committed to Git. Without a configured binding or uploaded object, the route fails explicitly instead of redirecting users to GitHub.
+
+**Deployment is not complete just because the website code is merged.** Until the bucket, installer uploads, and manifest are configured, the site accurately displays **Not available yet**. GitHub can remain the source-development/CI host while public downloads move to Humperdinck's own website. Removing GitHub entirely would require moving source hosting and CI as a separate project.
+
+
 This folder is the **public Cloudflare Pages website**, completely separate from the desktop React/FastAPI application under `frontend/` and `backend/`.
 
 ## What works
