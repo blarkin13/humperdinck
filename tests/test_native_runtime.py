@@ -25,3 +25,9 @@ def test_native_runtime_environment_keeps_existing_shared_hf_cache(tmp_path, mon
     assert "HF_HUB_OFFLINE" not in env
     assert "TRANSFORMERS_OFFLINE" not in env
     assert str(package / "runtime-src") in env["PYTHONPATH"]
+
+
+def test_pytorch_is_available_on_all_native_platforms(monkeypatch):
+    from backend import native_runtime, catalog
+    assert 'qwen-torch' in native_runtime.SUPPORTED
+    assert catalog.ENGINES['qwen-torch']['platforms'] == ('darwin','win32','linux')

@@ -34,12 +34,11 @@ export default function Models(){
  if(!data)return <section><h2>Models</h2><p>Loading...</p></section>;
  const latest=job?.job_id?job:data.recent_install;
  const running=['queued','running'].includes(latest?.status);
- const repaired=(engine,model)=>latest?.engine===engine&&latest?.model===model&&latest?.status==='complete';
  return <section>
   <div className="heading"><div><h2>Models</h2><p>Pick which AI model does each job. Everything runs on this computer.</p></div><span className="tag">{data.platform}{data.memory_gb?` · ${data.memory_gb} GB RAM`:''}</span></div>
   {latest&&<div className="job"><p>{latest.status==='complete'?'Completed: ':latest.status==='failed'?'Failed: ':''}{latest.message}</p>{running&&<progress/>}{latest.status==='complete'&&<p className="hint">Checkpoint files have been checked. Run a short voice preview to confirm the audio decoder can load.</p>}{latest.status==='failed'&&latest.log&&<pre className="log">{latest.log.join('\n')}</pre>}</div>}
   {msg&&<p className="hint">{msg}</p>}
-  {data.native_package&&<p className="notice">Native desktop app: Kokoro is bundled. Qwen MLX on Apple Silicon and Piper can be installed into a separate, per-user Python 3.12 runtime using the Install engine button. Qwen PyTorch is not bundled. Models download to the shared cache. Installation requires an internet connection and significant free disk space. {data.ffmpeg_available?'FFmpeg is available.':'FFmpeg is missing: on macOS install it with Homebrew (brew install ffmpeg); WAV output remains available.'}</p>}
+  {data.native_package&&<p className="notice">Native desktop app: Kokoro is bundled. Qwen MLX (Apple Silicon), Qwen PyTorch (Mac, Windows and Linux), and Piper can be installed into separate per-user Python 3.12 runtimes. MLX is preferred on Apple Silicon; PyTorch may be substantially slower and use more RAM there. Models download to the shared cache. Installation requires internet access and significant free disk space. {data.ffmpeg_available?'FFmpeg is available.':'FFmpeg is missing: on macOS install it with Homebrew (brew install ffmpeg); WAV output remains available.'}</p>}
   {roles.map(([role,title,blurb])=><div className="panel" key={role}><h3>{title}</h3><p>{blurb}</p>
    {data.engines.filter(e=>e.roles.includes(role)).map(e=><div className={'engine'+(e.supported?'':' unavailable')} key={e.id}>
     <div className="engine-head"><strong>{e.label}</strong><small>{e.supported?(e.installed?'Installed':'Not installed'):`Not available on ${data.platform}${e.requires_apple_silicon?' (needs an Apple Silicon Mac)':''}`} · {e.platforms.join(', ')}</small>
@@ -54,10 +53,10 @@ export default function Models(){
        <small className="model-meta">{e.id==='kokoro'?'Shared ~0.35 GB voice bundle':e.id==='piper'?'Separate voice download':m.size_gb+' GB download'} · ~{m.memory_gb} GB RAM{m.gpu_memory_gb?` (or ${m.gpu_memory_gb} GB on an NVIDIA GPU)`:''}{m.tight&&<b className="warn"> · may be too large for this computer</b>}</small>
       </div>
       <div className="model-actions">
-       {m.downloaded&&<small className="model-status ok">{repaired(e.id,m.id)?'Files verified · repair complete':'Downloaded'}{sel?' · In use':''}</small>}
+       {m.downloaded&&<small className="model-status ok">Downloaded{sel?' · In use':''}</small>}
        {e.supported&&(data.native_package&&!e.native_installable
         ?<span className="model-unavailable">Not supported in this installer</span>
-        :m.downloaded?<>{e.id==='qwen-mlx'&&<button disabled={running} title="Recheck model files, update MLX and download missing files" onClick={()=>install(e.id,m.id,m.size_gb)}>{repaired(e.id,m.id)?'Repair again':'Repair / update'}</button>}<button className="danger" disabled={running} title={e.id==='kokoro'?'Delete the shared Kokoro model and all Kokoro presets':'Delete only these downloaded model weights'} onClick={()=>removeModel(e.id,m.id,e.id==='kokoro',sel)}>Delete model</button></>
+        :m.downloaded?<><button className="danger" disabled={running} title={e.id==='kokoro'?'Delete the shared Kokoro model and all Kokoro presets':'Delete only these downloaded model weights'} onClick={()=>removeModel(e.id,m.id,e.id==='kokoro',sel)}>Delete model</button></>
         :e.installed?<button disabled={running} onClick={()=>install(e.id,m.id,m.size_gb)}>Download</button>
         :<small className="model-status">Install the engine above first</small>)}
       </div>

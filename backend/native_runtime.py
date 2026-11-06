@@ -14,7 +14,7 @@ import sys
 
 from backend import catalog, shared_models
 
-SUPPORTED = frozenset(("qwen-mlx", "piper"))
+SUPPORTED = frozenset(("qwen-mlx", "qwen-torch", "piper"))
 
 
 def supported(engine: str) -> bool:
@@ -81,7 +81,7 @@ def minimum_free_gb(engine: str, model: str | None = None) -> float:
     # Full-size checkpoints, Xet reconstruction files, Python wheels and the
     # separate managed runtime can temporarily coexist during installation.
     size = catalog.ENGINES[engine]["models"][model]["size_gb"] if model else 0.0
-    overhead = 6.0 if engine == "qwen-mlx" else 2.0
+    overhead = 8.0 if engine == "qwen-torch" else 6.0 if engine == "qwen-mlx" else 2.0
     return max(overhead, float(size) * 2 + 3.0)
 
 

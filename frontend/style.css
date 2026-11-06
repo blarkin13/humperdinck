@@ -835,3 +835,14 @@ button.active small,.primary small{color:#3a3122}
 .engine .model-unavailable{font-size:12px;color:var(--muted);font-style:italic}
 .engine .model-row .mono{display:inline-block;max-width:100%;overflow-wrap:anywhere;word-break:break-word}
 @media(max-width:700px){.engine .model-row{grid-template-columns:minmax(0,1fr)}.engine .model-row .model-actions{max-width:240px}.engine .model-row .model-actions .model-status,.engine .model-unavailable{text-align:left}}
+
+/* Regenerate is an action in each three-dot section menu; the whole narration
+   also has its own three-dot action menu, never a duplicate spinning control. */
+.narration-whole-options{position:relative;display:inline-flex;align-items:center}
+.narration-whole-menu-trigger{min-height:40px;min-width:40px;display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;background:transparent;border:1px solid var(--line,#34494a);border-radius:8px;color:var(--ivory,#f1e5cb)}
+.narration-whole-menu-trigger:hover{background:rgba(198,164,106,.10)}
+.narration-whole-menu{right:0;top:calc(100% + 6px);width:235px}
+.narration-whole-menu button{width:100%;display:flex;align-items:center;gap:9px;background:transparent;border:0;text-align:left;padding:10px;border-radius:6px;font-size:12px;color:var(--ivory,#f1e5cb)}
+.narration-whole-menu button:hover:not(:disabled){background:rgba(198,164,106,.12)}
+.narration-whole-menu button:disabled{opacity:.45}
+.narration-whole-menu .section-options-remove{color:#e3a198;border-top:1px solid var(--line,#34494a)}

@@ -20,11 +20,11 @@ export default function Recorder({onSave}){
  function cleanup(){clearInterval(timer.current);cancelAnimationFrame(raf.current);stream.current?.getTracks().forEach(t=>t.stop());stream.current=null;ctx.current?.close().catch(()=>{});ctx.current=null}
  async function start(){
   setError('');setClip(null);setPeak(0);
-  if(!navigator.mediaDevices?.getUserMedia){setError('This browser cannot record audio. Open the app at http://127.0.0.1:5173 in Chrome, Safari or Firefox.');return}
+  if(!navigator.mediaDevices?.getUserMedia){setError('Microphone capture is unavailable in this embedded window. Use Humperdinck → Open in Browser and record there, or upload an audio recording.');return}
   try{
    // Turn off the browser's voice processing: it changes the timbre the clone learns from.
    stream.current=await navigator.mediaDevices.getUserMedia({audio:{deviceId:device?{exact:device}:undefined,echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
-  }catch(e){setError(e.name==='NotAllowedError'?'Microphone access was blocked. Allow it in the browser’s address bar (and in System Settings → Privacy & Security → Microphone), then try again.':'Could not open the microphone: '+e.message);return}
+  }catch(e){setError(e.name==='NotAllowedError'?'Microphone access was blocked. Allow microphone access in your operating system privacy settings and for Humperdinck or the browser, then try again.':'Could not open the microphone: '+e.message);return}
   listDevices();
   ctx.current=new AudioContext();const analyser=ctx.current.createAnalyser();analyser.fftSize=1024;ctx.current.createMediaStreamSource(stream.current).connect(analyser);
   const data=new Float32Array(analyser.fftSize);

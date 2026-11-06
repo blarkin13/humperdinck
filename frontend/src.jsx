@@ -64,7 +64,7 @@ function App(){
  const [nativePackage,setNativePackage]=useState(null);
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
- const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[effectPicker,setEffectPicker]=useState(null),[ambiencePicker,setAmbiencePicker]=useState(false),[ambience,setAmbience]=useState(null),[format]=useState('mp3'),[downloadOpen,setDownloadOpen]=useState(false),[narrationJob,setNarrationJob]=useState(null),[wholeAudio,setWholeAudio]=useState(null),[wholeAudible,setWholeAudible]=useState(false),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[videoPreviewMode,setVideoPreviewMode]=useState('source'),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
+ const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[effectPicker,setEffectPicker]=useState(null),[ambiencePicker,setAmbiencePicker]=useState(false),[ambience,setAmbience]=useState(null),[format]=useState('mp3'),[downloadOpen,setDownloadOpen]=useState(false),[wholeMenuOpen,setWholeMenuOpen]=useState(false),[narrationJob,setNarrationJob]=useState(null),[wholeAudio,setWholeAudio]=useState(null),[wholeAudible,setWholeAudible]=useState(false),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[videoPreviewMode,setVideoPreviewMode]=useState('source'),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
  const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null),wholeAudioRef=useRef(null),wholeCompletedRef=useRef(null),downloadWrapRef=useRef(null);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[accent,setAccent]=useState(''),[style,setStyle]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
  useEffect(()=>{
@@ -181,10 +181,6 @@ function App(){
   });
   setSectionMenu(null);
  }
- function resetSectionAudio(id){
-  setSectionAudio(old=>{const copy={...old};delete copy[id];return copy});
-  setSectionMenu(null);
- }
  useEffect(()=>{
   if(!sectionPopover&&!sectionMenu)return;
   const onPointer=e=>{
@@ -290,13 +286,13 @@ function App(){
  }
  function removeBlock(id){setBlocks(old=>old.length>1?old.filter(b=>b.id!==id):old);if(activePreview===id)setActivePreview(blocks.find(b=>b.id!==id)?.id||1)}
  useEffect(()=>{
-  if(!downloadOpen)return;
-  const dismiss=e=>{if(downloadWrapRef.current&&!downloadWrapRef.current.contains(e.target))setDownloadOpen(false)};
-  const onKey=e=>{if(e.key==='Escape')setDownloadOpen(false)};
+  if(!downloadOpen&&!wholeMenuOpen)return;
+  const dismiss=e=>{if(downloadWrapRef.current&&!downloadWrapRef.current.contains(e.target)){setDownloadOpen(false);setWholeMenuOpen(false)}};
+  const onKey=e=>{if(e.key==='Escape'){setDownloadOpen(false);setWholeMenuOpen(false)}};
   document.addEventListener('pointerdown',dismiss);
   document.addEventListener('keydown',onKey);
   return()=>{document.removeEventListener('pointerdown',dismiss);document.removeEventListener('keydown',onKey)};
- },[downloadOpen]);
+ },[downloadOpen,wholeMenuOpen]);
  const fullNarrationSignature=JSON.stringify([format,blocks.map(b=>[b.text,b.voice_key,sectionDelay(b.delay_after),(b.effects||[]).map(e=>[e.sound_id,e.position,e.volume,e.fade_in,e.fade_out,e.loop,e.ending,e.ducking])]),ambience]);
  function stopWholeNarration(){
   const player=wholeAudioRef.current;
@@ -310,6 +306,14 @@ function App(){
   if(player.src!==new URL(url,window.location.href).href)player.src=url;
   player.currentTime=0;
   player.play().then(()=>setWholeAudible(true)).catch(()=>setStatus('Playback was blocked. Click Play again.'));
+ }
+ async function clearNarration(){
+  if(!await askConfirm('Clear the entire narration, including all sections and their generated audio? This cannot be undone.',{title:'Clear narration',confirmLabel:'Clear narration',danger:true}))return;
+  stopWholeNarration();stopSection();
+  setWholeMenuOpen(false);setDownloadOpen(false);
+  setBlocks([makeSection()]);setSectionAudio({});setSectionJob(null);setSectionPlayError(null);
+  setWholeAudio(null);setNarrationJob(null);setAmbience(null);setEffectPicker(null);
+  setStatus('Narration cleared');
  }
  async function generateNarration(forceNew=false){
   if(wholeAudible){stopWholeNarration();if(!forceNew)return}
@@ -391,12 +395,6 @@ function App(){
        <button type="button" className="icon-action section-play" aria-label={(sectionPlayingId===b.id?'Generating':audibleSectionId===b.id?'Stop':sectionAudio[b.id]?.signature===audioSignature(b)?'Play':'Generate')+' section '+(i+1)} title={(sectionPlayingId===b.id?'Generating audio':audibleSectionId===b.id?'Stop playback':sectionAudio[b.id]?.signature===audioSignature(b)?'Play generated audio':'Generate section audio')+(b.voice_key?'':' · select a narrator first')} disabled={sectionPlayingId!==null} onClick={()=>playSection(b)}>
         <i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':audibleSectionId===b.id?'fa-stop':'fa-play')} aria-hidden="true"/>
        </button>
-       <button type="button" className="icon-action section-regenerate" aria-label={'Regenerate new take for section '+(i+1)}
-        title="Generate a fresh take using the same text and voice"
-        disabled={sectionPlayingId!==null||!b.voice_key||!spokenText(b.text)}
-        onClick={()=>playSection(b,true)}>
-        <i className={'fa-solid '+(sectionPlayingId===b.id?'fa-spinner fa-spin':'fa-arrows-rotate')} aria-hidden="true"/>
-       </button>
        <div className="section-floating-wrap section-speed-wrap" data-section-floating-control>
         <button type="button" className="icon-action section-speed" onClick={()=>toggleSectionPopover(b.id,'speed')} title="Adjust playback speed" aria-expanded={sectionPopover?.id===b.id&&sectionPopover.type==='speed'} aria-label={'Playback speed '+Number((sectionSpeed[b.id]||1).toFixed(2))+' times. Adjust speed'}>
           <i className="fa-solid fa-gauge-high" aria-hidden="true"/><span>{Number((sectionSpeed[b.id]||1).toFixed(2))}x</span>
@@ -432,8 +430,8 @@ function App(){
        <div className="section-menu-wrap" data-section-floating-control>
         <button type="button" className="icon-action" aria-label={'More options for section '+(i+1)} title="More options" aria-expanded={sectionMenu===b.id} onClick={()=>{setSectionPopover(null);setSectionMenu(old=>old===b.id?null:b.id)}}><i className="fa-solid fa-ellipsis-vertical" aria-hidden="true"/></button>
         {sectionMenu===b.id&&<div className="section-options-menu">
+         <button type="button" disabled={sectionPlayingId!==null||!b.voice_key||!spokenText(b.text)} onClick={()=>{setSectionMenu(null);playSection(b,true)}}><i className="fa-solid fa-arrows-rotate" aria-hidden="true"/> Regenerate section</button>
          <button type="button" onClick={()=>duplicateSection(i)}><i className="fa-regular fa-copy" aria-hidden="true"/> Duplicate section</button>
-         {sectionAudio[b.id]?.signature===audioSignature(b)&&<button type="button" onClick={()=>resetSectionAudio(b.id)}><i className="fa-solid fa-rotate" aria-hidden="true"/> Regenerate audio</button>}
          {blocks.length>1&&<button type="button" className="section-options-remove" onClick={()=>{removeBlock(b.id);setSectionMenu(null)}}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Delete section</button>}
         </div>}
        </div>
@@ -496,11 +494,13 @@ function App(){
     return available?<a className="narration-download-option" href={href} download={'humperdinck-narration.'+type} key={type} onClick={()=>setDownloadOpen(false)}><i className="fa-solid fa-file-audio" aria-hidden="true"/><span><strong>{type.toUpperCase()}</strong><small>{type==='mp3'?'Smaller, widely compatible file':'Uncompressed, best for editing'}</small></span><i className="fa-solid fa-download" aria-hidden="true"/></a>:<div className="narration-download-option unavailable" key={type} aria-disabled="true"><i className="fa-solid fa-file-audio" aria-hidden="true"/><span><strong>{type.toUpperCase()}</strong><small>{type==='mp3'?'Generate audio to download MP3':'Generate audio to download WAV'}</small></span></div>
    })}
  </div>}
- </div><button type="button" className="narration-regenerate" disabled={!voiceOptions.length||PUBLIC_STUDIO||['queued','running'].includes(narrationJob?.status)}
- title="Generate a fresh version of the complete narration, including sound effects"
- aria-label="Regenerate complete narration" onClick={()=>generateNarration(true)}>
- <i className="fa-solid fa-arrows-rotate" aria-hidden="true"/> <span>Regenerate</span>
- </button><button type="button" className="primary narration-full-play" aria-label={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} title={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} onClick={()=>generateNarration()} disabled={!voiceOptions.length||(['queued','running'].includes(narrationJob?.status))}><i className={'fa-solid '+(['queued','running'].includes(narrationJob?.status)?'fa-spinner fa-spin':wholeAudible?'fa-stop':'fa-play')} aria-hidden="true"/></button><audio ref={wholeAudioRef} className="hidden-section-audio" preload="auto" aria-hidden="true" onPlay={()=>setWholeAudible(true)} onPause={()=>setWholeAudible(false)} onEnded={()=>setWholeAudible(false)}/></div>}
+ </div><div className="narration-whole-options" data-section-floating-control>
+ <button type="button" className="narration-whole-menu-trigger" aria-label="More options for entire narration" title="Narration options" aria-expanded={wholeMenuOpen} aria-haspopup="true" onClick={()=>{setDownloadOpen(false);setWholeMenuOpen(open=>!open)}}><i className="fa-solid fa-ellipsis-vertical" aria-hidden="true"/></button>
+ {wholeMenuOpen&&<div className="section-options-menu narration-whole-menu" role="menu">
+  <button type="button" role="menuitem" disabled={!voiceOptions.length||['queued','running'].includes(narrationJob?.status)} onClick={()=>{setWholeMenuOpen(false);generateNarration(true)}}><i className="fa-solid fa-arrows-rotate" aria-hidden="true"/> Regenerate entire narration</button>
+  <button type="button" role="menuitem" className="section-options-remove" onClick={()=>{setWholeMenuOpen(false);clearNarration()}}><i className="fa-solid fa-trash-can" aria-hidden="true"/> Clear narration</button>
+ </div>}
+ </div><button type="button" className="primary narration-full-play" aria-label={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} title={wholeAudible?'Stop narration':wholeAudio?.signature===fullNarrationSignature?'Play narration':'Generate narration'} onClick={()=>generateNarration()} disabled={!voiceOptions.length||(['queued','running'].includes(narrationJob?.status))}><i className={'fa-solid '+(['queued','running'].includes(narrationJob?.status)?'fa-spinner fa-spin':wholeAudible?'fa-stop':'fa-play')} aria-hidden="true"/></button><audio ref={wholeAudioRef} className="hidden-section-audio" preload="auto" aria-hidden="true" onPlay={()=>setWholeAudible(true)} onPause={()=>setWholeAudible(false)} onEnded={()=>setWholeAudible(false)}/></div>}
  {PUBLIC_STUDIO&&<p className="hint">The browser generates one selected section at a time. To export a combined multi-speaker narration, use the desktop app.</p>}
  {narrationJob&&<div className="job"><p>{narrationJob.message}</p><progress max="100" value={narrationJob.progress}/>{narrationJob.status==='complete'&&<><button onClick={()=>setTab('video')}>Add to Video →</button>
   <AudioEditor src={narrationJob.download_url.replace(/\.mp3$/,'.wav')} source={'output:'+narrationJob.job_id} saveLabel="Apply edits" onSaved={j=>{setNarrationJob({...j,job_id:j.download_url.split('/').pop().split('.')[0]});setStatus('Edited narration ready. Video Studio will use this version.')}}/></>}</div>}</section>}
