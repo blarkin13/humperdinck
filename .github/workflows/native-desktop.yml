@@ -103,7 +103,16 @@ jobs:
         if: runner.os == 'macOS'
         timeout-minutes: 6
         run: |
-          APP="desktop/src-tauri/target/release/bundle/macos/Humperdinck.app"
+          # Inspect the actual distributed DMG. Tauri may clean up or move
+          # the intermediate .app after producing the disk image.
+          DMG="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG" || { echo "No macOS DMG was produced"; exit 1; }
+          MOUNT="$RUNNER_TEMP/humperdinck-dmg-mount"
+          mkdir -p "$MOUNT"
+          /usr/bin/hdiutil attach -readonly -nobrowse -mountpoint "$MOUNT" "$DMG"
+          trap '/usr/bin/hdiutil detach "$MOUNT" -quiet || true' EXIT
+          APP="$MOUNT/Humperdinck.app"
+          test -d "$APP" || { echo "Humperdinck.app missing from DMG"; ls -la "$MOUNT"; exit 1; }
           /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
           /usr/bin/codesign --display --entitlements - "$APP/Contents/MacOS/humperdinck-server" > /tmp/humperdinck-entitlements.plist
           /usr/bin/plutil -lint /tmp/humperdinck-entitlements.plist
