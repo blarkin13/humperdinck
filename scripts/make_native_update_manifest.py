@@ -10,14 +10,14 @@ import argparse
 import json
 from pathlib import Path
 
-PLATFORMS=("darwin-aarch64","windows-x86_64","linux-x86_64")
+PLATFORMS=("darwin-aarch64","windows-x86_64")
 
 
 def manifest(version:str, assets:dict[str,tuple[Path,Path]]) -> dict:
     if not version or any(c not in "0123456789." for c in version) or len(version.split("."))!=3:
         raise ValueError("Version must use X.Y.Z")
     if set(assets)!=set(PLATFORMS):
-        raise ValueError("All three signed desktop platforms are required")
+        raise ValueError("Both Windows and macOS signed update artifacts are required")
     entries={}
     for target,(artifact,signature) in assets.items():
         if not artifact.is_file() or artifact.stat().st_size<1024:
@@ -29,10 +29,10 @@ def manifest(version:str, assets:dict[str,tuple[Path,Path]]) -> dict:
             raise ValueError(f"Invalid .sig for {target}")
         entries[target]={
             "signature":raw,
-            "url":f"https://github.com/blarkin13/humperdinck/releases/download/desktop-v{version}/{artifact.name}"
+            "url":f"https://github.com/blarkin13/humperdinck-downloads/releases/download/v{version}/{artifact.name}"
         }
     return {"version":version,
-            "notes":"Humperdinck desktop release for Windows, macOS and Linux",
+            "notes":"Humperdinck signed automatic update for Windows and macOS; Linux deb is a manual download",
             "platforms":entries}
 
 
