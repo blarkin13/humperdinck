@@ -60,6 +60,8 @@ def main():
     parser.add_argument("--target", required=True, help="Rust target triple from CI")
     parser.add_argument("--builtin-voices-pack", type=Path, default=ROOT / "assets" / "voice-packs" / "humperdinck-builtin-voices-v1.zip",
                         help="Pre-verified seven-voice pack from scripts/prepare_native_voice_pack.py")
+    parser.add_argument("--builtin-sounds-pack", type=Path, default=ROOT / "assets" / "sound-packs" / "humperdinck-cc0-nature-pack.zip",
+                        help="Pre-verified curated nature pack from scripts/prepare_native_sound_pack.py")
     parser.add_argument("--ffmpeg-dir", type=Path, default=Path(os.environ["HUMPERDINCK_FFMPEG_BUNDLE_DIR"]) if os.environ.get("HUMPERDINCK_FFMPEG_BUNDLE_DIR") else None,
                         help="Verified LGPL FFmpeg tools + source manifest (optional until distribution approval)")
     args = parser.parse_args()
@@ -84,6 +86,12 @@ def main():
     builtin_count = validate_builtin_voices(args.builtin_voices_pack.read_bytes())
     print(f"Bundling {builtin_count} approved Built-In Humperdinck Voices")
 
+    if not args.builtin_sounds_pack.is_file():
+        parser.error("Approved Humperdinck Sound Effects are required: run python scripts/prepare_native_sound_pack.py")
+    from prepare_native_sound_pack import validate as validate_builtin_sounds
+    sound_count = validate_builtin_sounds(args.builtin_sounds_pack.read_bytes())
+    print(f"Bundling {sound_count} approved Humperdinck Sound Effects")
+
     TEMP.mkdir(parents=True, exist_ok=True)
     TAURI_BIN.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -96,6 +104,7 @@ def main():
         "--paths", str(ROOT),
         "--add-data", f"{frontend}{os.pathsep}frontend/dist",
         "--add-data", f"{args.builtin_voices_pack.resolve()}{os.pathsep}voice-packs",
+        "--add-data", f"{args.builtin_sounds_pack.resolve()}{os.pathsep}sound-packs",
         "--collect-submodules", "uvicorn",
         str(ROOT / "desktop" / "server.py"),
     ]

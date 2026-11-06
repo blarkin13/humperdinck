@@ -67,6 +67,11 @@ def main():
                         assert len([v for v in builtin_voices if v.get("origin") == "builtin-humperdinck"]) == 7, (
                             "All seven Built-In Humperdinck Voices must be installed before the UI loads"
                         )
+                        with urlopen(f"http://127.0.0.1:{port}/api/sound-effects", timeout=8) as response:
+                            sounds = json.load(response)
+                        assert len([s for s in sounds if s.get("origin") == "curated-cc0"]) == 9, (
+                            "Nine curated Humperdinck Sound Effects must be installed before the UI loads"
+                        )
                         with urlopen(f"http://127.0.0.1:{port}/api/updates/check", timeout=8) as response:
                             updates = json.load(response)
                         assert updates["available"] is False, "Native binary updates must be disabled"

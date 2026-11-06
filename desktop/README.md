@@ -163,3 +163,14 @@ binaries are automatically safe to redistribute.
 
 All three editions keep model weights outside their replaceable application
 files. The shared default follows the existing user Hugging Face cache.
+
+
+### Included Sound Effects
+
+Every native Windows, macOS and Linux package includes the pinned 9-recording
+`nature-sounds-v1` curated CC0 release ZIP. The final sidecar validates the
+SHA256-pinned archive and imports it on startup using the same authenticated
+sound-pack import code as the source-based app. Existing user recordings are
+preserved; already installed curated sounds are not duplicated. The native
+smoke test requires all nine curated effects to appear in `/api/sound-effects`.
+The downloadable native package includes the audio, not just a sound list.

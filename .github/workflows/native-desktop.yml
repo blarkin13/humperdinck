@@ -7,6 +7,7 @@ on:
       - 'desktop/**'
       - 'scripts/build_native_sidecar.py'
       - 'scripts/prepare_native_voice_pack.py'
+      - 'scripts/prepare_native_sound_pack.py'
       - 'scripts/smoke_native_server.py'
       - 'backend/**'
       - 'frontend/**'
@@ -78,6 +79,9 @@ jobs:
 
       - name: Download and verify seven approved Built-In Humperdinck Voices
         run: python scripts/prepare_native_voice_pack.py
+
+      - name: Download and verify nine approved Humperdinck Sound Effects
+        run: python scripts/prepare_native_sound_pack.py
 
       - name: Compile the bundled localhost server
         run: python scripts/build_native_sidecar.py --target ${{ matrix.target }}

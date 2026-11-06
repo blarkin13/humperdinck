@@ -30,6 +30,19 @@ def install_builtin_voices(data_dir: Path) -> dict:
     return result
 
 
+def install_builtin_sounds(data_dir: Path) -> dict:
+    """Install approved nature recordings into user storage without overwriting uploads."""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+    archive = base / "sound-packs" / "humperdinck-cc0-nature-pack.zip"
+    if not archive.is_file():
+        raise RuntimeError("Humperdinck Nature Sound Pack missing from native app bundle")
+    from backend.sound_effects import SoundEffects
+    result = SoundEffects(data_dir).import_pack(archive.read_bytes())
+    print(f"Humperdinck Sound Effects: {result['count']} newly imported; "
+          f"{len(result['skipped'])} already installed", flush=True)
+    return result
+
+
 def main() -> None:
     if "--native-runtime-check" in sys.argv:
         from backend import native_runtime
@@ -85,6 +98,7 @@ def main() -> None:
     os.environ["HUMPERDINCK_DATA"] = str(data_dir)
     os.environ["HUMPERDINCK_NATIVE_PACKAGE"] = "1"
     install_builtin_voices(data_dir)
+    install_builtin_sounds(data_dir)
 
     static = frontend_directory()
     if not (static / "index.html").is_file():
