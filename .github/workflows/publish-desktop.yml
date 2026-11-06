@@ -19,6 +19,9 @@ permissions:
 jobs:
   build:
     uses: ./.github/workflows/native-desktop.yml
+    with:
+      production_signing: true
+    secrets: inherit
 
   publish:
     name: Approve and publish binary-only release
@@ -78,9 +81,9 @@ jobs:
 
           Windows x64, macOS Apple Silicon and Ubuntu/Debian x64 desktop installers.
 
-          PREVIEW: Current installer packages are unsigned. Downloaded application
-          updates require manual installation; in-app signed automatic installation
-          will not be enabled until platform signing and Tauri updater artifacts are configured.
+          Windows code-signed installer and macOS Developer ID signed/notarized DMG.
+          Updates require manual installation until signed Tauri updater bundles and
+          a verified updater manifest are published.
           EOF
           gh release create "v$VERSION" publish/* \
             --repo "$TARGET_REPOSITORY" \
