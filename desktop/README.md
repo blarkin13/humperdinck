@@ -121,3 +121,14 @@ support and licenses of linked libraries, and test each OS. CI currently builds
 the unsigned shell **without** bundled FFmpeg until reviewed executables are
 provided. Do not infer that system-installed or random downloaded FFmpeg
 binaries are automatically safe to redistribute.
+
+## OS installation locations
+
+- Windows NSIS prompts for current-user installation under LocalAppData or
+  all-users installation under Program Files (requires administrator rights).
+- macOS uses a DMG that installs Humperdinck.app in Applications.
+- Linux DEB installs application executables and desktop entries in the normal
+  system directories, not under /home. Per-user data stays in the home directory.
+
+All three editions keep model weights outside their replaceable application
+files. The shared default follows the existing user Hugging Face cache.
