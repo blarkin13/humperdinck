@@ -137,11 +137,34 @@ jobs:
           if ($data.Length -lt 1024 -or $data[0] -ne 0 -or $data[1] -ne 0 -or $data[2] -ne 1 -or $data[3] -ne 0) { throw 'Invalid Windows icon resource' }
           Write-Output "Windows icon generated: $($data.Length) bytes"
 
-      - name: Package unsigned native app
-        working-directory: desktop
+      - name: Prepare Windows signing
+        if: runner.os == 'Windows' && inputs.production_signing
+        shell: pwsh
         env:
-          APPLE_SIGNING_IDENTITY: '-'
-        run: npx tauri build --bundles ${{ matrix.bundle }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) { throw 'Windows signing secrets are missing' }
+          ./scripts/sign-windows.ps1 -CertificateBase64 $env:WINDOWS_CERTIFICATE -CertificatePassword $env:WINDOWS_CERTIFICATE_PASSWORD
+
+      - name: Prepare Apple Developer ID signing
+        if: runner.os == 'macOS' && inputs.production_signing
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: bash scripts/import-apple-certificate.sh
+      - name: Package native app
+        working-directory: desktop
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ inputs.production_signing && secrets.APPLE_SIGNING_IDENTITY || '-' }}
+        run: |
+          if [ "$RUNNER_OS" = Windows ] && [ "${{ inputs.production_signing }}" = true ]; then
+            npx tauri build --bundles ${{ matrix.bundle }} --config src-tauri/signing.windows.json
+          else
+            npx tauri build --bundles ${{ matrix.bundle }}
+          fi
 
       # The macOS Tauri bundler re-signs externalBin sidecars without preserving
       # the special PyInstaller entitlement. This ad-hoc-only test repack signs
