@@ -20,7 +20,7 @@ jobs:
   build:
     uses: ./.github/workflows/native-desktop.yml
     with:
-      production_signing: true
+      signed_updates: true
     secrets: inherit
 
   publish:
@@ -70,7 +70,22 @@ jobs:
             test -s "${files[0]}" || { echo "Installer empty"; exit 1; }
             cp -- "${files[0]}" "publish/$dest"
           done
-          (cd publish && sha256sum *.exe *.dmg *.deb > SHA256SUMS.txt)
+          # Signed updater files are different from macOS DMG/Linux DEB installers.
+          mapfile -t win_sigs < <(find packages -type f -name '*.exe.sig')
+          mapfile -t mac_tars < <(find packages -type f -name '*.app.tar.gz')
+          mapfile -t mac_sigs < <(find packages -type f -name '*.app.tar.gz.sig')
+          test "${#win_sigs[@]}" -eq 1 && test "${#mac_tars[@]}" -eq 1 && test "${#mac_sigs[@]}" -eq 1 || { echo 'Missing/duplicate signed updater artifacts'; exit 1; }
+          test -s "${win_sigs[0]}" && test -s "${mac_tars[0]}" && test -s "${mac_sigs[0]}"
+          cp -- "${win_sigs[0]}" "publish/humperdinck-windows-x64-$VERSION.exe.sig"
+          cp -- "${mac_tars[0]}" "publish/humperdinck-macos-arm64-$VERSION.app.tar.gz"
+          cp -- "${mac_sigs[0]}" "publish/humperdinck-macos-arm64-$VERSION.app.tar.gz.sig"
+          python scripts/make_native_update_manifest.py --version "$VERSION" --output publish/latest.json \
+            --windows_x86_64-asset "publish/humperdinck-windows-x64-$VERSION.exe" \
+            --windows_x86_64-signature "publish/humperdinck-windows-x64-$VERSION.exe.sig" \
+            --darwin_aarch64-asset "publish/humperdinck-macos-arm64-$VERSION.app.tar.gz" \
+            --darwin_aarch64-signature "publish/humperdinck-macos-arm64-$VERSION.app.tar.gz.sig"
+          python -m json.tool publish/latest.json >/dev/null
+          (cd publish && sha256sum *.exe *.dmg *.deb *.app.tar.gz > SHA256SUMS.txt)
           ls -lh publish
       - name: Publish public GitHub Release with binary artifacts only
         shell: bash
@@ -81,9 +96,9 @@ jobs:
 
           Windows x64, macOS Apple Silicon and Ubuntu/Debian x64 desktop installers.
 
-          Windows code-signed installer and macOS Developer ID signed/notarized DMG.
-          Updates require manual installation until signed Tauri updater bundles and
-          a verified updater manifest are published.
+          Windows and macOS automatic update files have independent cryptographic Tauri signatures.
+          Installers are not OS publisher-signed; Windows Smart App Control and macOS Gatekeeper
+          may still warn or block first installations. Linux DEB updates are manual.
           EOF
           gh release create "v$VERSION" publish/* \
             --repo "$TARGET_REPOSITORY" \
