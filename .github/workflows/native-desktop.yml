@@ -1,10 +1,13 @@
-name: Unsigned native desktop packages
+name: Native desktop builds and signed updater packages
 
 on:
   workflow_dispatch:
   workflow_call:
     inputs:
       production_signing:
+        type: boolean
+        default: false
+      signed_updates:
         type: boolean
         default: false
     secrets:
@@ -23,6 +26,12 @@ on:
       APPLE_APP_PASSWORD:
         required: false
       APPLE_TEAM_ID:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: false
+      HUMPERDINCK_UPDATER_PUBKEY:
         required: false
   pull_request:
     paths:
@@ -137,35 +146,53 @@ jobs:
           if ($data.Length -lt 1024 -or $data[0] -ne 0 -or $data[1] -ne 0 -or $data[2] -ne 1 -or $data[3] -ne 0) { throw 'Invalid Windows icon resource' }
           Write-Output "Windows icon generated: $($data.Length) bytes"
 
-      - name: Prepare Windows signing
+      # OS vendor code signing is optional; signed Tauri update artifacts use
+      # an independent owner-controlled key and do not require paid certificates.
+      - name: Validate Tauri update-signing credentials
+        if: inputs.signed_updates
+        shell: bash
+        env:
+          UPDATE_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          UPDATE_PUBLIC_KEY: ${{ secrets.HUMPERDINCK_UPDATER_PUBKEY }}
+        run: |
+          test -n "$UPDATE_PRIVATE_KEY" && test -n "$UPDATE_PUBLIC_KEY" || { echo 'Add Tauri private key and public key GitHub Actions secrets'; exit 1; }
+
+      - name: Prepare Windows publisher signing (optional, separate from updater signatures)
         if: runner.os == 'Windows' && inputs.production_signing
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
-          if (-not $env:WINDOWS_CERTIFICATE -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) { throw 'Windows signing secrets are missing' }
+          if (-not $env:WINDOWS_CERTIFICATE -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) { throw 'Windows publisher signing credentials missing' }
           ./scripts/sign-windows.ps1 -CertificateBase64 $env:WINDOWS_CERTIFICATE -CertificatePassword $env:WINDOWS_CERTIFICATE_PASSWORD
 
-      - name: Prepare Apple Developer ID signing
+      - name: Prepare Apple Developer ID signing (optional)
         if: runner.os == 'macOS' && inputs.production_signing
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: bash scripts/import-apple-certificate.sh
+
+      - name: Configure signed update artifacts for publication
+        if: inputs.signed_updates
+        shell: bash
+        run: |
+          python -c 'import json,pathlib;pathlib.Path("desktop/src-tauri/signing.updater.json").write_text(json.dumps({"bundle":{"createUpdaterArtifacts":True}}))'
       - name: Package native app
         working-directory: desktop
         shell: bash
         env:
           APPLE_SIGNING_IDENTITY: ${{ inputs.production_signing && secrets.APPLE_SIGNING_IDENTITY || '-' }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.signed_updates && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.signed_updates && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          HUMPERDINCK_UPDATER_PUBKEY: ${{ inputs.signed_updates && secrets.HUMPERDINCK_UPDATER_PUBKEY || '' }}
         run: |
-          if [ "$RUNNER_OS" = Windows ] && [ "${{ inputs.production_signing }}" = true ]; then
-            npx tauri build --bundles ${{ matrix.bundle }} --config src-tauri/signing.windows.json
-          else
-            npx tauri build --bundles ${{ matrix.bundle }}
-          fi
-
+          CONFIG=()
+          if [ "$RUNNER_OS" = Windows ] && [ "${{ inputs.production_signing }}" = true ]; then CONFIG+=(--config src-tauri/signing.windows.json); fi
+          if [ "${{ inputs.signed_updates }}" = true ]; then CONFIG+=(--config src-tauri/signing.updater.json); fi
+          npx tauri build --bundles ${{ matrix.bundle }} "${CONFIG[@]}"
       # The macOS Tauri bundler re-signs externalBin sidecars without preserving
       # the special PyInstaller entitlement. This ad-hoc-only test repack signs
       # the helper itself and then re-signs the outer app, so the distributed
@@ -196,6 +223,29 @@ jobs:
           /usr/bin/hdiutil create -volname "Humperdinck" -srcfolder "$PAYLOAD" -format UDZO "$PATCHED_DMG"
           mv "$PATCHED_DMG" "$DMG"
 
+      # Tauri's initial macOS updater tarball is made before our custom
+      # PyInstaller entitlements are restored. Rebuild and re-sign from the
+      # exact final app in the DMG, otherwise updates would regress startup.
+      - name: Rebuild and sign final macOS updater bundle
+        if: runner.os == 'macOS' && inputs.signed_updates
+        working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+          DMG="$(find src-tauri/target/release/bundle/dmg -name '*.dmg' -print -quit)"
+          MOUNT="$RUNNER_TEMP/final-mac-dmg"
+          mkdir -p "$MOUNT"
+          hdiutil attach -readonly -nobrowse -mountpoint "$MOUNT" "$DMG"
+          trap 'hdiutil detach "$MOUNT" -quiet || true' EXIT
+          test -d "$MOUNT/Humperdinck.app"
+          OUT="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app.tar.gz' -print -quit)"
+          test -n "$OUT"
+          tar -czf "$OUT" -C "$MOUNT" Humperdinck.app
+          npx tauri signer sign "$OUT"
+          test -s "$OUT.sig"
       # Pre-bundle smoke tests cannot catch macOS Library Validation when Tauri
       # re-signs the PyInstaller onefile sidecar. Run the signed copy too.
       - name: Verify signed macOS sidecar and embedded Python startup
@@ -250,7 +300,19 @@ jobs:
           xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
           xcrun stapler staple "$DMG"
           xcrun stapler validate "$DMG"
-      - name: Upload native installer
+      - name: Verify signed updater outputs
+        if: inputs.signed_updates
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in
+            Windows)
+              test "$(find desktop/src-tauri/target/release/bundle/nsis -maxdepth 1 -name '*.exe.sig' | wc -l | tr -d ' ')" -eq 1 ;;
+            macOS)
+              test "$(find desktop/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app.tar.gz.sig' | wc -l | tr -d ' ')" -eq 1 ;;
+            Linux) : ;;
+          esac
+      - name: Upload native installer and signed updater
         uses: actions/upload-artifact@v4
         with:
           name: humperdinck-${{ matrix.target }}-package
@@ -258,5 +320,8 @@ jobs:
             desktop/src-tauri/target/release/bundle/nsis/*.exe
             desktop/src-tauri/target/release/bundle/dmg/*.dmg
             desktop/src-tauri/target/release/bundle/deb/*.deb
+            desktop/src-tauri/target/release/bundle/nsis/*.exe.sig
+            desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz
+            desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
           retention-days: 14
