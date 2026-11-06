@@ -1187,6 +1187,28 @@ class ModelChoice(BaseModel):
     engine: str
     model: str
 
+# Store onboarding completion in per-user data, never in the replaceable app.
+class SetupCompletion(BaseModel):
+    finished: bool = True
+
+@app.get('/api/setup')
+def read_setup():
+    path = DATA / 'first-run-setup.json'
+    try:
+        content = json.loads(path.read_text()) if path.is_file() else {}
+    except (OSError, ValueError, TypeError):
+        content = {}
+    return {'finished': content.get('finished') is True,
+            'native_package': os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'}
+
+@app.put('/api/setup')
+def save_setup(request: SetupCompletion):
+    path = DATA / 'first-run-setup.json'
+    temp = path.with_suffix('.tmp')
+    temp.write_text(json.dumps({'finished': request.finished}))
+    temp.replace(path)
+    return {'finished':request.finished}
+
 class ModelInstall(BaseModel):
     engine: str
     model: str | None = None

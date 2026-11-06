@@ -6,7 +6,7 @@ const roles=[['preset','Fast preset narration','Fast, CPU-friendly built-in voic
  ['clone','Custom voice cloning','Recreates an approved designed voice or uploaded recording in Narration Studio. This can be much slower than preset narration.']];
 
 // Choose which model handles each job, and install engines or download models that are missing.
-export default function Models(){
+export default function Models({onOpenSetup}){
  const {notify,confirm:askConfirm}=useNotifications();
  const [data,setData]=useState(null),[error,setError]=useState(''),[job,setJob]=useState(null),[msg,setMsg]=useState(''),[expanded,setExpanded]=useState({});
  async function load(){try{const r=await fetch('/api/models'),j=await r.json();if(!r.ok)throw Error(j.detail);setData(j);if(j.installing)setJob(j.installing)}catch(e){setError(e.message)}}
@@ -35,7 +35,7 @@ export default function Models(){
  const latest=job?.job_id?job:data.recent_install;
  const running=['queued','running'].includes(latest?.status);
  return <section>
-  <div className="heading"><div><h2>Models</h2><p>Pick which AI model does each job. Everything runs on this computer.</p></div><span className="tag">{data.platform}{data.memory_gb?` · ${data.memory_gb} GB RAM`:''}</span></div>
+  <div className="heading"><div><h2>Models</h2><p>Pick the voices you like. <strong>You need just one model for each activity:</strong> reading text, designing a voice, or cloning an approved voice. Try another model later to compare quality, speed and memory use.</p></div><div className="model-heading-actions">{data.native_package&&<button type="button" onClick={onOpenSetup}><i className="fa-solid fa-list-check"/> Setup guide</button>}<span className="tag">{data.platform}{data.memory_gb?` · ${data.memory_gb} GB RAM`:''}</span></div></div>
   {latest&&<div className="job"><p>{latest.status==='complete'?'Completed: ':latest.status==='failed'?'Failed: ':''}{latest.message}</p>{running&&<progress/>}{latest.status==='complete'&&<p className="hint">Checkpoint files have been checked. Run a short voice preview to confirm the audio decoder can load.</p>}{latest.status==='failed'&&latest.log&&<pre className="log">{latest.log.join('\n')}</pre>}</div>}
   {msg&&<p className="hint">{msg}</p>}
   {data.native_package&&<div className="models-guide" aria-label="Getting started with voices">
@@ -72,6 +72,6 @@ export default function Models(){
     {e.models.filter(m=>m.roles.includes(role)).length>4&&<button className="model-list-expand" type="button" onClick={()=>setExpanded(old=>({...old,[e.id]:!old[e.id]}))} aria-expanded={!!expanded[e.id]}><i className={'fa-solid '+(expanded[e.id]?'fa-chevron-up':'fa-chevron-down')}/> {expanded[e.id]?'Show fewer models':`Show all ${e.models.filter(m=>m.roles.includes(role)).length} models`}</button>}
    </div>)}
   </div>)}
-  <p className="hint">Downloads and installs need internet once; after that every model works offline. Larger models usually sound better but need more memory and run slower.</p>
+  <p className="hint"><i className="fa-solid fa-lightbulb"/> Start with one small model for each activity. Listen to a short preview before downloading another. A larger model is not always the best option: it may run slower or exhaust your computer's memory. Downloads usually only need internet once.</p>
  </section>;
 }

@@ -251,3 +251,15 @@ def test_kokoro_engine_uses_correct_language_phonemization(monkeypatch, tmp_path
         engine.synthesize('A short line.', voice, tmp_path / (voice + '.wav'))
         assert recorded[-1][0] == phonemes
         assert recorded[-1][2]['is_phonemes'] is True
+
+
+def test_first_run_setup_persists_across_visits(client):  # noqa: F811
+    """The desktop wizard remains dismissed after app updates and restarts."""
+    initial = client.get('/api/setup')
+    assert initial.status_code == 200
+    assert initial.json()['finished'] is False
+    assert client.put('/api/setup', json={'finished': True}).status_code == 200
+    assert client.get('/api/setup').json()['finished'] is True
+    assert (client.module.DATA / 'first-run-setup.json').is_file()
+    assert client.put('/api/setup', json={'finished': False}).status_code == 200
+    assert client.get('/api/setup').json()['finished'] is False
