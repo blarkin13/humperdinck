@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -66,12 +67,47 @@ def _execute(command: list[str], env: dict):
     subprocess.run(command, check=True, env=env, timeout=1200, cwd=str(root()))
 
 
+def free_space_gb(path: Path) -> float:
+    """Check the volume holding the shared model cache, not just the app."""
+    target = path
+    while not target.exists():
+        if target.parent == target:
+            raise RuntimeError("Cannot determine model cache volume")
+        target = target.parent
+    return shutil.disk_usage(target).free / 1024**3
+
+
+def minimum_free_gb(engine: str, model: str | None = None) -> float:
+    # Full-size checkpoints, Xet reconstruction files, Python wheels and the
+    # separate managed runtime can temporarily coexist during installation.
+    size = catalog.ENGINES[engine]["models"][model]["size_gb"] if model else 0.0
+    overhead = 6.0 if engine == "qwen-mlx" else 2.0
+    return max(overhead, float(size) * 2 + 3.0)
+
+
+def require_disk_space(engine: str, model: str | None = None) -> None:
+    target = (catalog.hf_cache() if model and engine == "qwen-mlx"
+              else root())
+    available = free_space_gb(target)
+    needed = minimum_free_gb(engine, model)
+    if available < needed:
+        raise RuntimeError(
+            f"Not enough free disk space for {engine}"
+            + (f" / {model}" if model else "") + ". "
+            f"About {available:.1f} GB is available on the destination drive; "
+            f"allow at least {needed:.1f} GB for the model, runtime and temporary files. "
+            "Free disk space and retry. Incomplete Hugging Face downloads may "
+            "also be occupying the shared model cache."
+        )
+
+
 def install(engine: str, model: str | None = None) -> None:
     if not supported(engine):
         raise RuntimeError(f"{engine} is not available in this native installer")
     if model and model not in catalog.ENGINES[engine]["models"]:
         raise ValueError("Unknown model selected")
     base = root()
+    require_disk_space(engine, model)
     base.mkdir(parents=True, exist_ok=True)
     uv = str(uv_binary())
     env = environment(online=True)
@@ -89,6 +125,8 @@ def install(engine: str, model: str | None = None) -> None:
     _execute([str(py), "-c", "import importlib; " +
               "; ".join(f"importlib.import_module({module!r})" for module in modules)], env)
     if model:
+        # A user may have freed or consumed space while dependencies installed.
+        require_disk_space(engine, model)
         print(f"STEP Downloading {model} to shared model cache", flush=True)
         if engine == "piper":
             folder = catalog.preset_path("piper", model)

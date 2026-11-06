@@ -1203,7 +1203,14 @@ def run_install(job_id, command):
                    if job.get('model') and job['engine'] == 'qwen-mlx'
                    else 'Installed and ready', log=log[-15:])
     except Exception as exc:
-        job.update(status='failed', message=f'Install failed: {exc}', log=log[-15:])
+        error_text = str(exc)
+        recent = "\n".join(log[-40:])
+        if any(token in recent.lower() for token in ("no space left on device", "os error 28", "disk quota exceeded")):
+            job.update(status='failed',
+                       message="Insufficient disk space for model download. Free space on the model-cache volume and retry; incomplete Hugging Face downloads may also be using space.",
+                       log=log[-15:])
+        else:
+            job.update(status='failed', message=f'Install failed: {error_text}', log=log[-15:])
     finally:
         install_lock.release()
 
