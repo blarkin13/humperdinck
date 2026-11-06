@@ -1,8 +1,30 @@
-name: Unsigned native desktop packages
+name: Native desktop packages (preview and signed release)
 
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      production_signing:
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      WINDOWS_CERTIFICATE:
+        required: false
+      WINDOWS_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_SIGNING_IDENTITY:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_APP_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
   pull_request:
     paths:
       - 'desktop/**'
@@ -18,7 +40,7 @@ permissions:
   contents: read
 
 jobs:
-  unsigned-native-build:
+  native-build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -116,11 +138,166 @@ jobs:
           if ($data.Length -lt 1024 -or $data[0] -ne 0 -or $data[1] -ne 0 -or $data[2] -ne 1 -or $data[3] -ne 0) { throw 'Invalid Windows icon resource' }
           Write-Output "Windows icon generated: $($data.Length) bytes"
 
-      - name: Package unsigned native app
-        working-directory: desktop
+      - name: Import Windows publisher certificate for signed release
+        if: runner.os == 'Windows' && inputs.production_signing
+        shell: pwsh
+        env:
+          CERT_BASE64: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:CERT_BASE64 -or -not $env:CERT_PASSWORD) { throw "Windows signing requires WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD secrets" }
+          $pfx = Join-Path $env:RUNNER_TEMP 'humperdinck-signing.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_BASE64))
+          $pass = ConvertTo-SecureString $env:CERT_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pass
+          if (-not $cert -or -not $cert.HasPrivateKey -or -not $cert.EnhancedKeyUsageList.FriendlyName.Contains('Code Signing')) { throw "Valid code signing certificate with private key required" }
+          Remove-Item $pfx -Force
+          "WINDOWS_SIGNING_THUMBPRINT=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $config = @{ bundle = @{ windows = @{ certificateThumbprint = $cert.Thumbprint; digestAlgorithm = 'sha256'; timestampUrl = 'http://timestamp.digicert.com' } } } | ConvertTo-Json -Depth 5 -Compress
+          Set-Content -Path 'desktop/src-tauri/signing.windows.json' -Value $config
+
+      - name: Sign Windows embedded Python server before packaging
+        if: runner.os == 'Windows' && inputs.production_signing
+        shell: pwsh
+        run: |
+          $binary = 'desktop/src-tauri/binaries/humperdinck-server-x86_64-pc-windows-msvc.exe'
+          if (-not (Test-Path $binary)) { throw "Missing sidecar: $binary" }
+          $tool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe | Where-Object { $_.FullName -match '\\x64\\signtool.exe        working-directory: desktop
         env:
           APPLE_SIGNING_IDENTITY: '-'
         run: npx tauri build --bundles ${{ matrix.bundle }}
+
+      # The macOS Tauri bundler re-signs externalBin sidecars without preserving
+      # the special PyInstaller entitlement. This ad-hoc-only test repack signs
+      # the helper itself and then re-signs the outer app, so the distributed
+      # DMG contains the executable with the entitlement it needs.
+      - name: Re-sign embedded macOS Python server and rebuild test DMG
+        if: runner.os == 'macOS' && !inputs.production_signing
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          DMG="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG" || { echo "DMG missing"; exit 1; }
+          ORIGINAL_MOUNT="$RUNNER_TEMP/humperdinck-original-dmg"
+          PAYLOAD="$RUNNER_TEMP/humperdinck-resigned-payload"
+          ENTITLEMENTS="$PWD/desktop/src-tauri/entitlements.plist"
+          mkdir -p "$ORIGINAL_MOUNT" "$PAYLOAD"
+          /usr/bin/hdiutil attach -readonly -nobrowse -mountpoint "$ORIGINAL_MOUNT" "$DMG"
+          /usr/bin/ditto "$ORIGINAL_MOUNT/Humperdinck.app" "$PAYLOAD/Humperdinck.app"
+          if test -L "$ORIGINAL_MOUNT/Applications"; then
+            ln -s /Applications "$PAYLOAD/Applications"
+          fi
+          /usr/bin/hdiutil detach "$ORIGINAL_MOUNT" -quiet
+          APP="$PAYLOAD/Humperdinck.app"
+          /usr/bin/codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP/Contents/MacOS/humperdinck-server"
+          /usr/bin/codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP"
+          /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
+          PATCHED_DMG="$RUNNER_TEMP/humperdinck-resigned.dmg"
+          /usr/bin/hdiutil create -volname "Humperdinck" -srcfolder "$PAYLOAD" -format UDZO "$PATCHED_DMG"
+          mv "$PATCHED_DMG" "$DMG"
+
+      # Pre-bundle smoke tests cannot catch macOS Library Validation when Tauri
+      # re-signs the PyInstaller onefile sidecar. Run the signed copy too.
+      - name: Verify signed macOS sidecar and embedded Python startup
+        if: runner.os == 'macOS'
+        timeout-minutes: 6
+        run: |
+          # Inspect the actual distributed DMG. Tauri may clean up or move
+          # the intermediate .app after producing the disk image.
+          DMG="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG" || { echo "No macOS DMG was produced"; exit 1; }
+          MOUNT="$RUNNER_TEMP/humperdinck-dmg-mount"
+          mkdir -p "$MOUNT"
+          /usr/bin/hdiutil attach -readonly -nobrowse -mountpoint "$MOUNT" "$DMG"
+          trap '/usr/bin/hdiutil detach "$MOUNT" -quiet || true' EXIT
+          APP="$MOUNT/Humperdinck.app"
+          test -d "$APP" || { echo "Humperdinck.app missing from DMG"; ls -la "$MOUNT"; exit 1; }
+          /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
+          /usr/bin/codesign --display --entitlements - --xml "$APP/Contents/MacOS/humperdinck-server" > /tmp/humperdinck-entitlements.plist
+          /usr/bin/plutil -lint /tmp/humperdinck-entitlements.plist
+          python - <<'PY'
+          import plistlib
+          with open("/tmp/humperdinck-entitlements.plist", "rb") as f:
+              entitlements = plistlib.load(f)
+          key = "com.apple.security.cs.disable-library-validation"
+          print("Signed Python sidecar entitlement:", key, "=", entitlements.get(key))
+          assert entitlements.get(key) is True, f"Missing required signed-sidecar entitlement: {entitlements}"
+          PY
+          python scripts/smoke_native_server.py --target ${{ matrix.target }} --binary "$APP/Contents/MacOS/humperdinck-server"
+
+      - name: Verify Windows signed release installer
+        if: runner.os == 'Windows' && inputs.production_signing
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem 'desktop/src-tauri/target/release/bundle/nsis/*.exe' | Select-Object -First 1
+          if (-not $file) { throw "Missing Windows installer" }
+          $sig = Get-AuthenticodeSignature $file.FullName
+          if ($sig.Status -ne 'Valid') { throw "Windows installer is not signed and trusted: $($sig.Status)" }
+          Write-Output "Signed Windows installer: $($sig.SignerCertificate.Subject)"
+
+      - name: Notarize Apple Developer ID test release DMG
+        if: runner.os == 'macOS' && inputs.production_signing
+        timeout-minutes: 20
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$APPLE_ID" && test -n "$APPLE_APP_PASSWORD" && test -n "$APPLE_TEAM_ID" || { echo "Apple notarization credentials are required"; exit 1; }
+          DMG="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG"
+          xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+
+      - name: Upload test installer (no release/signing)
+        uses: actions/upload-artifact@v4
+        with:
+          name: humperdinck-${{ matrix.target }}-unsigned
+          path: |
+            desktop/src-tauri/target/release/bundle/nsis/*.exe
+            desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+          retention-days: 14
+ } | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $tool) { throw "signtool.exe missing" }
+          & $tool sign /sha $env:WINDOWS_SIGNING_THUMBPRINT /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $binary
+          if ($LASTEXITCODE -ne 0) { throw "Windows sidecar signing failed" }
+          & $tool verify /pa /v $binary
+          if ($LASTEXITCODE -ne 0) { throw "Windows sidecar signature verification failed" }
+
+      - name: Import Apple Developer ID certificate for signed release
+        if: runner.os == 'macOS' && inputs.production_signing
+        env:
+          CERT_BASE64: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          CERT_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          test -n "$CERT_BASE64" && test -n "$CERT_PASSWORD" && test -n "$CERT_IDENTITY" || { echo "Apple Developer ID certificate, password and identity are required"; exit 1; }
+          printf '%s' "$CERT_BASE64" | base64 -D > "$RUNNER_TEMP/humperdinck-cert.p12"
+          security create-keychain -p "" "$RUNNER_TEMP/humperdinck.keychain-db"
+          security unlock-keychain -p "" "$RUNNER_TEMP/humperdinck.keychain-db"
+          security list-keychains -d user -s "$RUNNER_TEMP/humperdinck.keychain-db"
+          security default-keychain -s "$RUNNER_TEMP/humperdinck.keychain-db"
+          security import "$RUNNER_TEMP/humperdinck-cert.p12" -k "$RUNNER_TEMP/humperdinck.keychain-db" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$RUNNER_TEMP/humperdinck.keychain-db"
+          security find-identity -v -p codesigning
+          rm -f "$RUNNER_TEMP/humperdinck-cert.p12"
+          echo "APPLE_SIGNING_IDENTITY=$CERT_IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Package native app
+        working-directory: desktop
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ inputs.production_signing && secrets.APPLE_SIGNING_IDENTITY || '-' }}
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ] && [ "${{ inputs.production_signing }}" = "true" ]; then
+            npx tauri build --bundles ${{ matrix.bundle }} --config src-tauri/signing.windows.json
+          else
+            npx tauri build --bundles ${{ matrix.bundle }}
+          fi
 
       # The macOS Tauri bundler re-signs externalBin sidecars without preserving
       # the special PyInstaller entitlement. This ad-hoc-only test repack signs
