@@ -39,8 +39,8 @@ def main():
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
     with tempfile.TemporaryDirectory() as data_dir:
-        # PyInstaller --onefile uses a parent bootloader and a child process on
-        # Windows. Pipes can remain open after terminating only the parent.
+        # PyInstaller --onefile (Mac, Linux) uses a parent bootloader and a
+        # child process. Pipes can remain open after terminating only the parent.
         # Write a file instead and terminate the entire process tree.
         log_path = Path(data_dir) / "server.log"
         with log_path.open("wb") as logfile:
