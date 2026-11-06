@@ -113,7 +113,7 @@ jobs:
       - name: Run native engine routing and Base-cloning regression tests
         run: |
           python -m pip install "pytest>=8,<10" "httpx>=0.27,<1"
-          python -m pytest -q tests/test_native_runtime.py tests/test_qwen_mlx_base.py tests/test_native_disk_space.py tests/test_native_updates.py tests/test_native_update_manifest.py tests/test_models.py::test_first_run_setup_persists_across_visits
+          python -m pytest -q tests/test_native_runtime.py tests/test_qwen_mlx_base.py tests/test_native_disk_space.py tests/test_native_updates.py tests/test_native_update_manifest.py tests/test_configure_native_updater.py tests/test_models.py::test_first_run_setup_persists_across_visits
 
       - name: Download and verify seven approved Built-In Humperdinck Voices
         run: python scripts/prepare_native_voice_pack.py
@@ -182,11 +182,12 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: bash scripts/import-apple-certificate.sh
 
-      - name: Configure signed update artifacts for publication
-        if: inputs.signed_updates
+      - name: Configure Tauri signing and updater plugin for Windows/macOS
+        if: inputs.signed_updates && runner.os != 'Linux'
         shell: bash
-        run: |
-          python -c 'import json,pathlib;pathlib.Path("desktop/src-tauri/signing.updater.json").write_text(json.dumps({"bundle":{"createUpdaterArtifacts":True}}))'
+        env:
+          HUMPERDINCK_UPDATER_PUBKEY: ${{ secrets.HUMPERDINCK_UPDATER_PUBKEY }}
+        run: python scripts/configure_native_updater.py
       - name: Package native app
         working-directory: desktop
         shell: bash
@@ -198,7 +199,7 @@ jobs:
         run: |
           CONFIG=()
           if [ "$RUNNER_OS" = Windows ] && [ "${{ inputs.production_signing }}" = true ]; then CONFIG+=(--config src-tauri/signing.windows.json); fi
-          if [ "${{ inputs.signed_updates }}" = true ]; then CONFIG+=(--config src-tauri/signing.updater.json); fi
+          if [ "${{ inputs.signed_updates }}" = true ] && [ "$RUNNER_OS" != Linux ]; then CONFIG+=(--config src-tauri/signing.updater.json); fi
           npx tauri build --bundles ${{ matrix.bundle }} "${CONFIG[@]}"
       # Tauri may strip the PyInstaller helper entitlement. Re-sign the helper
       # and outer app with the selected ad-hoc or Developer ID identity.
