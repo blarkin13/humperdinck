@@ -110,6 +110,9 @@ def validate_prepared(raw: bytes) -> int:
         sounds = manifest["sounds"]
         if manifest.get("version") != 1 or len(sounds) != EXPECTED_SOUNDS:
             raise RuntimeError("Native WAV sound pack must contain nine curated items")
+        import sys
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
         from backend.curated_sounds import BY_SLUG
         for item in sounds:
             slug = item["slug"]
