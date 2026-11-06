@@ -174,13 +174,26 @@ fn main() {
             // Both interfaces point to the SAME server, voice library and files.
             let browser_item = MenuItemBuilder::with_id("open-browser", "Open in Browser").build(app)?;
             let log_item = MenuItemBuilder::with_id("open-diagnostics", "Open Startup Log").build(app)?;
+            // Explicit Quit is essential: macOS keeps applications alive after
+            // closing their last window, and our custom menu replaced the
+            // default macOS application menu (including its Cmd+Q shortcut).
+            let quit_item = MenuItemBuilder::with_id("quit-humperdinck", "Quit Humperdinck")
+                .accelerator("CmdOrCtrl+Q")
+                .build(app)?;
             let submenu = SubmenuBuilder::new(app, "Humperdinck")
                 .item(&browser_item)
                 .item(&log_item)
+                .separator()
+                .item(&quit_item)
                 .build()?;
             app.set_menu(MenuBuilder::new(app).item(&submenu).build()?)?;
             let open_log_path = log_path.clone();
-            app.on_menu_event(move |_app, event| {
+            app.on_menu_event(move |app, event| {
+                if event.id() == "quit-humperdinck" {
+                    log_event(&open_log_path, "User requested Quit Humperdinck");
+                    app.exit(0);
+                    return;
+                }
                 if event.id() == "open-browser" {
                     if let Err(error) = webbrowser::open(&browser_url) {
                         eprintln!("Could not open the local browser: {error}");
@@ -206,6 +219,13 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("failed to create Humperdinck desktop application")
         .run(|app, event| {
+            // Close the native window = shut down the desktop application and
+            // its bundled API. A browser tab never silently keeps it alive.
+            if let RunEvent::WindowEvent { label, event: tauri::WindowEvent::CloseRequested { .. }, .. } = &event {
+                if label == "main" {
+                    app.exit(0);
+                }
+            }
             if let RunEvent::Exit = event {
                 if let Some(state) = app.try_state::<Backend>() {
                     if let Ok(mut guard) = state.0.lock() {
