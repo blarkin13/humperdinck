@@ -217,3 +217,13 @@ builds the unsigned preview without private keys or `createUpdaterArtifacts`.
 Tauri packaging, ensure any signed updater `.app.tar.gz` and its signature are
 regenerated from the **final properly signed app**, not an earlier archive.
 Never publish a signature for a different version of the Mac bundle.
+
+
+Generate `latest.json` only **after** signed updater bundles for all three
+platforms and their `.sig` files have been built and verified:
+
+`python scripts/make_native_update_manifest.py --version X.Y.Z --darwin_aarch64_asset path/to/app.tar.gz --darwin_aarch64_signature path/to/app.tar.gz.sig --windows_x86_64_asset path/to/setup.exe --windows_x86_64_signature path/to/setup.exe.sig --linux_x86_64_asset path/to/app.AppImage --linux_x86_64_signature path/to/app.AppImage.sig`
+
+Upload `latest.json` to the latest GitHub desktop release alongside the exact
+referenced update bundles. On Linux, the Tauri updater installs **AppImage**
+packages; `.deb` remains a manual installer and is not an in-app update bundle.

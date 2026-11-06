@@ -2,7 +2,9 @@
 import json
 import os
 import re
+import ssl
 import sys
+import certifi
 from urllib.request import Request,urlopen
 
 REPO="blarkin13/humperdinck"
@@ -29,7 +31,8 @@ def installer_asset(assets):
 def check():
     req=Request(API,headers={"User-Agent":"Humperdinck-NativeUpdater/1.0",
                              "Accept":"application/vnd.github+json"})
-    with urlopen(req,timeout=9) as response:
+    context=ssl.create_default_context(cafile=certifi.where())
+    with urlopen(req,timeout=9,context=context) as response:
         releases=json.load(response)
     if not isinstance(releases,list):
         raise ValueError("Unexpected GitHub release response")

@@ -8,7 +8,7 @@ class Response:
     def __exit__(self,*args):self.file.close()
 
 def test_desktop_binary_release(monkeypatch):
-    monkeypatch.setattr(native_updates,"urlopen",lambda req,timeout:Response([
+    monkeypatch.setattr(native_updates,"urlopen",lambda req,timeout,context=None:Response([
         {"tag_name":"nature-sounds-v1","assets":[]},
         {"tag_name":"desktop-v0.2.0","assets":[{"name":"Humperdinck.dmg","browser_download_url":"https://github.com/blarkin13/humperdinck/releases/download/desktop-v0.2.0/Humperdinck.dmg"}]}
     ]))
@@ -18,7 +18,7 @@ def test_desktop_binary_release(monkeypatch):
     assert not got["can_install"] and got["can_download"]
 
 def test_no_binary_release(monkeypatch):
-    monkeypatch.setattr(native_updates,"urlopen",lambda req,timeout:Response([
+    monkeypatch.setattr(native_updates,"urlopen",lambda req,timeout,context=None:Response([
         {"tag_name":"nature-sounds-v1","assets":[]}
     ]))
     assert not native_updates.check()["available"]
