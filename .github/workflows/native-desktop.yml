@@ -90,7 +90,14 @@ jobs:
 
       - name: Install existing React UI dependencies
         working-directory: frontend
-        run: npm install --no-audit --no-fund
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if npm install --no-audit --no-fund; then exit 0; fi
+            echo "npm dependency download failed on attempt $attempt"
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 10
+          done
 
       - name: Test frontend update-response handling
         working-directory: frontend
