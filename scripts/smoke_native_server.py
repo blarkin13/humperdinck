@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import socket
 import subprocess
@@ -56,6 +57,18 @@ def main():
                         assert models["native_package"] is True
                         assert next(e for e in models["engines"] if e["id"] == "kokoro")["installed"]
                         assert "Humperdinck" in page
+                        assert 'id="startup-help"' in page, 'Startup fallback missing from packaged HTML'
+                        # Loading the HTML alone is not enough: verify Vite's
+                        # fingerprinted JavaScript and CSS are actually served.
+                        assets = re.findall(r'(?:src|href)="(/assets/[^" ]+)"', page)
+                        assert any(asset.endswith('.js') for asset in assets), 'Built JavaScript missing'
+                        assert any(asset.endswith('.css') for asset in assets), 'Built CSS missing'
+                        for asset in assets:
+                            with urlopen(f"http://127.0.0.1:{port}{asset}", timeout=8) as response:
+                                content = response.read()
+                                content_type = response.headers.get('Content-Type', '')
+                            assert len(content) > 100, f'Asset is empty: {asset}'
+                            assert 'text/html' not in content_type, f'Asset returned HTML fallback: {asset}'
                         assert (Path(data_dir) / "jobs.sqlite3").exists()
                         print("PASS: packaged backend, static frontend and writable user data")
                         return

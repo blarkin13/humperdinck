@@ -81,6 +81,16 @@ jobs:
         working-directory: desktop
         run: npx tauri icon ../frontend/public/humperdinck-favicon-512.png
 
+      - name: Verify Windows icon was generated
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ico = 'desktop/src-tauri/icons/icon.ico'
+          if (-not (Test-Path $ico)) { throw "Missing Windows icon: $ico" }
+          $data = [System.IO.File]::ReadAllBytes($ico)
+          if ($data.Length -lt 1024 -or $data[0] -ne 0 -or $data[1] -ne 0 -or $data[2] -ne 1 -or $data[3] -ne 0) { throw 'Invalid Windows icon resource' }
+          Write-Output "Windows icon generated: $($data.Length) bytes"
+
       - name: Package unsigned native app
         working-directory: desktop
         env:

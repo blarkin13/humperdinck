@@ -555,4 +555,16 @@ function App(){
  {tab==='models'&&(PUBLIC_STUDIO?<section><h2>Models</h2><p>Download Humperdinck to install and manage local voice models.</p><div className="panel"><h3>Built-in voices</h3><p>The browser preview offers six voices. Other models and downloads are available in the desktop app.</p><button disabled>Install / Download · desktop only</button></div></section>:<Models/>)}
  </main>
 }
-createRoot(document.getElementById('root')).render(<NotificationProvider><App/></NotificationProvider>);
+// If the React bundle crashes, display a readable error rather than leaving
+// the dark background and an apparently empty Windows native window.
+class StartupErrorBoundary extends React.Component {
+ constructor(props){super(props);this.state={error:null}}
+ static getDerivedStateFromError(error){return {error}}
+ componentDidCatch(error,info){console.error('Humperdinck UI startup failed',error,info)}
+ render(){
+  if(this.state.error)return <main role="alert"><h2>Humperdinck could not load its interface</h2><p>Try Open in Browser from the Humperdinck app menu. The desktop Startup Log also records WebView navigation and backend failures.</p><pre style={{whiteSpace:'pre-wrap'}}>{String(this.state.error.message||this.state.error)}</pre></main>;
+  return this.props.children;
+ }
+}
+function ClearStartupHelp(){useEffect(()=>{document.getElementById('startup-help')?.remove()},[]);return null}
+createRoot(document.getElementById('root')).render(<StartupErrorBoundary><NotificationProvider><ClearStartupHelp/><App/></NotificationProvider></StartupErrorBoundary>);

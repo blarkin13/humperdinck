@@ -1,4 +1,6 @@
-use std::io;
+use std::fs::OpenOptions;
+use std::io::{self, Write};
+use std::path::Path;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::Mutex;
 use std::thread;
@@ -10,6 +12,14 @@ use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 struct Backend(Mutex<Option<CommandChild>>);
+
+// Windows GUI builds have no visible console. Preserve startup and sidecar
+// errors in the application's writable data directory for diagnosis.
+fn log_event(file: &Path, message: &str) {
+    if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(file) {
+        let _ = writeln!(log, "{message}");
+    }
+}
 
 fn allocate_loopback_port() -> io::Result<u16> {
     let socket = TcpListener::bind(("127.0.0.1", 0))?;
@@ -39,6 +49,8 @@ fn main() {
             // outside the replaceable application bundle.
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
+            let log_path = data_dir.join("desktop-startup.log");
+            log_event(&log_path, "--- Humperdinck native app launched ---");
 
             // The local API stays bound to loopback. LAN/remote server mode requires
             // a separate authenticated service and is NOT enabled by this shell.
@@ -55,16 +67,21 @@ fn main() {
                 .args(args)
                 .spawn()?;
             app.manage(Backend(Mutex::new(Some(child))));
+            log_event(&log_path, &format!("Bundled API sidecar launched on 127.0.0.1:{port}"));
 
             // Always drain sidecar output, otherwise a full pipe can stall the API.
+            let sidecar_log = log_path.clone();
             tauri::async_runtime::spawn(async move {
                 while let Some(event) = events.recv().await {
                     match event {
                         CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes) => {
-                            eprint!("{}", String::from_utf8_lossy(&bytes));
+                            let output = String::from_utf8_lossy(&bytes);
+                            eprint!("{output}");
+                            log_event(&sidecar_log, &format!("Sidecar: {output}"));
                         }
                         CommandEvent::Terminated(status) => {
                             eprintln!("Humperdinck server exited: {:?}", status);
+                            log_event(&sidecar_log, &format!("Sidecar exited: {:?}", status));
                         }
                         _ => {}
                     }
@@ -74,10 +91,18 @@ fn main() {
             // The production React bundle is served by FastAPI so all /api and
             // generated-audio paths have the same origin as in the browser edition.
             // A separate Vite dev server or Node.js install is not required.
-            wait_for_backend(port)?;
+            if let Err(error) = wait_for_backend(port) {
+                log_event(&log_path, &format!("API startup failed: {error}"));
+                return Err(error.into());
+            }
+            log_event(&log_path, "Bundled API accepted a local connection");
             let browser_url = format!("http://127.0.0.1:{port}/");
             let window_url = browser_url.parse()?;
+            let load_log = log_path.clone();
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(window_url))
+                .on_page_load(move |_window, payload| {
+                    log_event(&load_log, &format!("Webview page {:?}: {}", payload.event(), payload.url()));
+                })
                 .title("Humperdinck")
                 .inner_size(1280.0, 840.0)
                 .min_inner_size(850.0, 560.0)
@@ -85,14 +110,31 @@ fn main() {
 
             // Both interfaces point to the SAME server, voice library and files.
             let browser_item = MenuItemBuilder::with_id("open-browser", "Open in Browser").build(app)?;
+            let log_item = MenuItemBuilder::with_id("open-diagnostics", "Open Startup Log").build(app)?;
             let submenu = SubmenuBuilder::new(app, "Humperdinck")
                 .item(&browser_item)
+                .item(&log_item)
                 .build()?;
             app.set_menu(MenuBuilder::new(app).item(&submenu).build()?)?;
+            let open_log_path = log_path.clone();
             app.on_menu_event(move |_app, event| {
                 if event.id() == "open-browser" {
                     if let Err(error) = webbrowser::open(&browser_url) {
                         eprintln!("Could not open the local browser: {error}");
+                        log_event(&open_log_path, &format!("Open browser failed: {error}"));
+                    }
+                }
+                if event.id() == "open-diagnostics" {
+                    #[cfg(target_os = "windows")]
+                    if let Err(error) = std::process::Command::new("notepad.exe")
+                        .arg(&open_log_path)
+                        .spawn()
+                    {
+                        eprintln!("Could not open startup log: {error}");
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    if let Err(error) = webbrowser::open(open_log_path.to_string_lossy().as_ref()) {
+                        eprintln!("Could not open startup log: {error}");
                     }
                 }
             });
