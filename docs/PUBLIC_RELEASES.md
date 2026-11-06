@@ -16,7 +16,7 @@ Humperdinck uses two repositories:
 5. Merge the release workflow, Worker download feed and in-app updater changes into the source default branch.
 6. Update `desktop/src-tauri/tauri.conf.json` to the intended release version (e.g. `0.2.0`), commit and push. The version input **must match**.
 7. From the private repository's **Actions → Publish desktop installers (public distribution repo) → Run workflow**, enter the version and release notes. The build runs Windows x64, Apple Silicon macOS and Linux x64 tests/packages. After success, the `production` publication job requires approval if the environment is configured for it.
-8. The publication job verifies the public repository and release version, stages **only** `.exe`, `.dmg`, `.deb` binaries and SHA256SUMS.txt, and creates GitHub Release `vX.Y.Z` in `humperdinck-downloads`. It refuses to overwrite an existing published version.
+8. The publication job verifies the public repository and release version, stages installers plus the independently signed updater bundles, manifest, and SHA256SUMS.txt, and creates GitHub Release `vX.Y.Z` in `humperdinck-downloads`. It refuses to overwrite an existing published version.
 9. Verify each download in the public repository and on the destination operating system. Open the Humperdinck website `/#download`. The site's Worker reads the **latest approved public release** and fills its three download cards automatically. The website stays the customer-facing entry point; the actual bytes download from the public GitHub release.
 
 **No source code is copied** into the distribution repository. GitHub's public release metadata is the source of truth for downloads; the website's unpublished `website/downloads.json` remains a safe fallback if public release lookup fails. The Cloudflare Worker intercepts `/downloads.json` and `/updates/latest.json`; no R2 bucket is needed for this distribution arrangement. The previous R2 instructions in `website/README.md` are an alternative, **not** a prerequisite for this workflow.
@@ -30,11 +30,24 @@ Humperdinck uses two repositories:
 - Installed unsigned preview apps: check the first-party website manifest for a newer manual installer.
 - Signed production apps (future): check the first-party `/updates/latest.json` updater feed, download signed platform artifacts from the **public distribution repository**, verify their Tauri signature and install with approval.
 
-## Signed updater publishing is a distinct release gate
+## Free signed updates: required owner setup
 
-The current release workflow produces **unsigned preview installers**. It does not yet produce signed Tauri updater artifacts. Do not claim in-app automatic installation is live merely because `vX.Y.Z` installers appear on the website.
+Windows and macOS **automatic updates** are cryptographically signed by Tauri using your own key; they do **not** require paid Apple Developer or Windows Authenticode certificates. The initial Windows EXE remains unsigned by the OS and may be blocked by Smart App Control. The macOS DMG uses ad-hoc `codesign --sign -`; Gatekeeper may still require explicit user approval. Do not claim these files are Apple-notarized or Authenticode-signed.
 
-To enable automatic installation, first create and securely retain Tauri's updater signing key (never commit the private key), embed its **public key** at desktop build time via `HUMPERDINCK_UPDATER_PUBKEY`, build with `bundle.createUpdaterArtifacts: true` and `TAURI_SIGNING_PRIVATE_KEY` set, and publish the exact updater bundles plus `latest.json` with their **real detached signatures** as additional assets on the same public release. The first-party Worker exposes the manifest at `/updates/latest.json`. Tauri verifies the signature before replacing the application. For Linux's native updater choose an AppImage edition; the `.deb` edition remains manual unless a distro package update mechanism is implemented. macOS notarization and Windows code signing are recommended before broad public distribution.
+1. Install the Tauri CLI on a trusted computer (from `desktop/`, `npm install`).
+2. Run `npx tauri signer generate -w ~/.tauri/humperdinck.key` and choose a strong password. Securely back up the private key AND password; losing either prevents existing installs from accepting future updates.
+3. The generated `~/.tauri/humperdinck.key.pub` file is the *public* verification key (it may be shared). In the **source** repository, under Settings → Secrets and variables → Actions, create:
+   - `TAURI_SIGNING_PRIVATE_KEY`: exact contents of `humperdinck.key` (secret).
+   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the signing-key password (secret).
+   - `HUMPERDINCK_UPDATER_PUBKEY`: exact contents of `humperdinck.key.pub` (safe to share, but store as secret for current workflow).
+   - `RELEASES_PUBLISH_TOKEN`: scoped fine-grained token (Contents: write) for `humperdinck-downloads`.
+4. Keep `production` environment configured for release gating. The manual **Publish desktop installers** workflow on `main` builds and tests all three OS installers. Only after those jobs succeed does its publication job publish `vX.Y.Z` to the public downloads repository.
+5. The release includes installers (`.exe`, `.dmg`, `.deb`), Windows NSIS updater `.exe.sig`, signed macOS `.app.tar.gz` and its `.sig`, plus `latest.json` and `SHA256SUMS.txt`. All updater signatures are generated from the same private key. The macOS updater archive is built **after** the final ad-hoc re-signing of the embedded Python helper, preserving its entitlements.
+6. The website serves download metadata through `/downloads.json`, reading the public GitHub release. Native Tauri apps ask the same website for `/updates/latest.json`. The app validates downloaded update signatures against the public key embedded at **compile time**.
+7. To test automatic updates, install a signed-updater-capable build of version N and then publish version N+1. Older preview builds without an embedded public key need a manual upgrade one time.
+8. Linux `.deb` installs remain a **manual** update path. A separately built signed AppImage can be added later.
+
+The signed-update workflow is gated on required credentials; missing keys fail the release instead of publishing an unauthenticated updater or silently falling back to unsigned updates. Code-signing certificates and macOS notarization remain optional future enhancements; the `production_signing` option is disabled by default in the free release path.
 
 ### Security and rollout
 
