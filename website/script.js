@@ -6,3 +6,45 @@ if (year) year.textContent = String(new Date().getFullYear());
 
 // Version endpoint is served with no-store. This makes stale or failed deployments observable.
 fetch('/build.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('missing build');return r.json()}).then(v=>{const el=document.getElementById('build-revision');if(el)el.textContent='Build '+v.revision}).catch(()=>{const el=document.getElementById('build-revision');if(el)el.textContent='Build unavailable'});
+
+// Website-owned desktop download catalog. URLs point to published installer files,
+// never to transient GitHub Actions artifacts. Missing files remain non-clickable.
+const DOWNLOAD_FORMATS = {
+  windows: /\.exe(?:\?.*)?$/i,
+  macos: /\.dmg(?:\?.*)?$/i,
+  linux: /\.deb(?:\?.*)?$/i
+};
+function publishedInstaller(entry, platform) {
+  if (!entry || entry.published !== true || !entry.url || !entry.version) return false;
+  try {
+    const link = new URL(entry.url, window.location.origin);
+    return link.protocol === 'https:' &&
+      link.hostname === window.location.hostname &&
+      DOWNLOAD_FORMATS[platform].test(link.pathname) &&
+      /^(?:\/downloads\/)[a-zA-Z0-9._\/-]+$/.test(link.pathname) &&
+      !link.pathname.split('/').includes('..');
+  } catch {return false}
+}
+fetch('/downloads.json', {cache:'no-store'}).then(r=>{
+  if (!r.ok) throw Error('Download list unavailable');
+  return r.json();
+}).then(list=>{
+  let available=0;
+  for(const platform of Object.keys(DOWNLOAD_FORMATS)){
+    const card=document.querySelector('[data-platform="'+platform+'"]');
+    if(!card)continue;
+    const entry=list[platform];
+    if(!publishedInstaller(entry,platform))continue;
+    const action=card.querySelector('[data-download-action]');
+    const anchor=document.createElement('a');
+    anchor.className='button button-primary download-action';
+    anchor.href=entry.url;
+    anchor.textContent='Download '+(platform==='windows'?'for Windows':platform==='macos'?'for macOS':'for Linux')+' ↓';
+    anchor.setAttribute('aria-label', 'Download Humperdinck '+entry.version+' for '+platform);
+    action.replaceWith(anchor);
+    card.querySelector('[data-version]').textContent='Version '+entry.version+(entry.size ? ' · '+entry.size : '');
+    available++;
+  }
+  const note=document.getElementById('download-notice');
+  if(note&&available)note.textContent=available===3?'Installers are available for Windows, macOS and Linux. Unsigned builds may trigger an operating-system warning.':'Some installers are still in testing. Available platform downloads are shown above.';
+}).catch(()=>{ /* Retain explicit unavailable labels until published. */ });
