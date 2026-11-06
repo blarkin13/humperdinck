@@ -77,9 +77,13 @@ All seven approved **Built-In Humperdinck Voices** reference samples are now
 bundled directly with native installers. They are imported on first launch into
 per-user voice storage (without overwriting, restoring deletions, or exposing
 source recordings). The native app hides the pack-publishing tools, which are
-for the source/developer installation. These are Qwen reference clips, not
-independent models; arbitrary new narration with them still requires Qwen Base,
-which is NOT yet packaged in this native preview.
+for the source/developer installation. These are Qwen reference clips, not independent models. Apple Silicon
+installations can install a **separate Qwen MLX Base** engine and checkpoint
+through Models, using an isolated managed Python 3.12 runtime under per-user
+Humperdinck data. The installer bundles uv and worker Python sources, not
+Qwen model weights. Piper can likewise be installed in an isolated runtime.
+Qwen PyTorch is not included in native previews. MLX install and actual
+synthesis are experimental until verified on target hardware.
 Qwen custom cloning/design and GPL-licensed Piper are not in the native
 runtime yet. The source-code updater is disabled in native packages. Native
 WAV output can work without FFmpeg, but MP3/video exports require it.

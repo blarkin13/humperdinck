@@ -109,7 +109,7 @@ ENGINES = {
                    for voice, (label, accent) in PRESET_VOICES['piper'].items()},
     },
     'qwen-mlx': {
-        'label': 'Qwen3-TTS (MLX)', 'venv': 'qwen', 'roles': ('design',), 'platforms': ('darwin',),
+        'label': 'Qwen3-TTS (MLX)', 'venv': 'qwen', 'roles': ('design', 'clone'), 'platforms': ('darwin',),
         'requires_apple_silicon': True, 'imports': ('mlx_audio',),
         'packages': ['mlx-audio', 'soundfile>=0.12', 'numpy>=1.24,<3'],
         'note': 'Fastest option on Apple Silicon Macs.',
@@ -118,6 +118,7 @@ ENGINES = {
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-6bit': {'label': '1.7B · 6-bit', 'size_gb': 2.7, 'memory_gb': 2.5, 'roles': ('design',)},
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit': {'label': '1.7B · 8-bit', 'size_gb': 3.1, 'memory_gb': 3.0, 'roles': ('design',), 'note': 'Lower weight memory; 8 GB Macs may still run out of memory'},
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16': {'label': '1.7B · full precision', 'size_gb': 4.5, 'memory_gb': 4.5, 'roles': ('design',), 'note': 'Most detail; needs 16 GB+ to be comfortable'},
+            'mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16': {'label':'0.6B · Apple Silicon voice cloning', 'size_gb':1.7, 'memory_gb':2.5, 'roles':('clone',), 'note':'MLX Base · use the approved reference recording and transcript'},
         },
     },
     'qwen-torch': {
@@ -142,8 +143,11 @@ def supported(engine_id):
 def defaults():
     design = ('qwen-mlx', 'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit') if MAC_ARM else \
              ('qwen-torch', 'Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign')
+    native_mlx_clone = MAC_ARM and os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'
+    clone = ('qwen-mlx', 'mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16') if native_mlx_clone else \
+            ('qwen-torch', 'Qwen/Qwen3-TTS-12Hz-0.6B-Base')
     return {'design': {'engine': design[0], 'model': design[1]},
-            'clone': {'engine': 'qwen-torch', 'model': 'Qwen/Qwen3-TTS-12Hz-0.6B-Base'},
+            'clone': {'engine': clone[0], 'model': clone[1]},
             'preset': {'engine': 'kokoro', 'model': 'bm_george'}}
 
 

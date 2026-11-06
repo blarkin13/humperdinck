@@ -42,8 +42,8 @@ def engine_for(name, model):
         if os.environ.get('HUMPERDINCK_FAKE_ENGINE') == '1':
             adapter = FakeEngine()
         elif name == 'qwen-mlx':
-            from backend.qwen_engine import QwenVoiceDesigner
-            adapter = QwenVoiceDesigner(model)
+            from backend.qwen_engine import QwenVoiceDesigner, QwenBaseCloner
+            adapter = QwenBaseCloner(model) if '-Base-' in model else QwenVoiceDesigner(model)
         elif name == 'qwen-torch':
             from backend.qwen_torch_engine import QwenTorchEngine
             adapter = QwenTorchEngine(model)
@@ -79,6 +79,9 @@ def handle(request):
         if request['engine'] not in ('kokoro', 'piper'):
             raise ValueError('Preset voices require Kokoro or Piper')
         engine.synthesize(request['text'], request['preset_voice'], output, on_progress=progress)
+    elif request['engine'] == 'qwen-mlx' and request['mode'] == 'clone':
+        engine.synthesize(request['text'], Path(request['reference']), output,
+                          ref_text=request.get('ref_text'), on_progress=progress)
     elif request['engine'] == 'qwen-torch':
         if request['mode'] == 'design':
             engine.design(request['text'], request['description'], output, on_progress=progress)

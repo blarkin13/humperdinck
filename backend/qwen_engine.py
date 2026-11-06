@@ -89,7 +89,12 @@ class QwenVoiceDesigner:
         sample_rate = None
         try:
             for index, chunk in enumerate(chunks):
-                generated = model.generate(text=chunk, instruct=description, lang_code=design_language(description))
+                # Current mlx-audio Qwen VoiceDesign exposes generate_voice_design,
+                # not the generic generate entrypoint used by Base voice clones.
+                if hasattr(model, 'generate_voice_design'):
+                    generated = model.generate_voice_design(text=chunk, instruct=description, language='English')
+                else:
+                    generated = model.generate(text=chunk, instruct=description, lang_code=design_language(description))
                 # MLX-Audio models can return an iterator of generation results.
                 parts = []
                 for result in generated:
@@ -120,3 +125,61 @@ class QwenVoiceDesigner:
                 mx.clear_cache()
             except (ImportError, AttributeError):
                 pass
+
+
+class QwenBaseCloner:
+    """Use MLX Qwen3-TTS Base for approved-reference voice cloning on Mac."""
+
+    def __init__(self, model_id: str):
+        if '-Base-' not in model_id:
+            raise ValueError('Qwen voice cloning requires an MLX Base model')
+        self.model_id = model_id
+        self.model = None
+
+    def load(self):
+        if self.model is None:
+            from mlx_audio.tts.utils import load_model
+            model = load_model(self.model_id)
+            if getattr(model, 'speech_tokenizer', None) is None:
+                raise RuntimeError('Qwen MLX Base audio decoder did not load. Reinstall or repair this model in Models.')
+            self.model = model
+        return self.model
+
+    def synthesize(self, text: str, reference: Path, destination: Path,
+                   ref_text: str | None = None, on_progress=None):
+        import numpy as np
+        import soundfile as sf
+        if not Path(reference).is_file():
+            raise ValueError('Reference recording is missing')
+        if not ref_text or not ref_text.strip():
+            raise ValueError('Qwen MLX Base needs the exact transcript of its reference recording')
+        chunks = voice_segments(text)
+        if not chunks:
+            raise ValueError('No narration text')
+        model = self.load()
+        samples = []
+        rate = None
+        for index, chunk in enumerate(chunks):
+            # MLX Base uses reference audio + transcript; do not pass a
+            # CustomVoice speaker name or VoiceDesign instruction here.
+            generated = model.generate(text=chunk, ref_audio=str(reference), ref_text=ref_text)
+            parts = []
+            for result in generated:
+                audio = result.audio
+                if hasattr(audio, 'tolist'):
+                    audio = audio.tolist()
+                parts.append(np.asarray(audio, dtype=np.float32).reshape(-1))
+                current_rate = getattr(result, 'sample_rate', None) or getattr(model, 'sample_rate', None)
+                if current_rate is None:
+                    raise RuntimeError('MLX Base did not report a sample rate')
+                if rate and rate != int(current_rate):
+                    raise RuntimeError('MLX Base sample rate changed between segments')
+                rate = int(current_rate)
+            if not parts:
+                raise RuntimeError('MLX Base produced no audio')
+            samples.append(np.concatenate(parts))
+            if index + 1 < len(chunks):
+                samples.append(np.zeros(int(rate * 0.15), dtype=np.float32))
+            if on_progress:
+                on_progress(index + 1, len(chunks))
+        sf.write(str(destination), np.concatenate(samples), rate, subtype='PCM_16')

@@ -31,6 +31,26 @@ def install_builtin_voices(data_dir: Path) -> dict:
 
 
 def main() -> None:
+    if "--native-runtime-check" in sys.argv:
+        from backend import native_runtime
+        import subprocess
+        binary = native_runtime.uv_binary()
+        sources = native_runtime.source_root() / 'backend' / 'worker.py'
+        if not sources.is_file():
+            raise RuntimeError('Native Qwen/Piper worker files are missing')
+        subprocess.run([str(binary), '--version'], check=True, timeout=20)
+        print('Native optional engine runtime: available', flush=True)
+        return
+
+    if "--native-install-engine" in sys.argv:
+        from backend import native_runtime
+        if len(sys.argv) < 3:
+            raise SystemExit('Specify qwen-mlx or piper')
+        engine = sys.argv[2]
+        model = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[3] == '--model' else None
+        native_runtime.install(engine, model)
+        return
+
     if "--native-engine-worker" in sys.argv:
         # Spawn the bundled executable as a separate ML model process instead
         # of requiring a system Python or another venv.

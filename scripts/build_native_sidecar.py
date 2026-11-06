@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import sysconfig
 
 ROOT = Path(__file__).resolve().parents[1]
 TAURI_BIN = ROOT / "desktop" / "src-tauri" / "binaries"
@@ -106,6 +107,14 @@ def main():
         print("Bundling license-reviewed FFmpeg + ffprobe into the sidecar")
     else:
         print("FFmpeg not bundled: package remains a preview without video/MP3 conversion")
+    # Native Qwen MLX and Piper use opt-in isolated Python/uv runtimes in
+    # writable user data, not ML libraries inside the replaceable app binary.
+    uv_name = "uv.exe" if os.name == "nt" else "uv"
+    uv_binary = Path(sysconfig.get_path("scripts")) / uv_name
+    if not uv_binary.is_file():
+        parser.error(f"Install uv before packaging: missing {uv_binary}")
+    cmd += ["--add-binary", f"{uv_binary}{os.pathsep}runtime-tools",
+            "--add-data", f"{ROOT / 'backend'}{os.pathsep}runtime-src/backend"]
     # Includes the CPU runtime, not the large voice model weights.
     cmd += ["--collect-all", "certifi",
             "--collect-all", "espeakng_loader",

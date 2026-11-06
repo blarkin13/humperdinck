@@ -27,6 +27,13 @@ def main():
               ROOT / "desktop" / "src-tauri" / "binaries" / ("humperdinck-server-" + args.target + ext))
     if not binary.is_file():
         parser.error(f"sidecar missing: {binary}")
+    # Verify that the actual bundled uv executable and worker Python sources
+    # are present and executable, including after Tauri re-signs the Mac DMG.
+    runtime = subprocess.run([str(binary), "--native-runtime-check"],
+                             capture_output=True, text=True, timeout=90)
+    if runtime.returncode:
+        raise RuntimeError("Optional native engine runtime is broken: " +
+                           (runtime.stdout + runtime.stderr)[-3000:])
 
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))

@@ -1155,6 +1155,9 @@ def list_models():
         engines_out.append({
             'id': engine_id, 'label': engine['label'], 'roles': engine['roles'], 'note': engine['note'],
             'supported': supported, 'installed': supported and engines.installed(engine_id),
+            'native_installable': (not (os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1')
+                                   or engine_id == 'kokoro'
+                                   or (engine_id in ('qwen-mlx','piper') and supported)),
             'platforms': [{'darwin': 'macOS', 'win32': 'Windows', 'linux': 'Linux'}[p] for p in engine['platforms']],
             'requires_apple_silicon': bool(engine.get('requires_apple_silicon')),
             'models': [{'id': model_id, **info, 'downloaded': catalog.downloaded(model_id),
@@ -1254,13 +1257,26 @@ def install_model(request: ModelInstall):
     """Install an engine and/or download a model. Needs internet; runs in the background."""
     native = os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'
     if native and request.engine != 'kokoro':
-        raise HTTPException(501, 'Native preview includes CPU Kokoro only; Qwen and Piper runtimes are not bundled')
+        from backend import native_runtime
+        if not native_runtime.supported(request.engine):
+            raise HTTPException(501, 'This native installer cannot install that engine; on Apple Silicon use Qwen MLX for voice design and cloning')
     if request.engine not in catalog.ENGINES or not catalog.supported(request.engine):
         raise HTTPException(422, 'That engine is not available on this computer')
     if request.model and request.model not in catalog.ENGINES[request.engine]['models']:
         raise HTTPException(422, 'Unknown model for this engine')
     if not install_lock.acquire(blocking=False):
         raise HTTPException(409, 'Another installation is already running')
+    if native and request.engine in ('qwen-mlx', 'piper'):
+        job_id = uuid4().hex
+        jobs[job_id] = {'job_id':job_id, 'status':'queued','progress':0,
+                        'message':'Preparing an isolated ' + request.engine + ' runtime',
+                        'engine':request.engine, 'model':request.model}
+        installing['job'] = job_id
+        command = [sys.executable, '--native-install-engine', request.engine]
+        if request.model:
+            command += ['--model', request.model]
+        Thread(target=run_install, args=(job_id, command), daemon=True).start()
+        return jobs[job_id]
     if native:
         voice = request.model or 'bm_george'
         if voice not in catalog.PRESET_VOICES['kokoro']:
