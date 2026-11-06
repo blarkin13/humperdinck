@@ -1,5 +1,10 @@
 # Humperdinck public website
 
+## Current publishing method: public GitHub binary Releases
+
+The recommended setup is **private source repository + public `humperdinck-downloads` binary release repository**. The website now reads public release metadata through the Cloudflare Worker and links to approved download assets; **R2 is not required**. See [docs/PUBLIC_RELEASES.md](../docs/PUBLIC_RELEASES.md) for setup and publication instructions. The previous R2 instructions below remain as an alternative hosting method, but are not the active recommended workflow.
+
+
 ## Native binary updates without a public GitHub repository
 
 The installed application must get its updates from the Humperdinck website, not GitHub. `backend/native_updates.py` uses the public `/downloads.json` manifest to offer newer installers for **manual** updates. `desktop/src-tauri/src/main.rs` points Tauri's **signed** updater at `https://humperdinck.larki-brian.workers.dev/updates/latest.json`.
