@@ -3,6 +3,27 @@ name: Unsigned native desktop packages
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      production_signing:
+        type: boolean
+        default: false
+    secrets:
+      WINDOWS_CERTIFICATE:
+        required: false
+      WINDOWS_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_SIGNING_IDENTITY:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_APP_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
   pull_request:
     paths:
       - 'desktop/**'
