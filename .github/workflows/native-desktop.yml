@@ -70,6 +70,7 @@ jobs:
         run: python scripts/build_native_sidecar.py --target ${{ matrix.target }}
 
       - name: Smoke-test the server executable
+        timeout-minutes: 6
         run: python scripts/smoke_native_server.py --target ${{ matrix.target }}
 
       - name: Install Tauri CLI

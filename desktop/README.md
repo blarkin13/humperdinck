@@ -35,13 +35,15 @@ supported). Install Python 3.11/3.12, Rust, Node.js, the Tauri OS dependencies,
 and a PyInstaller-compatible Python environment.
 
 ```sh
-npm ci --prefix frontend
-npm run build --prefix frontend
+cd frontend
+npm install --no-audit --no-fund
+npm run build
+cd ..
 python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7"
-npm install --prefix desktop --no-audit --no-fund
 python scripts/build_native_sidecar.py --target <rust-target-triple>
 python scripts/smoke_native_server.py --target <rust-target-triple>
 cd desktop
+npm install --no-audit --no-fund
 npx tauri icon ../frontend/public/humperdinck-favicon-512.png
 npx tauri build --bundles <nsis|dmg|deb>
 ```
