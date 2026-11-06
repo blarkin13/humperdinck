@@ -39,7 +39,7 @@ cd frontend
 npm install --no-audit --no-fund
 npm run build
 cd ..
-python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7"
+python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7" "kokoro-onnx>=0.6,<1"
 python scripts/build_native_sidecar.py --target <rust-target-triple>
 python scripts/smoke_native_server.py --target <rust-target-triple>
 cd desktop
@@ -53,12 +53,14 @@ Choose one target: `x86_64-pc-windows-msvc`,
 
 ## What still needs work
 
-**This starter package does not include the large inference engines or install
-them after installation.** In native builds, Models installation and the
-source-tree updater are deliberately disabled rather than pretending they work.
-The existing development/web install continues to offer Qwen, Kokoro and Piper.
-Before a user-ready native release, package and verify a per-platform model
-runtime, FFmpeg, optional model downloads, and proper updates/signatures.
+**The native preview includes the lightweight Kokoro ONNX CPU runtime.**
+Model weights are not bundled. Download a Kokoro voice in Models once to the
+shared cache, then preset narration can run in native and browser interfaces.
+Qwen custom cloning/design and GPL-licensed Piper are not in the native
+runtime yet. The source-code updater is disabled in native packages. Native
+WAV output can work without FFmpeg, but MP3/video exports require it.
+Real-device audio testing, other engines, binary updates, and signing remain
+release gates.
 
 Other release gates: real audio-generation smoke tests, migration/backup of an
 existing `data/` folder, production-grade one-instance handling, signing,

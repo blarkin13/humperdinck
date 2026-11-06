@@ -1159,6 +1159,7 @@ def list_models():
                         'tight': bool(memory and info['memory_gb'] > memory * 0.6)}
                        for model_id, info in engine['models'].items()]})
     return {'platform': catalog.platform_name(), 'memory_gb': round(memory, 1) if memory else None,
+            'shared_models': str(catalog.shared_models.model_home()),
             'native_package': os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1',
             'selected': settings.load(), 'engines': engines_out,
             'installing': next((j for j in [jobs.get(installing.get('job'))] if j and j.get('status') in ('queued','running')), None),

@@ -51,6 +51,10 @@ def main():
                         with urlopen(f"http://127.0.0.1:{port}/", timeout=2) as response:
                             page = response.read().decode("utf-8")
                         assert health["application"] == "humperdinck"
+                        with urlopen(f"http://127.0.0.1:{port}/api/models", timeout=8) as response:
+                            models = json.load(response)
+                        assert models["native_package"] is True
+                        assert next(e for e in models["engines"] if e["id"] == "kokoro")["installed"]
                         assert "Humperdinck" in page
                         assert (Path(data_dir) / "jobs.sqlite3").exists()
                         print("PASS: packaged backend, static frontend and writable user data")
