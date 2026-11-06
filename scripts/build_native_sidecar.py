@@ -108,6 +108,8 @@ def main():
         print("FFmpeg not bundled: package remains a preview without video/MP3 conversion")
     # Includes the CPU runtime, not the large voice model weights.
     cmd += ["--collect-all", "certifi",
+            "--collect-all", "espeakng_loader",
+            "--collect-all", "misaki",
             "--collect-all", "kokoro_onnx",
             "--collect-submodules", "backend",
             "--collect-all", "onnxruntime"]

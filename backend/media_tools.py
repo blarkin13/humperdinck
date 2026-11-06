@@ -36,8 +36,18 @@ def bundled_tools() -> Path | None:
 
 
 def configure() -> Path | None:
-    """Make bundled tools available to every existing FFmpeg subprocess call."""
+    """Find bundled FFmpeg or a normal installation hidden from GUI app PATH.
+
+    On macOS, launching a DMG-installed app via Finder often omits Homebrew's
+    /opt/homebrew/bin. Prefer an explicitly bundled licensed build, then only
+    trusted standard installation locations (never arbitrary downloaded files).
+    """
     directory = bundled_tools()
+    if directory is None and sys.platform == "darwin":
+        for folder in (Path("/opt/homebrew/bin"), Path("/usr/local/bin")):
+            if all((folder / name).is_file() and os.access(folder / name, os.X_OK) for name in TOOLS):
+                directory = folder
+                break
     if directory is not None:
         current = os.environ.get("PATH", "")
         folders = current.split(os.pathsep) if current else []

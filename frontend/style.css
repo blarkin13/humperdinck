@@ -816,3 +816,22 @@ button.active small,.primary small{color:#3a3122}
 .narration-regenerate:hover:not(:disabled){background:rgba(198,164,106,.12);border-color:var(--brass-hi,#d8bd88)}
 .narration-regenerate:disabled{opacity:.45}
 @media(max-width:480px){.narration-regenerate{padding:9px 10px;font-size:11px}}
+
+/* Model list: keep status, install/repair and delete controls in separate
+   stacking space. Earlier CSS placed every button in grid-row:1/3, causing
+   text and controls to draw on top of one another in the native WebView. */
+.engine .engine-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.engine .engine-head strong{flex:none}
+.engine .engine-head small{flex:1 1 180px;min-width:0}
+.engine .engine-head > button{margin-left:auto;flex:none;white-space:nowrap}
+.engine .model-row{display:grid;grid-template-columns:minmax(0,1fr) 190px;align-items:start;gap:14px;padding:14px 16px}
+.engine .model-row .model-info{min-width:0;display:grid;gap:5px}
+.engine .model-row .model-info .check{min-width:0;overflow-wrap:anywhere}
+.engine .model-row .model-info .check span{min-width:0}
+.engine .model-row .model-meta{grid-column:auto;display:block;line-height:1.5}
+.engine .model-row .model-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0}
+.engine .model-row .model-actions button{grid-column:auto;grid-row:auto;justify-self:auto;position:static;width:100%;min-width:0;margin:0;white-space:normal;line-height:1.35;text-align:center}
+.engine .model-row .model-actions .model-status,.engine .model-unavailable{grid-column:auto;grid-row:auto;display:block;text-align:right;line-height:1.4;overflow-wrap:anywhere}
+.engine .model-unavailable{font-size:12px;color:var(--muted);font-style:italic}
+.engine .model-row .mono{display:inline-block;max-width:100%;overflow-wrap:anywhere;word-break:break-word}
+@media(max-width:700px){.engine .model-row{grid-template-columns:minmax(0,1fr)}.engine .model-row .model-actions{max-width:240px}.engine .model-row .model-actions .model-status,.engine .model-unavailable{text-align:left}}
