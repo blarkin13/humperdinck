@@ -14,6 +14,17 @@ Cross-platform local web application for cloning a **consenting speaker's** voic
 - A compatible NVIDIA GPU is recommended. CPU generation is possible but may be very slow. Apple Silicon MPS is attempted when available; model compatibility varies and is not guaranteed.
 - Model installation requires substantial disk space and memory; exact requirements depend on PyTorch and platform.
 
+## First-run model setup (desktop and local app)
+
+Humperdinck now opens a first-run Setup Wizard on the local UI. It detects supported engines and system RAM, and offers in-place installation of Kokoro, Piper, Qwen MLX (Apple Silicon), and Qwen PyTorch (when available). It uses the same isolated engine installers and model cache as the Models tab. A **Setup** navigation action reopens the wizard.
+
+- **Kokoro:** one engine and one shared speech/voice-pack download. Individual Kokoro voice names are not separate model installs.
+- **Piper:** one engine and one curated voice-pack action. Internally each Piper voice is downloaded separately; the action handles all four available presets.
+- **Qwen:** choose an engine and one checkpoint per activity. On Apple Silicon, MLX is preferred; PyTorch is optional and requires a heavier runtime. PyTorch is not required by Kokoro or Piper.
+- **Only one model per activity is needed.** Other checkpoints can be tried later from Models to compare performance and quality.
+
+A completed installation validates package imports and downloaded files, **not actual synthesis**. Generate a short narration after first setup to confirm the audio decoder works on the machine. The wizard's completed/skipped marker is currently stored in the browser's local storage for that installation; it does not sync across browsers.
+
 ## Install
 
 Windows: double-click these in the Humperdinck folder, in order:
