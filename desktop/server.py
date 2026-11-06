@@ -107,6 +107,27 @@ def main() -> None:
     from backend import media_tools
     media_tools.configure()
 
+    # PyInstaller --onefile normally has a launcher process and a Python
+    # child. The native app kills the launcher on Quit; without this watchdog,
+    # the Python child can survive and keep serving browser tabs in the
+    # background. This also handles unexpected app crashes.
+    from threading import Thread
+    import time
+    launcher_pid = os.getppid()
+    def stop_if_launcher_exits():
+        while True:
+            time.sleep(1.0)
+            if os.getppid() != launcher_pid:
+                try:
+                    from backend import engines
+                    engines.pool.shutdown()
+                except Exception:
+                    pass
+                os._exit(0)
+    if sys.platform != 'win32':
+        Thread(target=stop_if_launcher_exits, daemon=True,
+               name='native-launcher-watchdog').start()
+
     import uvicorn
     from fastapi.staticfiles import StaticFiles
     from backend.app import app
