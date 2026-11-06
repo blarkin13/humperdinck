@@ -86,6 +86,13 @@ jobs:
         timeout-minutes: 6
         run: python scripts/smoke_native_server.py --target ${{ matrix.target }}
 
+      - name: Generate real Kokoro speech with the frozen Mac worker
+        if: runner.os == 'macOS'
+        timeout-minutes: 10
+        run: |
+          python -c "from backend.native_models import download_kokoro; download_kokoro()"
+          python scripts/smoke_native_kokoro.py --target ${{ matrix.target }}
+
       - name: Install Tauri CLI
         working-directory: desktop
         run: npm install --no-audit --no-fund
