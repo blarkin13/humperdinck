@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import os
 import sys
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -80,6 +80,16 @@ def health():
             'clone_ready':engines.installed(choice['clone']['engine']),
             'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status(),
             'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'}
+
+@app.get('/api/server/status')
+def server_status(request: Request):
+    """Report only the loopback service that serves this specific desktop UI."""
+    from urllib.parse import urlsplit
+    parsed=urlsplit(str(request.base_url))
+    return {'status':'running', 'mode':'local', 'url':str(request.base_url).rstrip('/'),
+            'port':parsed.port, 'host':'127.0.0.1',
+            'remote_access_enabled':False,
+            'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE')=='1'}
 
 @app.post('/api/engine/unload')
 def unload_engine():

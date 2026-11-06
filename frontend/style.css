@@ -846,3 +846,33 @@ button.active small,.primary small{color:#3a3122}
 .narration-whole-menu button:hover:not(:disabled){background:rgba(198,164,106,.12)}
 .narration-whole-menu button:disabled{opacity:.45}
 .narration-whole-menu .section-options-remove{color:#e3a198;border-top:1px solid var(--line,#34494a)}
+
+/* Whole narration toolbar: three discrete unboxed icons, anchored as one group.
+   The whole-narration ellipsis is next to Play, never between Download/Play. */
+.narration-export-actions{display:flex!important;align-items:center!important;gap:12px!important;justify-content:flex-start;position:relative}
+.narration-export-actions .narration-download-wrap{order:1;position:relative;display:inline-flex;align-items:center}
+.narration-export-actions .narration-full-play{order:2}
+.narration-export-actions .narration-whole-options{order:3}
+.narration-export-actions .narration-download-trigger,
+.narration-export-actions .narration-full-play,
+.narration-export-actions .narration-whole-menu-trigger{display:inline-flex!important;align-items:center;justify-content:center;border:0!important;background:transparent!important;box-shadow:none!important;min-width:42px;width:44px;height:44px;min-height:44px;padding:9px!important;border-radius:8px!important;color:var(--ivory)!important}
+.narration-export-actions .narration-full-play i{font-size:24px}
+.narration-export-actions .narration-download-trigger i,
+.narration-export-actions .narration-whole-menu-trigger i{font-size:19px}
+.narration-export-actions .narration-download-trigger:hover,
+.narration-export-actions .narration-full-play:hover,
+.narration-export-actions .narration-whole-menu-trigger:hover{color:var(--brass-hi)!important;background:rgba(198,164,106,.10)!important}
+.narration-export-actions .narration-full-play:disabled{opacity:.7}
+.header-server-icon{min-height:40px;width:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--ivory);font-size:16px}
+.header-server-icon:hover{color:var(--brass-hi);border-color:var(--brass-hi)}
+.server-settings-overlay{position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:22px}
+.server-settings-modal{width:min(570px,100%);max-height:90vh;overflow:auto;background:var(--teal,#14252c);border:1px solid var(--line);border-radius:14px;box-shadow:0 25px 70px #0009;padding:25px;display:grid;gap:18px}
+.server-settings-modal header{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.server-settings-modal h2{margin:0;font-size:23px}
+.server-settings-modal p{margin:0;line-height:1.55;color:var(--muted)}
+.server-settings-modal .server-local-address{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.server-settings-modal code{flex:1;min-width:0;overflow-wrap:anywhere;padding:12px;border-radius:7px;background:rgba(0,0,0,.22)}
+.server-settings-modal .server-mode-options{display:grid;gap:10px}
+.server-settings-modal .server-mode{padding:13px;border:1px solid var(--line);border-radius:8px}
+.server-settings-modal .server-mode strong{display:block;margin-bottom:6px}
+.server-settings-modal .server-mode.unsupported{opacity:.67}
