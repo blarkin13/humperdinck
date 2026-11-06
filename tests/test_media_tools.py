@@ -13,6 +13,7 @@ def test_configure_adds_only_complete_ffmpeg_pair(tmp_path, monkeypatch):
     folder.mkdir()
     monkeypatch.setenv("HUMPERDINCK_MEDIA_TOOLS_DIR", str(folder))
     before = os.environ.get("PATH", "")
+    monkeypatch.setenv("PATH", before)  # restore PATH even after configure() prepends the fake directory
     assert media_tools.configure() is None
     assert os.environ.get("PATH", "") == before
     ext = ".exe" if os.name == "nt" else ""

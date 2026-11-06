@@ -23,6 +23,7 @@ def test_explicit_model_home_is_shared_with_hf(tmp_path, monkeypatch):
     assert os.environ["HF_HOME"] == str(home)
     assert catalog.hf_cache() == home / "hub"
     assert catalog.preset_path("piper", "") == home / "humperdinck" / "presets" / "piper"
+    os.environ.pop("HF_HOME", None)  # configure_hf_home() writes to the real process environment
 
 
 def test_migrate_old_preset_models_without_removing_user_data(tmp_path, monkeypatch):
