@@ -111,11 +111,25 @@ class SoundEffects:
         destination=self.folder/(effect_id+'.wav')
         source.write_bytes(raw)
         try:
-            subprocess.run(
-                ['ffmpeg','-nostdin','-hide_banner','-loglevel','error','-y',
-                 '-i',str(source),'-vn','-ac','1','-ar','24000',str(destination)],
-                check=True,capture_output=True,timeout=120
-            )
+            # Already-normalized PCM WAVs in the built-in sound pack
+            # require no external FFmpeg installation. User-imported
+            # compressed recordings continue to use the FFmpeg pipeline.
+            if suffix == '.wav':
+                samples, rate = sf.read(str(source), dtype='float32', always_2d=True)
+                if rate == 24000 and samples.shape[1] == 1:
+                    destination.write_bytes(raw)
+                else:
+                    subprocess.run(
+                        ['ffmpeg','-nostdin','-hide_banner','-loglevel','error','-y',
+                         '-i',str(source),'-vn','-ac','1','-ar','24000',str(destination)],
+                        check=True,capture_output=True,timeout=120
+                    )
+            else:
+                subprocess.run(
+                    ['ffmpeg','-nostdin','-hide_banner','-loglevel','error','-y',
+                     '-i',str(source),'-vn','-ac','1','-ar','24000',str(destination)],
+                    check=True,capture_output=True,timeout=120
+                )
             duration=sf.info(str(destination)).duration
             if duration<=0 or duration>MAX_EFFECT_SECONDS:
                 raise ValueError('Sound effects must be between 0 and 600 seconds')

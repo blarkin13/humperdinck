@@ -60,7 +60,7 @@ def main():
     parser.add_argument("--target", required=True, help="Rust target triple from CI")
     parser.add_argument("--builtin-voices-pack", type=Path, default=ROOT / "assets" / "voice-packs" / "humperdinck-builtin-voices-v1.zip",
                         help="Pre-verified seven-voice pack from scripts/prepare_native_voice_pack.py")
-    parser.add_argument("--builtin-sounds-pack", type=Path, default=ROOT / "assets" / "sound-packs" / "humperdinck-cc0-nature-pack.zip",
+    parser.add_argument("--builtin-sounds-pack", type=Path, default=ROOT / "assets" / "sound-packs" / "humperdinck-native-cc0-sounds-v1.zip",
                         help="Pre-verified curated nature pack from scripts/prepare_native_sound_pack.py")
     parser.add_argument("--ffmpeg-dir", type=Path, default=Path(os.environ["HUMPERDINCK_FFMPEG_BUNDLE_DIR"]) if os.environ.get("HUMPERDINCK_FFMPEG_BUNDLE_DIR") else None,
                         help="Verified LGPL FFmpeg tools + source manifest (optional until distribution approval)")
@@ -88,7 +88,7 @@ def main():
 
     if not args.builtin_sounds_pack.is_file():
         parser.error("Approved Humperdinck Sound Effects are required: run python scripts/prepare_native_sound_pack.py")
-    from prepare_native_sound_pack import validate as validate_builtin_sounds
+    from prepare_native_sound_pack import validate_prepared as validate_builtin_sounds
     sound_count = validate_builtin_sounds(args.builtin_sounds_pack.read_bytes())
     print(f"Bundling {sound_count} approved Humperdinck Sound Effects")
 

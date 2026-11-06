@@ -33,7 +33,7 @@ def install_builtin_voices(data_dir: Path) -> dict:
 def install_builtin_sounds(data_dir: Path) -> dict:
     """Install approved nature recordings into user storage without overwriting uploads."""
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
-    archive = base / "sound-packs" / "humperdinck-cc0-nature-pack.zip"
+    archive = base / "sound-packs" / "humperdinck-native-cc0-sounds-v1.zip"
     if not archive.is_file():
         raise RuntimeError("Humperdinck Nature Sound Pack missing from native app bundle")
     from backend.sound_effects import SoundEffects

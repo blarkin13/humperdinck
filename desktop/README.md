@@ -174,3 +174,9 @@ sound-pack import code as the source-based app. Existing user recordings are
 preserved; already installed curated sounds are not duplicated. The native
 smoke test requires all nine curated effects to appear in `/api/sound-effects`.
 The downloadable native package includes the audio, not just a sound list.
+
+At build time, the released CC0 originals are SHA256-verified and converted
+with a build-only FFmpeg to mono 24kHz PCM WAV, then re-packed. This normalized
+archive is what ships inside the native app. No FFmpeg binary is needed to
+seed the nine recordings on first launch, although users' compressed sound
+uploads still require FFmpeg for transcoding.
