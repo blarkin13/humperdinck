@@ -1,0 +1,12 @@
+{
+  "name": "humperdinck-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native desktop shell for the Humperdinck local web application",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

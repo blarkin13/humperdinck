@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Humperdinck desktop window. No shell or filesystem calls are exposed to web content.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
