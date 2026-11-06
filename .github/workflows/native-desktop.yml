@@ -193,10 +193,8 @@ jobs:
           if [ "$RUNNER_OS" = Windows ] && [ "${{ inputs.production_signing }}" = true ]; then CONFIG+=(--config src-tauri/signing.windows.json); fi
           if [ "${{ inputs.signed_updates }}" = true ]; then CONFIG+=(--config src-tauri/signing.updater.json); fi
           npx tauri build --bundles ${{ matrix.bundle }} "${CONFIG[@]}"
-      # The macOS Tauri bundler re-signs externalBin sidecars without preserving
-      # the special PyInstaller entitlement. This ad-hoc-only test repack signs
-      # the helper itself and then re-signs the outer app, so the distributed
-      # DMG contains the executable with the entitlement it needs.
+      # Tauri may strip the PyInstaller helper entitlement. Re-sign the helper
+      # and outer app with the selected ad-hoc or Developer ID identity.
       - name: Preserve signed macOS sidecar entitlements and rebuild DMG
         if: runner.os == 'macOS'
         timeout-minutes: 5
@@ -232,7 +230,6 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          VERSION: ${{ inputs.release_version }}
         run: |
           set -euo pipefail
           DMG="$(find src-tauri/target/release/bundle/dmg -name '*.dmg' -print -quit)"
