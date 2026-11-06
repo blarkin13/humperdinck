@@ -38,11 +38,24 @@ def check():
     valid_url = (parsed.scheme == "" and parsed.netloc == "" and parsed.path.startswith("/downloads/")
                  and parsed.path.endswith(suffix) and not parsed.query and not parsed.fragment
                  and re.fullmatch(r"/downloads/[A-Za-z0-9][A-Za-z0-9._-]{1,180}\.(exe|dmg|deb)", parsed.path))
+    # Public binary-only distribution repository: source remains private.
+    github_names = {
+        "windows": f"humperdinck-windows-x64-{entry.get('version', '')}.exe",
+        "macos": f"humperdinck-macos-arm64-{entry.get('version', '')}.dmg",
+        "linux": f"humperdinck-linux-x64-{entry.get('version', '')}.deb",
+    }
+    release_version = str(entry.get("version", ""))
+    expected_path = (f"/blarkin13/humperdinck-downloads/releases/download/"
+                     f"v{release_version}/{github_names[platform]}")
+    public_release = (parsed.scheme == "https" and parsed.netloc == "github.com"
+                      and parsed.path == expected_path and not parsed.query
+                      and not parsed.fragment)
+    valid_url = valid_url or public_release
     newest = str(entry.get("version", ""))
     if entry.get("published") is True and valid_url and version(newest) > version(VERSION):
         return {"available": True, "latest": newest, "current_version": VERSION,
                 "summary": "Humperdinck desktop update", "url": BASE + "/#download",
-                "download_url": BASE + name, "download_name": parsed.path.split("/")[-1],
+                "download_url": (name if public_release else BASE + name), "download_name": parsed.path.split("/")[-1],
                 "changed_files": [], "removed_files": [], "can_install": False,
                 "can_download": True}
     return {"available": False, "reason": "No newer desktop installer published on Humperdinck",
