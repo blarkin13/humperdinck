@@ -1,5 +1,27 @@
 # Humperdinck public website
 
+## Native binary updates without a public GitHub repository
+
+The installed application must get its updates from the Humperdinck website, not GitHub. `backend/native_updates.py` uses the public `/downloads.json` manifest to offer newer installers for **manual** updates. `desktop/src-tauri/src/main.rs` points Tauri's **signed** updater at `https://humperdinck.larki-brian.workers.dev/updates/latest.json`.
+
+**Automatic installation is not active for unsigned preview builds.** The Tauri updater only activates when a trusted `HUMPERDINCK_UPDATER_PUBKEY` is embedded at compilation. Until valid signed update artifacts and a signed-update JSON manifest exist, leave that build variable unset. This intentionally offers a normal website download rather than running arbitrary binaries.
+
+### Enable fully automatic signed updates
+
+1. Finish and test the native installers, add the appropriate operating-system signing/notarization (Windows code signing and macOS Developer ID/notarization), and complete bundled third-party license compliance.
+2. Generate the Tauri updater signing key pair, retain the private key exclusively in protected CI secrets, and embed **only** the updater public key in the compiled app via `HUMPERDINCK_UPDATER_PUBKEY`. Never commit the private key.
+3. Produce platform-specific **updater artifacts** in addition to normal installation files. Windows updates can use a signed NSIS updater bundle; macOS uses the Tauri updater's signed archive (not just the .dmg); Linux Tauri updater is normally AppImage-based, not a .deb replacement. Plan a separate, distro-appropriate update path for the .deb edition, or publish an AppImage edition for built-in automatic updates.
+4. Upload versioned updater artifacts and their detached Tauri updater signatures to private Cloudflare R2. Use checksums and immutable paths, and verify each file exists before publication.
+5. Publish `/updates/latest.json` with the Tauri v2 updater schema, including `version`, `notes`, `pub_date`, and platform keys whose `url` points to first-party hosted updater artifacts and whose `signature` contains the **actual detached updater signature**. Do not invent signatures or reuse file hashes as signatures.
+6. Test upgrading an earlier signed installation on real macOS and Windows hardware while keeping the user's application data and downloaded models. Test Linux according to the chosen packaging/update mechanism.
+7. Only then enable `HUMPERDINCK_UPDATER_PUBKEY` in production build CI and release a signed version that can update itself.
+
+The same website can continue offering the regular .exe, .dmg and .deb installers via `/downloads.json`. **Those public installer files are not interchangeable with signed Tauri updater bundles**. The updater must verify signatures cryptographically before installing, and users must approve installation. Failure should leave the existing app functional.
+
+### Private GitHub development
+
+GitHub may remain the private source code and CI system. First confirm that Cloudflare's GitHub integration still has access to the private repository and that your plan supports private-repo builds; reauthorize if necessary. Do not switch visibility until the website deployment, CI credentials and public hosted assets are decoupled from anonymous GitHub URLs. Public users should not be offered `git clone` once the repository becomes private; remove or relabel the developer-source disclosure before switching visibility.
+
 ## Direct desktop downloads (Windows, macOS and Linux)
 
 The homepage now has a dedicated downloadable-app section, not a prominent GitHub install call-to-action. The optional clone command is in a disclosure for developers.
