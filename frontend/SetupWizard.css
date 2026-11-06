@@ -1,13 +1,15 @@
 .setup-overlay{position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
-.setup-dialog{width:min(690px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:25px;border-radius:16px;border:1px solid var(--border,#555);background:var(--surface,#202125);color:var(--text,#f4f4f4);box-shadow:0 18px 60px #0008}
+.setup-dialog{width:min(690px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:25px;border-radius:16px;border:1px solid var(--line,#555);background:var(--teal,#202125);color:var(--ivory,#f4f4f4);box-shadow:0 18px 60px #0008}
 .setup-header{display:flex;justify-content:space-between;align-items:start;gap:20px}.setup-header h2{margin:5px 0 8px}.setup-header p{margin:0 0 12px}.setup-header small{letter-spacing:.12em;opacity:.7}.setup-header button{flex:none}
 .setup-hardware{font-size:.85rem;opacity:.75}
-.setup-advice{font-size:.9rem;padding:12px;border-radius:8px;border:1px solid var(--border,#666)}
+.setup-advice{font-size:.9rem;padding:12px;border-radius:8px;border:1px solid var(--line,#666)}
 .setup-advice i{margin-right:8px}
 .setup-options{display:flex;flex-direction:column;gap:10px;margin:18px 0}
-.setup-option{display:flex;gap:13px;align-items:flex-start;border:1px solid var(--border,#666);border-radius:10px;padding:14px;cursor:pointer}
-.setup-option>input{margin-top:4px;accent-color:var(--accent,#8ab7ef)}.setup-option>span,.setup-option>div{flex:1;min-width:0}
+.setup-option{display:flex;gap:13px;align-items:flex-start;border:1px solid var(--line,#666);border-radius:10px;padding:14px;cursor:pointer}
+.setup-option>input{margin-top:4px;accent-color:var(--brass,#8ab7ef)}.setup-option>span,.setup-option>div{flex:1;min-width:0}
 .setup-option strong,.setup-option small{display:block}.setup-option small{margin-top:5px;line-height:1.5;opacity:.75}
 .setup-option select{width:100%;margin-top:12px;max-width:100%;box-sizing:border-box}
-.setup-progress{border:1px solid var(--border,#666);border-radius:10px;padding:12px;margin:12px 0}.setup-progress p{margin:5px 0}.setup-progress progress{width:100%}
+.setup-progress{border:1px solid var(--line,#666);border-radius:10px;padding:12px;margin:12px 0}.setup-progress p{margin:5px 0}.setup-progress progress{width:100%}
 .setup-error{color:#fa9999}.setup-success{color:#82d8a1}.setup-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+
+.setup-option{margin:0;font-weight:normal}.setup-option strong{color:var(--ivory,#fff)}.setup-option small{color:var(--muted,#aaa)}.setup-dialog .setup-header p,.setup-dialog .setup-advice,.setup-dialog .setup-hardware{color:var(--muted,#aaa)}
