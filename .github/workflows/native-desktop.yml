@@ -170,7 +170,7 @@ jobs:
       # the special PyInstaller entitlement. This ad-hoc-only test repack signs
       # the helper itself and then re-signs the outer app, so the distributed
       # DMG contains the executable with the entitlement it needs.
-      - name: Re-sign embedded macOS Python server and rebuild test DMG
+      - name: Preserve signed macOS sidecar entitlements and rebuild DMG
         if: runner.os == 'macOS'
         timeout-minutes: 5
         run: |
@@ -188,8 +188,9 @@ jobs:
           fi
           /usr/bin/hdiutil detach "$ORIGINAL_MOUNT" -quiet
           APP="$PAYLOAD/Humperdinck.app"
-          /usr/bin/codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP/Contents/MacOS/humperdinck-server"
-          /usr/bin/codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP"
+          SIGN_ID="${{ inputs.production_signing && secrets.APPLE_SIGNING_IDENTITY || '-' }}"
+          /usr/bin/codesign --force --sign "$SIGN_ID" --options runtime --entitlements "$ENTITLEMENTS" "$APP/Contents/MacOS/humperdinck-server"
+          /usr/bin/codesign --force --sign "$SIGN_ID" --options runtime --entitlements "$ENTITLEMENTS" "$APP"
           /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
           PATCHED_DMG="$RUNNER_TEMP/humperdinck-resigned.dmg"
           /usr/bin/hdiutil create -volname "Humperdinck" -srcfolder "$PAYLOAD" -format UDZO "$PATCHED_DMG"
