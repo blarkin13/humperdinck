@@ -16,8 +16,13 @@ try {
  if (-not (Test-Path $bin)) { throw "Server missing: $bin" }
  $signtool=Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe | Where-Object {$_.FullName.EndsWith('\x64\signtool.exe')} | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
  if (-not $signtool) { throw 'Windows SDK signtool missing' }
- & $signtool sign /sha $thumb /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $bin
- if ($LASTEXITCODE -ne 0) { throw 'Failed to sign Python sidecar' }
+ # The engine folder's unsigned DLLs and .pyd files must be signed too, or Smart App Control blocks them at launch.
+ $files=@($bin)+@(Get-ChildItem 'desktop/src-tauri/binaries/humperdinck-engine' -Recurse -Include *.exe,*.dll,*.pyd | ForEach-Object {
+  if ((Get-AuthenticodeSignature $_.FullName).Status -ne 'Valid') { $_.FullName } })
+ foreach ($file in $files) {
+  & $signtool sign /sha $thumb /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $file
+  if ($LASTEXITCODE -ne 0) { throw "Failed to sign $file" }
+ }
  & $signtool verify /pa /v $bin
  if ($LASTEXITCODE -ne 0) { throw 'Python sidecar signature verification failed' }
 } finally {

@@ -15,6 +15,9 @@ import sysconfig
 ROOT = Path(__file__).resolve().parents[1]
 TAURI_BIN = ROOT / "desktop" / "src-tauri" / "binaries"
 TEMP = ROOT / "desktop" / ".build-sidecar"
+# Windows engine files folder, installed next to humperdinck-server.exe
+# (bundle.resources in desktop/src-tauri/tauri.windows.conf.json).
+WINDOWS_ENGINE_DIR = "humperdinck-engine"
 
 
 def checked_ffmpeg_files(directory: Path | None) -> list[tuple[str, Path]]:
@@ -94,9 +97,14 @@ def main():
 
     TEMP.mkdir(parents=True, exist_ok=True)
     TAURI_BIN.mkdir(parents=True, exist_ok=True)
+    windows = "windows" in target
+    # Windows uses --onedir: --onefile unpacks unsigned DLLs into a new %TEMP%
+    # folder on every launch, which Smart App Control blocks. Files kept in the
+    # install folder are identical every launch.
+    layout = ["--onedir", "--contents-directory", WINDOWS_ENGINE_DIR] if windows else ["--onefile"]
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--noconfirm", "--clean", "--onefile",
+        "--noconfirm", "--clean", *layout,
         "--name", "humperdinck-server",
         "--distpath", str(TEMP / "dist"),
         "--workpath", str(TEMP / "work"),
@@ -132,10 +140,16 @@ def main():
             "--collect-submodules", "backend",
             "--collect-all", "onnxruntime"]
     subprocess.run(cmd, cwd=ROOT, check=True)
-    extension = ".exe" if "windows" in target else ""
-    source = TEMP / "dist" / ("humperdinck-server" + extension)
+    extension = ".exe" if windows else ""
+    dist = TEMP / "dist" / "humperdinck-server" if windows else TEMP / "dist"
+    source = dist / ("humperdinck-server" + extension)
     dest = TAURI_BIN / ("humperdinck-server-" + target + extension)
     shutil.copy2(source, dest)
+    if windows:
+        engine = TAURI_BIN / WINDOWS_ENGINE_DIR
+        shutil.rmtree(engine, ignore_errors=True)
+        shutil.copytree(dist / WINDOWS_ENGINE_DIR, engine)
+        print(f"Packaged engine files: {engine}")
     print(f"Packaged Tauri sidecar: {dest}")
 
 

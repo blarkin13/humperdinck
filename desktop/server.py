@@ -107,8 +107,9 @@ def main() -> None:
     from backend import media_tools
     media_tools.configure()
 
-    # PyInstaller --onefile normally has a launcher process and a Python
-    # child. The native app kills the launcher on Quit; without this watchdog,
+    # PyInstaller --onefile (Mac, Linux) has a launcher process and a Python
+    # child; on Windows (--onedir) the parent is the app itself. The native
+    # app kills its child on Quit; without this watchdog,
     # the Python child can survive and keep serving browser tabs in the
     # background. This also handles unexpected app crashes.
     from threading import Thread
@@ -116,7 +117,7 @@ def main() -> None:
     launcher_pid = os.getppid()
     if sys.platform == 'win32':
         # Windows preserves a dead parent's PID. Keep a HANDLE to the
-        # PyInstaller launcher so we can tell when it exits instead.
+        # parent so we can tell when it exits instead.
         import ctypes
         kernel = ctypes.WinDLL('kernel32', use_last_error=True)
         kernel.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]

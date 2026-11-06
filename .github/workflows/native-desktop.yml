@@ -286,6 +286,18 @@ jobs:
           PY
           python scripts/smoke_native_server.py --target ${{ matrix.target }} --binary "$APP/Contents/MacOS/humperdinck-server"
 
+      # The engine folder must be installed next to humperdinck-server.exe
+      # (--onedir). Run the copy Tauri staged beside the app, not the source.
+      - name: Verify Windows engine folder and startup from the app folder
+        if: runner.os == 'Windows'
+        timeout-minutes: 6
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE=desktop/src-tauri/target/release
+          test -f "$RELEASE/humperdinck-engine/base_library.zip" || { echo "Engine folder missing beside the app"; ls "$RELEASE"; exit 1; }
+          python scripts/smoke_native_server.py --target ${{ matrix.target }} --binary "$RELEASE/humperdinck-server.exe"
+
       - name: Verify Windows production signature
         if: runner.os == 'Windows' && inputs.production_signing
         shell: pwsh
