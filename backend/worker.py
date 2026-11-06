@@ -102,7 +102,25 @@ def run(request):
     return True
 
 
+def stop_when_parent_exits():
+    """A native model worker must not survive its bundled local API process.
+
+    PyInstaller/Tauri may terminate the API without running Python cleanup.
+    An orphaned worker can otherwise keep several GB of model RAM allocated.
+    """
+    from threading import Thread
+    parent = os.getppid()
+    def monitor():
+        while True:
+            time.sleep(1.0)
+            if os.getppid() != parent:
+                os._exit(0)
+    Thread(target=monitor, daemon=True, name="native-parent-watchdog").start()
+
+
 if __name__ == '__main__':
+    if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
+        stop_when_parent_exits()
     if '--serve' in sys.argv:
         for line in sys.stdin:
             if line.strip():
