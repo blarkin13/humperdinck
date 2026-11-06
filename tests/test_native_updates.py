@@ -38,3 +38,29 @@ def test_untrusted_or_offsite_installer_ignored(monkeypatch):
                                 "macos": {"published": True, "version": "99.0.0", "url": uri}
                             }))
         assert not native_updates.check()["available"]
+
+def test_public_binary_release_when_source_private(monkeypatch):
+    monkeypatch.setattr(native_updates.sys, "platform", "win32")
+    url = ("https://github.com/blarkin13/humperdinck-downloads/releases/download/"
+           "v0.2.0/humperdinck-windows-x64-0.2.0.exe")
+    monkeypatch.setattr(native_updates, "urlopen",
+                        lambda req, timeout, context=None: Response({
+                            "windows": {"published": True, "version": "0.2.0", "url": url}
+                        }))
+    got = native_updates.check()
+    assert got["available"]
+    assert got["download_url"] == url
+
+
+def test_reject_untrusted_binary_release_url(monkeypatch):
+    monkeypatch.setattr(native_updates.sys, "platform", "win32")
+    for url in (
+        "https://github.com/evil/humperdinck-downloads/releases/download/v0.2.0/humperdinck-windows-x64-0.2.0.exe",
+        "https://github.com/blarkin13/humperdinck-downloads/releases/download/v0.2.0/evil.exe",
+        "https://github.com/blarkin13/humperdinck-downloads/releases/download/v0.3.0/humperdinck-windows-x64-0.3.0.exe",
+    ):
+        monkeypatch.setattr(native_updates, "urlopen",
+                            lambda req, timeout, context=None, url=url: Response({
+                                "windows": {"published": True, "version": "0.2.0", "url": url}
+                            }))
+        assert not native_updates.check()["available"]
