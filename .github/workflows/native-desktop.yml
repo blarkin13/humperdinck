@@ -145,7 +145,14 @@ jobs:
           /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
           /usr/bin/codesign --display --entitlements - --xml "$APP/Contents/MacOS/humperdinck-server" > /tmp/humperdinck-entitlements.plist
           /usr/bin/plutil -lint /tmp/humperdinck-entitlements.plist
-          test "$(/usr/bin/plutil -extract com.apple.security.cs.disable-library-validation raw -o - /tmp/humperdinck-entitlements.plist)" = "true"
+          python - <<'PY'
+          import plistlib
+          with open("/tmp/humperdinck-entitlements.plist", "rb") as f:
+              entitlements = plistlib.load(f)
+          key = "com.apple.security.cs.disable-library-validation"
+          print("Signed Python sidecar entitlement:", key, "=", entitlements.get(key))
+          assert entitlements.get(key) is True, f"Missing required signed-sidecar entitlement: {entitlements}"
+          PY
           python scripts/smoke_native_server.py --target ${{ matrix.target }} --binary "$APP/Contents/MacOS/humperdinck-server"
 
       - name: Upload test installer (no release/signing)
