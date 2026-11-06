@@ -15,6 +15,7 @@ import os
 import platform
 import sys
 from pathlib import Path
+from backend import shared_models
 
 MAC_ARM = sys.platform == 'darwin' and platform.machine() == 'arm64'
 ALL = ('darwin', 'win32', 'linux')
@@ -87,12 +88,9 @@ PRESET_VOICES = {
 }
 
 def preset_path(engine, voice):
-    data = Path(os.environ.get('HUMPERDINCK_DATA') or (Path(__file__).resolve().parent.parent / 'data'))
-    if engine == 'kokoro':
-        return data / 'models' / 'kokoro'
-    if engine == 'piper':
-        return data / 'models' / 'piper'
-    raise ValueError('Unknown preset engine')
+    # One model folder for native and browser installations of this user.
+    # Both installations keep their own projects/outputs but share model weights.
+    return shared_models.preset_dir(engine)
 
 
 ENGINES = {
@@ -200,10 +198,10 @@ class Settings:
 
 
 def hf_cache():
+    shared_models.configure_hf_home()
     if os.environ.get('HF_HUB_CACHE'):
         return Path(os.environ['HF_HUB_CACHE'])
-    home = Path(os.environ.get('HF_HOME') or Path.home() / '.cache' / 'huggingface')
-    return home / 'hub'
+    return shared_models.model_home() / 'hub'
 
 
 def downloaded(model_id):

@@ -66,3 +66,21 @@ macOS notarization, clean install/uninstall, and reliable upgrade behavior.
 
 Do not expose the bundled localhost API to other computers as a shortcut to
 phone/tablet access.
+
+## Shared model storage
+
+Native and browser/source installs under the **same operating-system user**
+share model weights. Existing Qwen weights are already cached in the Hugging
+Face Hub. Kokoro and Piper are now stored under:
+
+- `~/.cache/huggingface/humperdinck/presets/kokoro/`
+- `~/.cache/huggingface/humperdinck/presets/piper/`
+
+If `HF_HOME` or `XDG_CACHE_HOME` is configured, those existing settings
+take precedence. Set `HUMPERDINCK_MODEL_HOME` to use a custom shared root,
+including its Hugging Face `hub/` directory. A source/browser launch safely
+copies older `data/models/` presets into the shared location once, keeping
+the source files and user projects intact.
+
+This shares **model weights, not model runtimes**. The native engine runtime
+still needs the next packaging phase; model compatibility is checked per OS.
