@@ -6,6 +6,23 @@ const safeFile=(path)=>path.length>0&&path.length<240&&path.split('/').every(par
 export default {
  async fetch(request,env,ctx){
   const url=new URL(request.url);
+  if(url.pathname.startsWith('/downloads/')){
+   // Static installers live in a private Cloudflare R2 bucket, streamed through
+   // Humperdinck's own domain. No GitHub redirect or Worker bundle upload.
+   if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405});
+   const name=url.pathname.slice('/downloads/'.length);
+   if(!/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,180}\\.(?:exe|dmg|deb)$/.test(name))return new Response('Invalid installer path',{status:400});
+   if(!env.INSTALLER_BUCKET)return new Response('Installers have not been published',{status:503,headers:{'Cache-Control':'no-store'}});
+   const file=await env.INSTALLER_BUCKET.get(name);
+   if(!file)return new Response('Installer not found',{status:404,headers:{'Cache-Control':'no-store'}});
+   const headers=new Headers();
+   headers.set('Content-Type',name.endsWith('.exe')?'application/vnd.microsoft.portable-executable':name.endsWith('.dmg')?'application/x-apple-diskimage':'application/vnd.debian.binary-package');
+   headers.set('Content-Disposition','attachment; filename="'+name+'"');
+   headers.set('Content-Length',String(file.size));
+   headers.set('Cache-Control','public, max-age=3600');
+   headers.set('ETag',file.httpEtag);
+   return new Response(request.method==='HEAD'?null:file.body,{status:200,headers});
+  }
   if(!url.pathname.startsWith(PREFIX))return env.ASSETS.fetch(request);
   const file=url.pathname.slice(PREFIX.length);
   if(!safeFile(file)||!['GET','HEAD'].includes(request.method))return new Response('Invalid model request',{status:400});
