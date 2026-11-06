@@ -6,6 +6,7 @@ on:
     paths:
       - 'desktop/**'
       - 'scripts/build_native_sidecar.py'
+      - 'scripts/prepare_native_voice_pack.py'
       - 'scripts/smoke_native_server.py'
       - 'backend/**'
       - 'frontend/**'
@@ -68,7 +69,10 @@ jobs:
         run: npm run build
 
       - name: Install backend packaging dependencies
-        run: python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7" "kokoro-onnx>=0.6,<1"
+        run: python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7" "kokoro-onnx>=0.6,<1" "certifi>=2025.1"
+
+      - name: Download and verify seven approved Built-In Humperdinck Voices
+        run: python scripts/prepare_native_voice_pack.py
 
       - name: Compile the bundled localhost server
         run: python scripts/build_native_sidecar.py --target ${{ matrix.target }}

@@ -17,6 +17,19 @@ def frontend_directory() -> Path:
     return base / "frontend" / "dist"
 
 
+def install_builtin_voices(data_dir: Path) -> dict:
+    """Import approved samples at startup without overwriting personal voices."""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+    archive = base / "voice-packs" / "humperdinck-builtin-voices-v1.zip"
+    if not archive.is_file():
+        raise RuntimeError("Built-In Humperdinck Voices are missing from the native app bundle")
+    from backend.starter_voice_packs import install
+    result = install(data_dir, archive.read_bytes())
+    print(f"Built-In Humperdinck Voices: {result['total_in_pack']} included, "
+          f"{result['installed']} newly imported", flush=True)
+    return result
+
+
 def main() -> None:
     if "--native-engine-worker" in sys.argv:
         # Spawn the bundled executable as a separate ML model process instead
@@ -41,6 +54,7 @@ def main() -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
     os.environ["HUMPERDINCK_DATA"] = str(data_dir)
     os.environ["HUMPERDINCK_NATIVE_PACKAGE"] = "1"
+    install_builtin_voices(data_dir)
 
     static = frontend_directory()
     if not (static / "index.html").is_file():

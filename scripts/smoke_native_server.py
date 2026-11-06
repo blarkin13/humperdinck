@@ -54,6 +54,12 @@ def main():
                         with urlopen(f"http://127.0.0.1:{port}/", timeout=2) as response:
                             page = response.read().decode("utf-8")
                         assert health["application"] == "humperdinck"
+                        assert health["native_package"] is True
+                        with urlopen(f"http://127.0.0.1:{port}/api/voices", timeout=8) as response:
+                            builtin_voices = json.load(response)
+                        assert len([v for v in builtin_voices if v.get("origin") == "builtin-humperdinck"]) == 7, (
+                            "All seven Built-In Humperdinck Voices must be installed before the UI loads"
+                        )
                         with urlopen(f"http://127.0.0.1:{port}/api/updates/check", timeout=8) as response:
                             updates = json.load(response)
                         assert updates["available"] is False, "Native binary updates must be disabled"

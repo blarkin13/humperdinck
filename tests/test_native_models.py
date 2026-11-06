@@ -38,3 +38,21 @@ def test_short_download_removes_partial_files(tmp_path, monkeypatch):
     folder = tmp_path / "hf" / "humperdinck" / "presets" / "kokoro"
     assert not (folder / "kokoro-v1.0.onnx").exists()
     assert not list(folder.glob("*.partial"))
+
+
+def test_native_download_uses_verified_ca_bundle(tmp_path, monkeypatch):
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    monkeypatch.delenv("HUMPERDINCK_MODEL_HOME", raising=False)
+    observed = []
+    def pretend_download(*a, **kw):
+        observed.append(kw.get("context"))
+        raise RuntimeError("Network deliberately disabled in test")
+    monkeypatch.setattr(native_models.urllib.request, "urlopen", pretend_download)
+    try:
+        native_models.download_kokoro()
+    except RuntimeError as exc:
+        assert str(exc) == "Network deliberately disabled in test"
+    else:
+        raise AssertionError("Missing mocked download")
+    assert observed and observed[0] is not None
+    assert observed[0].verify_mode.name == "CERT_REQUIRED"

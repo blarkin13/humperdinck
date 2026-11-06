@@ -55,7 +55,8 @@ cd frontend
 npm install --no-audit --no-fund
 npm run build
 cd ..
-python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7" "kokoro-onnx>=0.6,<1"
+python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7" "kokoro-onnx>=0.6,<1" "certifi>=2025.1"
+python scripts/prepare_native_voice_pack.py
 python scripts/build_native_sidecar.py --target <rust-target-triple>
 python scripts/smoke_native_server.py --target <rust-target-triple>
 cd desktop
@@ -72,6 +73,13 @@ Choose one target: `x86_64-pc-windows-msvc`,
 **The native preview includes the lightweight Kokoro ONNX CPU runtime.**
 Model weights are not bundled. Download a Kokoro voice in Models once to the
 shared cache, then preset narration can run in native and browser interfaces.
+All seven approved **Built-In Humperdinck Voices** reference samples are now
+bundled directly with native installers. They are imported on first launch into
+per-user voice storage (without overwriting, restoring deletions, or exposing
+source recordings). The native app hides the pack-publishing tools, which are
+for the source/developer installation. These are Qwen reference clips, not
+independent models; arbitrary new narration with them still requires Qwen Base,
+which is NOT yet packaged in this native preview.
 Qwen custom cloning/design and GPL-licensed Piper are not in the native
 runtime yet. The source-code updater is disabled in native packages. Native
 WAV output can work without FFmpeg, but MP3/video exports require it.

@@ -57,6 +57,8 @@ def checked_ffmpeg_files(directory: Path | None) -> list[tuple[str, Path]]:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", required=True, help="Rust target triple from CI")
+    parser.add_argument("--builtin-voices-pack", type=Path, default=ROOT / "assets" / "voice-packs" / "humperdinck-builtin-voices-v1.zip",
+                        help="Pre-verified seven-voice pack from scripts/prepare_native_voice_pack.py")
     parser.add_argument("--ffmpeg-dir", type=Path, default=Path(os.environ["HUMPERDINCK_FFMPEG_BUNDLE_DIR"]) if os.environ.get("HUMPERDINCK_FFMPEG_BUNDLE_DIR") else None,
                         help="Verified LGPL FFmpeg tools + source manifest (optional until distribution approval)")
     args = parser.parse_args()
@@ -75,6 +77,12 @@ def main():
     if not (frontend / "index.html").is_file():
         parser.error("build React first: npm run build --prefix frontend")
 
+    if not args.builtin_voices_pack.is_file():
+        parser.error("Built-In Humperdinck Voices are required: run python scripts/prepare_native_voice_pack.py")
+    from scripts.prepare_native_voice_pack import validate as validate_builtin_voices
+    builtin_count = validate_builtin_voices(args.builtin_voices_pack.read_bytes())
+    print(f"Bundling {builtin_count} approved Built-In Humperdinck Voices")
+
     TEMP.mkdir(parents=True, exist_ok=True)
     TAURI_BIN.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -86,6 +94,7 @@ def main():
         "--specpath", str(TEMP),
         "--paths", str(ROOT),
         "--add-data", f"{frontend}{os.pathsep}frontend/dist",
+        "--add-data", f"{args.builtin_voices_pack.resolve()}{os.pathsep}voice-packs",
         "--collect-submodules", "uvicorn",
         str(ROOT / "desktop" / "server.py"),
     ]
@@ -98,7 +107,8 @@ def main():
     else:
         print("FFmpeg not bundled: package remains a preview without video/MP3 conversion")
     # Includes the CPU runtime, not the large voice model weights.
-    cmd += ["--collect-all", "kokoro_onnx",
+    cmd += ["--collect-all", "certifi",
+            "--collect-all", "kokoro_onnx",
             "--collect-submodules", "backend",
             "--collect-all", "onnxruntime"]
     subprocess.run(cmd, cwd=ROOT, check=True)

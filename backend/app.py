@@ -78,7 +78,8 @@ def health():
     return {'status':'ok', 'application':'humperdinck', 'version':'0.4.0', 'platform':catalog.platform_name(),
             'models':choice, 'design_ready':engines.installed(choice['design']['engine']),
             'clone_ready':engines.installed(choice['clone']['engine']),
-            'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status()}
+            'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status(),
+            'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'}
 
 @app.post('/api/engine/unload')
 def unload_engine():

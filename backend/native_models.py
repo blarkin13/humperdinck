@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 import hashlib
+import ssl
+import certifi
 import shutil
 import urllib.request
 from uuid import uuid4
@@ -29,7 +31,10 @@ def download_kokoro(progress=lambda _: None) -> Path:
         partial = directory / (name + "." + uuid4().hex + ".partial")
         try:
             request = urllib.request.Request(SOURCE + name, headers={"User-Agent": "Humperdinck-Desktop/0.1"})
-            with urllib.request.urlopen(request, timeout=120) as response, partial.open("wb") as output:
+            # PyInstaller on macOS has no reliable system CA bundle path.
+            # Supply an explicitly packaged, current trusted CA store; never disable TLS checks.
+            context = ssl.create_default_context(cafile=certifi.where())
+            with urllib.request.urlopen(request, timeout=120, context=context) as response, partial.open("wb") as output:
                 shutil.copyfileobj(response, output)
                 length = response.headers.get("Content-Length")
                 if length and partial.stat().st_size != int(length):

@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""Download the published, approved Humperdinck voice pack for native builds.
+
+The exact release asset is pinned. Never embed owner's original recordings.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+import ssl
+from urllib.request import Request, urlopen
+from zipfile import ZipFile
+from io import BytesIO
+
+import certifi
+
+ROOT = Path(__file__).resolve().parents[1]
+NAME = "humperdinck-builtin-voices-v1.zip"
+URL = "https://github.com/blarkin13/humperdinck/releases/download/builtin-humperdinck-voices-v1/" + NAME
+SHA256 = "15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49"
+EXPECTED_VOICES = 7
+DESTINATION = ROOT / "assets" / "voice-packs" / NAME
+
+
+def validate(raw: bytes) -> int:
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != SHA256:
+        raise RuntimeError(f"Built-In Humperdinck Voices ZIP SHA-256 mismatch: {digest}")
+    with ZipFile(BytesIO(raw)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        if manifest.get("format") != "humperdinck-starter-voices" or manifest.get("version") != 1:
+            raise RuntimeError("Unexpected published voice-pack manifest")
+        voices = manifest.get("voices", [])
+        if len(voices) != EXPECTED_VOICES:
+            raise RuntimeError(
+                f"Published voice pack has {len(voices)} voices; expected {EXPECTED_VOICES}. "
+                "Update the approved release asset before distributing this build."
+            )
+        for entry in voices:
+            sample = archive.read(entry["sample_file"])
+            if hashlib.sha256(sample).hexdigest() != entry["sha256"]:
+                raise RuntimeError(f"Reference sample checksum mismatch for {entry.get('name')}")
+        return len(voices)
+
+
+def main() -> None:
+    if DESTINATION.is_file():
+        raw = DESTINATION.read_bytes()
+    else:
+        req = Request(URL, headers={"User-Agent": "Humperdinck-NativeBuilder/1.0"})
+        context = ssl.create_default_context(cafile=certifi.where())
+        with urlopen(req, timeout=120, context=context) as response:
+            raw = response.read(120 * 1024 * 1024 + 1)
+    count = validate(raw)
+    DESTINATION.parent.mkdir(parents=True, exist_ok=True)
+    temp = DESTINATION.with_suffix(".tmp")
+    try:
+        temp.write_bytes(raw)
+        temp.replace(DESTINATION)
+    finally:
+        temp.unlink(missing_ok=True)
+    print(f"Verified and staged {count} Built-In Humperdinck Voices: {DESTINATION}")
+
+
+if __name__ == "__main__":
+    main()
