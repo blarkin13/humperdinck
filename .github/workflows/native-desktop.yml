@@ -64,7 +64,7 @@ jobs:
         run: npm run build
 
       - name: Install backend packaging dependencies
-        run: python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7"
+        run: python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7" "kokoro-onnx>=0.6,<1"
 
       - name: Compile the bundled localhost server
         run: python scripts/build_native_sidecar.py --target ${{ matrix.target }}

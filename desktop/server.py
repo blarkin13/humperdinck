@@ -18,6 +18,17 @@ def frontend_directory() -> Path:
 
 
 def main() -> None:
+    if "--native-engine-worker" in sys.argv:
+        # Spawn the bundled executable as a separate ML model process instead
+        # of requiring a system Python or another venv.
+        os.environ["HUMPERDINCK_NATIVE_PACKAGE"] = "1"
+        from backend import worker
+        import json
+        for line in sys.stdin:
+            if line.strip():
+                worker.run(json.loads(line))
+        return
+
     parser = argparse.ArgumentParser(description="Bundled Humperdinck localhost service")
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--data-dir", type=Path, required=True)

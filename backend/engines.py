@@ -84,10 +84,8 @@ def explain(error):
 
 def python_for(engine):
     """Return the first interpreter that can import the engine, or None."""
-    # Unsigned native shell previews bundle only the API. They deliberately do
-    # not claim that an ML worker is present or start the sidecar as Python.
     if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
-        return None
+        return Path(sys.executable) if engine == 'kokoro' and installed(engine) else None
     # Only successes are cached, so an engine installed later is found without a restart.
     if engine not in _resolved and catalog.supported(engine):
         for python in candidates(engine):
@@ -112,7 +110,10 @@ _FIND = 'import importlib.util as u, sys; sys.exit(0 if all(u.find_spec(m) for m
 def installed(engine):
     """Quick check for the Models tab and health: are the engine's packages present? Cached."""
     if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
-        return False
+        if engine != 'kokoro':
+            return False  # Piper and Qwen not bundled yet.
+        import importlib.util
+        return importlib.util.find_spec('kokoro_onnx') is not None
     if not catalog.supported(engine):
         return False
     if engine in _resolved:
@@ -140,7 +141,10 @@ class Worker:
         self.engine = engine
         self.model = model
         self.errors = tempfile.TemporaryFile('w+')
-        self.process = subprocess.Popen([str(python), '-m', 'backend.worker', '--serve'], cwd=ROOT, env=worker_env(),
+        command = ([str(python), '--native-engine-worker', '--serve']
+                   if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'
+                   else [str(python), '-m', 'backend.worker', '--serve'])
+        self.process = subprocess.Popen(command, cwd=ROOT, env=worker_env(),
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errors,
                                         text=True, bufsize=1)
         self.messages = queue.Queue()

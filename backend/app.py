@@ -21,6 +21,7 @@ from backend.audio_edit import AudioEdit, render
 from backend.jobs import JobStore
 from backend import catalog
 from backend import media_tools
+from backend import native_models
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
 from backend.curated_sounds import BY_SLUG,public_catalog
@@ -1228,17 +1229,46 @@ def delete_model(request: ModelDelete):
             'message': 'Downloaded model files deleted.' if removed else 'No local model files found.'}
 
 
+def run_native_kokoro_install(job_id):
+    job = jobs[job_id]
+    try:
+        job.update(status='running', message='Downloading Kokoro weights into shared cache')
+        native_models.download_kokoro(lambda message: job.update(message=message))
+        if not catalog.downloaded('bm_george'):
+            raise RuntimeError('Required Kokoro files are still incomplete')
+        engines.forget('kokoro')
+        job.update(status='complete',progress=100,
+                   message='Kokoro is downloaded. Generate a short voice preview to test it.')
+    except Exception as exc:
+        job.update(status='failed', message=f'Kokoro download failed: {exc}')
+    finally:
+        install_lock.release()
+
+
 @app.post('/api/models/install')
 def install_model(request: ModelInstall):
     """Install an engine and/or download a model. Needs internet; runs in the background."""
-    if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
-        raise HTTPException(501, 'AI engine installation is not yet bundled with unsigned native test builds; use the existing source installer')
+    native = os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'
+    if native and request.engine != 'kokoro':
+        raise HTTPException(501, 'Native preview includes CPU Kokoro only; Qwen and Piper runtimes are not bundled')
     if request.engine not in catalog.ENGINES or not catalog.supported(request.engine):
         raise HTTPException(422, 'That engine is not available on this computer')
     if request.model and request.model not in catalog.ENGINES[request.engine]['models']:
         raise HTTPException(422, 'Unknown model for this engine')
     if not install_lock.acquire(blocking=False):
         raise HTTPException(409, 'Another installation is already running')
+    if native:
+        voice = request.model or 'bm_george'
+        if voice not in catalog.PRESET_VOICES['kokoro']:
+            install_lock.release()
+            raise HTTPException(422, 'Unknown Kokoro voice')
+        job_id = uuid4().hex
+        jobs[job_id] = {'job_id':job_id,'status':'queued','progress':0,
+                        'message':'Waiting to download shared Kokoro weights',
+                        'engine':'kokoro','model':voice}
+        installing['job'] = job_id
+        Thread(target=run_native_kokoro_install, args=(job_id,), daemon=True).start()
+        return jobs[job_id]
     command = [sys.executable, str(ROOT/'scripts'/'install_engine.py'), request.engine]
     if request.model:
         command += ['--model', request.model]

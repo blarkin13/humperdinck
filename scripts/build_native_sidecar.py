@@ -97,6 +97,10 @@ def main():
         print("Bundling license-reviewed FFmpeg + ffprobe into the sidecar")
     else:
         print("FFmpeg not bundled: package remains a preview without video/MP3 conversion")
+    # Includes the CPU runtime, not the large voice model weights.
+    cmd += ["--collect-all", "kokoro_onnx",
+            "--collect-submodules", "backend",
+            "--collect-all", "onnxruntime"]
     subprocess.run(cmd, cwd=ROOT, check=True)
     extension = ".exe" if "windows" in target else ""
     source = TEMP / "dist" / ("humperdinck-server" + extension)
