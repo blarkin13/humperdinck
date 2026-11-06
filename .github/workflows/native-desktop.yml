@@ -97,6 +97,35 @@ jobs:
           APPLE_SIGNING_IDENTITY: '-'
         run: npx tauri build --bundles ${{ matrix.bundle }}
 
+      # The macOS Tauri bundler re-signs externalBin sidecars without preserving
+      # the special PyInstaller entitlement. This ad-hoc-only test repack signs
+      # the helper itself and then re-signs the outer app, so the distributed
+      # DMG contains the executable with the entitlement it needs.
+      - name: Re-sign embedded macOS Python server and rebuild test DMG
+        if: runner.os == 'macOS'
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          DMG="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG" || { echo "DMG missing"; exit 1; }
+          ORIGINAL_MOUNT="$RUNNER_TEMP/humperdinck-original-dmg"
+          PAYLOAD="$RUNNER_TEMP/humperdinck-resigned-payload"
+          ENTITLEMENTS="$PWD/desktop/src-tauri/entitlements.plist"
+          mkdir -p "$ORIGINAL_MOUNT" "$PAYLOAD"
+          /usr/bin/hdiutil attach -readonly -nobrowse -mountpoint "$ORIGINAL_MOUNT" "$DMG"
+          /usr/bin/ditto "$ORIGINAL_MOUNT/Humperdinck.app" "$PAYLOAD/Humperdinck.app"
+          if test -L "$ORIGINAL_MOUNT/Applications"; then
+            ln -s /Applications "$PAYLOAD/Applications"
+          fi
+          /usr/bin/hdiutil detach "$ORIGINAL_MOUNT" -quiet
+          APP="$PAYLOAD/Humperdinck.app"
+          /usr/bin/codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP/Contents/MacOS/humperdinck-server"
+          /usr/bin/codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP"
+          /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
+          PATCHED_DMG="$RUNNER_TEMP/humperdinck-resigned.dmg"
+          /usr/bin/hdiutil create -volname "Humperdinck" -srcfolder "$PAYLOAD" -format UDZO "$PATCHED_DMG"
+          mv "$PATCHED_DMG" "$DMG"
+
       # Pre-bundle smoke tests cannot catch macOS Library Validation when Tauri
       # re-signs the PyInstaller onefile sidecar. Run the signed copy too.
       - name: Verify signed macOS sidecar and embedded Python startup

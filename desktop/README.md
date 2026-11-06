@@ -32,13 +32,17 @@ no signing keys are required. macOS uses ad-hoc signing for testing only.
 Python.framework into a temporary directory. Tauri's final app-signing step
 can leave that framework signed with a different identity than the server,
 causing macOS to reject it with `mapping process and mapped file ... have different Team IDs`.
-The macOS bundle therefore applies the narrowly targeted
-`com.apple.security.cs.disable-library-validation` entitlement to the server
-sidecar through `src-tauri/entitlements.plist`. This is a development-package
-exception, not a replacement for release signing and notarization. CI now
-runs the **final Tauri-signed sidecar from within Humperdinck.app**, not only
-the original PyInstaller executable. A successful build alone is not evidence
-that macOS users can launch the GUI; perform a Finder launch test as well.
+Tauri's macOS bundler currently applies the app entitlement but does
+**not** preserve it on the external PyInstaller sidecar. For the unsigned CI
+preview, the workflow mounts the DMG, copies the app, ad-hoc re-signs
+`Contents/MacOS/humperdinck-server` with the narrowly targeted
+`com.apple.security.cs.disable-library-validation` entitlement from
+`src-tauri/entitlements.plist`, re-signs the enclosing app, rebuilds the
+test DMG and verifies both its code signature and **real embedded Python
+startup from the final DMG**. This is not a substitute for Developer ID
+release signing or notarization; their final signing process also needs
+to preserve the helper entitlement. A successful server test alone does not
+prove the native GUI opens, so perform a Finder launch test as well.
 
 ## Local build prerequisites
 
