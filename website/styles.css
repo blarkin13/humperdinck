@@ -8,3 +8,21 @@
 .demo-credit{font-size:11px!important;color:#858585!important;margin-top:18px!important}
 .demo-credit a{text-decoration:underline;color:#bababa}
 @media(max-width:550px){.sample-item{flex-direction:column;align-items:stretch}.sample-item audio{width:100%}}
+
+/* Direct desktop download experience */
+.download-heading{display:flex;align-items:end;justify-content:space-between;gap:30px;margin:28px 0 40px}
+.download-heading>p{max-width:460px;font-size:14px;color:#aaa;line-height:1.8}
+.download-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.download-card{border:1px solid #3b3b3b;background:#191919;min-width:0;padding:28px;display:flex;flex-direction:column;align-items:flex-start}
+.download-os-icon{display:grid;place-items:center;width:52px;height:52px;border:1px solid #626262;border-radius:8px;font-size:28px;color:#eee}
+.download-card h3{font-family:'Space Grotesk',sans-serif;font-size:25px;margin:23px 0 5px}
+.download-card p{font-size:12px;color:#aaa;line-height:1.6;min-height:40px}
+.download-version{font-size:11px;color:#a9a9a9;margin:10px 0 22px}
+.download-action{width:100%;margin-top:auto;justify-content:center;text-align:center}
+.download-action.unavailable{background:#252525;color:#a3a3a3;border-color:#444;cursor:default}
+.download-notice{font-size:12px;color:#999;margin:20px 0 0;line-height:1.7}
+.developer-source{margin-top:30px;border-top:1px solid #363636;padding-top:25px;color:#aaa;font-size:12px}
+.developer-source summary{cursor:pointer;width:max-content;color:#e0e0e0}
+.developer-source p{line-height:1.8}.developer-source code{display:block;width:max-content;max-width:100%;overflow-wrap:anywhere;white-space:normal;padding:12px 15px;background:#1c1c1c;border:1px solid #383838;color:#ddd;margin:15px 0}
+.developer-source a{text-decoration:underline;text-underline-offset:4px}
+@media(max-width:880px){.download-cards{grid-template-columns:1fr}.download-heading{display:block}.download-heading>p{margin-top:25px}.download-card p{min-height:0}}
