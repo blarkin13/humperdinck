@@ -20,6 +20,7 @@ from backend import updater
 from backend.audio_edit import AudioEdit, render
 from backend.jobs import JobStore
 from backend import catalog
+from backend import media_tools
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
 from backend.curated_sounds import BY_SLUG,public_catalog
@@ -1011,7 +1012,7 @@ def run_video_render(job_id,video_path,audio_path,request):
             filters=f'[1:a]adelay={delay}:all=1[n];[0:a][n]amix=inputs=2:duration=longest:normalize=0[a]'
         else:
             filters=f'[1:a]adelay={delay}:all=1[a]'
-        command=['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(video_path),'-i',str(audio_path),'-filter_complex',filters,'-map','0:v:0','-map','[a]','-c:v','libx264','-preset','veryfast','-crf','23','-c:a','aac','-b:a','192k','-movflags','+faststart','-shortest',str(output)]
+        command=['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(video_path),'-i',str(audio_path),'-filter_complex',filters,'-map','0:v:0','-map','[a]',*media_tools.video_encoder_args(),'-c:a','aac','-b:a','192k','-movflags','+faststart','-shortest',str(output)]
         subprocess.run(command,check=True,capture_output=True,text=True,timeout=3600)
         job.update(status='complete',progress=100,download_url=f'/api/outputs/{job_id}.mp4',message='Video ready')
     except Exception as exc:

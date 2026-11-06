@@ -84,3 +84,38 @@ the source files and user projects intact.
 
 This shares **model weights, not model runtimes**. The native engine runtime
 still needs the next packaging phase; model compatibility is checked per OS.
+
+## Bundled FFmpeg and ffprobe (license gate)
+
+FFmpeg is not inherently incompatible with commercial apps, but the exact
+distributed executable, configure flags, dependencies, and corresponding
+source must satisfy its LGPL license. The desktop build supports **optional
+vetted binaries**, keeping this review separate from core UI/server packaging.
+
+Provide a `--ffmpeg-dir` containing:
+- `ffmpeg` and `ffprobe` (or `.exe` on Windows), matched to the build OS;
+- `COPYING.LGPLv2.1`, the corresponding license text;
+- `ffmpeg-bundle.json` containing `license` (LGPL-2.1-or-later or
+  LGPL-3.0-or-later), `source_url` pointing to **the exact corresponding source**,
+  `build_configuration` copied from `ffmpeg -buildconf`, and `sha256` with
+  individual hex digests for `ffmpeg` and `ffprobe`.
+
+For example:
+```sh
+python scripts/build_native_sidecar.py --target aarch64-apple-darwin \
+    --ffmpeg-dir /path/to/reviewed-ffmpeg
+```
+
+The packager refuses GPL/nonfree-enabled configurations, missing source
+provenance, and hash mismatches. Executables and license metadata are placed
+inside the sidecar; it adds their private directory to PATH at runtime, so
+existing FFmpeg calls work without a system installation. A bundled
+**LGPL-only build may omit libx264**; Video Studio falls back to FFmpeg's
+built-in MPEG-4 Part 2 encoder when H.264 is unavailable.
+
+**Before publishing a customer build:** document exact build flags and source
+distribution, provide FFmpeg source and required notices, verify runtime codec
+support and licenses of linked libraries, and test each OS. CI currently builds
+the unsigned shell **without** bundled FFmpeg until reviewed executables are
+provided. Do not infer that system-installed or random downloaded FFmpeg
+binaries are automatically safe to redistribute.

@@ -35,6 +35,9 @@ def main() -> None:
     if not (static / "index.html").is_file():
         parser.error("compiled frontend missing; run npm run build --prefix frontend")
 
+    from backend import media_tools
+    media_tools.configure()
+
     import uvicorn
     from fastapi.staticfiles import StaticFiles
     from backend.app import app
