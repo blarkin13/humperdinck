@@ -74,7 +74,7 @@ jobs:
 
       - name: Run native engine routing and Base-cloning regression tests
         run: |
-          python -m pip install "pytest>=8,<10"
+          python -m pip install "pytest>=8,<10" "httpx2"
           python -m pytest -q tests/test_native_runtime.py tests/test_qwen_mlx_base.py tests/test_native_disk_space.py tests/test_native_updates.py tests/test_native_update_manifest.py tests/test_models.py::test_first_run_setup_persists_across_visits
 
       - name: Download and verify seven approved Built-In Humperdinck Voices
