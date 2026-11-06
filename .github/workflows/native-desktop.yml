@@ -200,7 +200,13 @@ jobs:
           CONFIG=()
           if [ "$RUNNER_OS" = Windows ] && [ "${{ inputs.production_signing }}" = true ]; then CONFIG+=(--config src-tauri/signing.windows.json); fi
           if [ "${{ inputs.signed_updates }}" = true ] && [ "$RUNNER_OS" != Linux ]; then CONFIG+=(--config src-tauri/signing.updater.json); fi
-          npx tauri build --bundles ${{ matrix.bundle }} "${CONFIG[@]}"
+          # A macOS DMG alone does not trigger Tauri updater artifact creation.
+          # Build the .app target as well so Tauri emits the updater .app.tar.gz.
+          BUNDLE_TARGET="${{ matrix.bundle }}"
+          if [ "$RUNNER_OS" = macOS ] && [ "${{ inputs.signed_updates }}" = true ]; then
+            BUNDLE_TARGET="app,dmg"
+          fi
+          npx tauri build --bundles "$BUNDLE_TARGET" "${CONFIG[@]}"
       # Tauri may strip the PyInstaller helper entitlement. Re-sign the helper
       # and outer app with the selected ad-hoc or Developer ID identity.
       - name: Preserve signed macOS sidecar entitlements and rebuild DMG
