@@ -2,6 +2,7 @@ name: Unsigned native desktop packages
 
 on:
   workflow_dispatch:
+  workflow_call:
   pull_request:
     paths:
       - 'desktop/**'
