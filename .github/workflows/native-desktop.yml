@@ -97,6 +97,19 @@ jobs:
           APPLE_SIGNING_IDENTITY: '-'
         run: npx tauri build --bundles ${{ matrix.bundle }}
 
+      # Pre-bundle smoke tests cannot catch macOS Library Validation when Tauri
+      # re-signs the PyInstaller onefile sidecar. Run the signed copy too.
+      - name: Verify signed macOS sidecar and embedded Python startup
+        if: runner.os == 'macOS'
+        timeout-minutes: 6
+        run: |
+          APP="desktop/src-tauri/target/release/bundle/macos/Humperdinck.app"
+          /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
+          /usr/bin/codesign --display --entitlements - "$APP/Contents/MacOS/humperdinck-server" > /tmp/humperdinck-entitlements.plist
+          /usr/bin/plutil -lint /tmp/humperdinck-entitlements.plist
+          test "$(/usr/bin/plutil -extract com.apple.security.cs.disable-library-validation raw -o - /tmp/humperdinck-entitlements.plist)" = "true"
+          python scripts/smoke_native_server.py --target ${{ matrix.target }} --binary "$APP/Contents/MacOS/humperdinck-server"
+
       - name: Upload test installer (no release/signing)
         uses: actions/upload-artifact@v4
         with:

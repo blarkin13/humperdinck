@@ -18,6 +18,9 @@
     "externalBin": [
       "binaries/humperdinck-server"
     ],
+    "macOS": {
+      "entitlements": "entitlements.plist"
+    },
     "windows": {
       "nsis": {
         "installMode": "both",

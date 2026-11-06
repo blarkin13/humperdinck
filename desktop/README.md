@@ -28,6 +28,18 @@ unsigned test installer:
 Build artifacts appear on the workflow run; no GitHub Release is created, and
 no signing keys are required. macOS uses ad-hoc signing for testing only.
 
+**macOS library-validation fix:** The PyInstaller one-file server extracts its
+Python.framework into a temporary directory. Tauri's final app-signing step
+can leave that framework signed with a different identity than the server,
+causing macOS to reject it with `mapping process and mapped file ... have different Team IDs`.
+The macOS bundle therefore applies the narrowly targeted
+`com.apple.security.cs.disable-library-validation` entitlement to the server
+sidecar through `src-tauri/entitlements.plist`. This is a development-package
+exception, not a replacement for release signing and notarization. CI now
+runs the **final Tauri-signed sidecar from within Humperdinck.app**, not only
+the original PyInstaller executable. A successful build alone is not evidence
+that macOS users can launch the GUI; perform a Finder launch test as well.
+
 ## Local build prerequisites
 
 Build on the target OS (cross-compilation of a PyInstaller executable is not

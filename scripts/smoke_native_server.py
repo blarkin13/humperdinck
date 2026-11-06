@@ -20,9 +20,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", required=True)
+    parser.add_argument("--binary", type=Path, help="Test the final Tauri-signed sidecar inside its .app instead of the pre-signing binary")
     args = parser.parse_args()
     ext = ".exe" if "windows" in args.target else ""
-    binary = ROOT / "desktop" / "src-tauri" / "binaries" / ("humperdinck-server-" + args.target + ext)
+    binary = (args.binary.resolve() if args.binary else
+              ROOT / "desktop" / "src-tauri" / "binaries" / ("humperdinck-server-" + args.target + ext))
     if not binary.is_file():
         parser.error(f"sidecar missing: {binary}")
 
@@ -70,12 +72,16 @@ def main():
                             assert len(content) > 100, f'Asset is empty: {asset}'
                             assert 'text/html' not in content_type, f'Asset returned HTML fallback: {asset}'
                         assert (Path(data_dir) / "jobs.sqlite3").exists()
-                        print("PASS: packaged backend, static frontend and writable user data")
+                        print(f"PASS: running sidecar {binary}, backend, static frontend and writable user data")
                         return
                     except (OSError, ValueError, AssertionError) as error:
                         last_error = str(error)
                         time.sleep(0.5)
-                raise RuntimeError(f"Packaged server failed to serve API/UI: {last_error}; exit={process.poll()}")
+                logs = log_path.read_text(encoding="utf-8", errors="replace")[-6000:]
+                raise RuntimeError(
+                    f"Packaged server failed to serve API/UI: {last_error}; exit={process.poll()}\n"
+                    f"Binary: {binary}\nSidecar output:\n{logs}"
+                )
             finally:
                 if sys.platform == "win32":
                     subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)],
