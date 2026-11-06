@@ -1101,7 +1101,8 @@ class UpdateInstallRequest(BaseModel):
 @app.get('/api/updates/check')
 def check_updates():
     if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
-        return {'available': False, 'reason': 'Unsigned native test builds do not yet support binary updates'}
+        return {'available': False, 'reason': 'Unsigned native test builds do not yet support binary updates',
+                'changed_files': [], 'removed_files': [], 'can_install': False}
     try:
         result = updater.check()
     except updater.UpdateError as exc:

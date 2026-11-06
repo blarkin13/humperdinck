@@ -54,6 +54,13 @@ def main():
                         with urlopen(f"http://127.0.0.1:{port}/", timeout=2) as response:
                             page = response.read().decode("utf-8")
                         assert health["application"] == "humperdinck"
+                        with urlopen(f"http://127.0.0.1:{port}/api/updates/check", timeout=8) as response:
+                            updates = json.load(response)
+                        assert updates["available"] is False, "Native binary updates must be disabled"
+                        assert updates["can_install"] is False
+                        assert updates["changed_files"] == [] and updates["removed_files"] == [], (
+                            "Native update check must return safe empty file arrays"
+                        )
                         with urlopen(f"http://127.0.0.1:{port}/api/models", timeout=8) as response:
                             models = json.load(response)
                         assert models["native_package"] is True
