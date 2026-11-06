@@ -2,6 +2,8 @@
 
 # Humperdinck
 
+> **Native desktop development:** initial unsigned Windows .exe, macOS .dmg and Linux .deb build scaffold lives in [desktop/README.md](desktop/README.md). These preview packages currently bundle the React interface and local FastAPI server but **not** the speech inference engines. The normal web/source installer is unchanged.
+
 Cross-platform local web application for cloning a **consenting speaker's** voice and turning text into downloadable WAV or MP3 audio. Voiceover timeline and YouTube import are future milestones.
 
 ## Requirements

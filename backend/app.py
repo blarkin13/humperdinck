@@ -1098,6 +1098,8 @@ class UpdateInstallRequest(BaseModel):
 
 @app.get('/api/updates/check')
 def check_updates():
+    if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
+        return {'available': False, 'reason': 'Unsigned native test builds do not yet support binary updates'}
     try:
         result = updater.check()
     except updater.UpdateError as exc:
@@ -1109,6 +1111,8 @@ def check_updates():
 @app.post('/api/updates/install')
 def install_update(request: UpdateInstallRequest):
     """Download and verify the approved commit, then ask the launcher to install and restart."""
+    if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
+        raise HTTPException(501, 'Native binary updates are not yet available in unsigned test builds')
     if not os.environ.get('HUMPERDINCK_LAUNCHER_PID'):
         raise HTTPException(409, 'Start Humperdinck with start.sh (or start.cmd) to install updates from the app')
     if engines.pool.busy:
@@ -1153,6 +1157,7 @@ def list_models():
                         'tight': bool(memory and info['memory_gb'] > memory * 0.6)}
                        for model_id, info in engine['models'].items()]})
     return {'platform': catalog.platform_name(), 'memory_gb': round(memory, 1) if memory else None,
+            'native_package': os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1',
             'selected': settings.load(), 'engines': engines_out,
             'installing': next((j for j in [jobs.get(installing.get('job'))] if j and j.get('status') in ('queued','running')), None),
             'recent_install': jobs.get(installing.get('job')) if installing.get('job') else None}
@@ -1225,6 +1230,8 @@ def delete_model(request: ModelDelete):
 @app.post('/api/models/install')
 def install_model(request: ModelInstall):
     """Install an engine and/or download a model. Needs internet; runs in the background."""
+    if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1':
+        raise HTTPException(501, 'AI engine installation is not yet bundled with unsigned native test builds; use the existing source installer')
     if request.engine not in catalog.ENGINES or not catalog.supported(request.engine):
         raise HTTPException(422, 'That engine is not available on this computer')
     if request.model and request.model not in catalog.ENGINES[request.engine]['models']:

@@ -9,3 +9,11 @@ __pycache__/
 .update/
 *.log
 website/studio/
+
+# Generated native desktop build artifacts
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+desktop/src-tauri/icons/
+desktop/src-tauri/binaries/
+desktop/.build-sidecar/
