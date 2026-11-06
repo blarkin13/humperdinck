@@ -1,3 +1,6 @@
+// Release builds are windowed apps on Windows, so no terminal opens with them.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::Path;
