@@ -180,3 +180,40 @@ with a build-only FFmpeg to mono 24kHz PCM WAV, then re-packed. This normalized
 archive is what ships inside the native app. No FFmpeg binary is needed to
 seed the nine recordings on first launch, although users' compressed sound
 uploads still require FFmpeg for transcoding.
+
+
+## Verified binary self-updates (signed releases)
+
+The **Updates** icon now prefers the native Tauri updater when a build has a
+baked-in `HUMPERDINCK_UPDATER_PUBKEY`. It checks the signed desktop update
+manifest at `https://github.com/blarkin13/humperdinck/releases/latest/download/latest.json`.
+Every automatic install requires the updater's cryptographic signature to be
+valid, and requires the user's explicit approval. Never auto-run an unsigned
+GitHub installer. The public key must match the private key used when publishing
+that version. Signatures are verified by the Tauri updater plugin.
+
+To build a signed update release (not yet enabled by default in CI):
+
+1. Generate an update signer key with `npx tauri signer generate -w ~/.tauri/humperdinck.key`.
+2. Store the **private** key and its password in secure GitHub Actions secrets.
+   Do not commit them or send them in chat.
+3. Build with `HUMPERDINCK_UPDATER_PUBKEY` containing the public key,
+   `TAURI_SIGNING_PRIVATE_KEY` containing the private key,
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` when applicable, and pass
+   `--config src-tauri/tauri.signed-updater.json` to the Tauri CLI.
+4. Publish the new binary packages, corresponding generated `.sig` files, and
+   `latest.json` with the version and `darwin-aarch64`, `windows-x86_64`,
+   and `linux-x86_64` entries on the GitHub **desktop** release.
+5. Increment both `desktop/src-tauri/Cargo.toml` and `tauri.conf.json` to the
+   new SemVer; otherwise the updater sees no newer version.
+
+Existing unsigned preview installers have no embedded public key, therefore
+cannot use in-place self-update. They check GitHub's public desktop releases
+and offer a platform installer download. After users manually install a signed
+release, they can receive future signed in-app updates. Developer CI still
+builds the unsigned preview without private keys or `createUpdaterArtifacts`.
+
+**macOS packaging warning:** because the PyInstaller helper is re-signed after
+Tauri packaging, ensure any signed updater `.app.tar.gz` and its signature are
+regenerated from the **final properly signed app**, not an earlier archive.
+Never publish a signature for a different version of the Mac bundle.

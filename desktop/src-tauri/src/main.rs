@@ -10,6 +10,46 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
+use tauri_plugin_updater::UpdaterExt;
+
+const UPDATE_ENDPOINT: &str = "https://github.com/blarkin13/humperdinck/releases/latest/download/latest.json";
+
+fn trusted_updater(app: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updater, String> {
+    let pubkey = option_env!("HUMPERDINCK_UPDATER_PUBKEY")
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| "This unsigned test build cannot install updates automatically".to_string())?;
+    app.updater_builder()
+        .pubkey(pubkey)
+        .endpoints(vec![UPDATE_ENDPOINT.to_string()])
+        .map_err(|e| e.to_string())?
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn check_signed_update(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    if option_env!("HUMPERDINCK_UPDATER_PUBKEY").filter(|s| !s.trim().is_empty()).is_none() {
+        return Ok(serde_json::json!({"configured":false}));
+    }
+    let next=trusted_updater(&app)?.check().await.map_err(|e| e.to_string())?;
+    Ok(match next {
+        Some(update)=>serde_json::json!({"configured":true,"available":true,
+            "version":update.version.to_string(),"current_version":update.current_version.to_string()}),
+        None=>serde_json::json!({"configured":true,"available":false}),
+    })
+}
+
+#[tauri::command]
+async fn install_signed_update(app: tauri::AppHandle, version: String) -> Result<(), String> {
+    let current=trusted_updater(&app)?.check().await.map_err(|e| e.to_string())?
+        .ok_or_else(||"No signed desktop update is available".to_string())?;
+    if current.version.to_string()!=version {
+        return Err("The available update changed. Check again before installing.".to_string());
+    }
+    current.download_and_install(|_,_|{},||{}).await.map_err(|e| e.to_string())?;
+    app.restart();
+}
+
 
 struct Backend(Mutex<Option<CommandChild>>);
 
@@ -54,7 +94,11 @@ fn wait_for_backend(port: u16) -> io::Result<()> {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .invoke_handler(tauri::generate_handler![check_signed_update, install_signed_update])
         .setup(|app| {
+            if let Some(pubkey) = option_env!("HUMPERDINCK_UPDATER_PUBKEY").filter(|s| !s.trim().is_empty()) {
+                app.handle().plugin(tauri_plugin_updater::Builder::new().pubkey(pubkey).build())?;
+            }
             // A unique writable user directory keeps downloaded voices and project files
             // outside the replaceable application bundle.
             let data_dir = app.path().app_data_dir()?;
