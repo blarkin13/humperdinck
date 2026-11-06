@@ -114,7 +114,7 @@ jobs:
           APP="$MOUNT/Humperdinck.app"
           test -d "$APP" || { echo "Humperdinck.app missing from DMG"; ls -la "$MOUNT"; exit 1; }
           /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
-          /usr/bin/codesign --display --entitlements - "$APP/Contents/MacOS/humperdinck-server" > /tmp/humperdinck-entitlements.plist
+          /usr/bin/codesign --display --entitlements - --xml "$APP/Contents/MacOS/humperdinck-server" > /tmp/humperdinck-entitlements.plist
           /usr/bin/plutil -lint /tmp/humperdinck-entitlements.plist
           test "$(/usr/bin/plutil -extract com.apple.security.cs.disable-library-validation raw -o - /tmp/humperdinck-entitlements.plist)" = "true"
           python scripts/smoke_native_server.py --target ${{ matrix.target }} --binary "$APP/Contents/MacOS/humperdinck-server"
