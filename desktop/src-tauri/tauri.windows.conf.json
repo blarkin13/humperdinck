@@ -1,7 +1,7 @@
 {
   "bundle": {
     "resources": {
-      "binaries/humperdinck-engine/**/*": "humperdinck-engine/"
+      "binaries/humperdinck-engine/": "humperdinck-engine/"
     }
   }
 }
