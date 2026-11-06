@@ -12,7 +12,8 @@ use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_updater::UpdaterExt;
 
-const UPDATE_ENDPOINT: &str = "https://github.com/blarkin13/humperdinck/releases/latest/download/latest.json";
+// The public update feed is served by Humperdinck, independent of GitHub visibility.
+const UPDATE_ENDPOINT: &str = "https://humperdinck.larki-brian.workers.dev/updates/latest.json";
 
 fn trusted_updater(app: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updater, String> {
     let pubkey = option_env!("HUMPERDINCK_UPDATER_PUBKEY")

@@ -18,11 +18,13 @@ function publishedInstaller(entry, platform) {
   if (!entry || entry.published !== true || !entry.url || !entry.version) return false;
   try {
     const link = new URL(entry.url, window.location.origin);
+    const firstParty = link.origin === window.location.origin &&
+      /^\/downloads\/[a-zA-Z0-9._-]+$/.test(link.pathname);
+    const officialRelease = link.origin === 'https://github.com' &&
+      /^\/blarkin13\/humperdinck-downloads\/releases\/download\/v[0-9]+\.[0-9]+\.[0-9]+\/[a-zA-Z0-9._-]+$/.test(link.pathname);
     return link.protocol === 'https:' &&
-      link.hostname === window.location.hostname &&
-      DOWNLOAD_FORMATS[platform].test(link.pathname) &&
-      /^(?:\/downloads\/)[a-zA-Z0-9._\/-]+$/.test(link.pathname) &&
-      !link.pathname.split('/').includes('..');
+      (firstParty || officialRelease) &&
+      !link.search && !link.hash && DOWNLOAD_FORMATS[platform].test(link.pathname);
   } catch {return false}
 }
 fetch('/downloads.json', {cache:'no-store'}).then(r=>{

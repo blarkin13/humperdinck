@@ -1,3 +1,4 @@
+import {publicRelease} from './public-releases.js';
 // Model files only: browser synthesis remains local; this Worker performs no inference.
 // Restrict paths to the single public model to prevent an arbitrary URL proxy.
 const PREFIX='/model/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/';
@@ -6,6 +7,9 @@ const safeFile=(path)=>path.length>0&&path.length<240&&path.split('/').every(par
 export default {
  async fetch(request,env,ctx){
   const url=new URL(request.url);
+  if(url.pathname==='/downloads.json'||url.pathname==='/updates/latest.json'){
+    return publicRelease(request,env);
+  }
   if(url.pathname.startsWith('/downloads/')){
    // Static installers live in a private Cloudflare R2 bucket, streamed through
    // Humperdinck's own domain. No GitHub redirect or Worker bundle upload.
