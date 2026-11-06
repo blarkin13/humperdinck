@@ -81,6 +81,36 @@ def health():
             'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status(),
             'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'}
 
+class ServerSettingsInput(BaseModel):
+    port: int = Field(default=0, ge=0, le=65535)
+
+def server_settings_path():
+    return DATA / 'server-settings.json'
+
+@app.get('/api/server/settings')
+def get_server_settings():
+    path=server_settings_path()
+    try:
+        configured=json.loads(path.read_text()) if path.is_file() else {}
+    except (OSError, ValueError):
+        configured={}
+    port=configured.get('port',0)
+    if not isinstance(port,int) or port not in (0,*range(1024,65536)):
+        port=0
+    return {'preferred_port':port,'mode':'local',
+            'restart_required_after_change':True,'remote_access_enabled':False}
+
+@app.put('/api/server/settings')
+def save_server_settings(change: ServerSettingsInput):
+    if change.port!=0 and change.port<1024:
+        raise HTTPException(422,'Choose Auto (0) or a port between 1024 and 65535')
+    path=server_settings_path()
+    temporary=path.with_suffix('.tmp')
+    temporary.write_text(json.dumps({'port':change.port,'mode':'local'}))
+    temporary.replace(path)
+    return {'preferred_port':change.port,'saved':True,
+            'message':'Saved. Restart the desktop application to change the listening port.'}
+
 @app.get('/api/server/status')
 def server_status(request: Request):
     """Report only the loopback service that serves this specific desktop UI."""

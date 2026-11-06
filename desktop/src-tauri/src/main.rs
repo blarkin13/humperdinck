@@ -21,6 +21,16 @@ fn log_event(file: &Path, message: &str) {
     }
 }
 
+fn preferred_loopback_port(data_dir: &Path) -> u16 {
+    let path = data_dir.join("server-settings.json");
+    let Ok(bytes) = std::fs::read(path) else { return 0; };
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else { return 0; };
+    match value.get("port").and_then(serde_json::Value::as_u64) {
+        Some(port @ 1024..=65535) => port as u16,
+        _ => 0,
+    }
+}
+
 fn allocate_loopback_port() -> io::Result<u16> {
     let socket = TcpListener::bind(("127.0.0.1", 0))?;
     Ok(socket.local_addr()?.port())
@@ -54,7 +64,16 @@ fn main() {
 
             // The local API stays bound to loopback. LAN/remote server mode requires
             // a separate authenticated service and is NOT enabled by this shell.
-            let port = allocate_loopback_port()?;
+            let preferred = preferred_loopback_port(&data_dir);
+            let port = if preferred != 0 {
+                match TcpListener::bind(("127.0.0.1", preferred)) {
+                    Ok(socket) => { drop(socket); preferred }
+                    Err(error) => {
+                        log_event(&log_path, &format!("Preferred local port {preferred} unavailable ({error}); using automatic port"));
+                        allocate_loopback_port()?
+                    }
+                }
+            } else { allocate_loopback_port()? };
             let args = vec![
                 "--port".to_string(),
                 port.to_string(),
