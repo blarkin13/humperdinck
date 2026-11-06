@@ -86,5 +86,4 @@ jobs:
             --repo "$TARGET_REPOSITORY" \
             --title "Humperdinck v$VERSION" \
             --notes-file release-notes.txt \
-            --latest \
-            --verify-tag
+            --latest
