@@ -1007,3 +1007,32 @@ button.active small,.primary small{color:#3a3122}
 }
 .engine-device{display:flex;gap:6px;align-items:baseline;margin-top:4px;color:var(--muted)}
 .engine-device.gpu i{color:#9bccb0}
+
+/* Guided setup (FirstRunSetup.jsx). The body scrolls, so no step is ever cut off. */
+.setup-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 25px 16px;display:grid;gap:14px;align-content:start}
+.setup-body .setup-count{padding:0}
+.setup-loading{padding:40px 25px;margin:0;color:var(--muted)}
+.setup-computer{display:flex;gap:13px;padding:13px 15px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--ivory) 4%,transparent)}
+.setup-computer>i{font-size:18px;margin-top:3px;color:var(--brass-hi)}
+.setup-computer div{display:grid;gap:3px}
+.setup-computer span{font-size:13px}
+.setup-computer small{font-size:12px;line-height:1.5;color:var(--muted)}
+.setup-steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.setup-step{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:start;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--midnight)}
+.setup-step.active{border-color:var(--brass-hi)}
+.setup-step.skipped{opacity:.55}
+.setup-step-status{font-size:17px;color:var(--brass-hi);padding-top:2px;text-align:center}
+.setup-step.done .setup-step-status{color:#9bccb0}
+.setup-step-text{display:grid;gap:4px;min-width:0}
+.setup-step-text>span{font-size:13px;line-height:1.5;color:var(--muted)}
+.setup-step-model,.setup-step-progress{font-size:12px;color:var(--muted)}
+.setup-step-progress{color:var(--ivory)}
+.setup-step-text select{margin-top:6px;max-width:100%;min-height:36px;color:var(--ivory);background:var(--teal);border:1px solid var(--line);border-radius:8px;padding:6px}
+.setup-step-action em{font-style:normal;font-size:12px;color:#9bccb0}
+.setup-skip{display:flex;gap:6px;align-items:center;font-size:12px;white-space:nowrap}
+.setup-manual{margin:6px 0 0;font-size:12px;line-height:1.6;color:var(--ivory)}
+.setup-manual code{font-size:11px;padding:1px 5px;border-radius:4px;background:var(--teal)}
+.setup-advanced{justify-self:start;font-size:12px}
+.setup-engine{display:flex;gap:10px;align-items:center;font-size:13px;flex-wrap:wrap}
+.setup-engine select{min-height:36px;color:var(--ivory);background:var(--teal);border:1px solid var(--line);border-radius:8px;padding:6px}
+@media(max-width:620px){.setup-body{padding:0 16px 13px}.setup-step{grid-template-columns:22px minmax(0,1fr);}.setup-step-action{grid-column:2}}

@@ -1,148 +1,146 @@
 import React,{useEffect,useState} from 'react';
 import {useNotifications} from './Notifications.jsx';
 
-const stages=[
- {id:'kokoro',icon:'fa-bolt',title:'Kokoro · Quick-start voices',desc:'Fast, ready-made narration voices. A single shared download unlocks many voices. Recommended first.',optional:false},
- {id:'torch',icon:'fa-microchip',title:'PyTorch · AI engine',desc:'Optional engine for Qwen on Windows, Linux and Mac. On Apple Silicon, MLX is usually a better first choice.',optional:true},
- {id:'qwen',icon:'fa-wand-magic-sparkles',title:'Qwen · Design and clone voices',desc:'Use VoiceDesign to create a new voice from a description, or Base to speak in the style of an approved recording.',optional:true},
-];
+// Guided setup: look at the computer, recommend one model per job, then install
+// everything with one click. Advanced users can change any recommendation.
 const busyJob=job=>['queued','running'].includes(job?.status);
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function request(path,options){
  const response=await fetch('/api/'+path,options);
  const result=await response.json().catch(()=>({}));
- if(!response.ok)throw Error(result.detail||'The installation could not start.');
+ if(!response.ok)throw Error(result.detail||'Something went wrong. Try again.');
  return result;
 }
-function chooseModel(engine,role,ram){
- const options=engine?.models?.filter(m=>m.roles.includes(role))||[];
- if(role==='design'&&engine?.id==='qwen-mlx'&&ram<=8.5)return options.find(m=>m.id.endsWith('4bit'))||options[0];
- if(role==='clone'&&engine?.id==='qwen-torch')return options.find(m=>m.id.includes('0.6B'))||options[0];
+const json=body=>({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+
+function describe(hw){
+ const memory=hw.memory_gb?` · ${hw.memory_gb} GB memory`:'';
+ if(hw.apple_silicon)return `Mac with Apple Silicon${memory}`;
+ if(hw.nvidia)return `${hw.os} · NVIDIA ${hw.nvidia.name.replace(/^NVIDIA\s*/,'')} (${hw.nvidia.memory_gb} GB)${memory}`;
+ return `${hw.os} · no NVIDIA graphics card found${memory}`;
+}
+
+// The model this computer should use for a job, by memory and graphics card.
+function recommend(engine,role,hw){
+ const options=engine?.models.filter(m=>m.roles.includes(role))||[];
+ const find=part=>options.find(m=>m.id.includes(part));
+ const ram=hw.memory_gb||8;
+ if(engine?.id==='qwen-mlx'){
+  if(role==='design')return (ram<=8.5?find('4bit'):ram<=16?find('8bit'):find('bf16'))||options[0];
+  return (ram<=8.5?find('0.6B-Base-8bit'):ram<=16?find('1.7B-Base-8bit'):find('1.7B-Base-bf16'))||options[0];
+ }
+ if(role==='clone')return ((hw.nvidia?.memory_gb||0)>=6||(!hw.nvidia&&ram>=16)?find('1.7B'):find('0.6B'))||options[0];
  return options[0];
 }
+
 export default function FirstRunSetup({onClose,onComplete}){
  const {notify}=useNotifications();
- const [models,setModels]=useState(null),[job,setJob]=useState(null),[error,setError]=useState('');
- const [expanded,setExpanded]=useState('kokoro'),[choices,setChoices]=useState({}),[finishing,setFinishing]=useState(false);
+ const [models,setModels]=useState(null),[hw,setHw]=useState(null),[error,setError]=useState('');
+ const [skip,setSkip]=useState({}),[custom,setCustom]=useState({}),[advanced,setAdvanced]=useState(false);
+ const [running,setRunning]=useState(''),[job,setJob]=useState(null),[finishing,setFinishing]=useState(false);
  async function refresh(){
-  try{const data=await request('models');setModels(data);if(busyJob(data.installing))setJob(data.installing);setError('')}
+  try{const [m,h]=await Promise.all([request('models'),request('setup/hardware')]);setModels(m);setHw(h);setError('')}
   catch(e){setError(e.message)}
  }
  useEffect(()=>{refresh()},[]);
- useEffect(()=>{
-  if(!busyJob(job))return;
-  const interval=setInterval(async()=>{
-   try{
-    const value=await request('jobs/'+job.job_id);
-    setJob(value);
-    if(!busyJob(value)){
-     if(value.status==='complete'&&value.model&&value.engine!=='kokoro'){
-      // Downloading a model in the wizard also chooses it for its task.
-      // Otherwise the Models tab could still point to an absent default.
-      const latest=await request('models');
-      const entry=latest.engines.find(e=>e.id===value.engine)?.models.find(m=>m.id===value.model);
-      const role=entry?.roles?.find(r=>['design','clone','preset'].includes(r));
-      if(role)await request('models/selection',{
-       method:'PUT',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({engine:value.engine,model:value.model,role})
-      });
-     }
-     await refresh();
-    }
-   }
-   catch(e){setError(e.message)}
-  },1400);
-  return()=>clearInterval(interval);
- },[job?.job_id,job?.status]);
- const engine=id=>models?.engines.find(e=>e.id===id);
- const kokoro=engine('kokoro'),torch=engine('qwen-torch'),mlx=engine('qwen-mlx');
- const mac=!!mlx?.supported;
- const qwenId=choices.qwenEngine||(mac?'qwen-mlx':'qwen-torch');
- const qwen=engine(qwenId);
- const installed=(e,role)=>!!e?.installed&&e.models.some(m=>m.downloaded&&m.roles.includes(role));
- const done={
-  kokoro:installed(kokoro,'preset'),
-  torch:!!torch?.installed,qwen:installed(qwen,'design')||installed(qwen,'clone')
+ if(!models||!hw)return <div className="setup-overlay"><div className="setup-modal"><p className="setup-loading">{error||'Checking your computer…'}</p></div></div>;
+
+ const engine=id=>models.engines.find(e=>e.id===id);
+ const qwenId=custom.engine||(hw.apple_silicon&&engine('qwen-mlx')?.supported?'qwen-mlx':'qwen-torch');
+ const qwen=engine(qwenId),kokoro=engine('kokoro');
+ // A model already on this computer beats downloading the recommended one.
+ const model=role=>{
+  const options=qwen?.models.filter(m=>m.roles.includes(role))||[],selected=models.selected?.[role];
+  return options.find(m=>m.id===custom[role])
+   ||options.find(m=>m.downloaded&&selected?.engine===qwen.id&&selected.model===m.id)
+   ||options.find(m=>m.downloaded)
+   ||recommend(qwen,role,hw);
  };
- const count=Object.values(done).filter(Boolean).length;
- const pick=(e,role)=>{
-  if(!e)return null;
-  const custom=choices[e.id+role],saved=models?.selected?.[role];
-  return e.models.find(m=>m.id===custom)
-    ||(saved?.engine===e.id&&e.models.find(m=>m.id===saved.model))
-    ||chooseModel(e,role,models?.memory_gb);
- };
- async function start(engineId,modelId){
-  if(busyJob(job))return;
-  try{
-   setError('');
-   const value=await request('models/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine:engineId,model:modelId||null})});
-   setJob(value);
-  }catch(e){setError(e.message);notify(e.message,'error')}
+ const slow=!hw.apple_silicon&&!hw.nvidia;
+ const steps=[
+  {id:'kokoro',icon:'fa-bolt',title:'Ready-made voices',plain:'54 natural voices for reading your scripts. Fast on any computer.',
+   engine:kokoro,model:kokoro?.models[0],size:0.35,done:!!kokoro?.models.some(m=>m.downloaded)},
+  {id:'design',icon:'fa-wand-magic-sparkles',title:'Voice designer',role:'design',
+   plain:'Creates a brand-new voice from a description you write.'+(slow?' Slow on computers without an NVIDIA graphics card.':''),
+   engine:qwen,model:model('design')},
+  {id:'clone',icon:'fa-clone',title:'Voice cloner',role:'clone',
+   plain:'Reads your scripts in voices you designed or recorded (with permission).'+(slow?' Slow without an NVIDIA graphics card.':''),
+   engine:qwen,model:model('clone')},
+  {id:'ffmpeg',icon:'fa-film',title:'Audio and video export',plain:'FFmpeg, a free tool Humperdinck needs for MP3 and video files.',done:hw.ffmpeg,size:0.2},
+ ].map(s=>({...s,size:s.size??(s.model?.downloaded?0:s.model?.size_gb??0),done:s.done??(!!s.engine?.installed&&!!s.model?.downloaded)}));
+ const todo=steps.filter(s=>!s.done&&!skip[s.id]);
+ const ready=steps.filter(s=>s.done).length;
+ const total=todo.reduce((sum,s)=>sum+s.size,0);
+
+ async function waitFor(started){
+  let current=started;setJob(current);
+  while(busyJob(current)){await wait(1400);current=await request('jobs/'+current.job_id);setJob(current)}
+  if(current.status!=='complete')throw Error(current.message||'Installation failed');
  }
- async function select(role,engineId,modelId){
+ async function install(step){
+  setRunning(step.id);
+  if(step.id==='ffmpeg'){
+   if(!hw.ffmpeg_installable)return; // shown as instructions instead
+   await waitFor(await request('setup/ffmpeg',json({})));
+   return;
+  }
+  // One request installs the engine and downloads its model.
+  await waitFor(await request('models/install',json({engine:step.engine.id,model:step.model.id})));
+  if(step.role)await request('models/selection',{method:'PUT',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({role:step.role,engine:step.engine.id,model:step.model.id})});
+ }
+ async function installAll(){
+  setError('');
   try{
-   await request('models/selection',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,engine:engineId,model:modelId})});
-   notify('Voice choice saved for '+role+'.','success');await refresh();
-  }catch(e){setError(e.message)}
+   for(const step of todo){await install(step);await refresh()}
+   notify('Humperdinck is set up.','success');
+  }catch(e){setError(e.message);notify(e.message,'error')}
+  finally{setRunning('');setJob(null);await refresh()}
  }
  async function finish(){
   setFinishing(true);
   try{await request('setup',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({finished:true})});onComplete()}
   catch(e){setError(e.message)}finally{setFinishing(false)}
  }
- function action(e,model){
-  if(!e?.supported)return <small>Not available on this computer.</small>;
-  if(!e.installed){
-   if(e.id==='kokoro'&&models?.native_package)return <button disabled={busyJob(job)} type="button" onClick={()=>start(e.id,'af_heart')}><i className="fa-solid fa-download"/> Download shared voices</button>;
-   return <button disabled={busyJob(job)||!e.native_installable} type="button" onClick={()=>start(e.id)}><i className="fa-solid fa-gears"/> Install engine</button>;
-  }
-  if(!model)return <span className="setup-ready"><i className="fa-solid fa-circle-check"/> Engine installed</span>;
-  if(model.downloaded)return <span className="setup-ready"><i className="fa-solid fa-circle-check"/> Downloaded</span>;
-  return <button disabled={busyJob(job)} type="button" onClick={()=>start(e.id,model.id)}><i className="fa-solid fa-download"/> Download {model.size_gb} GB</button>;
+ function ffmpegHelp(){
+  if(hw.ffmpeg||hw.ffmpeg_installable)return null;
+  return <p className="setup-manual">{hw.os==='macOS'
+   ?<>We can't install this one for you: get Homebrew from <a href="https://brew.sh" target="_blank" rel="noreferrer">brew.sh</a>, run <code>brew install ffmpeg</code> in Terminal, then reopen Humperdinck.</>
+   :hw.os==='Linux'?<>We can't install this one for you: run <code>sudo apt install ffmpeg</code> in a terminal, then reopen Humperdinck.</>
+   :<>We can't install this one for you: download it from <a href="https://ffmpeg.org/download.html" target="_blank" rel="noreferrer">ffmpeg.org</a>, then reopen Humperdinck.</>}</p>;
  }
- function modelOption(e,role,label){
-  if(!e?.supported)return null;
-  const options=e.models.filter(m=>m.roles.includes(role)),value=pick(e,role);
-  if(!value)return null;
-  return <div className="setup-model-option">
-   <label htmlFor={'setup-'+role}>{label}</label>
-   <select id={'setup-'+role} value={value.id} onChange={event=>setChoices(old=>({...old,[e.id+role]:event.target.value}))}>
-    {options.map(m=><option key={m.id} value={m.id}>{m.label} · {m.size_gb} GB{m.tight?' · uses more memory':''}</option>)}
-   </select>
-   <small>{value.note||'Start with a smaller model and compare others later.'}{value.tight?' This model may be demanding for your computer.':''}</small>
-   <div className="setup-buttons">{action(e,value)}{value.downloaded&&e.installed&&<button className="setup-secondary" disabled={busyJob(job)} onClick={()=>select(role,e.id,value.id)}>Use for {label.toLowerCase()}</button>}</div>
-  </div>;
- }
- function details(id){
-  if(id==='kokoro')return <><p>Kokoro is the simplest place to start. You only download its voice files once, even if you try several preset voices.</p><div className="setup-buttons">{action(kokoro,kokoro?.models[0])}</div></>;
-  if(id==='torch')return <><p>PyTorch runs Qwen on Windows, Mac and Linux, but may use considerable memory. On an Apple Silicon Mac, you can skip this and select MLX in the Qwen step.</p><div className="setup-buttons">{action(torch,null)}</div></>;
-  return <><p><strong>One model per activity is enough.</strong> VoiceDesign creates voices. Base copies an approved voice recording. You may install either or both.</p>
-   <label htmlFor="setup-engine">Choose how Qwen runs</label><select id="setup-engine" value={qwenId} onChange={e=>setChoices(old=>({...old,qwenEngine:e.target.value}))}>
-    {mac&&<option value="qwen-mlx">MLX · recommended for Apple Silicon</option>}
-    {torch?.supported&&<option value="qwen-torch">PyTorch · Windows, Linux and Mac</option>}
-   </select>
-   <div className="setup-buttons">{action(qwen,null)}</div>
-   {qwen?.installed?<div className="setup-model-options">{modelOption(qwen,'design','Design voices')}{modelOption(qwen,'clone','Clone voices')}</div>
-    :<small>Install the selected engine above first. Then choose and download the model for the activity you want.</small>}</>;
- }
+ const busy=!!running;
+ const remaining=todo.filter(s=>s.id!=='ffmpeg'||hw.ffmpeg_installable);
  return <div className="setup-overlay">
   <div className="setup-modal" role="dialog" aria-modal="true" aria-labelledby="setup-heading">
-   <header className="setup-header"><div><span className="setup-eyebrow"><i className="fa-solid fa-headphones"/> FIRST-TIME SETUP</span><h2 id="setup-heading">Welcome to Humperdinck</h2><p>Let's get your voices ready. You can add more later.</p></div><button aria-label="Close setup" type="button" disabled={busyJob(job)} onClick={onClose}><i className="fa-solid fa-xmark"/></button></header>
-   <div className="setup-tip"><i className="fa-solid fa-lightbulb"/><div><strong>Don't install everything.</strong><p>One model is enough for each activity: reading, voice design and voice cloning. Start small, listen to the results, then try alternatives only if you want different quality, speed or sound. Downloads need internet and free disk space.</p></div></div>
-   <div className="setup-count"><strong>{count} of 4 ready</strong><small>Only the first step is recommended; the rest are optional.</small><progress value={count} max="4"/></div>
-   {error&&<div className="setup-error" role="alert">{error}</div>}
-   {job&&<div className="setup-job" role="status"><i className={'fa-solid '+(busyJob(job)?'fa-spinner fa-spin':job.status==='failed'?'fa-circle-exclamation':'fa-circle-check')}/> {job.message}{busyJob(job)&&<progress/>}</div>}
-   <div className="setup-list">
-    {stages.map(s=><section className="setup-stage" key={s.id}>
-     <button type="button" className="setup-stage-trigger" aria-expanded={expanded===s.id} onClick={()=>setExpanded(old=>old===s.id?'':s.id)}>
-      <i className={'fa-solid '+(done[s.id]?'fa-circle-check':'fa-circle')} aria-hidden="true"/>
-      <i className={'fa-solid '+s.icon} aria-hidden="true"/><span><strong>{s.title}</strong><small>{s.desc}</small></span>
-      <em>{done[s.id]?'Ready':s.optional?'Optional':'Start here'}</em><i className={'fa-solid '+(expanded===s.id?'fa-chevron-up':'fa-chevron-down')}/>
-     </button>
-     {expanded===s.id&&<div className="setup-stage-body">{details(s.id)}</div>}
-    </section>)}
+   <header className="setup-header"><div><span className="setup-eyebrow"><i className="fa-solid fa-headphones"/> SETUP</span><h2 id="setup-heading">Let's get Humperdinck ready</h2>
+    <p>We checked your computer and picked what works best on it. Click <strong>Set up everything</strong> and we'll do the rest.</p></div>
+    <button aria-label="Close setup" type="button" disabled={busy} onClick={onClose}><i className="fa-solid fa-xmark"/></button></header>
+   <div className="setup-body">
+    <div className="setup-computer"><i className={'fa-solid '+(hw.apple_silicon||hw.nvidia?'fa-bolt':'fa-microchip')}/><div><strong>Your computer</strong><span>{describe(hw)}</span>
+     {slow&&<small>Without an NVIDIA graphics card, designing and cloning voices works but can take minutes per sentence. Ready-made voices are fast.</small>}</div></div>
+    <div className="setup-count"><strong>{ready} of {steps.length} ready</strong><progress value={ready} max={steps.length}/></div>
+    {error&&<div className="setup-error" role="alert"><i className="fa-solid fa-circle-exclamation"/> {error} Click <strong>Set up everything</strong> to try again.</div>}
+    <ol className="setup-steps">{steps.map(s=><li key={s.id} className={'setup-step'+(s.done?' done':'')+(running===s.id?' active':'')+(skip[s.id]&&!s.done?' skipped':'')}>
+     <span className="setup-step-status">{s.done?<i className="fa-solid fa-circle-check"/>:running===s.id?<i className="fa-solid fa-spinner fa-spin"/>:<i className={'fa-solid '+s.icon}/>}</span>
+     <div className="setup-step-text">
+      <strong>{s.title}</strong><span>{s.plain}</span>
+      {s.role&&s.model&&<small className="setup-step-model">{s.model.label}{s.done?'':s.model.downloaded?' · already downloaded':` · ${s.size} GB download`}</small>}
+      {running===s.id&&job&&<small className="setup-step-progress">{job.message}</small>}
+      {s.id==='ffmpeg'&&!s.done&&ffmpegHelp()}
+      {advanced&&s.role&&!s.done&&<select aria-label={'Model for '+s.title} disabled={busy} value={s.model?.id} onChange={e=>setCustom(old=>({...old,[s.role]:e.target.value}))}>
+       {qwen.models.filter(m=>m.roles.includes(s.role)).map(m=><option key={m.id} value={m.id}>{m.label} · {m.size_gb} GB{m.tight?' · may be too large for this computer':''}</option>)}</select>}
+     </div>
+     <span className="setup-step-action">{s.done?<em>Ready</em>:<label className="setup-skip"><input type="checkbox" disabled={busy} checked={!skip[s.id]} onChange={e=>setSkip(old=>({...old,[s.id]:!e.target.checked}))}/> Include</label>}</span>
+    </li>)}</ol>
+    <button type="button" className="link setup-advanced" disabled={busy} onClick={()=>setAdvanced(a=>!a)}><i className={'fa-solid '+(advanced?'fa-chevron-up':'fa-sliders')}/> {advanced?'Hide model choices':'Choose different models'}</button>
+    {advanced&&hw.apple_silicon&&<label className="setup-engine">Run custom voices with <select disabled={busy} value={qwenId} onChange={e=>setCustom({engine:e.target.value})}>
+     <option value="qwen-mlx">MLX · recommended for Apple Silicon</option><option value="qwen-torch">PyTorch · slower on Mac</option></select></label>}
    </div>
-   <footer className="setup-footer"><small><i className="fa-solid fa-hard-drive"/> Your downloads stay on this computer. Reopen this guide anytime from Models.</small><div><button className="setup-secondary" disabled={busyJob(job)} onClick={onClose}>Remind me later</button><button className="primary" disabled={finishing||busyJob(job)} onClick={finish}>{finishing?'Saving…':'Finish setup'} <i className="fa-solid fa-arrow-right"/></button></div></footer>
+   <footer className="setup-footer"><small><i className="fa-solid fa-hard-drive"/> {remaining.length?`About ${total.toFixed(1)} GB to download. Needs internet once; then everything works offline.`:'Everything selected is installed.'}</small>
+    <div>{remaining.length?<><button className="setup-secondary" disabled={busy} onClick={onClose}>Later</button>
+     <button disabled={busy} onClick={installAll}>{busy?<><i className="fa-solid fa-spinner fa-spin"/> Setting up…</>:<>Set up everything <i className="fa-solid fa-arrow-right"/></>}</button></>
+     :<button disabled={finishing} onClick={finish}>Start using Humperdinck <i className="fa-solid fa-arrow-right"/></button>}</div></footer>
   </div>
  </div>;
 }
