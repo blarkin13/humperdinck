@@ -240,3 +240,23 @@ def test_first_run_setup_persists_across_visits(client):  # noqa: F811
     assert (client.module.DATA / 'first-run-setup.json').is_file()
     assert client.put('/api/setup', json={'finished': False}).status_code == 200
     assert client.get('/api/setup').json()['finished'] is False
+
+
+def test_mac_cloning_offers_1_7b_base():
+    models = catalog.ENGINES['qwen-mlx']['models']
+    assert 'mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit' in models
+    assert all('clone' in models[m]['roles'] for m in models if '-Base-' in m)
+
+
+def test_setup_hardware_reports_gpu_memory_and_ffmpeg(client, monkeypatch):
+    from backend import hardware
+    monkeypatch.setattr(hardware, 'nvidia_gpu', lambda: {'name': 'NVIDIA GeForce RTX 4070', 'memory_gb': 12.0})
+    result = client.get('/api/setup/hardware').json()
+    assert result['nvidia']['memory_gb'] == 12.0
+    assert {'os', 'apple_silicon', 'memory_gb', 'ffmpeg', 'ffmpeg_installable'} <= result.keys()
+
+
+def test_ffmpeg_install_needs_a_package_manager(client, monkeypatch):
+    from backend import media_tools
+    monkeypatch.setattr(media_tools, 'install_command', lambda: None)
+    assert client.post('/api/setup/ffmpeg').status_code == 501

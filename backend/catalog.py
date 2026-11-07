@@ -105,7 +105,11 @@ ENGINES = {
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-6bit': {'label': '1.7B · 6-bit', 'size_gb': 2.7, 'memory_gb': 2.5, 'roles': ('design',)},
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit': {'label': '1.7B · 8-bit', 'size_gb': 3.1, 'memory_gb': 3.0, 'roles': ('design',), 'note': 'Lower weight memory; 8 GB Macs may still run out of memory'},
             'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16': {'label': '1.7B · full precision', 'size_gb': 4.5, 'memory_gb': 4.5, 'roles': ('design',), 'note': 'Most detail; needs 16 GB+ to be comfortable'},
-            'mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16': {'label':'0.6B · Apple Silicon voice cloning', 'size_gb':1.7, 'memory_gb':2.5, 'roles':('clone',), 'note':'MLX Base · use the approved reference recording and transcript'},
+            'mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit': {'label': '0.6B clone · 8-bit', 'size_gb': 1.3, 'memory_gb': 1.8, 'roles': ('clone',), 'note': 'Smallest; good for 8 GB Macs'},
+            'mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16': {'label':'0.6B clone · full precision', 'size_gb':1.7, 'memory_gb':2.5, 'roles':('clone',), 'note':'Lighter cloning model'},
+            'mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit': {'label': '1.7B clone · 4-bit', 'size_gb': 2.3, 'memory_gb': 2.0, 'roles': ('clone',), 'note': 'Bigger model in less memory'},
+            'mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit': {'label': '1.7B clone · 8-bit', 'size_gb': 3.1, 'memory_gb': 3.0, 'roles': ('clone',), 'note': 'Keeps accents from designed voices well'},
+            'mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16': {'label': '1.7B clone · full precision', 'size_gb': 4.5, 'memory_gb': 4.5, 'roles': ('clone',), 'note': 'Keeps accents best; needs 16 GB+ to be comfortable'},
         },
     },
     'qwen-torch': {

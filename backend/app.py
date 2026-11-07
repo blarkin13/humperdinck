@@ -736,11 +736,15 @@ class MultiNarrationRequest(BaseModel):
 def require_engine(role):
     choice = settings.load()[role]
     label = catalog.ENGINES[choice['engine']]['label']
+    job = {'design': 'design voices', 'clone': 'speak in custom voices'}.get(role, 'do this')
     if not engines.available(choice['engine']):
-        raise HTTPException(503, f'{label} is not installed. Open the Models tab to install it or choose another model.')
+        raise HTTPException(503, f'To {job}, Humperdinck needs {label}. Open Models and click Setup guide, '
+                                 'then Set up everything (needs internet once).')
     # Engines run offline, so a model that was never downloaded cannot load.
     if os.environ.get('HUMPERDINCK_ONLINE') != '1' and not catalog.downloaded(choice['model']):
-        raise HTTPException(503, f"{choice['model']} has not been downloaded. Open the Models tab and click Download.")
+        model = catalog.model_info(choice['engine'], choice['model'])['label']
+        raise HTTPException(503, f'To {job}, Humperdinck needs the {label} model "{model}", which is not downloaded yet. '
+                                 'Open Models and click Setup guide, then Set up everything, or click its download button in Models.')
 
 @app.get('/api/preset-voices')
 def list_preset_voices():
@@ -1208,6 +1212,47 @@ def save_setup(request: SetupCompletion):
     temp.write_text(json.dumps({'finished': request.finished}))
     temp.replace(path)
     return {'finished':request.finished}
+
+@app.get('/api/setup/hardware')
+def setup_hardware():
+    """GPU, memory and FFmpeg, so the setup guide can recommend what to install."""
+    from backend import hardware, media_tools
+    return {**hardware.summary(), 'ffmpeg_installable': media_tools.install_command() is not None}
+
+
+def run_ffmpeg_install(job_id, command):
+    from backend import media_tools
+    job = jobs[job_id]
+    try:
+        job.update(status='running', message='Installing FFmpeg (this can take a few minutes)')
+        result = subprocess.run(command, capture_output=True, text=True, timeout=1800)
+        media_tools.configure()
+        if not (shutil.which('ffmpeg') and shutil.which('ffprobe')):
+            detail = (result.stdout + result.stderr).strip().splitlines()[-1:] or ['no output']
+            raise RuntimeError(f'FFmpeg did not install ({detail[0]})')
+        job.update(status='complete', progress=100, message='FFmpeg installed')
+    except Exception as exc:
+        job.update(status='failed', message=f'FFmpeg install failed: {exc}')
+    finally:
+        install_lock.release()
+
+
+@app.post('/api/setup/ffmpeg')
+def install_ffmpeg():
+    """Install FFmpeg with winget (Windows) or Homebrew (Mac). Needs internet."""
+    from backend import media_tools
+    command = media_tools.install_command()
+    if not command:
+        raise HTTPException(501, 'FFmpeg cannot be installed automatically on this computer')
+    if not install_lock.acquire(blocking=False):
+        raise HTTPException(409, 'Another installation is already running')
+    job_id = uuid4().hex
+    jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0, 'message': 'Waiting to install FFmpeg',
+                    'engine': 'ffmpeg', 'model': None}
+    installing['job'] = job_id
+    Thread(target=run_ffmpeg_install, args=(job_id, command), daemon=True).start()
+    return jobs[job_id]
+
 
 class ModelInstall(BaseModel):
     engine: str

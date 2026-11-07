@@ -35,6 +35,30 @@ def bundled_tools() -> Path | None:
     return None
 
 
+def standard_folders() -> list[Path]:
+    """Where Homebrew (Mac) and winget (Windows) put FFmpeg; a running app's PATH may not include them."""
+    if sys.platform == "darwin":
+        return [Path("/opt/homebrew/bin"), Path("/usr/local/bin")]
+    if sys.platform == "win32" and os.environ.get("LOCALAPPDATA"):
+        winget = Path(os.environ["LOCALAPPDATA"]) / "Microsoft" / "WinGet"
+        return [winget / "Links", *sorted((winget / "Packages").glob("Gyan.FFmpeg*/*/bin"), reverse=True)]
+    return []
+
+
+def install_command() -> list[str] | None:
+    """The command that installs FFmpeg on this computer, or None when it must be installed by hand."""
+    if sys.platform == "win32":
+        winget = shutil.which("winget") or str(Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WindowsApps" / "winget.exe")
+        if Path(winget).is_file():
+            return [winget, "install", "--id", "Gyan.FFmpeg", "--exact", "--silent",
+                    "--accept-source-agreements", "--accept-package-agreements"]
+    if sys.platform == "darwin":
+        for brew in ("/opt/homebrew/bin/brew", "/usr/local/bin/brew"):
+            if Path(brew).is_file():
+                return [brew, "install", "ffmpeg"]
+    return None
+
+
 def configure() -> Path | None:
     """Find bundled FFmpeg or a normal installation hidden from GUI app PATH.
 
@@ -43,9 +67,10 @@ def configure() -> Path | None:
     trusted standard installation locations (never arbitrary downloaded files).
     """
     directory = bundled_tools()
-    if directory is None and sys.platform == "darwin":
-        for folder in (Path("/opt/homebrew/bin"), Path("/usr/local/bin")):
-            if all((folder / name).is_file() and os.access(folder / name, os.X_OK) for name in TOOLS):
+    if directory is None:
+        ext = ".exe" if os.name == "nt" else ""
+        for folder in standard_folders():
+            if all((folder / (name + ext)).is_file() and os.access(folder / (name + ext), os.X_OK) for name in TOOLS):
                 directory = folder
                 break
     if directory is not None:
