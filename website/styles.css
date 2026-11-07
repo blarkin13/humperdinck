@@ -29,3 +29,89 @@
 
 /* Locally hosted platform logos: no icon-font CDN required. */
 .download-os-icon img{display:block;width:34px;height:34px;object-fit:contain;filter:invert(1)}
+
+/* Compact, intentional layouts for phones and small tablets. */
+.mobile-cta,.mobile-button-copy{display:none}
+@media (max-width:800px){
+  .mobile-cta{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    padding:0 14px;min-height:37px;border:1px solid #555;border-radius:4px;
+    font-size:12px;font-weight:700;white-space:nowrap;color:#e8e8e8;
+  }
+  .hero-content{padding-top:58px;padding-bottom:18px}
+  .hero h1{white-space:normal}
+  .hero-art{min-height:300px;max-height:340px}
+}
+@media (max-width:560px){
+  .header{height:66px;padding:0 20px;gap:12px}
+  .header .brand{font-size:18px;letter-spacing:-1px;gap:8px}
+  .header .brand img{width:34px;height:34px}
+  .mobile-cta{min-height:36px;padding:0 11px;font-size:11px}
+  .hero{display:flex;flex-direction:column;min-height:0;padding:0 20px}
+  .hero-content{padding:34px 0 0}
+  .eyebrow{font-size:10px;letter-spacing:1.55px;gap:9px;line-height:1.3;white-space:nowrap}
+  .eyebrow-line,.eyebrow-secondary{display:none}
+  .hero h1{font-size:clamp(33px,9vw,43px);letter-spacing:-.065em;line-height:1.08;margin:18px 0 18px;white-space:normal;text-wrap:balance}
+  .hero h1 em{color:#d0d0d0}
+  .hero .outline-type{color:#d4d4d4;-webkit-text-stroke:0}
+  .lead{font-size:14px;line-height:1.6;color:#bcbcbc;max-width:35ch;margin:0 0 24px}
+  .hero-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .hero-actions .button{
+    width:100%;min-width:0;min-height:48px;padding:11px 10px;
+    border-radius:5px;justify-content:center;gap:8px;
+    font-size:12px;white-space:nowrap;letter-spacing:0
+  }
+  .desktop-button-copy{display:none}
+  .mobile-button-copy{display:inline}
+  .hero-actions .button-ghost{order:1;background:#ededed;color:#111;border-color:#ededed}
+  .hero-actions .button-primary{order:2;background:transparent;color:#e9e9e9;border-color:#656565}
+  .hero-actions .button-ghost:hover{background:#ccc;border-color:#ccc}
+  .hero-actions .button-primary:hover{background:#222;border-color:#999}
+  .hero-note{margin-top:15px;gap:8px;line-height:1.5;font-size:10px;letter-spacing:.45px;justify-content:center;color:#bababa}
+  .hero-note .mini-line{display:none}
+  .note-secondary{flex-basis:100%;text-align:center;color:#888}
+  .hero-art{width:100%;min-height:200px;max-height:220px;margin-top:10px;overflow:hidden}
+  .hero-center{width:54%;max-width:190px}
+  .hero-center img{width:84%}
+  .orbit-one{width:51%}
+  .orbit-two{width:71%}
+  .orbit-three{width:90%}
+  .hero-label,.spectrum,.hero-bottom{display:none}
+  .section{padding:56px 20px}
+  .section-kicker{font-size:10px;letter-spacing:1.65px}
+  .section h2{font-size:clamp(35px,9vw,45px);line-height:1.12;letter-spacing:-.065em}
+  .section-title-row{margin:20px 0 26px;gap:14px}
+  .section-title-row p{line-height:1.65}
+  .feature-grid{gap:11px}
+  .feature-card{min-height:250px;padding:23px}
+  .feature-main{min-height:315px}
+  .feature-card h3{font-size:27px;margin:15px 0 9px}
+  .feature-card p{line-height:1.65}
+  .studio-layout{gap:28px;padding:20px 0 0}
+  .studio-copy>p{margin:19px 0;line-height:1.7}
+  .studio-list{margin-top:26px}
+  .studio-mock{width:100%}
+  .mock-aside{width:41px}
+  .mock-main{min-width:0;padding:15px}
+  .mock-body{min-height:320px}
+  .mock-card{gap:9px}
+  .demo-layout{gap:26px;padding-top:22px}
+  .demo-layout>div>p{line-height:1.7}
+  .download-heading{margin:20px 0 27px}
+  .download-heading>p{margin-top:15px;line-height:1.7}
+  .download-cards{gap:12px}
+  .download-card{padding:20px}
+  .download-card h3{margin:14px 0 3px}
+  .download-card p{margin:8px 0}
+  .download-version{margin:7px 0 15px}
+  .account-note{padding:50px 20px}
+  .account-note h2{line-height:1.17}
+  .footer{padding:35px 20px}
+}
+@media (max-width:350px){
+  .header .brand{font-size:16px}
+  .header .brand img{width:31px;height:31px}
+  .hero h1{font-size:32px}
+  .hero-actions .button{font-size:11px;gap:5px;padding:10px 7px}
+  .eyebrow{font-size:9px;letter-spacing:1.3px}
+}
