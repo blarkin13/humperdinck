@@ -512,3 +512,16 @@ body{background:#06070b}
   .sonic-stage,.sonic-backdrop,.hero--resonance .hero-content{transform:none!important;will-change:auto}
   .sonic-bar,.sonic-bloom,.sonic-ribbon,.sonic-stage-glow{animation:none!important;filter:none}
 }
+
+/* Only animate the hero visualizer while it is on screen. */
+.sonic-stage.motion-observed .sonic-bar,
+.sonic-stage.motion-observed .sonic-stage-glow,
+.sonic-stage.motion-observed .sonic-ribbon{animation-play-state:paused}
+.sonic-stage.motion-observed.is-active .sonic-bar,
+.sonic-stage.motion-observed.is-active .sonic-stage-glow,
+.sonic-stage.motion-observed.is-active .sonic-ribbon{animation-play-state:running}
+@media(prefers-reduced-motion:reduce){
+  .sonic-stage.motion-observed.is-active .sonic-bar,
+  .sonic-stage.motion-observed.is-active .sonic-stage-glow,
+  .sonic-stage.motion-observed.is-active .sonic-ribbon{animation:none}
+}
