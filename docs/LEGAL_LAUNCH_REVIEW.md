@@ -16,7 +16,8 @@ This PR adds themed draft documents at `/privacy/`, `/terms/`, `/license/`, `/vo
 - Before account launch, specify retention periods per record type, whether a minimal contact/recovery identifier is necessary, how account deletion and verification work, who responds to requests, and how legal retention obligations and applicable deletion rights are honored.
 - Verify privacy request handling, retention and security practices before enabling accounts or cloud voice uploads.
 - Before payments launch: finalize the actual pricing, checkout provider, taxes, refund terms, activation/device-count rules and definition of any lifetime purchase.
-- Before accepting public community voices: deploy consent attestations, abuse reporting, moderation, copyright removal/counter-notice procedures, and determine whether a registered DMCA designated agent is needed.
+- Confirmed community voice privacy: voice creations stay local/private by default. Publishing requires a separate explicit action for each selected voice plus an affirmative rights-and-consent attestation. Creators can request Humperdinck-hosted delisting and removal, but already-downloaded third-party copies cannot be guaranteed removable.
+- Before accepting public community voices: define which files and metadata are uploaded (do not silently include original source recordings), publishing permissions, downloader reuse/license terms, retention/deletion timelines, consent attestations, abuse reporting, moderation, creator takedowns, copyright removal/counter-notice procedures, and whether a registered DMCA designated agent is needed.
 - Update and audit the bundled third-party notices with every desktop build and model/asset change.
 - Replace the pre-launch warning and bracketed review instructions only when the policies are actually final.
 
