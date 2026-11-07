@@ -67,27 +67,35 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
       '.feature-card, .studio-copy>p, .studio-mock, .demo-panel, ' +
       '.download-card, .account-note h2'
     );
+    // Keep observing: exiting the viewport resets the effect so it can
+    // replay when the visitor scrolls back up as well as down.
     const revealObserver = new IntersectionObserver(entries => {
       for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        entry.target.classList.add('is-visible');
-        revealObserver.unobserve(entry.target);
+        const el = entry.target;
+        el.style.transitionDelay = entry.isIntersecting ? el.dataset.revealDelay : '0ms';
+        el.classList.toggle('is-visible', entry.isIntersecting);
       }
     }, {rootMargin:'0px 0px -35px 0px',threshold:0.08});
     document.body.classList.add('has-motion');
     targets.forEach((el, i) => {
       el.classList.add('scroll-reveal');
-      el.style.transitionDelay = Math.min(i % 3, 2) * 75 + 'ms';
+      el.dataset.revealDelay = Math.min(i % 3, 2) * 75 + 'ms';
       revealObserver.observe(el);
     });
   }
 
   let pointerX = 0;
   let pointerY = 0;
+  let lastScrollY = scrollY;
   let framePending = false;
   function updateMotion(){
     framePending = false;
     if (prefersReducedMotion.matches) return;
+    const currentScrollY = scrollY;
+    if (Math.abs(currentScrollY - lastScrollY) > 1) {
+      document.body.dataset.scrollDirection = currentScrollY < lastScrollY ? 'up' : 'down';
+      lastScrollY = currentScrollY;
+    }
     const rect = hero.getBoundingClientRect();
     const scrolledHero = Math.max(0, Math.min(-rect.top, rect.height));
     const heroVisible = rect.bottom > 0 && rect.top < innerHeight;
