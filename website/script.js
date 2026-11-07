@@ -135,7 +135,7 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
       pointerX=0;
       schedulePaint();
     });
-    document.querySelectorAll('.feature-card').forEach(card=>{
+    document.querySelectorAll('.feature-card, .download-card').forEach(card=>{
       card.addEventListener('pointermove',event=>{
         const r=card.getBoundingClientRect();
         card.style.setProperty('--spot-x',(event.clientX-r.left)+'px');
