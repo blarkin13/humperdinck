@@ -399,3 +399,150 @@ body,.site-shell{background:#050505;color:#f1f1f1}
   .kinetic-line-three{font-size:clamp(35px,10.2vw,41px)}
   .kinetic-line-four{font-size:clamp(74px,24vw,86px)}
 }
+
+
+/* Feature cards: individual monochrome interactions, no heavy card flips or scaling. */
+.feature-card{
+  --feature-spot-x:var(--spot-x,50%);--feature-spot-y:var(--spot-y,35%);
+  isolation:isolate;cursor:default;
+  transition:transform .35s cubic-bezier(.22,.75,.2,1),border-color .3s ease,box-shadow .4s ease;
+}
+.feature-card::before{
+  content:"";position:absolute;z-index:0;inset:0;pointer-events:none;
+  background:radial-gradient(390px circle at var(--feature-spot-x) var(--feature-spot-y),#ffffff14,transparent 72%);
+  opacity:0;transition:opacity .34s ease;
+}
+.feature-card::after{
+  content:"";position:absolute;z-index:2;left:24px;right:24px;top:0;height:1px;
+  pointer-events:none;opacity:0;
+  transform:scaleX(.25);transform-origin:left;
+  background:linear-gradient(90deg,#fafafa, #b6b6b6 55%,transparent);
+  transition:transform .52s cubic-bezier(.2,.7,.2,1),opacity .26s ease;
+}
+.feature-card > :not(.feature-visual):not(.film-art):not(.card-graphic-lines){position:relative;z-index:1}
+.feature-card .feature-icon{
+  transform-origin:center;
+  transition:transform .4s cubic-bezier(.2,.8,.2,1),color .3s ease;
+}
+.feature-card h3{transition:transform .32s ease,color .3s ease}
+.feature-main .feature-visual{z-index:1;pointer-events:none}
+.feature-main .wave{
+  transform-origin:center;
+  transition:filter .3s ease,opacity .3s ease;
+  will-change:transform;
+}
+.feature-narration .card-graphic-lines{z-index:1;overflow:hidden}
+.feature-narration .card-graphic-lines span{
+  transform-origin:left;
+  transition:background .3s ease;
+}
+.feature-video .film-art{
+  z-index:1;overflow:hidden;
+  transition:border-color .32s ease,background .32s ease,box-shadow .32s ease,transform .35s ease;
+}
+.feature-video .film-art .film-triangle{
+  position:relative;z-index:2;display:block;
+  transition:transform .35s ease,color .35s ease;
+}
+.feature-video .film-art::before{
+  content:"";position:absolute;z-index:1;left:0;right:0;top:-20%;
+  height:26%;background:linear-gradient(180deg,transparent,#ffffff23,transparent);
+  opacity:0;pointer-events:none;
+}
+.feature-video .film-art::after{
+  content:"";position:absolute;z-index:1;bottom:7px;left:8px;right:8px;
+  height:2px;background:#dedede;transform:scaleX(0);transform-origin:left;opacity:.72;
+}
+@media(hover:hover) and (pointer:fine){
+  .feature-card:hover{border-color:#a9a9a9;box-shadow:0 22px 50px #0008,0 0 36px #ffffff0b}
+  .feature-card:hover::before,.feature-card:hover::after{opacity:1}
+  .feature-card:hover::after{transform:scaleX(1)}
+  .feature-card:hover h3{transform:translateY(-2px);color:#fff}
+  .feature-card:hover .feature-icon{color:#fff;transform:translateY(-2px)}
+  .feature-main:hover .wave{
+    animation:feature-wave-dance var(--pulse-duration,1.2s) ease-in-out infinite alternate;
+    animation-delay:var(--pulse-delay,0s);
+    filter:brightness(1.3)
+  }
+  .feature-narration:hover .card-graphic-lines span{
+    animation:feature-text-flow 1.65s ease-in-out infinite;
+    animation-delay:var(--line-delay,0s);
+    background:#dadada
+  }
+  .feature-video:hover .film-art{
+    transform:translateY(-3px);
+    border-color:#cfcfcf;background:#ffffff07;
+    box-shadow:0 0 24px #ffffff14
+  }
+  .feature-video:hover .film-art::before{
+    opacity:1;animation:feature-screen-scan 2.15s linear infinite;
+  }
+  .feature-video:hover .film-art::after{
+    animation:feature-video-progress 2.15s linear infinite;
+  }
+  .feature-video:hover .film-triangle{transform:scale(1.18);color:#fff}
+  /* Reveal transforms must not override the active hover state. */
+  .has-motion .feature-card.scroll-reveal.is-visible:hover{transform:translate3d(0,-5px,0)}
+}
+/* Keyboard focus is visible and can trigger the same micro-interactions. */
+.feature-card:focus-visible{
+  outline:2px solid #d8d8d8;outline-offset:4px;
+  border-color:#bcbcbc;
+}
+.feature-card:focus-visible::before,.feature-card:focus-visible::after{opacity:1}
+.feature-card:focus-visible::after{transform:scaleX(1)}
+.feature-main:focus-visible .wave{
+  animation:feature-wave-dance var(--pulse-duration,1.2s) ease-in-out infinite alternate;
+  animation-delay:var(--pulse-delay,0s)
+}
+.feature-narration:focus-visible .card-graphic-lines span{
+  animation:feature-text-flow 1.65s ease-in-out infinite;
+  animation-delay:var(--line-delay,0s);
+  background:#dadada
+}
+.feature-video:focus-visible .film-art{border-color:#cfcfcf;background:#ffffff07}
+.feature-video:focus-visible .film-art::before{opacity:1;animation:feature-screen-scan 2.15s linear infinite}
+.feature-video:focus-visible .film-art::after{animation:feature-video-progress 2.15s linear infinite}
+.feature-video:focus-visible .film-triangle{transform:scale(1.18)}
+/* Varied timing turns the 16 bars into an expressive but restrained signal. */
+.feature-main .wave:nth-child(4n+1){--pulse-duration:1.15s;--pulse-delay:-.7s}
+.feature-main .wave:nth-child(4n+2){--pulse-duration:1.45s;--pulse-delay:-.35s}
+.feature-main .wave:nth-child(4n+3){--pulse-duration:1.05s;--pulse-delay:-1.1s}
+.feature-main .wave:nth-child(4n){--pulse-duration:1.35s;--pulse-delay:-.9s}
+.feature-narration .card-graphic-lines span:nth-child(1){--line-delay:0s}
+.feature-narration .card-graphic-lines span:nth-child(2){--line-delay:.18s}
+.feature-narration .card-graphic-lines span:nth-child(3){--line-delay:.36s}
+@keyframes feature-wave-dance{
+  0%{transform:scaleY(.68);opacity:.77}
+  100%{transform:scaleY(1.1);opacity:1}
+}
+@keyframes feature-text-flow{
+  0%{transform:scaleX(.54);opacity:.58}
+  45%{transform:scaleX(1);opacity:1}
+  100%{transform:scaleX(.78);opacity:.72}
+}
+@keyframes feature-screen-scan{
+  from{transform:translateY(-35px)}
+  to{transform:translateY(105px)}
+}
+@keyframes feature-video-progress{
+  0%{transform:scaleX(0)}
+  93%,100%{transform:scaleX(1)}
+}
+@media(max-width:560px){
+  .feature-card::after{left:20px;right:20px}
+  .feature-card:focus-visible{outline-offset:2px}
+}
+@media(prefers-reduced-motion:reduce){
+  .feature-card,.feature-card h3,.feature-card .feature-icon,.feature-video .film-art,.feature-video .film-triangle{
+    transition:none!important;
+  }
+  .feature-card:is(:hover,:focus-visible),.has-motion .feature-card.scroll-reveal.is-visible:hover{
+    transform:none!important;
+  }
+  .feature-card .wave,.feature-card .card-graphic-lines span,
+  .feature-video .film-art::before,.feature-video .film-art::after{
+    animation:none!important;transform:none!important;
+  }
+  .feature-card::after{transition:none!important;transform:none!important}
+}
