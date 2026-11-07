@@ -5,6 +5,19 @@ const roles=[['preset','Fast preset narration','Fast, CPU-friendly built-in voic
  ['design','Voice design','Turns a written description or the sliders into preview voices in Voice Creator.'],
  ['clone','Custom voice cloning','Recreates an approved designed voice or uploaded recording in Narration Studio. This can be much slower than preset narration.']];
 
+// Kokoro's voices share one download, so it gets a single row instead of one per voice.
+function KokoroVoices({e,data,running,install,removeModel}){
+ const first=e.models[0],downloaded=e.models.some(m=>m.downloaded);
+ if(!first)return null;
+ return <div className="engine-model-scroll"><div className="model-row">
+  <div className="model-info"><span><strong>Kokoro voices</strong><small> · {e.models.length} built-in voices in several languages</small></span>
+   <small className="model-meta">One shared ~0.35 GB download · ~{first.memory_gb} GB RAM</small></div>
+  <div className="model-actions">{e.supported&&(downloaded
+   ?<button type="button" className="model-icon-action model-icon-delete" disabled={running} aria-label="Delete Kokoro voices" title="Delete the Kokoro voice download" onClick={()=>removeModel(e.id,first.id,true,false)}><i className="fa-solid fa-trash-can" aria-hidden="true"/></button>
+   :<button type="button" className="model-icon-action model-icon-download" disabled={running||!e.installed} aria-label="Download Kokoro voices" title={e.installed?'Download the Kokoro voices':'Install the voice engine above first'} onClick={()=>install(e.id,first.id,first.size_gb)}><i className="fa-solid fa-download" aria-hidden="true"/></button>)}</div>
+ </div></div>;
+}
+
 // Choose which model handles each job, and install engines or download models that are missing.
 export default function Models({onOpenSetup}){
  const {notify,confirm:askConfirm}=useNotifications();
@@ -43,7 +56,6 @@ export default function Models({onOpenSetup}){
    <div className="models-guide-items">
     <div className="models-guide-item"><i className="fa-solid fa-bolt" aria-hidden="true"/><div><strong>Ready to start</strong><span>Built-in Kokoro voices are included. Download their voice files once, then use them whenever you like.</span></div></div>
     <div className="models-guide-item"><i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"/><div><strong>Create custom voices</strong><span>Qwen lets you design or copy a voice with permission. On a Mac, try the Apple Silicon option first. Other computers can use PyTorch.</span></div></div>
-    <div className="models-guide-item"><i className="fa-solid fa-microphone-lines" aria-hidden="true"/><div><strong>More voices to explore</strong><span>Piper adds extra ready-made voices. Install its voice engine, then choose the voices you like.</span></div></div>
     <div className="models-guide-item"><i className="fa-solid fa-download" aria-hidden="true"/><div><strong>Download once, use offline</strong><span>You'll need an internet connection and some free storage for new voices. Your downloads stay on this computer.</span></div></div>
    </div>
    <div className={'models-guide-audio'+(data.ffmpeg_available?' ready':' warning')}><i className={'fa-solid '+(data.ffmpeg_available?'fa-circle-check':'fa-circle-info')} aria-hidden="true"/><span>{data.ffmpeg_available?'Audio export is ready.':'WAV audio works now. MP3 and video exports need FFmpeg installed first.'}</span></div>
@@ -55,11 +67,13 @@ export default function Models({onOpenSetup}){
       ?<span className="model-unavailable">Not supported by this installer</span>
       :<button disabled={running} onClick={()=>install(e.id)}>Install engine</button>)}</div>
     <small>{e.note}</small>
+    {e.device&&<small className={'engine-device '+e.device.kind}><i className={'fa-solid '+(e.device.kind==='gpu'?'fa-bolt':'fa-microchip')} aria-hidden="true"/> Last ran on {e.device.kind==='gpu'?'GPU · '+e.device.name:'CPU'}{e.device.reason?' · '+e.device.reason:''}</small>}
+    {e.id==='kokoro'?<KokoroVoices e={e} data={data} running={running} install={install} removeModel={removeModel}/>:<>
     <div className="engine-model-scroll" role="region" aria-label={e.label+' models'} tabIndex={0}>{e.models.filter(m=>m.roles.includes(role)).slice(0,expanded[e.id]?undefined:4).map(m=>{const sel=role!=='preset'&&data.selected[role].engine===e.id&&data.selected[role].model===m.id,usable=e.supported&&e.installed&&m.downloaded;
      return <div className={'model-row'+(sel?' chosen':'')} key={m.id}>
       <div className="model-info">
        <label className="check">{role!=='preset'&&<input type="radio" name={role} checked={sel} disabled={!usable} onChange={()=>choose(role,e.id,m.id)}/>} <span><strong>{m.label}</strong>{m.note&&<small> · {m.note}</small>}<br/><small className="mono">{m.id}</small></span></label>
-       <small className="model-meta">{e.id==='kokoro'?'Shared ~0.35 GB voice bundle':e.id==='piper'?'Separate voice download':m.size_gb+' GB download'} · ~{m.memory_gb} GB RAM{m.gpu_memory_gb?` (or ${m.gpu_memory_gb} GB on an NVIDIA GPU)`:''}{m.tight&&<b className="warn"> · may be too large for this computer</b>}</small>
+       <small className="model-meta">{m.size_gb+' GB download'} · ~{m.memory_gb} GB RAM{m.gpu_memory_gb?` (or ${m.gpu_memory_gb} GB on an NVIDIA GPU)`:''}{m.tight&&<b className="warn"> · may be too large for this computer</b>}</small>
       </div>
       <div className="model-actions">
        {e.supported&&(data.native_package&&!e.native_installable
@@ -69,7 +83,7 @@ export default function Models({onOpenSetup}){
          :<button type="button" className="model-icon-action model-icon-download" disabled={running||!e.installed} aria-label={'Download model: '+m.label} title={!e.installed?'Install the voice engine above first':'Download this voice model'} onClick={()=>install(e.id,m.id,m.size_gb)}><i className="fa-solid fa-download" aria-hidden="true"/></button>)}
       </div>
      </div>})}</div>
-    {e.models.filter(m=>m.roles.includes(role)).length>4&&<button className="model-list-expand" type="button" onClick={()=>setExpanded(old=>({...old,[e.id]:!old[e.id]}))} aria-expanded={!!expanded[e.id]}><i className={'fa-solid '+(expanded[e.id]?'fa-chevron-up':'fa-chevron-down')}/> {expanded[e.id]?'Show fewer models':`Show all ${e.models.filter(m=>m.roles.includes(role)).length} models`}</button>}
+    {e.models.filter(m=>m.roles.includes(role)).length>4&&<button className="model-list-expand" type="button" onClick={()=>setExpanded(old=>({...old,[e.id]:!old[e.id]}))} aria-expanded={!!expanded[e.id]}><i className={'fa-solid '+(expanded[e.id]?'fa-chevron-up':'fa-chevron-down')}/> {expanded[e.id]?'Show fewer models':`Show all ${e.models.filter(m=>m.roles.includes(role)).length} models`}</button>}</>}
    </div>)}
   </div>)}
   <p className="hint"><i className="fa-solid fa-lightbulb"/> Start with one small model for each activity. Listen to a short preview before downloading another. A larger model is not always the best option: it may run slower or exhaust your computer's memory. Downloads usually only need internet once.</p>

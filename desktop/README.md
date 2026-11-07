@@ -81,14 +81,13 @@ for the source/developer installation. These are Qwen reference clips, not indep
 installations can install a **separate Qwen MLX Base** engine and checkpoint
 through Models, using an isolated managed Python 3.12 runtime under per-user
 Humperdinck data. The installer bundles uv and worker Python sources, not
-Qwen model weights. Piper can likewise be installed in an isolated runtime.
+Qwen model weights.
 Qwen PyTorch can also be installed into a separate per-user native runtime on
 macOS, Windows and Linux through Models; it does not need to be embedded in
 the replaceable app bundle. On Apple Silicon, MLX is preferred, while PyTorch
 can be slower and consume more RAM. Qwen install and actual synthesis remain
 experimental until validated on each supported OS and hardware tier.
-Qwen custom cloning/design and GPL-licensed Piper are not in the native
-runtime yet. The source-code updater is disabled in native packages. Native
+Qwen custom cloning/design are not in the native runtime yet. The source-code updater is disabled in native packages. Native
 WAV output can work without FFmpeg, but MP3/video exports require it.
 Real-device audio testing, other engines, binary updates, and signing remain
 release gates.
@@ -104,10 +103,9 @@ phone/tablet access.
 
 Native and browser/source installs under the **same operating-system user**
 share model weights. Existing Qwen weights are already cached in the Hugging
-Face Hub. Kokoro and Piper are now stored under:
+Face Hub. Kokoro is now stored under:
 
 - `~/.cache/huggingface/humperdinck/presets/kokoro/`
-- `~/.cache/huggingface/humperdinck/presets/piper/`
 
 If `HF_HOME` or `XDG_CACHE_HOME` is configured, those existing settings
 take precedence. Set `HUMPERDINCK_MODEL_HOME` to use a custom shared root,

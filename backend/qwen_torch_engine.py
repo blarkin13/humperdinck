@@ -27,10 +27,21 @@ def local_path(model_id):
         return model_id  # not cached: let from_pretrained download it (online mode)
 
 
+def cpu_reason(torch):
+    """Why PyTorch is not using a GPU, in words the Models screen can show."""
+    import sys
+    if sys.platform == 'darwin':
+        return 'PyTorch runs on the CPU on Mac. Qwen MLX uses the Apple GPU.'
+    if not torch.version.cuda:
+        return 'This PyTorch has no NVIDIA GPU support. Reinstall the engine in Models to get the GPU version.'
+    return 'No NVIDIA GPU or driver was found.'
+
+
 class QwenTorchEngine:
     def __init__(self, model_id):
         self.model_id = model_id
         self.model = None
+        self.device = None
         self.prompts = {}  # (reference path, transcript) -> reusable clone prompt
 
     def load(self):
@@ -39,9 +50,11 @@ class QwenTorchEngine:
             from qwen_tts import Qwen3TTSModel
             if torch.cuda.is_available():
                 device, dtype = 'cuda:0', torch.bfloat16
+                self.device = {'kind': 'gpu', 'name': torch.cuda.get_device_name(0)}
             else:
                 # bf16 on CPU is slow or unsupported on many machines; MPS support is unreliable.
                 device, dtype = 'cpu', torch.float32
+                self.device = {'kind': 'cpu', 'name': 'CPU', 'reason': cpu_reason(torch)}
             self.model = Qwen3TTSModel.from_pretrained(local_path(self.model_id), device_map=device, dtype=dtype)
         return self.model
 

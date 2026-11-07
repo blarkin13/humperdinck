@@ -56,7 +56,6 @@ Humperdinck runs on macOS, Windows and Linux. Open the **Models** tab to pick th
 | Qwen3-TTS (MLX) | Voice design | macOS on Apple Silicon | Fastest on M-series Macs. 4/6/8-bit and bf16 models |
 | Qwen3-TTS (PyTorch) | Voice design, cloning | macOS, Windows, Linux | Uses an NVIDIA GPU (CUDA) when one is present, otherwise the CPU |
 | Kokoro ONNX | Fast preset narration | macOS, Windows, Linux | Preset voices for lightweight CPU narration |
-| Piper | Fast preset narration | macOS, Windows, Linux | Individual CPU voices; license review before redistribution |
 
 Install from the command line:
 
@@ -74,7 +73,7 @@ Installs and downloads need the internet once. After that everything runs offlin
 - Generated speech can contain pronunciation errors and may vary between segments.
 - This release does not implement video timing, YouTube download, or video export.
 - Tested on macOS (Apple Silicon). Windows and Linux are supported but have not yet been tested on real machines.
-- Check the licensing of every model and preset voice before redistribution or commercial use, especially Piper's GPL-3.0 implementation.
+- Check the licensing of every model and preset voice before redistribution or commercial use.
 
 See `docs/REQUIREMENTS.md` and `docs/ROADMAP.md` for further plans.
 

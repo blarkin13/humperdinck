@@ -514,7 +514,7 @@ def run_generation(job_id, request):
     try:
         with engine_lock:
             job.update(status='running', message='Loading model (first run may download weights)')
-            progress = lambda done,total: job.update(progress=round(done/total*100), message=f'Generated {done}/{total} segments')
+            progress = lambda done,total: job.update(progress=round(done/total*100), message=f'Generated {done}/{total} segments{running_on()}')
             choice = settings.load()
             if request.engine == 'qwen-design':
                 engines.design(choice['design'], wav, request.text, request.voice_description, progress)
@@ -818,7 +818,7 @@ def generate_library_preview(job_id, mode, choice, reference, ref_text, digest, 
         with engine_lock:
             job.update(status='running', message='Generating voice comparison preview')
             progress = lambda done, total: job.update(progress=round(done / total * 95),
-                                                      message=f'Preview: {done}/{total} segments')
+                                                      message=f'Preview: {done}/{total} segments{running_on()}')
             if mode == 'preset':
                 engines.preset(choice['engine'], choice['model'], temp, VOICE_PREVIEW_TEXT, on_progress=progress)
             elif mode == 'design':
@@ -911,7 +911,7 @@ def run_multi(job_id, request, references):
                 try:
                     def progress(done, total):
                         job.update(progress=round((index + done / total) / len(references) * 95),
-                                   message=f'Block {index+1}/{len(references)} · {done}/{total} segments')
+                                   message=f'Block {index+1}/{len(references)} · {done}/{total} segments{running_on()}')
                     narration_text = remove_speech_direction_tags(block.text)
                     if not narration_text:
                         raise ValueError('A narration section needs words beyond speech direction tags')
@@ -1215,6 +1215,14 @@ class ModelInstall(BaseModel):
 
 install_lock = Lock()
 
+def running_on():
+    """' · GPU · NVIDIA …' or ' · CPU' for progress messages, once the model has loaded."""
+    device = (engines.pool.status() or {}).get('device')
+    if not device:
+        return ''
+    return ' · GPU · ' + device['name'] if device['kind'] == 'gpu' else ' · CPU'
+
+
 @app.get('/api/models')
 def list_models():
     """Every engine and model, whether it runs here, and what is installed and selected."""
@@ -1225,9 +1233,10 @@ def list_models():
         engines_out.append({
             'id': engine_id, 'label': engine['label'], 'roles': engine['roles'], 'note': engine['note'],
             'supported': supported, 'installed': supported and engines.installed(engine_id),
+            'device': engines.devices.get(engine_id),
             'native_installable': (not (os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1')
                                    or engine_id == 'kokoro'
-                                   or (engine_id in ('qwen-mlx','qwen-torch','piper') and supported)),
+                                   or (engine_id in ('qwen-mlx','qwen-torch') and supported)),
             'platforms': [{'darwin': 'macOS', 'win32': 'Windows', 'linux': 'Linux'}[p] for p in engine['platforms']],
             'requires_apple_silicon': bool(engine.get('requires_apple_silicon')),
             'models': [{'id': model_id, **info, 'downloaded': catalog.downloaded(model_id),
@@ -1343,7 +1352,7 @@ def install_model(request: ModelInstall):
         raise HTTPException(422, 'Unknown model for this engine')
     if not install_lock.acquire(blocking=False):
         raise HTTPException(409, 'Another installation is already running')
-    if native and request.engine in ('qwen-mlx', 'qwen-torch', 'piper'):
+    if native and request.engine in ('qwen-mlx', 'qwen-torch'):
         job_id = uuid4().hex
         jobs[job_id] = {'job_id':job_id, 'status':'queued','progress':0,
                         'message':'Preparing an isolated ' + request.engine + ' runtime',

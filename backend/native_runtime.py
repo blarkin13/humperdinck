@@ -1,4 +1,4 @@
-"""Opt-in, per-user native Piper and Apple Silicon Qwen MLX runtimes.
+"""Opt-in, per-user native Qwen runtimes (Apple Silicon MLX, PyTorch).
 
 The desktop installer bundles the tiny uv executable, not multi-gigabyte models.
 uv installs Python 3.12 and model packages in the user's application data, never
@@ -14,7 +14,7 @@ import sys
 
 from backend import catalog, shared_models
 
-SUPPORTED = frozenset(("qwen-mlx", "qwen-torch", "piper"))
+SUPPORTED = frozenset(("qwen-mlx", "qwen-torch"))
 
 
 def supported(engine: str) -> bool:
@@ -54,7 +54,7 @@ def environment(*, online: bool = False) -> dict:
     env["UV_NO_PROGRESS"] = "1"
     runtime = source_root()
     if not (runtime / "backend" / "worker.py").is_file():
-        raise RuntimeError("The bundled Qwen/Piper worker sources are missing")
+        raise RuntimeError("The bundled Qwen worker sources are missing")
     env["PYTHONPATH"] = str(runtime) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     shared_models.configure_hf_home()
     if online:
@@ -118,7 +118,10 @@ def install(engine: str, model: str | None = None) -> None:
         # any system installation, existing project, or source-based environment.
         _execute([uv, "venv", "--python", "3.12", str(py.parent.parent)], env)
     print("STEP Installing " + catalog.ENGINES[engine]["label"] + " packages", flush=True)
-    _execute([uv, "pip", "install", "--python", str(py), "--upgrade",
+    # PyPI's Windows/Linux PyTorch is CPU-only. --torch-backend auto picks the
+    # CUDA build matching the installed NVIDIA driver, or CPU when there is none.
+    torch_backend = ["--torch-backend", "auto"] if engine == "qwen-torch" else []
+    _execute([uv, "pip", "install", "--python", str(py), "--upgrade", *torch_backend,
               *catalog.ENGINES[engine]["packages"]], env)
     print("STEP Verifying installed engine", flush=True)
     modules = catalog.ENGINES[engine]["imports"]
@@ -128,13 +131,7 @@ def install(engine: str, model: str | None = None) -> None:
         # A user may have freed or consumed space while dependencies installed.
         require_disk_space(engine, model)
         print(f"STEP Downloading {model} to shared model cache", flush=True)
-        if engine == "piper":
-            folder = catalog.preset_path("piper", model)
-            folder.mkdir(parents=True, exist_ok=True)
-            _execute([str(py), "-m", "piper.download_voices", model,
-                      "--download-dir", str(folder)], env)
-        else:
-            _execute([str(py), "-c",
-                      "import sys; from huggingface_hub import snapshot_download; snapshot_download(sys.argv[1])",
-                      model], env)
+        _execute([str(py), "-c",
+                  "import sys; from huggingface_hub import snapshot_download; snapshot_download(sys.argv[1])",
+                  model], env)
     print("STEP Engine and model installation complete", flush=True)

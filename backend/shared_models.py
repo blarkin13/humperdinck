@@ -2,13 +2,12 @@
 
 Never put large models inside replaceable app/Program Files/Application bundles.
 Qwen models continue using Hugging Face's existing hub cache by default.
-Kokoro and Piper are stored next to that hub in the same cache root.
+Kokoro is stored next to that hub in the same cache root.
 """
 from __future__ import annotations
 
 import os
 from pathlib import Path
-import re
 import shutil
 from uuid import uuid4
 
@@ -38,7 +37,7 @@ def configure_hf_home() -> Path:
 
 
 def preset_dir(engine: str) -> Path:
-    if engine not in ("kokoro", "piper"):
+    if engine != "kokoro":
         raise ValueError("Unknown preset engine")
     return model_home() / "humperdinck" / "presets" / engine
 
@@ -55,7 +54,7 @@ def import_legacy_presets(legacy_data: Path) -> list[str]:
     if not old_models.is_dir():
         return imported
 
-    for engine in ("kokoro", "piper"):
+    for engine in ("kokoro",):
         source = old_models / engine
         if not source.is_dir() or source.is_symlink():
             continue
@@ -63,8 +62,6 @@ def import_legacy_presets(legacy_data: Path) -> list[str]:
             if not original.is_file() or original.is_symlink():
                 continue
             if engine == "kokoro" and original.name not in ("kokoro-v1.0.onnx", "voices-v1.0.bin"):
-                continue
-            if engine == "piper" and not re.fullmatch(r"[a-z]{2}_[A-Z]{2}-[a-z]+-(?:low|medium|high)\.onnx(?:\.json)?", original.name):
                 continue
             target_dir = preset_dir(engine)
             target_dir.mkdir(parents=True, exist_ok=True)

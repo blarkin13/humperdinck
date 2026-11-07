@@ -154,13 +154,6 @@ def download_kokoro():
             temp.unlink(missing_ok=True)
 
 
-def download_piper(python, voice):
-    folder = preset_path('piper', voice)
-    folder.mkdir(parents=True, exist_ok=True)
-    step(f'Downloading Piper voice {voice}')
-    subprocess.run([str(python), '-m', 'piper.download_voices', voice,
-                    '--download-dir', str(folder)], check=True)
-
 
 def main():
     # An explicitly selected shared model cache must also control the
@@ -204,8 +197,6 @@ def main():
     if args.model:
         if args.engine == 'kokoro':
             download_kokoro()
-        elif args.engine == 'piper':
-            download_piper(python, args.model)
         else:
             step(f'Downloading {args.model} (about {engine["models"][args.model]["size_gb"]} GB)')
             env = {k: v for k, v in os.environ.items() if k not in ('HF_HUB_OFFLINE', 'TRANSFORMERS_OFFLINE')}

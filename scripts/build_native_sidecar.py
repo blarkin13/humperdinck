@@ -125,7 +125,7 @@ def main():
         print("Bundling license-reviewed FFmpeg + ffprobe into the sidecar")
     else:
         print("FFmpeg not bundled: package remains a preview without video/MP3 conversion")
-    # Native Qwen MLX and Piper use opt-in isolated Python/uv runtimes in
+    # Native Qwen engines use opt-in isolated Python/uv runtimes in
     # writable user data, not ML libraries inside the replaceable app binary.
     uv_name = "uv.exe" if os.name == "nt" else "uv"
     uv_binary = Path(sysconfig.get_path("scripts")) / uv_name

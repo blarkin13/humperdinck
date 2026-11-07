@@ -1,4 +1,4 @@
-"""Native Qwen and Piper are opt-in, user-data-local installations."""
+"""Native Qwen engines are opt-in, user-data-local installations."""
 import os
 from pathlib import Path
 from backend import native_runtime
