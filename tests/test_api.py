@@ -269,18 +269,18 @@ def test_installed_preset_voices_are_available_and_render_without_cloning(client
     assert available.status_code == 200
     voices = available.json()
     assert any(v['key'] == 'preset:kokoro:bm_george' for v in voices)
-    assert any(v['key'] == 'preset:piper:en_GB-alan-medium' for v in voices)
+    assert not any(v['key'].startswith('preset:piper:') for v in voices)
 
     job = client.post('/api/narrations', json={
         'blocks': [{'text': 'Good evening from London.', 'voice_key': 'preset:kokoro:bm_george'},
-                   {'text': 'Good morning from Edinburgh.', 'voice_key': 'preset:piper:en_GB-alan-medium'}],
+                   {'text': 'Good morning from New York.', 'voice_key': 'preset:kokoro:af_heart'}],
         'format': 'wav',
     })
     assert job.status_code == 200, job.text
     complete = wait(client, job.json())
     assert complete['status'] == 'complete', complete
     calls = fake_synthesize.calls
-    assert [c['engine'] for c in calls] == ['kokoro', 'piper']
+    assert [c['engine'] for c in calls] == ['kokoro', 'kokoro']
     assert [c['mode'] for c in calls] == ['preset', 'preset']
     assert all(c['reference'] is None for c in calls)
 

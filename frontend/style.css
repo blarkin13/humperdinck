@@ -1005,3 +1005,5 @@ button.active small,.primary small{color:#3a3122}
  .setup-modal .setup-stage-trigger em{display:none}
  .setup-modal .setup-stage-body{padding:0 13px 15px}
 }
+.engine-device{display:flex;gap:6px;align-items:baseline;margin-top:4px;color:var(--muted)}
+.engine-device.gpu i{color:#9bccb0}

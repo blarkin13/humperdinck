@@ -64,7 +64,7 @@ def main() -> None:
         binary = native_runtime.uv_binary()
         sources = native_runtime.source_root() / 'backend' / 'worker.py'
         if not sources.is_file():
-            raise RuntimeError('Native Qwen/Piper worker files are missing')
+            raise RuntimeError('Native Qwen worker files are missing')
         # Verify the exact eSpeak data/library paths the frozen Kokoro tokenizer
         # uses. Import-only smoke tests failed to catch a missing data directory.
         import ctypes
@@ -82,7 +82,7 @@ def main() -> None:
     if "--native-install-engine" in sys.argv:
         from backend import native_runtime
         if len(sys.argv) < 3:
-            raise SystemExit('Specify qwen-mlx or piper')
+            raise SystemExit('Specify qwen-mlx or qwen-torch')
         engine = sys.argv[2]
         model = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[3] == '--model' else None
         native_runtime.install(engine, model)

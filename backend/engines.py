@@ -169,6 +169,7 @@ class Worker:
                                         text=True, bufsize=1)
         self.messages = queue.Queue()
         self.loaded = False
+        self.device = None
         self.last_used = time.monotonic()
         Thread(target=self._read, daemon=True).start()
 
@@ -227,6 +228,9 @@ class Worker:
                                    f'{self.last_error()}')
             if message.get('loaded'):
                 self.loaded = True
+                if message.get('device'):
+                    self.device = message['device']
+                    devices[self.engine] = message['device']
             elif 'progress' in message:
                 if on_progress:
                     on_progress(*message['progress'])
@@ -236,6 +240,10 @@ class Worker:
             elif 'error' in message:
                 self.last_used = time.monotonic()
                 raise RuntimeError(explain(message['error']))
+
+
+# The device each engine last loaded on, kept after its worker exits (shown in Models).
+devices = {}
 
 
 class Pool:
@@ -287,6 +295,7 @@ class Pool:
             if not worker or not worker.alive():
                 return None
             return {'engine': worker.engine, 'model': worker.model, 'loaded': worker.loaded, 'busy': self.busy,
+                    'device': worker.device,
                     'idle_seconds': 0 if self.busy else round(time.monotonic() - worker.last_used)}
 
     def shutdown(self):
@@ -318,7 +327,7 @@ def clone(choice, output, text, reference, ref_text=None, on_progress=None):
 
 
 def preset(engine, voice, output, text, on_progress=None):
-    """Speak with one named Kokoro/Piper voice, not a cloned reference recording."""
-    if engine not in ('kokoro', 'piper') or voice not in catalog.PRESET_VOICES[engine]:
+    """Speak with one named Kokoro voice, not a cloned reference recording."""
+    if engine != 'kokoro' or voice not in catalog.PRESET_VOICES[engine]:
         raise ValueError('Unknown preset voice')
     synthesize(engine, output, text, model=voice, mode='preset', on_progress=on_progress)

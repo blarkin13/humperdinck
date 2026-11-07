@@ -3,7 +3,6 @@ import {useNotifications} from './Notifications.jsx';
 
 const stages=[
  {id:'kokoro',icon:'fa-bolt',title:'Kokoro · Quick-start voices',desc:'Fast, ready-made narration voices. A single shared download unlocks many voices. Recommended first.',optional:false},
- {id:'piper',icon:'fa-microphone-lines',title:'Piper · More voice choices',desc:'Optional lightweight voices, including American and British English. Compare their sound with Kokoro.',optional:true},
  {id:'torch',icon:'fa-microchip',title:'PyTorch · AI engine',desc:'Optional engine for Qwen on Windows, Linux and Mac. On Apple Silicon, MLX is usually a better first choice.',optional:true},
  {id:'qwen',icon:'fa-wand-magic-sparkles',title:'Qwen · Design and clone voices',desc:'Use VoiceDesign to create a new voice from a description, or Base to speak in the style of an approved recording.',optional:true},
 ];
@@ -18,7 +17,6 @@ function chooseModel(engine,role,ram){
  const options=engine?.models?.filter(m=>m.roles.includes(role))||[];
  if(role==='design'&&engine?.id==='qwen-mlx'&&ram<=8.5)return options.find(m=>m.id.endsWith('4bit'))||options[0];
  if(role==='clone'&&engine?.id==='qwen-torch')return options.find(m=>m.id.includes('0.6B'))||options[0];
- if(engine?.id==='piper')return options.find(m=>m.id.includes('ryan'))||options[0];
  return options[0];
 }
 export default function FirstRunSetup({onClose,onComplete}){
@@ -56,13 +54,13 @@ export default function FirstRunSetup({onClose,onComplete}){
   return()=>clearInterval(interval);
  },[job?.job_id,job?.status]);
  const engine=id=>models?.engines.find(e=>e.id===id);
- const kokoro=engine('kokoro'),piper=engine('piper'),torch=engine('qwen-torch'),mlx=engine('qwen-mlx');
+ const kokoro=engine('kokoro'),torch=engine('qwen-torch'),mlx=engine('qwen-mlx');
  const mac=!!mlx?.supported;
  const qwenId=choices.qwenEngine||(mac?'qwen-mlx':'qwen-torch');
  const qwen=engine(qwenId);
  const installed=(e,role)=>!!e?.installed&&e.models.some(m=>m.downloaded&&m.roles.includes(role));
  const done={
-  kokoro:installed(kokoro,'preset'),piper:installed(piper,'preset'),
+  kokoro:installed(kokoro,'preset'),
   torch:!!torch?.installed,qwen:installed(qwen,'design')||installed(qwen,'clone')
  };
  const count=Object.values(done).filter(Boolean).length;
@@ -117,12 +115,6 @@ export default function FirstRunSetup({onClose,onComplete}){
  }
  function details(id){
   if(id==='kokoro')return <><p>Kokoro is the simplest place to start. You only download its voice files once, even if you try several preset voices.</p><div className="setup-buttons">{action(kokoro,kokoro?.models[0])}</div></>;
-  if(id==='piper'){
-   const voice=pick(piper,'preset');
-   return <><p>Optional: you can use Kokoro instead. Piper voices are downloaded individually; start with just one.</p>
-    {voice&&<><label htmlFor="setup-piper">Choose a voice</label><select id="setup-piper" value={voice.id} onChange={e=>setChoices(old=>({...old,'piperpreset':e.target.value}))}>{piper.models.map(m=><option key={m.id} value={m.id}>{m.label} · {m.note}</option>)}</select></>}
-    <div className="setup-buttons">{action(piper,voice)}</div></>;
-  }
   if(id==='torch')return <><p>PyTorch runs Qwen on Windows, Mac and Linux, but may use considerable memory. On an Apple Silicon Mac, you can skip this and select MLX in the Qwen step.</p><div className="setup-buttons">{action(torch,null)}</div></>;
   return <><p><strong>One model per activity is enough.</strong> VoiceDesign creates voices. Base copies an approved voice recording. You may install either or both.</p>
    <label htmlFor="setup-engine">Choose how Qwen runs</label><select id="setup-engine" value={qwenId} onChange={e=>setChoices(old=>({...old,qwenEngine:e.target.value}))}>

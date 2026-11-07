@@ -102,26 +102,17 @@ def test_english_accent_language_hint():
 def test_cpu_preset_catalog_and_downloads(tmp_path, monkeypatch):
     monkeypatch.setattr(catalog, 'preset_path', lambda engine, voice: tmp_path / engine)
     kokoro = tmp_path / 'kokoro'
-    piper = tmp_path / 'piper'
     kokoro.mkdir()
-    piper.mkdir()
     assert not catalog.downloaded('bm_george')
-    assert not catalog.downloaded('en_GB-alan-medium')
     with (kokoro / 'kokoro-v1.0.onnx').open('wb') as output:
         output.truncate(50_000_000)
     with (kokoro / 'voices-v1.0.bin').open('wb') as output:
         output.truncate(1_000_000)
     assert catalog.downloaded('bm_george')
     assert catalog.downloaded('bf_emma')  # Kokoro presets share the voicepack.
-    with (piper / 'en_GB-alan-medium.onnx').open('wb') as output:
-        output.truncate(1_000_000)
-    (piper / 'en_GB-alan-medium.onnx.json').write_text('{"voice": "Alan", "padding": "' + 'x' * 200 + '"}')
-    assert catalog.downloaded('en_GB-alan-medium')
-    assert not catalog.downloaded('en_GB-cori-medium')
     assert 'bm_george' in catalog.ENGINES['kokoro']['models']
-    assert 'en_GB-alan-medium' in catalog.ENGINES['piper']['models']
+    assert 'piper' not in catalog.ENGINES
     catalog.validate('preset', 'kokoro', 'bm_george')
-    catalog.validate('preset', 'piper', 'en_GB-alan-medium')
     try:
         catalog.validate('clone', 'kokoro', 'bm_george')
     except ValueError:
@@ -143,19 +134,6 @@ def test_delete_hf_model_does_not_touch_another_repository(tmp_path, monkeypatch
     assert not target.exists()
     assert (other / 'weights.safetensors').read_text() == 'untouched'
     assert not catalog.delete_downloaded_model('qwen-torch', model)
-
-
-def test_delete_piper_does_not_remove_other_voice(tmp_path, monkeypatch):
-    monkeypatch.setattr(catalog, 'preset_path', lambda engine, voice: tmp_path / engine)
-    folder = tmp_path / 'piper'
-    folder.mkdir()
-    for name in ('en_GB-alan-medium', 'en_GB-cori-medium'):
-        (folder / (name + '.onnx')).write_text('weights')
-        (folder / (name + '.onnx.json')).write_text('{}')
-    assert catalog.delete_downloaded_model('piper', 'en_GB-alan-medium')
-    assert not (folder / 'en_GB-alan-medium.onnx').exists()
-    assert (folder / 'en_GB-cori-medium.onnx').exists()
-    assert (folder / 'en_GB-cori-medium.onnx.json').exists()
 
 
 def test_delete_kokoro_removes_only_shared_bundle(tmp_path, monkeypatch):
@@ -182,7 +160,7 @@ def test_delete_rejects_unknown_model(tmp_path, monkeypatch):
 
 
 def test_delete_models_endpoint_rejects_unknown_and_active_jobs(client):
-    assert client.post('/api/models/delete', json={'engine': 'piper', 'model': '../../bad'}).status_code == 422
+    assert client.post('/api/models/delete', json={'engine': 'kokoro', 'model': '../../bad'}).status_code == 422
 
     # A running generation holds the same lock, so deletion must fail with 409.
     assert client.module.engine_lock.acquire(blocking=False)
@@ -196,7 +174,6 @@ def test_delete_models_endpoint_rejects_unknown_and_active_jobs(client):
 
 def test_builtin_voice_catalog_has_named_british_and_american_presets():
     assert len(catalog.PRESET_VOICES['kokoro']) == 54
-    assert len(catalog.PRESET_VOICES['piper']) == 4
     for engine, voices in catalog.PRESET_VOICES.items():
         assert 'preset' in catalog.ENGINES[engine]['roles']
         assert all(voice in catalog.ENGINES[engine]['models'] for voice in voices)

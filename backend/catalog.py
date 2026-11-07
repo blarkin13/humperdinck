@@ -79,12 +79,6 @@ PRESET_VOICES = {
         'pm_alex': ('Alex', 'Brazilian Portuguese · male'),
         'pm_santa': ('Santa', 'Brazilian Portuguese · male'),
     },
-    'piper': {
-        'en_GB-alan-medium': ('Alan', 'British English · male'),
-        'en_GB-cori-medium': ('Cori', 'British English · female'),
-        'en_US-lessac-medium': ('Lessac', 'American English · female'),
-        'en_US-ryan-medium': ('Ryan', 'American English · male'),
-    },
 }
 
 def preset_path(engine, voice):
@@ -100,13 +94,6 @@ ENGINES = {
         'note': 'Fast ONNX text-to-speech with American and British preset voices. Does not clone custom voices.',
         'models': {voice: {'label': label, 'size_gb': 0.35, 'memory_gb': 0.8, 'roles': ('preset',), 'note': accent}
                    for voice, (label, accent) in PRESET_VOICES['kokoro'].items()},
-    },
-    'piper': {
-        'label': 'Piper (CPU preset voices)', 'venv': 'piper', 'roles': ('preset',), 'platforms': ALL,
-        'imports': ('piper',), 'packages': ['piper-tts>=1.3,<2'],
-        'note': 'Lightweight CPU text-to-speech. Each voice has separate model files; review its model license before commercial redistribution.',
-        'models': {voice: {'label': label, 'size_gb': 0.1, 'memory_gb': 0.3, 'roles': ('preset',), 'note': accent}
-                   for voice, (label, accent) in PRESET_VOICES['piper'].items()},
     },
     'qwen-mlx': {
         'label': 'Qwen3-TTS (MLX)', 'venv': 'qwen', 'roles': ('design', 'clone'), 'platforms': ('darwin',),
@@ -214,10 +201,6 @@ def downloaded(model_id):
         folder = preset_path('kokoro', model_id)
         return all((folder / name).is_file() and (folder / name).stat().st_size >= minimum
                    for name, minimum in (('kokoro-v1.0.onnx', 50_000_000), ('voices-v1.0.bin', 1_000_000)))
-    if model_id in PRESET_VOICES['piper']:
-        folder = preset_path('piper', model_id)
-        return all((folder / (model_id + ext)).is_file() and (folder / (model_id + ext)).stat().st_size >= minimum
-                   for ext, minimum in (('.onnx', 1_000_000), ('.onnx.json', 100)))
     repo = hf_cache() / ('models--' + model_id.replace('/', '--'))
     snapshots = repo / 'snapshots'
     if not snapshots.is_dir():
@@ -259,15 +242,6 @@ def delete_downloaded_model(engine_id, model_id):
         removed = False
         for name in ('kokoro-v1.0.onnx', 'voices-v1.0.bin'):
             path = folder / name
-            if path.is_file():
-                path.unlink()
-                removed = True
-        return removed
-    if engine_id == 'piper':
-        folder = preset_path('piper', model_id)
-        removed = False
-        for ext in ('.onnx', '.onnx.json'):
-            path = folder / (model_id + ext)
             if path.is_file():
                 path.unlink()
                 removed = True

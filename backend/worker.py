@@ -50,15 +50,21 @@ def engine_for(name, model):
         elif name == 'kokoro':
             from backend.kokoro_engine import KokoroEngine
             adapter = KokoroEngine(model)
-        elif name == 'piper':
-            from backend.piper_engine import PiperEngine
-            adapter = PiperEngine(model)
         else:
             raise ValueError(f'Unknown engine {name}')
         if hasattr(adapter, 'load'):
             adapter.load()
         current.update(key=(name, model), engine=adapter)
     return current['engine']
+
+
+def device_of(name, adapter):
+    """Where the model runs: {'kind': 'gpu'|'cpu', 'name': ..., 'reason': why not GPU}."""
+    if getattr(adapter, 'device', None):
+        return adapter.device
+    if name == 'qwen-mlx':
+        return {'kind': 'gpu', 'name': 'Apple GPU (MLX)'}
+    return {'kind': 'cpu', 'name': 'CPU'}
 
 
 def handle(request):
@@ -72,12 +78,12 @@ def handle(request):
         emit(ok=True)
         return
     engine = engine_for(request['engine'], request.get('model'))
-    emit(loaded=True)
+    emit(loaded=True, device=device_of(request['engine'], engine))
     progress = lambda done, total: emit(progress=[done, total])
     output = Path(request['output'])
     if request['mode'] == 'preset':
-        if request['engine'] not in ('kokoro', 'piper'):
-            raise ValueError('Preset voices require Kokoro or Piper')
+        if request['engine'] != 'kokoro':
+            raise ValueError('Preset voices require Kokoro')
         engine.synthesize(request['text'], request['preset_voice'], output, on_progress=progress)
     elif request['engine'] == 'qwen-mlx' and request['mode'] == 'clone':
         engine.synthesize(request['text'], Path(request['reference']), output,
