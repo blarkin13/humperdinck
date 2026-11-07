@@ -293,3 +293,12 @@ body{background:#06070b}
   .feature-card,.download-card,.studio-mock{transition:none!important;transform:none!important}
   .has-motion .scroll-reveal{opacity:1;transform:none;transition:none}
 }
+
+/* Keep sticky navigation functional and preserve card hover depth after reveal. */
+.site-shell{overflow:clip}
+@media(min-width:561px) and (hover:hover){
+  .has-motion .feature-card.scroll-reveal.is-visible:hover{transform:translateY(-11px)}
+  .has-motion .download-card.scroll-reveal.is-visible:hover{transform:translateY(-6px)}
+  .has-motion .studio-mock.scroll-reveal.is-visible:hover{transform:perspective(1200px) rotateY(-2deg) rotateX(1deg) translateY(-6px)}
+}
+@media(prefers-reduced-motion:reduce){.has-motion .feature-card.scroll-reveal.is-visible:hover,.has-motion .download-card.scroll-reveal.is-visible:hover,.has-motion .studio-mock.scroll-reveal.is-visible:hover{transform:none}}
