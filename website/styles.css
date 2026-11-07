@@ -1027,3 +1027,22 @@ html{scroll-padding-top:116px}
 @media(prefers-reduced-motion:reduce){
   .header .nav a,.header .nav a::after{transition:none}
 }
+
+
+/* Anchor alignment: target the actual kicker/heading, not the section's top padding.
+   One offset only: the previous root scroll-padding and section scroll-margin
+   compounded and left a large empty gap beneath the sticky header. */
+html{scroll-padding-top:0}
+#why-local,#features,#studio,#voices,#download,#accounts{
+  scroll-margin-top:124px; /* 104px header + 20px breathing room */
+}
+@media(max-width:800px){
+  #why-local,#features,#studio,#voices,#download,#accounts{
+    scroll-margin-top:110px; /* 92px header + 18px */
+  }
+}
+@media(max-width:560px){
+  #why-local,#features,#studio,#voices,#download,#accounts{
+    scroll-margin-top:104px; /* 88px header + 16px */
+  }
+}
