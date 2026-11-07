@@ -28,8 +28,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=20261107-touch-layout">
-  <script defer src="/script.js?v=20261107-touch-layout"></script>
+  <link rel="stylesheet" href="/styles.css?v=20261107-expanded-navigation">
+  <script defer src="/script.js?v=20261107-expanded-navigation"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -40,14 +40,27 @@
         <img src="/assets/brand-modern.png" alt="" width="60" height="60">
         <span>humperdinck<span class="brand-dot">.</span></span>
       </a>
-      <nav aria-label="Primary navigation" class="nav">
+      <nav aria-label="Page sections" class="nav">
+        <a href="#why-local">Why local</a>
         <a href="#features">Features</a>
-        <a href="/studio/">Try the studio</a>
-        <a href="#voices">Voice demos</a>
+        <a href="#studio">Studio preview</a>
+        <a href="#voices">Voice library</a>
         <a href="#download">Download</a>
+        <a href="#accounts">What's next</a>
       </nav>
-      <a class="header-cta" href="#download">Download the app <span aria-hidden="true">↓</span></a>
-      <a class="mobile-cta" href="/studio/">Studio <span aria-hidden="true">↗</span></a>
+      <a class="header-cta header-studio-cta" href="/studio/">Try the studio <span aria-hidden="true">↗</span></a>
+      <details class="mobile-menu">
+        <summary class="mobile-menu-toggle"><span>Menu</span><span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span></summary>
+        <nav class="mobile-menu-panel" aria-label="Mobile page navigation">
+          <a href="#why-local">Why local</a>
+          <a href="#features">Features</a>
+          <a href="#studio">Studio preview</a>
+          <a href="#voices">Voice library</a>
+          <a href="#download">Download</a>
+          <a href="#accounts">What's next</a>
+          <a class="mobile-menu-studio" href="/studio/">Try the studio <span aria-hidden="true">↗</span></a>
+        </nav>
+      </details>
     </header>
     <main id="main">
       <section class="hero hero--kinetic" aria-labelledby="hero-title">
@@ -97,7 +110,7 @@
         </div>
         <div class="hero-bottom"><span>INDEPENDENT VOICE TOOLS</span><span>SCROLL TO EXPLORE <span aria-hidden="true">↓</span></span></div>
       </section>
-      <section class="manifesto" aria-labelledby="manifesto-title">
+      <section id="why-local" class="manifesto" aria-labelledby="manifesto-title">
         <div class="manifesto-kicker"><span class="manifesto-index">THE HUMPERDINCK WAY</span><span class="manifesto-rule" aria-hidden="true"></span><span>LOCAL-FIRST BY DESIGN</span></div>
         <div class="manifesto-layout">
           <h2 id="manifesto-title" class="manifesto-title">
