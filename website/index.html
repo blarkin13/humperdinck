@@ -29,6 +29,18 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css?v=20261107-clean-navigation">
+  <style>
+    /* Header display failsafe when a cached stylesheet and new markup are out of sync. */
+    .header .mobile-cta{display:none}
+    @media(min-width:951px){
+      .header .header-studio-cta{display:inline-flex!important;align-items:center}
+      .header .mobile-cta{display:none!important}
+    }
+    @media(max-width:950px){
+      .header .nav,.header .header-studio-cta{display:none!important}
+      .header .mobile-cta{display:inline-flex!important;align-items:center;justify-content:center}
+    }
+  </style>
   <script defer src="/script.js?v=20261107-clean-navigation"></script>
 </head>
 <body>
