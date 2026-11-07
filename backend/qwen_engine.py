@@ -151,8 +151,10 @@ class QwenBaseCloner:
         import soundfile as sf
         if not Path(reference).is_file():
             raise ValueError('Reference recording is missing')
-        if not ref_text or not ref_text.strip():
-            raise ValueError('Qwen MLX Base needs the exact transcript of its reference recording')
+        # With a transcript, Base clones in its higher-quality "in-context" mode.
+        # Uploaded and recorded voices usually have none; then it clones from the
+        # sound of the recording alone (like the PyTorch engine's x-vector mode).
+        ref_text = ref_text.strip() if ref_text and ref_text.strip() else None
         chunks = voice_segments(text)
         if not chunks:
             raise ValueError('No narration text')
