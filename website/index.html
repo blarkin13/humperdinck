@@ -28,11 +28,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=20261106-mobile">
-  <script defer src="/script.js"></script>
+  <link rel="stylesheet" href="/styles.css?v=20261106-cinematic">
+  <script defer src="/script.js?v=20261106-cinematic"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
+  <div class="scroll-progress" aria-hidden="true"></div>
   <div class="site-shell">
     <header class="header">
       <a class="brand" href="/" aria-label="Humperdinck home">
@@ -50,9 +51,17 @@
     </header>
     <main id="main">
       <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-atmosphere" aria-hidden="true">
+          <div class="hero-grid"></div>
+          <div class="light-leak light-leak-one"></div>
+          <div class="light-leak light-leak-two"></div>
+          <div class="hero-beam"></div>
+          <div class="hero-stars"></div>
+        </div>
+        <div class="hero-ghost-word" aria-hidden="true">SOUND</div>
         <div class="hero-content">
           <div class="eyebrow"><span class="pulse-dot"></span><span class="eyebrow-primary">LOCAL-FIRST AI AUDIO STUDIO</span><span class="eyebrow-line"></span><span class="eyebrow-secondary">YOUR CREATIVE SPACE</span></div>
-          <h1 id="hero-title">Sound like <em>yourself.</em><br>Or anyone you <span class="outline-type">create.</span></h1>
+          <h1 id="hero-title"><span class="headline-top">Sound like <em>yourself.</em></span><span class="headline-bottom">Or anyone you <span class="outline-type">create.</span></span></h1>
           <p class="lead">A voice studio that puts the tools on your computer. Build voices, turn writing into narration, and create voiceovers—all in one place.</p>
           <div class="hero-actions">
             <a class="button button-primary" href="#download"><span class="desktop-button-copy">Download Humperdinck</span><span class="mobile-button-copy">Desktop app</span><span aria-hidden="true">↓</span></a>
@@ -72,6 +81,14 @@
         </div>
         <div class="hero-bottom"><span>INDEPENDENT VOICE TOOLS</span><span>SCROLL TO EXPLORE <span aria-hidden="true">↓</span></span></div>
       </section>
+      <div class="signal-tape" aria-hidden="true">
+        <div class="signal-track">
+          <span>DESIGN YOUR VOICE <b>✳</b> TELL YOUR STORY <b>✳</b> CREATE WITHOUT LIMITS <b>✳</b> LOCAL-FIRST AUDIO <b>✳</b></span>
+          <span>DESIGN YOUR VOICE <b>✳</b> TELL YOUR STORY <b>✳</b> CREATE WITHOUT LIMITS <b>✳</b> LOCAL-FIRST AUDIO <b>✳</b></span>
+          <span>DESIGN YOUR VOICE <b>✳</b> TELL YOUR STORY <b>✳</b> CREATE WITHOUT LIMITS <b>✳</b> LOCAL-FIRST AUDIO <b>✳</b></span>
+          <span>DESIGN YOUR VOICE <b>✳</b> TELL YOUR STORY <b>✳</b> CREATE WITHOUT LIMITS <b>✳</b> LOCAL-FIRST AUDIO <b>✳</b></span>
+        </div>
+      </div>
       <section id="features" class="section features">
         <div class="section-kicker"><span>01</span> / THE CREATIVE TOOLKIT</div>
         <div class="section-title-row"><h2>Everything starts<br>with <span>your voice.</span></h2><p>From a single recording to a finished narration. Make your audio workflow your own.</p></div>
