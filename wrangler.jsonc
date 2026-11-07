@@ -9,7 +9,8 @@
       "/model/*",
       "/downloads/*",
       "/downloads.json",
-      "/updates/latest.json"
+      "/updates/latest.json",
+      "/voices/*"
     ]
   }
 }

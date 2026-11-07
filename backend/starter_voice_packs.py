@@ -77,12 +77,21 @@ class StarterVoices:
         self._write(stored)
         return metadata
 
-    def export(self,selected:list[str])->bytes:
+    def remove(self,source_id:str):
+        """Take a voice out of the pack. The next publish removes it from every install."""
+        stored=self._read()
+        if source_id not in stored:
+            raise ValueError("That voice is not in the built-in pack")
+        stored.pop(source_id)
+        self._write(stored)
+        (self.folder/(source_id+".wav")).unlink(missing_ok=True)
+
+    def export(self,selected:list[str],revision:int=0)->bytes:
         if not selected or len(selected)>30 or len(set(selected))!=len(selected):
             raise ValueError("Select between one and 30 unique approved starter voices")
         approvals=self._read()
         manifest={"format":"humperdinck-starter-voices","version":1,
-                  "reference_text":SENTENCE,"voices":[]}
+                  "revision":int(revision),"reference_text":SENTENCE,"voices":[]}
         out=BytesIO()
         with ZipFile(out,"w",ZIP_DEFLATED) as pack:
             for source_id in selected:
@@ -108,7 +117,13 @@ class StarterVoices:
 
 
 def install(data:Path,raw:bytes):
-    """Only install the approved generated samples; preserve personal voices."""
+    """Install the approved generated samples; never touch personal voices.
+
+    A pack with a newer revision than the last one applied also updates
+    changed samples and removes built-in voices it no longer lists. Older or
+    unrevisioned packs (the copy bundled in the installer) only add voices
+    this computer has never seen.
+    """
     if len(raw)>MAX_PACK_BYTES:
         raise ValueError("Starter voice pack too large")
     data=Path(data)
@@ -125,6 +140,9 @@ def install(data:Path,raw:bytes):
             manifest.get("version")!=1 or
             manifest.get("reference_text")!=SENTENCE):
             raise ValueError("Invalid starter voice pack manifest")
+        revision=manifest.get("revision",0)
+        if not isinstance(revision,int) or revision<0:
+            raise ValueError("Invalid starter voice pack revision")
         voices=manifest.get("voices",[])
         if not isinstance(voices,list) or not 1<=len(voices)<=30:
             raise ValueError("Starter voice pack must include 1-30 voices")
@@ -146,7 +164,14 @@ def install(data:Path,raw:bytes):
         previously_seen=set(historic)
         previously_seen.update(k for k,v in existing.items()
                                if isinstance(v,dict) and v.get("origin")=="builtin-humperdinck")
+        revision_file=voice_dir/".builtin_humperdinck_revision"
+        try:
+            applied=int(revision_file.read_text().strip())
+        except (OSError,ValueError):
+            applied=0
+        newer=revision>applied
         imported=[]
+        updated=[]
         seen=set()
         for item in voices:
             uid=item["voice_id"]
@@ -164,6 +189,17 @@ def install(data:Path,raw:bytes):
             if info.samplerate!=24000 or info.channels!=1 or not 1<=info.duration<=60:
                 raise ValueError("Starter voice audio must be 24 kHz mono and 1-60s")
             path=voice_dir/(uid+".wav")
+            ours=isinstance(existing.get(uid),dict) and existing[uid].get("origin")=="builtin-humperdinck"
+            if newer and ours and path.is_file():
+                # A newer published pack replaces the sample and name of a built-in voice.
+                if path.read_bytes()!=audio:
+                    tmp=path.with_suffix(".tmp")
+                    tmp.write_bytes(audio)
+                    tmp.replace(path)
+                    updated.append(uid)
+                existing[uid].update(name=str(item.get("name") or "Starter Voice")[:120],
+                                     category=str(item.get("category") or "")[:60])
+                continue
             if uid in previously_seen or path.is_file():
                 # Preserve user edits and don't resurrect deleted built-in voices.
                 continue
@@ -179,10 +215,24 @@ def install(data:Path,raw:bytes):
                 "starter_refinement_notes":item.get("refinement_description") or {}
             }
             imported.append(uid)
+        removed=[]
+        if newer:
+            # Built-in voices the publisher took out of the pack. Personal voices
+            # never carry this origin, so they are never removed here.
+            for uid,meta in list(existing.items()):
+                if uid not in seen and isinstance(meta,dict) and meta.get("origin")=="builtin-humperdinck":
+                    (voice_dir/(uid+".wav")).unlink(missing_ok=True)
+                    existing.pop(uid)
+                    removed.append(uid)
         temp=names_file.with_suffix(".tmp")
         temp.write_text(json.dumps(existing,indent=2))
         temp.replace(names_file)
         history_tmp=history_file.with_suffix(".tmp")
         history_tmp.write_text(json.dumps(sorted(previously_seen|seen),indent=2))
         history_tmp.replace(history_file)
-        return {"installed":len(imported),"voices":imported,"total_in_pack":len(voices)}
+        if newer:
+            revision_tmp=revision_file.with_suffix(".tmp")
+            revision_tmp.write_text(str(revision))
+            revision_tmp.replace(revision_file)
+        return {"installed":len(imported),"voices":imported,"updated":updated,"removed":removed,
+                "revision":revision,"total_in_pack":len(voices)}

@@ -105,3 +105,66 @@ def test_expanded_pack_adds_only_new_voices(tmp_path:Path):
     assert not original.exists()
     assert (recipient/"voices"/(stable_id("2"*32)+".wav")).exists()
     assert install_voice_pack.install_pack(recipient,reader=lambda:second)["installed"]==0
+
+
+def _store(tmp_path:Path,level:float=.1):
+    author=tmp_path/"creator"
+    sample=author/f"sample{level}.wav"
+    sample.parent.mkdir(parents=True,exist_ok=True)
+    sf.write(str(sample),np.ones(24000,dtype=np.float32)*level,24000)
+    return StarterVoices(author),sample
+
+
+def test_newer_revision_removes_updates_and_keeps_personal_voices(tmp_path:Path):
+    store,sample=_store(tmp_path)
+    store.approve("1"*32,sample,{"name":"Keep"})
+    store.approve("2"*32,sample,{"name":"Drop"})
+    user=tmp_path/"user"
+    assert install(user,store.export(["1"*32,"2"*32],revision=10))["installed"]==2
+    voices=user/"voices"
+    names=json.loads((voices/"names.json").read_text())
+    names["personal"]={"name":"Mine"}
+    (voices/"names.json").write_text(json.dumps(names))
+    (voices/"personal.wav").write_bytes(b"mine")
+    _,louder=_store(tmp_path,.3)
+    store.approve("1"*32,louder,{"name":"Keep Renamed"})
+    store.remove("2"*32)
+    result=install(user,store.export(["1"*32],revision=11))
+    assert result["removed"]==[stable_id("2"*32)] and result["updated"]==[stable_id("1"*32)]
+    names=json.loads((voices/"names.json").read_text())
+    assert set(names)=={stable_id("1"*32),"personal"} and names[stable_id("1"*32)]["name"]=="Keep Renamed"
+    assert not (voices/(stable_id("2"*32)+".wav")).exists() and (voices/"personal.wav").exists()
+    assert (voices/(stable_id("1"*32)+".wav")).read_bytes()==louder.read_bytes()
+
+
+def test_bundled_pack_never_undoes_a_newer_revision(tmp_path:Path):
+    store,sample=_store(tmp_path)
+    store.approve("1"*32,sample,{"name":"One"})
+    store.approve("2"*32,sample,{"name":"Two"})
+    bundled=store.export(["1"*32,"2"*32])  # revision 0, like the copy inside the installer
+    user=tmp_path/"user"
+    install(user,bundled)
+    install(user,store.export(["1"*32],revision=5))
+    result=install(user,bundled)
+    assert result["installed"]==0 and result["removed"]==[]
+    assert not (user/"voices"/(stable_id("2"*32)+".wav")).exists()
+
+
+def test_feed_check_downloads_only_when_revision_is_newer(tmp_path:Path):
+    from backend import builtin_voice_updates
+    store,sample=_store(tmp_path)
+    store.approve("1"*32,sample,{"name":"One"})
+    pack=store.export(["1"*32],revision=7)
+    calls=[]
+    def fetch(name,limit):
+        calls.append(name)
+        return json.dumps({"revision":7}).encode() if name=="latest.json" else pack
+    user=tmp_path/"user"
+    assert builtin_voice_updates.check(user,fetch)["installed"]==1
+    assert builtin_voice_updates.check(user,fetch)["changed"] is False
+    assert calls==["latest.json","pack.zip","latest.json"]
+
+
+def test_remove_requires_voice_in_pack(tmp_path:Path):
+    with pytest.raises(ValueError):
+        StarterVoices(tmp_path).remove("9"*32)
