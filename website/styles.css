@@ -964,93 +964,66 @@ body,.site-shell{background:#050505;color:#f1f1f1}
 }
 
 
-/* Full page-section navigation; Studio is an independent final action. */
-html{scroll-padding-top:118px}
-#why-local,#features,#studio,#voices,#download,#accounts{scroll-margin-top:118px}
-.header{gap:clamp(16px,2.2vw,42px)}
+/* Compact desktop section navigation. No dropdown or hamburger menu. */
+html{scroll-padding-top:116px}
+#why-local,#features,#studio,#voices,#download,#accounts{scroll-margin-top:116px}
+.header{gap:clamp(12px,2.1vw,34px)}
 .header .nav{
-  display:flex;align-items:center;justify-content:center;
-  flex:1;min-width:0;gap:clamp(13px,1.7vw,31px);
-  color:#ababab;font-size:clamp(11px,.78vw,13px);
+  display:flex;flex:1;min-width:0;align-items:center;justify-content:center;
+  gap:clamp(11px,1.45vw,29px);font-size:clamp(11px,.77vw,13px);
 }
 .header .nav a{
-  position:relative;display:inline-flex;align-items:center;min-height:44px;
-  white-space:nowrap;padding:0 0 2px;
-  transition:color .22s ease;
+  display:inline-flex;align-items:center;min-height:44px;
+  position:relative;white-space:nowrap;color:#aaa;
+  transition:color .2s ease;
 }
 .header .nav a::after{
-  content:"";position:absolute;left:0;right:0;bottom:6px;height:1px;
-  background:#dedede;transform:scaleX(0);transform-origin:left;
-  transition:transform .25s ease;pointer-events:none;
+  content:"";position:absolute;left:0;right:0;bottom:4px;height:1px;
+  background:#eee;transform:scaleX(0);transform-origin:left;
+  transition:transform .25s ease;
 }
-.header .nav a:hover,.header .nav a[aria-current="location"]{color:#fafafa}
+.header .nav a:hover,.header .nav a[aria-current="location"]{color:#fff}
 .header .nav a:hover::after,.header .nav a[aria-current="location"]::after{transform:scaleX(1)}
 .header .header-studio-cta{
-  display:inline-flex;align-items:center;justify-content:center;
-  flex:none;gap:14px;min-height:46px;
-  padding:13px 18px;border-radius:5px;
-  border-color:#929292;background:#f0f0f0;color:#111;
-  font-size:12px;font-weight:700;
+  display:inline-flex;flex:none;min-height:45px;align-items:center;
+  justify-content:center;gap:11px;padding:12px 17px;
+  font-size:12px;font-weight:700;letter-spacing:0;
+  color:#101010;border:1px solid #e9e9e9;border-radius:5px;background:#ededed;
 }
-.header .header-studio-cta:hover{background:#fff;border-color:#fff;color:#050505;box-shadow:0 0 25px #ffffff1b}
-.header .header-studio-cta span{margin:0}
-.mobile-menu{display:none;position:relative;margin-left:auto;flex:none}
-.mobile-menu-toggle{
-  display:flex;align-items:center;gap:12px;
-  min-height:43px;padding:0 13px;
-  border:1px solid #666;border-radius:5px;
-  color:#f2f2f2;background:#111;
-  font:700 12px 'DM Sans',system-ui,sans-serif;
-  cursor:pointer;list-style:none;user-select:none;
+.header .header-studio-cta span{margin-left:0}
+.header .header-studio-cta:hover{background:#fff;color:#000;border-color:#fff}
+.header .mobile-cta{display:none}
+@media(max-width:1500px){
+  .header .nav .nav-optional{display:none}
+  .header{padding-inline:clamp(20px,3vw,45px)}
+  .header .brand{font-size:clamp(21px,1.8vw,27px);gap:10px}
+  .header .brand img{width:clamp(48px,4vw,60px);height:clamp(48px,4vw,60px)}
 }
-.mobile-menu-toggle::-webkit-details-marker{display:none}
-.mobile-menu-toggle::marker{content:""}
-.mobile-menu-toggle:focus-visible{outline:2px solid #fff;outline-offset:4px}
-.menu-icon{display:grid;gap:4px;width:15px}
-.menu-icon i{display:block;height:1px;width:100%;background:#ddd;transition:transform .2s,opacity .2s}
-.mobile-menu[open] .menu-icon i:first-child{transform:translateY(5px) rotate(45deg)}
-.mobile-menu[open] .menu-icon i:nth-child(2){opacity:0}
-.mobile-menu[open] .menu-icon i:last-child{transform:translateY(-5px) rotate(-45deg)}
-.mobile-menu[open] .mobile-menu-toggle{background:#242424;border-color:#c8c8c8}
-.mobile-menu-panel{
-  position:absolute;top:calc(100% + 12px);right:0;z-index:100;
-  display:grid;gap:0;min-width:250px;width:min(310px,calc(100vw - 28px));
-  padding:9px;
-  background:#111;border:1px solid #666;border-radius:8px;
-  box-shadow:0 22px 60px #000d,0 0 25px #ffffff0c;
+@media(max-width:1180px){
+  .header{gap:16px}
+  .header .nav{gap:clamp(12px,1.2vw,18px);font-size:11px}
+  .header .nav a[href="#why-local"],
+  .header .nav a[href="#studio"]{display:none}
+  .header .header-studio-cta{font-size:11px;padding:11px 13px}
 }
-.mobile-menu-panel a{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:13px 14px;min-height:44px;color:#cfcfcf;
-  font-size:13px;border-radius:5px;transition:background .18s,color .18s;
-}
-.mobile-menu-panel a:hover,.mobile-menu-panel a[aria-current="location"]{
-  background:#282828;color:#fff
-}
-.mobile-menu-panel .mobile-menu-studio{
-  margin-top:9px;background:#f0f0f0;color:#101010;font-weight:700
-}
-.mobile-menu-panel .mobile-menu-studio:hover{background:#fff;color:#000}
-@media(max-width:1380px) and (min-width:1081px){
-  .header{padding-inline:clamp(20px,3vw,42px);gap:18px}
-  .header .brand{font-size:23px;gap:10px}
-  .header .brand img{width:51px;height:51px}
-  .header .nav{gap:clamp(11px,1.15vw,19px);font-size:11px}
-  .header .header-studio-cta{font-size:11px;padding:12px 14px;min-height:43px}
-}
-@media(max-width:1080px){
+@media(max-width:950px){
   .header .nav,.header .header-studio-cta{display:none}
-  .header .mobile-menu{display:block}
+  .header .mobile-cta{
+    display:inline-flex;min-height:43px;align-items:center;justify-content:center;
+    gap:8px;padding:0 14px;border:1px solid #656565;border-radius:5px;
+    background:#111;color:#eee;font-size:12px;font-weight:700;
+    white-space:nowrap;
+  }
+  .header .mobile-cta:hover{border-color:#bbb;background:#252525;color:#fff}
 }
 @media(max-width:560px){
   html{scroll-padding-top:96px}
   #why-local,#features,#studio,#voices,#download,#accounts{scroll-margin-top:96px}
-  .header .mobile-menu-toggle{min-height:42px}
+  .header .mobile-cta{padding:0 13px;min-height:42px}
 }
 @media(max-width:360px){
-  .header .mobile-menu-toggle{padding:0 10px;gap:9px;font-size:11px}
-  .mobile-menu-panel{width:min(300px,calc(100vw - 26px))}
+  .header .mobile-cta{padding:0 10px;min-height:40px;font-size:11px}
 }
 @media(prefers-reduced-motion:reduce){
-  .header .nav a::after,.menu-icon i,.mobile-menu-panel a{transition:none}
+  .header .nav a,.header .nav a::after{transition:none}
 }
