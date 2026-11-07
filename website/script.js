@@ -131,5 +131,21 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
       }, {passive:true});
     });
   }
+  // Pause decorative waveform animations when offscreen or the tab is hidden.
+  const soundStage = document.querySelector('.sonic-stage');
+  if (soundStage && 'IntersectionObserver' in window) {
+    soundStage.classList.add('motion-observed');
+    let stageInView = false;
+    const updateStageMotion = () => {
+      soundStage.classList.toggle('is-active', stageInView && !document.hidden);
+    };
+    const stageObserver = new IntersectionObserver(entries => {
+      stageInView = entries[0]?.isIntersecting ?? false;
+      updateStageMotion();
+    }, { threshold: 0.08 });
+    stageObserver.observe(soundStage);
+    document.addEventListener('visibilitychange', updateStageMotion);
+  }
+
   scheduleMotion();
 })();
