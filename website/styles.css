@@ -346,3 +346,56 @@ body,.site-shell{background:#050505;color:#f1f1f1}
 @media(prefers-reduced-motion:reduce){
   .kinetic-audio-pulse.motion-observed.is-active i{animation:none}
 }
+
+
+/* New two-sentence hero copy: independently animated, oversized but never cropped on phones. */
+.kinetic-title{
+  max-width:min(1220px,100%);
+  margin:36px 0 31px;
+  line-height:.9;
+}
+.kinetic-line-one{
+  font-size:clamp(70px,8vw,124px);
+  margin-left:clamp(4px,5vw,75px);
+}
+.kinetic-line-two{
+  font-size:clamp(105px,14vw,215px);
+  margin-left:clamp(22px,14vw,240px);
+  margin-top:-.025em;
+}
+.kinetic-line-three{
+  font-size:clamp(65px,7.2vw,115px);
+  margin:24px 0 0 clamp(16px,13vw,220px);
+}
+.kinetic-line-four{
+  font-size:clamp(112px,15.3vw,230px);
+  margin:0 0 0 clamp(24px,16vw,260px);
+}
+@media(max-width:1100px){
+  .kinetic-line-one{font-size:clamp(66px,8.8vw,106px)}
+  .kinetic-line-two{font-size:clamp(92px,13.3vw,152px)}
+  .kinetic-line-three{font-size:clamp(54px,7.6vw,85px)}
+  .kinetic-line-four{font-size:clamp(100px,14.4vw,164px)}
+}
+@media(max-width:800px){
+  .kinetic-title{margin:33px 0 28px}
+  .kinetic-line-one{font-size:clamp(51px,9.6vw,76px);margin-left:12px}
+  .kinetic-line-two{font-size:clamp(82px,16vw,136px);margin-left:clamp(20px,7vw,58px)}
+  .kinetic-line-three{font-size:clamp(47px,8vw,72px);margin:18px 0 0 clamp(12px,7vw,58px)}
+  .kinetic-line-four{font-size:clamp(90px,17vw,145px);margin-left:clamp(22px,9vw,72px)}
+}
+@media(max-width:560px){
+  .hero--kinetic{min-height:max(760px,calc(100svh - 88px));padding-bottom:155px}
+  .kinetic-title{margin:26px 0 25px;line-height:.91}
+  .kinetic-line-one{font-size:clamp(39px,11vw,62px);margin-left:6px}
+  .kinetic-line-two{font-size:clamp(78px,23.5vw,128px);margin-left:clamp(12px,5vw,30px);margin-top:-.035em}
+  .kinetic-line-three{font-size:clamp(38px,10.4vw,56px);margin:17px 0 0 clamp(9px,4vw,25px)}
+  .kinetic-line-four{font-size:clamp(77px,24.2vw,128px);margin-left:clamp(12px,5vw,30px)}
+  .kinetic-audio-pulse{top:31%;right:3%}
+}
+@media(max-width:360px){
+  .kinetic-line-one{font-size:clamp(36px,10.8vw,40px)}
+  .kinetic-line-two{font-size:clamp(73px,23.2vw,84px)}
+  .kinetic-line-three{font-size:clamp(35px,10.2vw,41px)}
+  .kinetic-line-four{font-size:clamp(74px,24vw,86px)}
+}
