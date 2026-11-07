@@ -1,1 +1,46 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Humperdinck</title><link rel="icon" href="%BASE_URL%humperdinck-favicon.ico" sizes="any"/><link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%humperdinck-favicon-32.png"/><link rel="icon" type="image/png" sizes="192x192" href="%BASE_URL%humperdinck-favicon-192.png"/><link rel="apple-touch-icon" href="%BASE_URL%humperdinck-apple-touch-icon.png"/><meta name="theme-color" content="#101B23"/></head><body><div id="root"></div><div id="startup-help" role="status" style="max-width:640px;margin:10vh auto;padding:30px;border:1px solid #34494a;border-radius:12px;background:#14252c;color:#f0e5cf;font:16px/1.6 system-ui,Segoe UI,sans-serif"><h1 style="margin:0 0 10px">Starting Humperdinck</h1><p>If this message remains visible, the app interface did not finish loading. Use the Humperdinck menu to select <strong>Open in Browser</strong> or <strong>Open Startup Log</strong>.</p><pre id="startup-error" style="white-space:pre-wrap;color:#e3a198"></pre></div><script>window.addEventListener('error',function(e){var p=document.getElementById('startup-error');if(p)p.textContent='Startup error: '+(e.message||'A required asset could not load.');});window.addEventListener('unhandledrejection',function(e){var p=document.getElementById('startup-error');if(p)p.textContent='Startup error: '+String(e.reason||'A script failed.');});</script><script type="module" src="/src.jsx"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <!-- Cloudflare Web Analytics -->
+    <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "df4bae2bb036414cb996ff1b87f40cce"}'>
+    </script>
+    <!-- End Cloudflare Web Analytics -->
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>
+      Humperdinck
+    </title>
+    <link rel="icon" href="%BASE_URL%humperdinck-favicon.ico" sizes="any"/>
+    <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%humperdinck-favicon-32.png"/>
+    <link rel="icon" type="image/png" sizes="192x192" href="%BASE_URL%humperdinck-favicon-192.png"/>
+    <link rel="apple-touch-icon" href="%BASE_URL%humperdinck-apple-touch-icon.png"/>
+    <meta name="theme-color" content="#101B23"/>
+  </head>
+  <body>
+    <div id="root">
+    </div>
+    <div id="startup-help" role="status" style="max-width:640px;margin:10vh auto;padding:30px;border:1px solid #34494a;border-radius:12px;background:#14252c;color:#f0e5cf;font:16px/1.6 system-ui,Segoe UI,sans-serif">
+      <h1 style="margin:0 0 10px">
+        Starting Humperdinck
+      </h1>
+      <p>
+        If this message remains visible, the app interface did not finish loading. Use the Humperdinck menu to select
+        <strong>
+          Open in Browser
+        </strong>
+        or
+        <strong>
+          Open Startup Log
+        </strong>
+        .
+      </p>
+      <pre id="startup-error" style="white-space:pre-wrap;color:#e3a198">
+      </pre>
+    </div>
+    <script>
+      window.addEventListener('error',function(e){var p=document.getElementById('startup-error');if(p)p.textContent='Startup error: '+(e.message||'A required asset could not load.');});window.addEventListener('unhandledrejection',function(e){var p=document.getElementById('startup-error');if(p)p.textContent='Startup error: '+String(e.reason||'A script failed.');});
+    </script>
+    <script type="module" src="/src.jsx">
+    </script>
+  </body>
+</html>
