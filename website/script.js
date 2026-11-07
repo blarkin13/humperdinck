@@ -208,3 +208,55 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
     });
   });
 })();
+
+
+// Section navigation: active link feedback and a compact mobile menu.
+// Native anchor links continue to provide scrolling and browser history.
+(function initSectionNavigation(){
+  const menu=document.querySelector('.mobile-menu');
+  const header=document.querySelector('.header');
+  const navLinks=[...document.querySelectorAll(
+    '.header .nav a[href^="#"], .mobile-menu-panel a[href^="#"]'
+  )];
+  if(!header || !navLinks.length)return;
+  const sections=[
+    'why-local','features','studio','voices','download','accounts'
+  ].map(id=>document.getElementById(id)).filter(Boolean);
+  let scheduled=false;
+  function syncActiveSection(){
+    scheduled=false;
+    const threshold=header.getBoundingClientRect().height+45;
+    let activeId=null;
+    for(const section of sections){
+      if(section.getBoundingClientRect().top<=threshold)activeId=section.id;
+    }
+    for(const link of navLinks){
+      if(activeId && link.hash==='#'+activeId){
+        link.setAttribute('aria-current','location');
+      }else{
+        link.removeAttribute('aria-current');
+      }
+    }
+  }
+  function onScroll(){
+    if(scheduled)return;
+    scheduled=true;requestAnimationFrame(syncActiveSection);
+  }
+  addEventListener('scroll',onScroll,{passive:true});
+  addEventListener('resize',onScroll,{passive:true});
+  syncActiveSection();
+
+  if(!menu)return;
+  menu.querySelectorAll('a').forEach(link=>{
+    link.addEventListener('click',()=>{menu.open=false;});
+  });
+  document.addEventListener('pointerdown',event=>{
+    if(menu.open && !menu.contains(event.target))menu.open=false;
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape' && menu.open){
+      menu.open=false;
+      menu.querySelector('summary')?.focus();
+    }
+  });
+})();
