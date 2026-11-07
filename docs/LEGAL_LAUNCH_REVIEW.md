@@ -7,6 +7,8 @@ This PR adds themed draft documents at `/privacy/`, `/terms/`, `/license/`, `/vo
 - Confirm the legal seller/operator name, country/state, address where necessary, and accessible monitored contact email or secure contact form for privacy/support/legal issues.
 - Have a qualified lawyer review jurisdiction, consumer rights, liability language, licenses, voice-cloning safeguards and privacy notices.
 - Audit the *deployed* homepage, public Studio, Cloudflare analytics, model CDNs, security logs and browser storage; revise policies to match observed network traffic.
+- Confirmed product decision: a Humperdinck account is required to purchase and initially activate Pro; once activated, local Pro remains usable offline without periodic revalidation. Implement and test this behavior before advertising it as live.
+- Before accounts launch, decide the precise account profile fields, verification method, identity/auth provider, payment processor, device activation identifiers, retention/deletion policies and support procedures; update the Privacy Policy to disclose actual processing.
 - Verify privacy request handling, retention and security practices before enabling accounts or cloud voice uploads.
 - Before payments launch: finalize the actual pricing, checkout provider, taxes, refund terms, activation/device-count rules and definition of any lifetime purchase.
 - Before accepting public community voices: deploy consent attestations, abuse reporting, moderation, copyright removal/counter-notice procedures, and determine whether a registered DMCA designated agent is needed.
