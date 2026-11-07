@@ -239,3 +239,30 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
   update();
 })();
 
+
+// Anonymous aggregate website analytics. All metrics are stored on Cloudflare.
+// No identifiers, user text, or voice content are sent.
+(function trackSiteEvents(){
+  function send(type,platform,source){
+    const payload=JSON.stringify({type,platform,source});
+    try {
+      if(navigator.sendBeacon){
+        const blob=new Blob([payload],{type:'application/json'});
+        if(navigator.sendBeacon('/analytics/event',blob))return;
+      }
+      fetch('/analytics/event',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:payload,keepalive:true,credentials:'omit'}).catch(()=>{});
+    } catch { /* Tracking must never interrupt visitors. */ }
+  }
+  send('page_view','website','homepage');
+  document.addEventListener('click',event=>{
+    const link=event.target.closest('a.download-action');
+    if(!link)return;
+    const card=link.closest('[data-platform]');
+    const platform=card?.getAttribute('data-platform');
+    if(!['windows','macos','linux'].includes(platform))return;
+    const source=link.hostname==='github.com'?'github':
+      link.origin===location.origin?'r2':'other';
+    send('download_click',platform,source);
+  },{capture:true});
+})();
