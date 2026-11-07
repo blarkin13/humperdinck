@@ -157,3 +157,54 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
   }
   schedulePaint();
 })();
+
+
+// A tap briefly plays the same decorative card motion as desktop hover.
+// This does not intercept clicks, downloads, scrolling or native links.
+(function initTouchCardMotion(){
+  if (!window.PointerEvent || !window.matchMedia ||
+      matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cards=document.querySelectorAll(
+    '.feature-card, .studio-preview-card, .sample-item, .download-card'
+  );
+  cards.forEach(card=>{
+    let pointerId=null;
+    let startX=0,startY=0;
+    let timeout=null;
+    function clearMotion(){
+      if(timeout!==null){clearTimeout(timeout);timeout=null;}
+      card.classList.remove('is-touch-active');
+    }
+    card.addEventListener('pointerdown',e=>{
+      if(e.pointerType!=='touch' && e.pointerType!=='pen') return;
+      clearMotion();
+      pointerId=e.pointerId;
+      startX=e.clientX;startY=e.clientY;
+      // The card never captures the pointer, so native scrolling is preserved.
+      card.classList.add('is-touch-active');
+    },{passive:true});
+    card.addEventListener('pointermove',e=>{
+      if(e.pointerId!==pointerId) return;
+      if(Math.hypot(e.clientX-startX,e.clientY-startY)>12){
+        pointerId=null;
+        clearMotion();
+      }
+    },{passive:true});
+    card.addEventListener('pointerup',e=>{
+      if(e.pointerId!==pointerId) return;
+      pointerId=null;
+      if(timeout!==null)clearTimeout(timeout);
+      // Keep the interaction visible after the finger lifts.
+      timeout=setTimeout(clearMotion,1500);
+    },{passive:true});
+    card.addEventListener('pointercancel',()=>{
+      pointerId=null;clearMotion();
+    },{passive:true});
+    addEventListener('scroll',()=>{
+      if(pointerId!==null){pointerId=null;clearMotion();}
+    },{passive:true});
+    document.addEventListener('visibilitychange',()=>{
+      if(document.hidden){pointerId=null;clearMotion();}
+    });
+  });
+})();
