@@ -74,6 +74,8 @@ function App(){
  useEffect(()=>{refresh()},[]);
  // Publishing curated starter packs is an authoring tool, not a native end-user control.
  useEffect(()=>{if(!PUBLIC_STUDIO)api('health').then(h=>setNativePackage(!!h.native_package)).catch(()=>{});},[]);
+ // Pick up Built-In Humperdinck Voices that were added, changed or removed since last launch.
+ useEffect(()=>{if(nativePackage===true)api('builtin-voices/check',{method:'POST'}).then(r=>{if(r.changed)refresh()}).catch(()=>{});},[nativePackage]);
  useEffect(()=>{if(nativePackage===true&&!setupChecked){setSetupChecked(true);api('setup').then(s=>{if(!s.finished)setSetupOpen(true)}).catch(()=>{});}},[nativePackage,setupChecked]);
  // Read new preset downloads when returning from Models to Narration Studio.
  useEffect(()=>{if(tab==='narration'||tab==='voices')refresh()},[tab]);

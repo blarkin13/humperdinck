@@ -145,7 +145,50 @@ def upload_path(voice_id):
 
 @app.get('/api/starter-voices')
 def list_starter_voices():
-    return {'sentence':STARTER_VOICE_TEXT,'approved':starter_voices.list()}
+    from backend.voice_publisher import last_published
+    return {'sentence':STARTER_VOICE_TEXT,'approved':starter_voices.list(),
+            'published':last_published(starter_voices)}
+
+def publisher_only():
+    if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE')=='1':
+        raise HTTPException(403,'Built-in voices are managed from the developer copy of Humperdinck')
+
+@app.get('/api/starter-voices/{voice_id}/sample.wav')
+def starter_voice_sample(voice_id:str):
+    publisher_only()
+    if not voice_id.isalnum(): raise HTTPException(400,'Invalid voice')
+    path=starter_voices.folder/f'{voice_id}.wav'
+    if not path.is_file(): raise HTTPException(404,'Sample not found')
+    return FileResponse(path,media_type='audio/wav')
+
+@app.delete('/api/starter-voices/{voice_id}')
+def remove_starter_voice(voice_id:str):
+    publisher_only()
+    try:
+        starter_voices.remove(voice_id)
+    except ValueError as exc:
+        raise HTTPException(404,str(exc))
+    return {'ok':True}
+
+@app.post('/api/starter-voices/publish')
+def publish_starter_voices():
+    publisher_only()
+    from backend.voice_publisher import publish
+    try:
+        return publish(starter_voices)
+    except (OSError,ValueError,RuntimeError,subprocess.TimeoutExpired) as exc:
+        raise HTTPException(400,str(exc))
+
+@app.post('/api/builtin-voices/check')
+def check_builtin_voices():
+    """Native app: pick up voices added, changed or removed since the last check."""
+    if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE')!='1':
+        return {'changed':False,'skipped':True}
+    from backend import builtin_voice_updates
+    try:
+        return builtin_voice_updates.check(DATA)
+    except Exception as exc:  # offline or feed not published yet: keep the voices already here
+        return {'changed':False,'error':str(exc)}
 
 @app.post('/api/starter-voices/{voice_id}/generate')
 def generate_starter_voice_sample(voice_id:str):

@@ -10,6 +10,18 @@ export default {
   if(url.pathname==='/downloads.json'||url.pathname==='/updates/latest.json'){
     return publicRelease(request,env);
   }
+  if(url.pathname==='/voices/latest.json'||url.pathname==='/voices/pack.zip'){
+   // Built-In Humperdinck Voices: only these two files of the public downloads
+   // repository's `voices` release, never an arbitrary URL.
+   if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405});
+   const name=url.pathname.slice('/voices/'.length);
+   const upstream=await fetch('https://github.com/blarkin13/humperdinck-downloads/releases/download/voices/'+name,
+    {redirect:'follow',cf:{cacheTtl:300,cacheEverything:true}});
+   if(!upstream.ok)return new Response('Built-in voices have not been published',{status:404,headers:{'Cache-Control':'no-store'}});
+   return new Response(request.method==='HEAD'?null:upstream.body,{status:200,headers:{
+    'Content-Type':name.endsWith('.json')?'application/json; charset=utf-8':'application/zip',
+    'Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'}});
+  }
   if(url.pathname.startsWith('/downloads/')){
    // Static installers live in a private Cloudflare R2 bucket, streamed through
    // Humperdinck's own domain. No GitHub redirect or Worker bundle upload.
