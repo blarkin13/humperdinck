@@ -16,7 +16,7 @@ function SleeveArt({seed}){
 }
 
 const METHODS={preset:['Built-in voice','fa-compact-disc'],sliders:['Designed with sliders','fa-sliders'],prompt:['Described in words','fa-feather-pointed'],designed:['Designed with AI','fa-wand-magic-sparkles'],
- uploaded:['Uploaded recording','fa-file-audio'],recorded:['Recorded with mic','fa-microphone'],edited:['Edited recording','fa-scissors'],'builtin-humperdinck':['Built-In Humperdinck Voice','fa-certificate']};
+ uploaded:['Uploaded recording','fa-file-audio'],recorded:['Recorded with mic','fa-microphone'],edited:['Edited recording','fa-scissors'],'builtin-humperdinck':['Built-In Humperdinck Voice','fa-certificate'],'humperdinck-catalog':['From the voice gallery','fa-store']};
 
 export function ago(iso){if(!iso)return '';const d=(Date.now()-new Date(iso))/864e5;return d<1?'Today':d<2?'Yesterday':d<30?`${Math.floor(d)} days ago`:new Date(iso).toLocaleDateString()}
 
@@ -76,7 +76,7 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
    if(onPreviewVoice&&v.method==='preset')onPreviewVoice(v);
    return;
   }
-  const uploaded=['uploaded','recorded','edited','builtin-humperdinck'].includes(v.method);
+  const uploaded=['uploaded','recorded','edited','builtin-humperdinck','humperdinck-catalog'].includes(v.method);
   // Audition the user's own reference audio immediately. A real cloned
   // same-script comparison is still available as a separate explicit action.
   if(uploaded&&!generate&&v.previewUrl){
@@ -138,7 +138,7 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
      </div>
      <p className={'voice-desc'+(v.summary?'':' muted')}>{v.summary||'No description yet.'}</p>
      <div className="voice-playback-row">
-      <button type="button" className={'voice-playback-button'+(on?' on':'')} disabled={(previewDisabled&&!onPreviewVoice)||(working&&!(v.previewUrl&&(['uploaded','recorded','edited','builtin-humperdinck'].includes(v.method))))}
+      <button type="button" className={'voice-playback-button'+(on?' on':'')} disabled={(previewDisabled&&!onPreviewVoice)||(working&&!(v.previewUrl&&(['uploaded','recorded','edited','builtin-humperdinck','humperdinck-catalog'].includes(v.method))))}
        title={previewDisabled&&onPreviewVoice?'Open this voice in Narration Studio':previewDisabled?'Voice audio requires the downloaded app':v.previewUrl&&(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')?'Play saved voice sample':working?'Generating the comparison sentence':preview?.status==='failed'?preview.message:on?'Stop playback':'Play the standard comparison sentence'}
        aria-label={(previewDisabled&&onPreviewVoice?'Use ':'Play ')+v.name}
        onClick={e=>play(e,v)}>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voice Gallery · Humperdinck</title>
+  <meta name="description" content="Listen to Humperdinck voices and download the ones you want in the desktop app.">
+  <link rel="icon" type="image/x-icon" href="/assets/humperdinck-favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/humperdinck-favicon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/humperdinck-apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css?v=20261107-gallery">
+  <style>
+    .gallery-intro{max-width:640px;color:#a4a4a4;font-size:15px;line-height:1.8;margin:22px 0 0}
+    .gallery-filter{display:flex;gap:8px;flex-wrap:wrap;margin:36px 0 22px}
+    .gallery-filter button{background:none;border:1px solid #3d3d3d;color:#bbb;border-radius:3px;padding:9px 14px;font-size:12px;cursor:pointer}
+    .gallery-filter button[aria-pressed="true"]{background:#ededed;color:#111;border-color:#ededed}
+    .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+    .gallery-card{background:#141414;border:1px solid #333;padding:24px;display:flex;flex-direction:column;gap:14px}
+    .gallery-card:hover{border-color:#6f6f6f}
+    .gallery-card h3{font-family:'Space Grotesk',sans-serif;letter-spacing:-1px;font-size:26px;margin:0}
+    .gallery-card small{color:#8a8a8a;font-size:11px;letter-spacing:1.5px;text-transform:uppercase}
+    .gallery-card button.play{display:flex;align-items:center;gap:12px;background:none;border:1px solid #4a4a4a;color:#eee;border-radius:3px;padding:12px 16px;font-size:12px;font-weight:700;cursor:pointer}
+    .gallery-card button.play:hover{background:#222}
+    .gallery-card button.play[aria-pressed="true"]{background:#ededed;color:#111}
+    .gallery-sentence{color:#777;font-size:12px;font-style:italic;margin:0}
+    .gallery-status{color:#9a9a9a;font-size:14px;padding:30px 0}
+    .gallery-how{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:60px}
+    .gallery-how div{border-top:1px solid #383838;padding-top:18px;font-size:13px;color:#999;line-height:1.7}
+    .gallery-how strong{display:block;color:#eee;margin-bottom:6px}
+    @media(max-width:700px){.gallery-how{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="header">
+      <a class="brand" href="/" aria-label="Humperdinck home">
+        <img src="/assets/brand-modern.png" alt="" width="60" height="60">
+        <span>humperdinck<span class="brand-dot">.</span></span>
+      </a>
+      <nav aria-label="Site" class="nav">
+        <a href="/#features">Features</a>
+        <a href="/studio/">Studio preview</a>
+        <a href="/gallery/" aria-current="page">Voice gallery</a>
+        <a href="/#download">Download</a>
+      </nav>
+      <a class="header-cta" href="/#download">Get the app <span aria-hidden="true">↓</span></a>
+    </header>
+    <main id="main" class="section">
+      <div class="section-kicker"><span>VOICE GALLERY</span></div>
+      <h2 style="margin-top:22px">Find your <span>next voice.</span></h2>
+      <p class="gallery-intro">Listen to voices made by Humperdinck. To use one, open the desktop app, go to <strong>Voice Library → Browse the voice gallery</strong>, and click <strong>Download</strong>. Every voice runs on your own computer, offline.</p>
+      <div class="gallery-filter" id="filters" role="group" aria-label="Filter by category"></div>
+      <div class="gallery-grid" id="grid" aria-live="polite"></div>
+      <p class="gallery-status" id="status">Loading voices…</p>
+      <div class="gallery-how">
+        <div><strong>1 · Listen here</strong>Every sample reads the same sentence, so voices are easy to compare.</div>
+        <div><strong>2 · Download in the app</strong>Voice Library → Browse the voice gallery → Download.</div>
+        <div><strong>3 · Narrate</strong>Pick the voice for any section in the Narration Studio.</div>
+      </div>
+      <p style="margin-top:50px"><a class="button button-primary" href="/#download">Download Humperdinck <span aria-hidden="true">↓</span></a></p>
+    </main>
+    <footer class="footer"><a class="brand" href="/"><img src="/assets/brand-modern.png" alt="" width="36" height="36"><span>humperdinck<span class="brand-dot">.</span></span></a><span>A local-first voice studio.</span><div><a href="/#features">Features</a><a href="/studio/">Studio preview</a><a href="/#download">Download</a></div></footer>
+  </div>
+  <script>
+    const grid=document.getElementById('grid'),status=document.getElementById('status'),filters=document.getElementById('filters');
+    const player=new Audio();let playing=null,voices=[],category='All';
+    function stop(){player.pause();if(playing){playing.setAttribute('aria-pressed','false');playing.querySelector('span').textContent='▶';}playing=null}
+    player.addEventListener('ended',stop);
+    function render(){
+      grid.replaceChildren();
+      for(const v of voices.filter(v=>category==='All'||(v.category||'Other')===category)){
+        const card=document.createElement('article');card.className='gallery-card';
+        const label=document.createElement('small');label.textContent=v.category||'Voice';
+        const name=document.createElement('h3');name.textContent=v.name;
+        const button=document.createElement('button');button.className='play';button.type='button';button.setAttribute('aria-pressed','false');
+        button.innerHTML='<span aria-hidden="true">▶</span> ';button.append('Play '+v.name);
+        button.addEventListener('click',()=>{const same=playing===button;stop();if(same)return;
+          player.src='/voices/'+v.file;player.play();playing=button;button.setAttribute('aria-pressed','true');button.querySelector('span').textContent='■'});
+        const line=document.createElement('p');line.className='gallery-sentence';line.textContent='“The old lighthouse stood quietly above the waves…”';
+        card.append(label,name,button,line);grid.append(card);
+      }
+    }
+    function renderFilters(){
+      const names=['All',...new Set(voices.map(v=>v.category||'Other'))];
+      filters.replaceChildren(...(names.length>2?names:[]).map(n=>{const b=document.createElement('button');b.type='button';b.textContent=n;
+        b.setAttribute('aria-pressed',String(n===category));b.addEventListener('click',()=>{category=n;renderFilters();render()});return b}));
+    }
+    fetch('/voices/catalog.json').then(r=>r.ok?r.json():{voices:[]}).then(d=>{
+      voices=(d.voices||[]).filter(v=>/^catalog-[0-9a-f]{32}\.wav$/.test(v.file));
+      status.textContent=voices.length?'':'New voices are on the way. Check back soon.';
+      renderFilters();render();
+    }).catch(()=>{status.textContent="Couldn't load the gallery. Refresh to try again."});
+  </script>
+</body>
+</html>

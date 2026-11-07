@@ -47,22 +47,28 @@ export default function StarterVoicePack({api,voices,disabled=false}){
   await api('starter-voices/'+voice.source_voice_id,{method:'DELETE'});
   await refresh();setChanged(true);
  });
+ const setChannel=(voice,channel)=>run(voice.source_voice_id,async()=>{
+  await api('starter-voices/'+voice.source_voice_id+'/channel',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel})});
+  await refresh();setChanged(true);
+ });
  const publish=()=>run('publish',async()=>{
   const result=await api('starter-voices/publish',{method:'POST'});
   setPublished(result);setChanged(false);
-  notify('Published '+result.voices+' built-in voices. Apps pick them up the next time they open (allow about 5 minutes).','success');
+  notify('Published '+result.voices+' built-in and '+(result.gallery||0)+' gallery voices. Apps pick them up the next time they open (allow about 5 minutes).','success');
  });
  return <details className="starter-voice-pack" open={open} onToggle={e=>setOpen(e.currentTarget.open)}>
   <summary><span><i className="fa-solid fa-box-open"/> Built-In Humperdinck Voices</span>
    <span>{approved.length} in pack <i className="fa-solid fa-chevron-down"/></span></summary>
   {open&&<div className="starter-voice-pack-content">
-   <p>These voices are sent to every Humperdinck install. Changes reach people the next time they open the app, with no new release needed. Only the generated sample below is shared, never your original recording.</p>
+   <p><strong>Built-in</strong> voices are sent to every Humperdinck install. <strong>Gallery</strong> voices appear in the voice gallery, in the app and on the website, for people to download if they want them. Changes reach people the next time they open the app, with no new release needed. Only the generated sample below is shared, never your original recording.</p>
    <blockquote>{SENTENCE}</blockquote>
    <h4>In the pack</h4>
    <div className="starter-voice-pack-list">{approved.map(voice=><div className="starter-voice-pack-row" key={voice.source_voice_id}>
     <div><strong>{voice.name}</strong><small>{voice.category||'Voice'}</small></div>
     <div className="starter-voice-pack-actions">
      <audio controls preload="none" src={'/api/starter-voices/'+voice.source_voice_id+'/sample.wav'} aria-label={'Sample for '+voice.name}/>
+     <select aria-label={'Who gets '+voice.name} disabled={!!busy||disabled} value={voice.channel||'builtin'} onChange={e=>setChannel(voice,e.target.value)}>
+      <option value="builtin">Built-in · everyone gets it</option><option value="catalog">Gallery · people choose it</option></select>
      <button type="button" disabled={!!busy||disabled} onClick={()=>remove(voice)}><i className="fa-solid fa-trash"/> Remove</button>
     </div></div>)}</div>
    {!approved.length&&<p className="hint">No voices in the pack yet.</p>}
@@ -82,9 +88,9 @@ export default function StarterVoicePack({api,voices,disabled=false}){
    })}</div>
    {!candidates.length&&<p className="hint">Upload or record a voice first. It will appear here.</p>}
    <div className="starter-voice-pack-footer">
-    <small>{changed?'You have changes that are not published yet.':published?'Last published '+published.published_at+' · '+published.voices+' voices':'Not published yet.'} Publishing uses your GitHub sign-in (gh).</small>
+    <small>{changed?'You have changes that are not published yet.':published?'Last published '+published.published_at+' · '+published.voices+' built-in, '+(published.gallery||0)+' gallery':'Not published yet.'} Publishing uses your GitHub sign-in (gh).</small>
     <button type="button" className="primary" disabled={disabled||!!busy||!approved.length} onClick={publish}>
-     <i className={'fa-solid '+(busy==='publish'?'fa-spinner fa-spin':'fa-cloud-arrow-up')}/> Publish {approved.length} {approved.length===1?'voice':'voices'} to everyone</button>
+     <i className={'fa-solid '+(busy==='publish'?'fa-spinner fa-spin':'fa-cloud-arrow-up')}/> Publish {approved.length} {approved.length===1?'voice':'voices'}</button>
    </div>
   </div>}
  </details>;

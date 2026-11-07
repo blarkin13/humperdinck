@@ -19,6 +19,7 @@ SENTENCE="The old lighthouse stood quietly above the waves, waiting for the next
 PACK_NAME="humperdinck-builtin-voices-v1.zip"
 MAX_SAMPLE_BYTES=16*1024*1024
 MAX_PACK_BYTES=120*1024*1024
+CHANNELS=("builtin","catalog")
 
 
 def stable_id(identifier:str)->str:
@@ -45,8 +46,33 @@ class StarterVoices:
         tmp.replace(self.catalog)
 
     def list(self):
-        return [v for v in self._read().values() if
+        return [{"channel":"builtin",**v} for v in self._read().values() if
                 (self.folder/(v["source_voice_id"]+".wav")).is_file()]
+
+    def set_channel(self,source_id:str,channel:str):
+        """builtin: every install gets it. catalog: people choose it in the voice gallery."""
+        if channel not in CHANNELS:
+            raise ValueError("Choose builtin or catalog")
+        stored=self._read()
+        if source_id not in stored:
+            raise ValueError("That voice is not in the built-in pack")
+        stored[source_id]["channel"]=channel
+        self._write(stored)
+        return stored[source_id]
+
+    def catalog_files(self,selected:list[str]):
+        """(public entry, sample bytes) for each gallery voice."""
+        approvals=self._read()
+        for source_id in selected:
+            entry=approvals.get(source_id)
+            path=self.folder/(source_id+".wav")
+            if entry is None or not path.is_file():
+                raise ValueError("Every gallery voice must be approved")
+            raw=path.read_bytes()
+            uid=stable_id(source_id)
+            yield {"voice_id":uid,"name":entry["name"],"category":entry["category"],
+                   "file":"catalog-"+uid+".wav","sha256":sha256(raw).hexdigest(),
+                   "duration":round(sf.info(str(path)).duration,1)},raw
 
     def approve(self,source_id:str,wav:Path,voice:dict):
         if not source_id.isalnum():
@@ -73,6 +99,7 @@ class StarterVoices:
             "approved_at":datetime.now(timezone.utc).isoformat()
         }
         stored=self._read()
+        metadata["channel"]=(stored.get(source_id) or {}).get("channel","builtin")
         stored[source_id]=metadata
         self._write(stored)
         return metadata

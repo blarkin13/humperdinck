@@ -168,3 +168,46 @@ def test_feed_check_downloads_only_when_revision_is_newer(tmp_path:Path):
 def test_remove_requires_voice_in_pack(tmp_path:Path):
     with pytest.raises(ValueError):
         StarterVoices(tmp_path).remove("9"*32)
+
+
+def test_gallery_voices_download_update_and_stay_when_retired(tmp_path:Path):
+    from backend import voice_catalog
+    store,sample=_store(tmp_path)
+    store.approve("1"*32,sample,{"name":"Gallery One","category":"Story"})
+    store.set_channel("1"*32,"catalog")
+    assert store.list()[0]["channel"]=="catalog"
+    entries=[]
+    def publish():
+        entries[:]=list(store.catalog_files(["1"*32]))
+    publish()
+    def fetch(name,limit):
+        if name=="catalog.json":
+            return json.dumps({"revision":1,"voices":[e for e,_ in entries]}).encode()
+        return next(raw for e,raw in entries if e["file"]==name)
+    user=tmp_path/"user"
+    uid=stable_id("1"*32)
+    assert voice_catalog.listing(user,fetch)[0]["installed"] is False
+    voice_catalog.download(user,uid,fetch)
+    assert voice_catalog.listing(user,fetch)[0]["installed"] is True
+    names=json.loads((user/"voices"/"names.json").read_text())
+    assert names[uid]["origin"]=="humperdinck-catalog" and names[uid]["reference_text"]==SENTENCE
+    _,louder=_store(tmp_path,.3)
+    store.approve("1"*32,louder,{"name":"Gallery One"})
+    assert store.list()[0]["channel"]=="catalog"  # re-approving keeps the channel
+    publish()
+    assert voice_catalog.refresh_installed(user,fetch)==[uid]
+    assert (user/"voices"/(uid+".wav")).read_bytes()==louder.read_bytes()
+    # A newer built-in pack never removes a voice the person chose from the gallery.
+    store.approve("2"*32,sample,{"name":"Built"})
+    install(user,store.export(["2"*32],revision=50))
+    assert (user/"voices"/(uid+".wav")).exists()
+
+
+def test_gallery_rejects_damaged_download(tmp_path:Path):
+    from backend import voice_catalog
+    store,sample=_store(tmp_path)
+    store.approve("1"*32,sample,{"name":"One"})
+    entry,_=next(store.catalog_files(["1"*32]))
+    fetch=lambda name,limit:json.dumps({"voices":[entry]}).encode() if name=="catalog.json" else b"RIFFbroken"
+    with pytest.raises(ValueError,match="damaged"):
+        voice_catalog.download(tmp_path/"user",entry["voice_id"],fetch)
