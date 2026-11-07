@@ -190,7 +190,17 @@ fn main() {
                 .separator()
                 .item(&quit_item)
                 .build()?;
-            app.set_menu(MenuBuilder::new(app).item(&submenu).build()?)?;
+            // macOS only routes Cmd+C/V/X/A/Z to text fields through an Edit menu.
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+            app.set_menu(MenuBuilder::new(app).item(&submenu).item(&edit_menu).build()?)?;
             let open_log_path = log_path.clone();
             app.on_menu_event(move |app, event| {
                 if event.id() == "quit-humperdinck" {
