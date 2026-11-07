@@ -10,7 +10,7 @@ export default {
   if(url.pathname==='/downloads.json'||url.pathname==='/updates/latest.json'){
     return publicRelease(request,env);
   }
-  if(url.pathname==='/voices/latest.json'||url.pathname==='/voices/pack.zip'){
+  if(url.pathname==='/voices/latest.json'||url.pathname==='/voices/pack.zip'||url.pathname==='/voices/catalog.json'||/^\/voices\/catalog-[0-9a-f]{32}\.wav$/.test(url.pathname)){
    // Built-In Humperdinck Voices: only these two files of the public downloads
    // repository's `voices` release, never an arbitrary URL.
    if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405});
@@ -19,7 +19,7 @@ export default {
     {redirect:'follow',cf:{cacheTtl:300,cacheEverything:true}});
    if(!upstream.ok)return new Response('Built-in voices have not been published',{status:404,headers:{'Cache-Control':'no-store'}});
    return new Response(request.method==='HEAD'?null:upstream.body,{status:200,headers:{
-    'Content-Type':name.endsWith('.json')?'application/json; charset=utf-8':'application/zip',
+    'Content-Type':name.endsWith('.json')?'application/json; charset=utf-8':name.endsWith('.wav')?'audio/wav':'application/zip',
     'Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'}});
   }
   if(url.pathname.startsWith('/downloads/')){

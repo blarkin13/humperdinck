@@ -20,6 +20,7 @@ import BrowserKokoro from './BrowserKokoro.jsx';
 import SoundEffects from './SoundEffects.jsx';
 import UploadedVoiceRefinement from './UploadedVoiceRefinement.jsx';
 import StarterVoicePack from './StarterVoicePack.jsx';
+import VoiceCatalog from './VoiceCatalog.jsx';
 import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,suggestSpeechDirections} from './narrationSections.js';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 const PUBLIC_STUDIO=import.meta.env.VITE_PUBLIC_STUDIO==='1';
@@ -351,13 +352,14 @@ function App(){
  {setupOpen&&<FirstRunSetup onClose={()=>setSetupOpen(false)} onComplete={()=>{setSetupOpen(false);refresh()}}/>}
  <nav>{[['voices','Voice Library','fa-record-vinyl'],['creator','Voice Creator','fa-wand-magic-sparkles'],['narration','Narration Studio','fa-sliders'],['video','Video Studio','fa-film'],['effects','Sound Effects','fa-music'],['models','Models','fa-microchip']].map(([id,label,icon])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><i className={'fa-solid '+icon}/> {label}</button>)}</nav>
  {tab==='voices'&&<section><div className="heading"><div><h2>Voice Library</h2><p>Browse built-in and saved voices. Select a built-in voice for narration or edit your own voices in Voice Creator.</p></div><button className="primary" onClick={()=>{newVoice();setMethod('controls');setTab('creator')}}><i className="fa-solid fa-plus"/> New voice</button></div>
+ {!PUBLIC_STUDIO&&<VoiceCatalog api={api} onInstalled={refresh}/>}
  <VoiceGrid builtinPublisher={!PUBLIC_STUDIO&&nativePackage===false?<StarterVoicePack api={api} voices={uploads}/>:null} previewDisabled={PUBLIC_STUDIO} onPreviewVoice={PUBLIC_STUDIO?(v)=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration')}:undefined} onCreate={()=>{newVoice();setMethod("controls");setTab("creator")}} items={[...presets.map(v=>({key:v.key,voiceKey:v.key,method:'preset',name:v.name,category:'Built-in · '+v.accent.split(' · ')[0],ready:true,status:'Ready for narration',summary:v.accent,traits:[v.accent],specs:[],onOpen:()=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration');}})),...designed.map(v=>({key:'d'+v.id,voiceKey:'design:'+v.id,method:v.method||'designed',name:v.name,category:'My Voices',selected:selected===v.id,ready:!!v.narration_sample_id,
   status:v.narration_sample_id?'Ready · v'+v.narration_version+' approved':'Draft · v'+v.active_version,summary:voiceSummary(v),
   meters:['pitch','rasp','pace','warmth'].map(k=>[traitLabels[k][0],v.characteristics?.[k]??50,traitLabels[k][1],traitLabels[k][2]]),
   specs:[['fa-solid fa-code-branch',v.version_count,'Versions'],['fa-solid fa-compact-disc',v.sample_count,'Preview takes'],['fa-regular fa-calendar',ago(v.updated_at),'Last changed']],
   previewUrl:v.preview_sample_id&&'/api/designed-samples/'+v.preview_sample_id,onOpen:()=>openVoice(v.id),onDelete:()=>deleteDesigned(v.id,v.name)})),
-  ...uploads.map(v=>({key:'u'+v.voice_id,voiceKey:'upload:'+v.voice_id,method:v.origin||'uploaded',name:v.filename,category:v.origin==='builtin-humperdinck'?'Built-In Humperdinck Voices':'My Voices',selected:uploadSel===v.voice_id,ready:true,status:'Ready for narration',
-  summary:v.origin==='builtin-humperdinck'?'Official Humperdinck voice, prepared from an approved generated sample.':`${v.duration?v.duration+'-second ':''}${v.channels===2?'stereo':'mono'} reference clip used to clone this voice.${v.duration&&v.duration<10?' Longer clips (10–30 s) clone more reliably.':''}`,
+  ...uploads.map(v=>({key:'u'+v.voice_id,voiceKey:'upload:'+v.voice_id,method:v.origin||'uploaded',name:v.filename,category:v.origin==='builtin-humperdinck'?'Built-In Humperdinck Voices':v.origin==='humperdinck-catalog'?'Voice Gallery':'My Voices',selected:uploadSel===v.voice_id,ready:true,status:'Ready for narration',
+  summary:v.origin==='builtin-humperdinck'?'Official Humperdinck voice, prepared from an approved generated sample.':v.origin==='humperdinck-catalog'?'Humperdinck voice you downloaded from the voice gallery.':`${v.duration?v.duration+'-second ':''}${v.channels===2?'stereo':'mono'} reference clip used to clone this voice.${v.duration&&v.duration<10?' Longer clips (10–30 s) clone more reliably.':''}`,
   traits:[v.sample_rate&&(v.sample_rate/1000).toFixed(1)+' kHz',v.size_kb&&Math.round(v.size_kb/102.4)/10+' MB'].filter(Boolean),
   specs:[v.duration&&['fa-regular fa-clock',v.duration+'s','Length'],['fa-regular fa-calendar',ago(v.added_at),'Added']],
   previewUrl:'/api/voices/'+v.voice_id+'/audio',onOpen:()=>openUpload(v.voice_id),onDelete:v.origin==='builtin-humperdinck'?undefined:()=>deleteUpload(v.voice_id,v.filename)}))]}/>

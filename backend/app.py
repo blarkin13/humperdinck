@@ -170,6 +170,37 @@ def remove_starter_voice(voice_id:str):
         raise HTTPException(404,str(exc))
     return {'ok':True}
 
+class StarterChannel(BaseModel):
+    channel:str = Field(pattern='^(builtin|catalog)$')
+
+@app.put('/api/starter-voices/{voice_id}/channel')
+def set_starter_voice_channel(voice_id:str,request:StarterChannel):
+    publisher_only()
+    try:
+        return starter_voices.set_channel(voice_id,request.channel)
+    except ValueError as exc:
+        raise HTTPException(404,str(exc))
+
+@app.get('/api/voice-catalog')
+def voice_catalog():
+    from backend import voice_catalog as gallery
+    try:
+        return {'voices':gallery.listing(DATA)}
+    except Exception:
+        raise HTTPException(503,"Couldn't reach the Humperdinck voice gallery. Check your internet connection and try again.")
+
+@app.post('/api/voice-catalog/{voice_id}/download')
+def download_catalog_voice(voice_id:str):
+    from backend import voice_catalog as gallery
+    try:
+        return gallery.download(DATA,voice_id)
+    except LookupError as exc:
+        raise HTTPException(404,str(exc))
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    except Exception:
+        raise HTTPException(503,"Couldn't download the voice. Check your internet connection and try again.")
+
 @app.post('/api/starter-voices/publish')
 def publish_starter_voices():
     publisher_only()
@@ -184,11 +215,17 @@ def check_builtin_voices():
     """Native app: pick up voices added, changed or removed since the last check."""
     if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE')!='1':
         return {'changed':False,'skipped':True}
-    from backend import builtin_voice_updates
+    from backend import builtin_voice_updates, voice_catalog as gallery
     try:
-        return builtin_voice_updates.check(DATA)
+        result=builtin_voice_updates.check(DATA)
     except Exception as exc:  # offline or feed not published yet: keep the voices already here
-        return {'changed':False,'error':str(exc)}
+        result={'changed':False,'error':str(exc)}
+    try:
+        updated=gallery.refresh_installed(DATA)
+        if updated:result={**result,'changed':True,'gallery_updated':updated}
+    except Exception:
+        pass
+    return result
 
 @app.post('/api/starter-voices/{voice_id}/generate')
 def generate_starter_voice_sample(voice_id:str):

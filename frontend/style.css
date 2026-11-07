@@ -787,6 +787,9 @@ button.active small,.primary small{color:#3a3122}
 .starter-voice-pack-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:15px}
 .starter-voice-pack-footer small{font-size:11px;max-width:450px;line-height:1.5;color:var(--muted)}
 .starter-voice-pack-footer button{min-width:185px}
+.voice-catalog{margin-bottom:14px}
+.catalog-installed{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.starter-voice-pack-actions select{width:auto;font-size:11px;padding:7px 8px}
 @media(max-width:800px){.starter-voice-pack-row{align-items:flex-start;flex-direction:column}.starter-voice-pack-actions{justify-content:flex-start}.starter-voice-pack-footer{flex-direction:column;align-items:flex-start}}
 
 
