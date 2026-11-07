@@ -525,3 +525,140 @@ body{background:#06070b}
   .sonic-stage.motion-observed.is-active .sonic-stage-glow,
   .sonic-stage.motion-observed.is-active .sonic-ribbon{animation:none}
 }
+
+/* Monochrome studio theme: charcoal, silver and white — no neon hues. */
+:root{--electric:#cecece;--ice:#e8e8e8;color:#f2f2f2;background:#050505}
+body,.site-shell{background:#050505;color:#f2f2f2}
+::selection{background:#efefef;color:#0a0a0a}
+.scroll-progress{background:linear-gradient(90deg,#666,#fff,#bdbdbd);box-shadow:0 0 12px #ffffff57}
+.header{background:#090909ef;border-bottom-color:#343434}
+.header::after{background:linear-gradient(90deg,transparent,#fafafa66 50%,transparent)}
+.header .nav a:hover{text-shadow:0 0 16px #fff7}
+.header-cta:hover,.mobile-cta:hover{background:#252525;border-color:#b5b5b5}
+.hero--resonance{
+  background:
+    radial-gradient(ellipse 47% 38% at 50% 76%,#5555553b,transparent 100%),
+    radial-gradient(ellipse 40% 44% at 0% 55%,#66666617,transparent 88%),
+    radial-gradient(ellipse 43% 42% at 100% 35%,#ffffff0c,transparent 86%),
+    #060606;
+  border-bottom-color:#343434;
+}
+.hero--resonance::before{
+  background-image:linear-gradient(90deg,#ffffff08 1px,transparent 1px),
+    linear-gradient(0deg,#ffffff08 1px,transparent 1px)
+}
+.hero--resonance::after{background:linear-gradient(0deg,#060606,transparent)}
+.sonic-bloom-a{background:radial-gradient(circle,#a7a7a72b,transparent 71%)}
+.sonic-bloom-b{background:radial-gradient(circle,#ffffff19,transparent 71%)}
+.sonic-fine-grid{background:repeating-linear-gradient(112deg,transparent 0 125px,#ffffff09 126px 127px,transparent 128px 200px)}
+.hero--resonance .eyebrow{color:#bcbcbc}
+.hero--resonance .pulse-dot{background:#f0f0f0;box-shadow:0 0 0 5px #ffffff19,0 0 19px #ffffff72}
+.hero--resonance .eyebrow-line{background:#a0a0a0}
+.hero--resonance h1{color:#f6f6f6;text-shadow:0 22px 70px #000b}
+.sonic-gradient-text{
+  color:#f3f3f3;
+  background:linear-gradient(113deg,#fff 0%,#dfdfdf 30%,#777 64%,#eee 98%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 17px #ffffff25)
+}
+.hero--resonance .lead{color:#bdbdbd}
+.hero--resonance .hero-actions .button-ghost{
+  background:#f1f1f1;border-color:#f1f1f1;color:#0c0c0c;
+  box-shadow:0 0 38px #ffffff1a,0 12px 36px #0008
+}
+.hero--resonance .hero-actions .button-ghost:hover{
+  background:#fff;border-color:#fff;color:#050505;
+  box-shadow:0 0 46px #ffffff3b
+}
+.hero--resonance .hero-actions .button-primary{
+  background:#151515d9;color:#eaeaea;border-color:#777;
+  box-shadow:0 12px 30px #0007
+}
+.hero--resonance .hero-actions .button-primary:hover{
+  background:#303030;border-color:#e1e1e1;color:#fff
+}
+.hero--resonance .hero-note{color:#cecece}
+.hero--resonance .hero-note .mini-line{background:#a0a0a0}
+.hero--resonance .hero-note .note-secondary{color:#929292}
+.sonic-stage{
+  border-color:#ffffff50;
+  background:
+    radial-gradient(ellipse 60% 57% at 50% 48%,#85858535,transparent 87%),
+    linear-gradient(157deg,#202020,#090909 56%,#161616);
+  box-shadow:0 28px 100px #000c,0 0 65px #ffffff0d,inset 0 0 90px #ffffff09
+}
+.sonic-stage::before{background:linear-gradient(135deg,#ffffff19,transparent 23%,transparent 76%,#ffffff08)}
+.sonic-stage-grid{
+  background:linear-gradient(90deg,#ffffff16 1px,transparent 1px),
+    linear-gradient(#ffffff16 1px,transparent 1px)
+}
+.sonic-stage-glow{
+  background:
+    radial-gradient(ellipse 56% 54% at 48% 48%,#c8c8c84b,transparent 76%),
+    radial-gradient(ellipse 40% 42% at 68% 52%,#ffffff25,transparent 70%)
+}
+.sonic-ribbon{
+  border-top-color:#eeeeee8c;border-bottom-color:#ffffff45;
+  filter:drop-shadow(0 0 14px #ffffff6b)
+}
+.sonic-ribbon-two{filter:drop-shadow(0 0 18px #ffffff4f)}
+.sonic-bars::before{
+  background:linear-gradient(90deg,transparent,#eee7 20%,#fff 50%,#fff8 80%,transparent);
+  box-shadow:0 0 15px #ffffff78
+}
+.sonic-bar{
+  background:linear-gradient(180deg,#fff 0%,#dfdfdf 21%,#959595 52%,#d0d0d0 77%,#f4f4f4 100%);
+  box-shadow:0 0 13px #ffffff70,0 0 28px #ffffff28
+}
+.sonic-bar:nth-child(3n){background:linear-gradient(180deg,#fff,#bfbfbf 31%,#777 63%,#ddd 100%)}
+.sonic-stage-caption{color:#d6d6d6}
+.hero--resonance .hero-bottom{color:#999}
+.section{background:#0c0c0c;border-bottom-color:#303030}
+.section::before{
+  background:radial-gradient(ellipse at 95% 10%,#ffffff0d,transparent 45%),
+    radial-gradient(ellipse at 0% 90%,#ffffff09,transparent 51%)
+}
+.section-kicker{color:#a9a9a9}
+.section h2 span{color:#a0a0a0}
+.section-title-row p,.studio-copy>p,.demo-layout>div>p{color:#aaa}
+.feature-card{
+  background:linear-gradient(148deg,#242424 0%,#141414 55%,#101010);
+  border-color:#515151;box-shadow:0 24px 80px #0005
+}
+.feature-card::before{
+  background:radial-gradient(330px circle at var(--spot-x,50%) var(--spot-y,40%),#ffffff24,transparent 72%)
+}
+.feature-main{background:linear-gradient(140deg,#292929,#131313 72%,#0b0b0b)}
+.feature-card:hover{border-color:#bcbcbc;box-shadow:0 30px 80px #000b,0 0 38px #ffffff11}
+.feature-card p{color:#b6b6b6}
+.feature-main .feature-visual{filter:drop-shadow(0 0 12px #ffffff39)}
+.studio,.voice-demo{background:#090909}
+.studio-mock{
+  border-color:#9999;box-shadow:15px 35px 90px #000b,0 0 70px #ffffff0f
+}
+.studio-mock:hover{box-shadow:20px 40px 90px #000b,0 0 90px #ffffff19}
+.studio .button-ghost{border-color:#9999}
+.demo-panel{border-color:#656565;border-radius:10px;background:linear-gradient(150deg,#252525,#111)}
+.sample-item{border-color:#555;background:#ffffff0a}
+.download{background:radial-gradient(ellipse at 70% 5%,#ffffff0b,transparent 60%),#0b0b0b}
+.download-card{background:linear-gradient(150deg,#242424,#111);border-color:#525252}
+.download-card:hover{border-color:#bcbcbc;box-shadow:0 20px 55px #000a,0 0 35px #ffffff12}
+.download-os-icon{background:#ffffff0c}
+.account-note{background:#090909}
+.footer{background:#060606}
+.has-motion[data-scroll-direction="up"] .scroll-reveal:not(.is-visible){
+  transform:translate3d(0,-38px,0)
+}
+@media(max-width:560px){
+  .hero--resonance{
+    background:
+      radial-gradient(ellipse 93% 47% at 50% 75%,#66666632,transparent 100%),
+      radial-gradient(ellipse 62% 30% at 95% 20%,#ffffff0b,transparent 100%),
+      #060606
+  }
+  .sonic-stage{box-shadow:0 0 40px #ffffff11,inset 0 0 70px #ffffff0b}
+}
+@media(prefers-reduced-motion:reduce){
+  .has-motion[data-scroll-direction="up"] .scroll-reveal:not(.is-visible){transform:none}
+}
