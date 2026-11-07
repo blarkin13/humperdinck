@@ -100,7 +100,7 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
     const isVisible = rect.bottom>0 && rect.top<innerHeight;
     if (isVisible) {
       const mobile = matchMedia('(max-width:560px)').matches;
-      const scale = mobile?.48:1;
+      const scale = mobile ? 0.48 : 1;
       const progress = Math.max(0,Math.min(1,-rect.top/Math.max(1,rect.height*.72)));
       const px = (n)=>Math.round(n*10)/10 + 'px';
       hero.style.setProperty('--kinetic-line-one-x',px((16*progress+8*pointerX)*scale));
