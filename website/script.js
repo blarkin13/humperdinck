@@ -51,109 +51,108 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
   if(note&&available)note.textContent=available===3?'Installers are available for Windows, macOS and Linux. Unsigned builds may trigger an operating-system warning.':'Some installers are still in testing. Available platform downloads are shown above.';
 }).catch(()=>{ /* Retain explicit unavailable labels until published. */ });
 
-
-// Lightweight cinematic motion. All animation is optional and decorative.
-(function initCinematicMotion(){
-  const hero = document.querySelector('.hero');
-  const root = document.documentElement;
+// Bidirectional kinetic typography: scroll position determines the motion,
+// so scrolling back up restores every letter to its original position.
+(function initKineticHero(){
+  const hero = document.querySelector('.hero--kinetic');
   if (!hero || !window.matchMedia) return;
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  if (prefersReducedMotion.matches) return;
+  const root = document.documentElement;
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const finePointer = matchMedia('(pointer:fine)');
+  const bars = document.querySelector('.kinetic-audio-pulse');
+  let pointerX = 0;
+  let lastScrollY = scrollY;
+  let rafPending = false;
+  let motionVisible = true;
 
-  // Reveal content as it enters the viewport. Leave content visible if unsupported.
-  if ('IntersectionObserver' in window) {
-    const targets = document.querySelectorAll(
+  // Keep observing elements after their first appearance: re-entry from above
+  // or below animates them again. No content is hidden if observers are absent.
+  if ('IntersectionObserver' in window && !reducedMotion.matches) {
+    const items = document.querySelectorAll(
       '.section .section-kicker, .section h2, .section-title-row>p, ' +
       '.feature-card, .studio-copy>p, .studio-mock, .demo-panel, ' +
       '.download-card, .account-note h2'
     );
-    // Keep observing: exiting the viewport resets the effect so it can
-    // replay when the visitor scrolls back up as well as down.
-    const revealObserver = new IntersectionObserver(entries => {
+    const observer = new IntersectionObserver(entries => {
       for (const entry of entries) {
-        const el = entry.target;
-        el.style.transitionDelay = entry.isIntersecting ? el.dataset.revealDelay : '0ms';
-        el.classList.toggle('is-visible', entry.isIntersecting);
+        entry.target.style.transitionDelay = entry.isIntersecting ?
+          entry.target.dataset.revealDelay : '0ms';
+        entry.target.classList.toggle('is-visible', entry.isIntersecting);
       }
-    }, {rootMargin:'0px 0px -35px 0px',threshold:0.08});
+    }, {rootMargin:'0px 0px -30px 0px',threshold:0.07});
     document.body.classList.add('has-motion');
-    targets.forEach((el, i) => {
-      el.classList.add('scroll-reveal');
-      el.dataset.revealDelay = Math.min(i % 3, 2) * 75 + 'ms';
-      revealObserver.observe(el);
+    items.forEach((item,i) => {
+      item.classList.add('scroll-reveal');
+      item.dataset.revealDelay = String((i%3)*65) + 'ms';
+      observer.observe(item);
     });
   }
 
-  let pointerX = 0;
-  let pointerY = 0;
-  let lastScrollY = scrollY;
-  let framePending = false;
-  function updateMotion(){
-    framePending = false;
-    if (prefersReducedMotion.matches) return;
-    const currentScrollY = scrollY;
-    if (Math.abs(currentScrollY - lastScrollY) > 1) {
-      document.body.dataset.scrollDirection = currentScrollY < lastScrollY ? 'up' : 'down';
-      lastScrollY = currentScrollY;
+  function paint(){
+    rafPending = false;
+    if (reducedMotion.matches) return;
+    const y = window.scrollY;
+    if (Math.abs(y-lastScrollY)>1) {
+      document.body.dataset.scrollDirection = y<lastScrollY?'up':'down';
+      lastScrollY = y;
     }
     const rect = hero.getBoundingClientRect();
-    const scrolledHero = Math.max(0, Math.min(-rect.top, rect.height));
-    const heroVisible = rect.bottom > 0 && rect.top < innerHeight;
-    if (heroVisible) {
-      const compact = matchMedia('(max-width: 800px)').matches;
-      const multiplier = compact ? 0.7 : 1;
-      hero.style.setProperty('--parallax-art-y', Math.round(scrolledHero * .15 * multiplier) + 'px');
-      hero.style.setProperty('--parallax-glow-y', Math.round(scrolledHero * .075) + 'px');
-      hero.style.setProperty('--parallax-title-y', Math.round(scrolledHero * .055 * multiplier) + 'px');
-      hero.style.setProperty('--parallax-word-y', Math.round(scrolledHero * .18) + 'px');
-      hero.style.setProperty('--pointer-art-x', Math.round(pointerX * 25) + 'px');
-      hero.style.setProperty('--pointer-art-y', Math.round(pointerY * 18) + 'px');
+    const isVisible = rect.bottom>0 && rect.top<innerHeight;
+    if (isVisible) {
+      const mobile = matchMedia('(max-width:560px)').matches;
+      const scale = mobile?.48:1;
+      const progress = Math.max(0,Math.min(1,-rect.top/Math.max(1,rect.height*.72)));
+      const px = (n)=>Math.round(n*10)/10 + 'px';
+      hero.style.setProperty('--kinetic-line-one-x',px((16*progress+8*pointerX)*scale));
+      hero.style.setProperty('--kinetic-line-two-x',px((-39*progress+5*pointerX)*scale));
+      hero.style.setProperty('--kinetic-line-three-x',px((29*progress+4*pointerX)*scale));
+      hero.style.setProperty('--kinetic-line-four-x',px((-55*progress+12*pointerX)*scale));
+      hero.style.setProperty('--kinetic-echo-near',px(14*progress*scale));
+      hero.style.setProperty('--kinetic-echo-far',px(42*progress*scale));
+      hero.style.setProperty('--kinetic-rise',px(-17*progress*scale));
+      hero.style.setProperty('--kinetic-wave-rise',px(48*progress*scale));
+      hero.style.setProperty('--kinetic-wave-x',px((-24*progress+9*pointerX)*scale));
     }
-    const height = Math.max(1, root.scrollHeight - innerHeight);
-    root.style.setProperty('--page-scroll-progress', (Math.min(100,Math.max(0,scrollY / height * 100))) + '%');
+    const pageHeight = Math.max(1,root.scrollHeight-innerHeight);
+    root.style.setProperty('--page-scroll-progress',Math.min(100,Math.max(0,y/pageHeight*100))+'%');
   }
-  function scheduleMotion(){
-    if (framePending) return;
-    framePending = true;
-    requestAnimationFrame(updateMotion);
+  function schedulePaint(){
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(paint);
   }
-  addEventListener('scroll', scheduleMotion, {passive:true});
-  addEventListener('resize', scheduleMotion, {passive:true});
-  if (matchMedia('(pointer:fine)').matches) {
-    hero.addEventListener('pointermove',event => {
-      const rect = hero.getBoundingClientRect();
-      pointerX = (event.clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
-      pointerY = (event.clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
-      scheduleMotion();
-    }, {passive:true});
-    hero.addEventListener('pointerleave',() => {
-      pointerX = 0;
-      pointerY = 0;
-      scheduleMotion();
-    });
-    document.querySelectorAll('.feature-card').forEach(card => {
-      card.addEventListener('pointermove',event => {
-        const rect = card.getBoundingClientRect();
-        card.style.setProperty('--spot-x',(event.clientX - rect.left)+'px');
-        card.style.setProperty('--spot-y',(event.clientY - rect.top)+'px');
-      }, {passive:true});
-    });
-  }
-  // Pause decorative waveform animations when offscreen or the tab is hidden.
-  const soundStage = document.querySelector('.sonic-stage');
-  if (soundStage && 'IntersectionObserver' in window) {
-    soundStage.classList.add('motion-observed');
-    let stageInView = false;
-    const updateStageMotion = () => {
-      soundStage.classList.toggle('is-active', stageInView && !document.hidden);
-    };
-    const stageObserver = new IntersectionObserver(entries => {
-      stageInView = entries[0]?.isIntersecting ?? false;
-      updateStageMotion();
-    }, { threshold: 0.08 });
-    stageObserver.observe(soundStage);
-    document.addEventListener('visibilitychange', updateStageMotion);
-  }
+  addEventListener('scroll',schedulePaint,{passive:true});
+  addEventListener('resize',schedulePaint,{passive:true});
 
-  scheduleMotion();
+  if (finePointer.matches && !reducedMotion.matches) {
+    hero.addEventListener('pointermove',event=>{
+      const r=hero.getBoundingClientRect();
+      pointerX=Math.max(-1,Math.min(1,(event.clientX-r.left-r.width/2)/(r.width/2)));
+      schedulePaint();
+    },{passive:true});
+    hero.addEventListener('pointerleave',()=>{
+      pointerX=0;
+      schedulePaint();
+    });
+    document.querySelectorAll('.feature-card').forEach(card=>{
+      card.addEventListener('pointermove',event=>{
+        const r=card.getBoundingClientRect();
+        card.style.setProperty('--spot-x',(event.clientX-r.left)+'px');
+        card.style.setProperty('--spot-y',(event.clientY-r.top)+'px');
+      },{passive:true});
+    });
+  }
+  if(bars && 'IntersectionObserver' in window){
+    bars.classList.add('motion-observed');
+    const setBarsActive=()=>{
+      bars.classList.toggle('is-active',motionVisible && !document.hidden && !reducedMotion.matches);
+    };
+    const observer=new IntersectionObserver(entries=>{
+      motionVisible=entries[0]?.isIntersecting??false;
+      setBarsActive();
+    },{threshold:0.05});
+    observer.observe(bars);
+    document.addEventListener('visibilitychange',setBarsActive);
+  }
+  schedulePaint();
 })();
