@@ -175,11 +175,11 @@ body,.site-shell{background:#050505;color:#f1f1f1}
   position:absolute;z-index:0;inset:0 auto auto 0;width:max-content;
   color:transparent;-webkit-text-stroke:1px #a5a5a577;
   opacity:.64;pointer-events:none;
-  transform:translate3d(calc(-14px - var(--kinetic-echo-near)),calc(-10px - var(--kinetic-wave-rise) / 3),0)
+  transform:translate3d(calc(-14px - var(--kinetic-echo-near)),-10px,0)
 }
 .kinetic-echo-far{
   z-index:-1;opacity:.27;
-  transform:translate3d(calc(-31px - var(--kinetic-echo-far)),calc(-22px - var(--kinetic-wave-rise) / 2),0)
+  transform:translate3d(calc(-31px - var(--kinetic-echo-far)),-22px,0)
 }
 .kinetic-line-one{
   font-size:clamp(68px,8.6vw,142px);
@@ -212,10 +212,10 @@ body,.site-shell{background:#050505;color:#f1f1f1}
 }
 .kinetic-line-four .kinetic-echo{
   -webkit-text-stroke-color:#dddddd7b;
-  transform:translate3d(calc(16px + var(--kinetic-echo-near)),calc(5px - var(--kinetic-wave-rise) / 3),0)
+  transform:translate3d(calc(16px + var(--kinetic-echo-near)),5px,0)
 }
 .kinetic-line-four .kinetic-echo-far{
-  transform:translate3d(calc(37px + var(--kinetic-echo-far)),calc(12px - var(--kinetic-wave-rise) / 2),0)
+  transform:translate3d(calc(37px + var(--kinetic-echo-far)),12px,0)
 }
 .kinetic-audio-pulse{
   position:absolute;right:clamp(10px,6vw,115px);top:42%;
@@ -223,7 +223,7 @@ body,.site-shell{background:#050505;color:#f1f1f1}
   transform:translate3d(var(--kinetic-wave-x),0,0)
 }
 .kinetic-audio-pulse i{
-  display:block;width:2px;height:calc(8px + (9 - abs(9 - var(--i))) * 2.6px);
+  display:block;width:2px;height:var(--bar-height,15px);
   min-height:5px;background:#e4e4e4;border-radius:2px;box-shadow:0 0 6px #ffffff66;
   animation:kinetic-pulse 1.5s ease-in-out infinite alternate;
   animation-delay:calc(var(--i) * -77ms)
@@ -338,4 +338,11 @@ body,.site-shell{background:#050505;color:#f1f1f1}
   .kinetic-backdrop,.kinetic-content,.kinetic-line,.kinetic-echo,.kinetic-wavefield,.kinetic-audio-pulse{transform:none!important;transition:none!important}
   .kinetic-audio-pulse i{animation:none!important}
   .has-motion .scroll-reveal,.has-motion[data-scroll-direction="up"] .scroll-reveal:not(.is-visible){opacity:1;transform:none;transition:none}
+}
+
+/* Pause tiny decorative equalizer when it is not in the viewport. */
+.kinetic-audio-pulse.motion-observed i{animation-play-state:paused}
+.kinetic-audio-pulse.motion-observed.is-active i{animation-play-state:running}
+@media(prefers-reduced-motion:reduce){
+  .kinetic-audio-pulse.motion-observed.is-active i{animation:none}
 }
