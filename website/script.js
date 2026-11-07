@@ -71,7 +71,8 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
     const items = document.querySelectorAll(
       '.section .section-kicker, .section h2, .section-title-row>p, ' +
       '.feature-card, .studio-copy>p, .studio-mock, .demo-panel, ' +
-      '.download-card, .account-note h2'
+      '.download-card, .account-note h2, ' +
+      '.manifesto .manifesto-kicker, .manifesto .manifesto-part, .manifesto .manifesto-description'
     );
     const observer = new IntersectionObserver(entries => {
       for (const entry of entries) {
