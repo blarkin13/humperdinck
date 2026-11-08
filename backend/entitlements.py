@@ -6,6 +6,8 @@ A production Pro state will only be added when signed license verification exist
 from __future__ import annotations
 
 import os
+from pathlib import Path
+from backend import pro_license
 
 from fastapi import HTTPException
 
@@ -39,15 +41,20 @@ def development_pro() -> bool:
     )
 
 
+def _signed_status() -> dict:
+    folder = Path(os.environ.get('HUMPERDINCK_DATA', Path(__file__).resolve().parent.parent / 'data'))
+    return pro_license.status(folder)
+
+
 def plan() -> str:
-    return "pro" if development_pro() else "free"
+    return "pro" if development_pro() or _signed_status()['active'] else "free"
 
 
 def permitted(capability: str) -> bool:
     required = CAPABILITIES.get(capability)
     if required is None:
         raise ValueError(f"Unknown entitlement capability: {capability}")
-    return required == "free" or development_pro()
+    return required == "free" or plan() == "pro"
 
 
 def require(capability: str) -> None:
@@ -60,10 +67,15 @@ def require(capability: str) -> None:
 
 
 def status() -> dict:
+    signed = _signed_status()
+    preview = development_pro()
+    pro = preview or signed['active']
     return {
-        "plan": plan(),
-        "capabilities": {key: permitted(key) for key in CAPABILITIES},
-        "development_preview": development_pro(),
-        "license_activated": False,
+        "plan": 'pro' if pro else 'free',
+        "capabilities": {key: (required == 'free' or pro) for key, required in CAPABILITIES.items()},
+        "development_preview": preview,
+        "license_activated": bool(signed['active']),
+        "license_source": 'signed-offline' if signed['active'] else ('development-preview' if preview else None),
+        "perpetual": bool(signed['active']),
         "checkout_available": False,
     }
