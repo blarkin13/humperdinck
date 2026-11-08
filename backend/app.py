@@ -1488,6 +1488,9 @@ def edit_audio(request: AudioEditRequest):
         return jobs[new_id]
     meta = voice_meta()
     if kind == 'upload' and request.save_as == 'replace':
+        if voice_meta().get(key, {}).get('origin') == 'builtin-humperdinck':
+            target.unlink(missing_ok=True)
+            raise HTTPException(403, 'Built-in Humperdinck reference audio cannot be overwritten')
         target.replace(source)
         return {'voice_id':key, 'filename':meta.get(key,{}).get('name',key), 'category':meta.get(key,{}).get('category','')}
     base = meta.get(key,{}) if kind == 'upload' else {'name':'Edited sample','category':''}
