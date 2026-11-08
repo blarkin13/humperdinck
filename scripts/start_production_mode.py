@@ -97,6 +97,10 @@ def main() -> None:
     if not PY.exists():
         sys.exit("Run scripts/install.py first")
     ensure_packages()
+    if not (ROOT / "frontend" / "node_modules").is_dir() or (ROOT / "frontend" / "node_modules").is_symlink():
+        # A real folder: Vite refuses to serve files (like the icon font) through a link to elsewhere.
+        say("Installing interface packages...")
+        subprocess.run(["npm", "install", "--no-audit", "--no-fund", "--silent"], cwd=ROOT / "frontend", check=True)
     stage_bundle_layout()
     prepare_data(args.fresh, args.own_engines)
 
