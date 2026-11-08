@@ -40,6 +40,7 @@ on:
       - 'scripts/prepare_native_voice_pack.py'
       - 'scripts/prepare_native_sound_pack.py'
       - 'scripts/release_download.py'
+      - 'scripts/prepare_tauri_nsis.py'
       - 'scripts/smoke_native_server.py'
       - 'backend/**'
       - 'frontend/**'
@@ -207,6 +208,11 @@ jobs:
         env:
           HUMPERDINCK_UPDATER_PUBKEY: ${{ secrets.HUMPERDINCK_UPDATER_PUBKEY }}
         run: python scripts/configure_native_updater.py
+      - name: Pre-stage Tauri NSIS toolchain (resilient download)
+        if: runner.os == 'Windows'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/prepare_tauri_nsis.py
       - name: Package native app
         working-directory: desktop
         shell: bash
