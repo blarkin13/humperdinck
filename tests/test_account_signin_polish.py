@@ -120,3 +120,20 @@ def test_open_page_only_opens_fixed_destinations(monkeypatch):
         raise AssertionError('expected 409')
     except HTTPException as exc:
         assert exc.status_code == 409
+
+
+def test_open_link_allows_only_known_https_sites(monkeypatch):
+    import webbrowser
+    from fastapi.testclient import TestClient
+    from backend import app as app_module
+    opened = []
+    monkeypatch.setattr(webbrowser, 'open', lambda url: opened.append(url) or True)
+    client = TestClient(app_module.app)
+    ok = client.post('/api/open-link', json={'url': 'https://brew.sh'})
+    assert ok.status_code == 200 and opened == ['https://brew.sh']
+    for bad in ('http://brew.sh', 'https://evil.test/x', 'file:///etc/passwd',
+                'https://user@github.com/', 'https://github.com:8443/'):
+        assert client.post('/api/open-link', json={'url': bad}).status_code == 400
+    cross = client.post('/api/open-link', json={'url': 'https://brew.sh'}, headers={'Origin': 'https://evil.test'})
+    assert cross.status_code == 403
+    assert opened == ['https://brew.sh']
