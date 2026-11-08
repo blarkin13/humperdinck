@@ -14,7 +14,8 @@
       "/downloads.json",
       "/updates/latest.json",
       "/voices/*",
-      "/api/account/*"
+      "/api/account/*",
+      "/api/commerce/test/*"
     ]
   }
 }
