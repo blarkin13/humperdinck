@@ -1,15 +1,46 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import NarratorPicker from './NarratorPicker.jsx';
+import SoundDesk,{DEFAULT_DESK,useDeskPreview} from './SoundDesk.jsx';
 
-// Video Studio: a picture track (videos, images, colour cards), narration cues
+// Video Studio: a picture track (videos and images), narration cues
 // placed in time, and sound. Projects autosave; Export renders one MP4.
 const ASPECTS=[['16:9','Landscape 16:9'],['9:16','Vertical 9:16'],['1:1','Square 1:1'],['4:5','Portrait 4:5']];
 const uid=()=>Math.random().toString(36).slice(2,10);
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const clipLength=c=>c.type==='video'?Math.max(.1,(c.trim_end??c.duration??0)-(c.trim_start||0)):Math.max(.5,Number(c.duration)||4);
-const cueEnd=c=>(Number(c.start)||0)+(Number(c.length)||0);
+const cueSpeed=c=>Math.min(2,Math.max(.5,Number(c.speed)||1));
+const cueLen=c=>Number(c.length)||0; // pace is applied when generating
+const cueEnd=c=>(Number(c.start)||0)+cueLen(c);
 const fmt=t=>{t=Math.max(0,t||0);const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)};
-const cueSignature=c=>JSON.stringify([c.text,c.voice_key]);
+const cueSignature=c=>JSON.stringify(cueSpeed(c)===1?[c.text,c.voice_key]:[c.text,c.voice_key,cueSpeed(c)]);
+// Captions: each cue split into sentences, timed by their share of its words
+// (the same rule as the .srt export).
+function captionEntries(cues){
+ const out=[];
+ for(const c of [...cues].filter(c=>c.audio&&c.text).sort((a,b)=>a.start-b.start)){
+  const parts=c.text.replace(/\[[^\]]*\]/g,'').split(/(?<=[.!?])\s+/).map(p=>p.trim()).filter(Boolean);if(!parts.length)continue;
+  const words=parts.map(p=>p.split(/\s+/).length),total=words.reduce((a,b)=>a+b,0);let at=Number(c.start)||0;
+  parts.forEach((text,i)=>{const span=cueLen(c)*words[i]/total;out.push({text,start:at,end:at+span});at+=span});
+ }
+ return out;
+}
+const OUTPUT={'16:9':[1920,1080],'9:16':[1080,1920],'1:1':[1080,1080],'4:5':[1080,1350]};
+// Draw one caption as a transparent PNG strip for the bottom of the frame,
+// matching the preview: 5% of the short side, 84% wide, 7% above the bottom.
+function captionImage(text,W,H){
+ const size=Math.round(Math.min(W,H)*.05),line=Math.round(size*1.35),family=getComputedStyle(document.body).fontFamily||'sans-serif';
+ const c=document.createElement('canvas'),ctx=c.getContext('2d');ctx.font=`600 ${size}px ${family}`;
+ const max=W*.84,lines=[];let cur='';
+ for(const w of text.split(/\s+/)){const t=cur?cur+' '+w:w;if(cur&&ctx.measureText(t).width>max){lines.push(cur);cur=w}else cur=t}
+ if(cur)lines.push(cur);
+ const pad=Math.round(size*.6);c.width=W;c.height=Math.round(H*.07)+lines.length*line+pad;
+ ctx.font=`600 ${size}px ${family}`;ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillStyle='#fff';
+ ctx.shadowColor='rgba(0,0,0,.95)';
+ lines.forEach((l,i)=>{const y=pad+i*line+size;
+  ctx.shadowBlur=size*.28;ctx.shadowOffsetY=size*.08;ctx.fillText(l,W/2,y);
+  ctx.shadowBlur=size*.08;ctx.shadowOffsetY=0;ctx.fillText(l,W/2,y)});
+ return c.toDataURL('image/png');
+}
 function audioLength(url){return new Promise(resolve=>{const a=new Audio();a.preload='metadata';a.onloadedmetadata=()=>resolve(a.duration||0);a.onerror=()=>resolve(0);a.src=url})}
 async function uploadFile(kind,file){
  const body=new FormData();body.append('file',file);
@@ -21,9 +52,13 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  const [projects,setProjects]=useState([]),[project,setProject]=useState(null),[selected,setSelected]=useState(null);
  const [time,setTime]=useState(0),[playing,setPlaying]=useState(false),[zoom,setZoom]=useState(40);
  const [busy,setBusy]=useState(''),[render,setRender]=useState(null),[cueJobs,setCueJobs]=useState({}),[pickerFor,setPickerFor]=useState(null);
- const [music,setMusic]=useState([]),[captionsOn,setCaptionsOn]=useState(true);
+ const [music,setMusic]=useState([]);
  const videoEl=useRef(null),cueAudio=useRef({}),clock=useRef({t:0,last:0}),saveTimer=useRef(null),fileInput=useRef(null),pendingKind=useRef('');
  const timelineRef=useRef(null);
+ const [deskOpen,setDeskOpen]=useState(()=>{try{return localStorage.getItem('humperdinck-video-desk')==='open'}catch{return false}});
+ const captionsOn=project?.burn_captions!==false;
+ const connectDesk=useDeskPreview(project?.desk||DEFAULT_DESK);
+ function toggleDesk(){setDeskOpen(o=>{try{localStorage.setItem('humperdinck-video-desk',o?'closed':'open')}catch{};return !o})}
 
  // ---- projects -------------------------------------------------------------
  const loadProjects=useCallback(async()=>{const list=await api('video-projects');setProjects(list);return list},[api]);
@@ -75,7 +110,6 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   }catch(e){notify?.(e.message,'error')}finally{setBusy('')}
  }
  function pickFiles(kind){pendingKind.current=kind;fileInput.current.accept=kind==='video'?'.mp4,.mov,.mkv,.webm':kind==='image'?'.png,.jpg,.jpeg,.webp':'.mp4,.mov,.mkv,.webm,.png,.jpg,.jpeg,.webp';fileInput.current.click()}
- function addColor(){const c={id:uid(),type:'color',color:'#14252c',duration:3,name:'Colour card'};update(p=>({...p,clips:[...p.clips,c]}));setSelected({kind:'clip',id:c.id})}
  const setClip=(id,change)=>update(p=>({...p,clips:p.clips.map(c=>c.id===id?{...c,...change}:c)}));
  const moveClip=(id,step)=>update(p=>{const list=[...p.clips],i=list.findIndex(c=>c.id===id),j=i+step;if(j<0||j>=list.length)return p;[list[i],list[j]]=[list[j],list[i]];return {...p,clips:list}});
  const removeClip=id=>{update(p=>({...p,clips:p.clips.filter(c=>c.id!==id)}));setSelected(null)};
@@ -93,7 +127,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   if(!cue.voice_key){setPickerFor(cue.id);return}
   setCueJobs(o=>({...o,[cue.id]:{status:'queued',message:'Starting…'}}));
   try{
-   let j=await api('narrations',json('POST',{blocks:[{text:cue.text,voice_key:cue.voice_key,delay_after:0}],format:'wav'}));
+   let j=await api('narrations',json('POST',{blocks:[{text:cue.text,voice_key:cue.voice_key,delay_after:0,speed:cueSpeed(cue)}],format:'wav',desk:{enabled:false,level_match:false}}));
    while(!['complete','failed'].includes(j.status)){setCueJobs(o=>({...o,[cue.id]:j}));await new Promise(r=>setTimeout(r,800));j=await api('jobs/'+j.job_id)}
    if(j.status==='failed')throw Error(j.message);
    const seconds=await audioLength('/api/outputs/'+j.job_id+'.wav');
@@ -106,33 +140,48 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   const seconds=await audioLength('/api/outputs/'+narrationJob.job_id+'.wav');
   const cue={id:uid(),start:0,text:narrationText||'',voice_key:'',audio:narrationJob.job_id,length:Math.round(seconds*100)/100,imported:true};
   update(p=>({...p,cues:[...p.cues,cue].sort((a,b)=>a.start-b.start)}));setSelected({kind:'cue',id:cue.id});
-  if(!clips.length)update(p=>({...p,clips:[{id:uid(),type:'color',color:'#14252c',duration:Math.max(3,Math.ceil(seconds)),name:'Colour card'}]}));
  }
 
  // ---- playback --------------------------------------------------------------
+ // The clock follows whatever is actually playing (the video, else a narration
+ // cue), so media is never re-seeked mid-play; seeking makes sound repeat.
+ const live=useRef({});live.current={layout,cues,length};
+ const ready=m=>m&&!m.paused&&!m.seeking&&m.readyState>=3;
  useEffect(()=>{
   if(!playing)return;
   let frame;clock.current.last=performance.now();
-  const tick=now=>{const t=clock.current.t+(now-clock.current.last)/1000;clock.current.last=now;
+  const tick=now=>{
+   const {layout,cues,length}=live.current,wall=(now-clock.current.last)/1000;clock.current.last=now;
+   let t=clock.current.t;
+   const here=layout.find(l=>t>=l.start&&t<l.end),v=videoEl.current;
+   const cue=cues.find(c=>c.audio&&t>=c.start&&t<cueEnd(c)),a=cue&&cueAudio.current[cue.id];
+   if(here?.clip.type==='video'&&v&&ready(v))t=here.start+v.currentTime-(here.clip.trim_start||0);
+   else if(here?.clip.type==='video'&&v&&!v.paused&&v.readyState<3){/* buffering: hold */}
+   else if(a&&ready(a))t=cue.start+a.currentTime;
+   else t+=wall;
+   if(here&&t>=here.end-.02&&here.clip.type==='video')t=Math.max(t,here.end); // step into the next clip
    if(t>=length){clock.current.t=length;setTime(length);setPlaying(false);return}
    clock.current.t=t;setTime(t);frame=requestAnimationFrame(tick)};
   frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);
- },[playing,length]);
+ },[playing]);
  useEffect(()=>{clock.current.t=time},[playing]);
  function seek(t){t=Math.max(0,Math.min(length,t));clock.current.t=t;setTime(t)}
- // Keep the visible video and the cue audio in step with the clock.
+ // Keep the visible video and the cue audio in step: line them up when they
+ // start or after a seek, then let them play untouched.
  useEffect(()=>{
   const v=videoEl.current;
   if(v&&current?.clip.type==='video'){
    const want=(current.clip.trim_start||0)+(time-current.start);
-   if(Math.abs(v.currentTime-want)>(playing?.35:.05))v.currentTime=want;
+   if(!playing||v.paused?Math.abs(v.currentTime-want)>.05:Math.abs(v.currentTime-want)>1)v.currentTime=want;
    const keep=project.sound.keep_original&&current.clip.has_audio;
    v.volume=keep?Math.min(1,(current.clip.volume??1)*project.sound.original_volume*(speaking?project.sound.duck_volume:1)):0;
    if(playing&&v.paused)v.play().catch(()=>{});if(!playing&&!v.paused)v.pause();
   }
   for(const cue of cues){const a=cueAudio.current[cue.id];if(!a)continue;
    const inside=cue.audio&&time>=cue.start&&time<cueEnd(cue);
-   if(playing&&inside){const want=time-cue.start;if(Math.abs(a.currentTime-want)>.3)a.currentTime=want;if(a.paused)a.play().catch(()=>{})}
+   if(playing&&inside){connectDesk(a,cue.gain||0);const want=time-cue.start;
+    if(a.paused){if(Math.abs(a.currentTime-want)>.05)a.currentTime=want;a.play().catch(()=>{})}
+    else if(Math.abs(a.currentTime-want)>.75)a.currentTime=want}
    else if(!a.paused)a.pause();
   }
  });
@@ -145,7 +194,11 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   const missing=cues.filter(c=>!c.audio||(!c.imported&&c.signature!==cueSignature(c)));
   if(missing.length&&!window.confirm(`${missing.length} cue${missing.length>1?'s are':' is'} not generated or out of date and will be ${missing.some(c=>!c.audio)?'left out':'used as last generated'}. Export anyway?`))return;
   clearTimeout(saveTimer.current);await api('video-projects/'+project.id,json('PUT',project));
-  try{let j=await api('video-projects/'+project.id+'/render',{method:'POST'});setRender(j);
+  try{
+   if(captionsOn){setRender({status:'running',message:'Drawing captions',progress:0});
+    const [W,H]=OUTPUT[project.aspect]||OUTPUT['16:9'];
+    const items=captionEntries(cues).map(e=>({start:e.start,end:e.end,png:captionImage(e.text,W,H)}));
+    await api('video-projects/'+project.id+'/caption-images',json('PUT',{items}))}let j=await api('video-projects/'+project.id+'/render',{method:'POST'});setRender(j);
    while(!['complete','failed'].includes(j.status)){await new Promise(r=>setTimeout(r,1000));j=await api('jobs/'+j.job_id);setRender(j)}
   }catch(e){setRender({status:'failed',message:e.message})}
  }
@@ -156,7 +209,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  const sel=selected?.kind==='clip'?clips.find(c=>c.id===selected.id):selected?.kind==='cue'?cues.find(c=>c.id===selected.id):null;
  const empty=!clips.length&&!cues.length;
  const pxPerSec=zoom,trackWidth=Math.max(600,(length+8)*pxPerSec);
- const captionText=captionsOn&&activeCue?(()=>{const parts=activeCue.text.replace(/\[[^\]]*\]/g,'').split(/(?<=[.!?])\s+/).filter(Boolean);if(!parts.length)return '';const words=parts.map(p=>p.split(/\s+/).length),total=words.reduce((a,b)=>a+b,0);let at=activeCue.start;for(let i=0;i<parts.length;i++){at+=activeCue.length*words[i]/total;if(time<at)return parts[i]}return parts[parts.length-1]})():'';
+ const captionText=captionsOn?(captionEntries(cues).find(e=>time>=e.start&&time<e.end)?.text||''):'';
  const voiceLabel=key=>voiceOptions.find(v=>v.value===key)?.label;
  const nextCue=sel&&selected.kind==='cue'?cues.find(c=>c.start>sel.start&&c.id!==sel.id):null;
  const overlaps=sel&&selected.kind==='cue'&&nextCue&&sel.audio&&cueEnd(sel)>nextCue.start;
@@ -185,7 +238,48 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
    <button type="button" className="vs-start" onClick={()=>pickFiles('image')}><i className="fa-solid fa-images"/><strong>Make a slideshow</strong><small>Add photos or slides. They gently zoom while your narration plays.</small></button>
    <button type="button" className="vs-start" disabled={narrationJob?.status!=='complete'} onClick={importNarration}><i className="fa-solid fa-microphone-lines"/><strong>Start from my narration</strong><small>{narrationJob?.status==='complete'?'Use the narration you made in Narration Studio, then add pictures or video.':'Generate a narration in Narration Studio first.'}</small></button>
   </div>:<>
+  <div className="vs-timeline panel" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();addFiles([...e.dataTransfer.files])}}>
+   <div className="vs-timeline-tools">
+    <button type="button" onClick={()=>pickFiles('video')}><i className="fa-solid fa-video"/> Video</button>
+    <button type="button" onClick={()=>pickFiles('image')}><i className="fa-solid fa-images"/> Images</button>
+    <button type="button" onClick={()=>addCue(time)}><i className="fa-solid fa-microphone-lines"/> Narration cue</button>
+    {narrationJob?.status==='complete'&&<button type="button" onClick={importNarration} title="Add the narration from Narration Studio at the start"><i className="fa-solid fa-file-import"/> From Narration Studio</button>}
+    <span className="vs-bar-spacer"/>
+    <label className="vs-zoom"><i className="fa-solid fa-magnifying-glass-minus"/><input type="range" min="10" max="160" value={zoom} onChange={e=>setZoom(Number(e.target.value))} aria-label="Timeline zoom"/><i className="fa-solid fa-magnifying-glass-plus"/></label>
+   </div>
+   <div className="vs-tracks" ref={timelineRef}>
+    <div className="vs-track-labels"><span/><span>Pictures</span><span>Narration</span></div>
+    <div className="vs-track-scroll">
+     <div style={{width:trackWidth,position:'relative'}}>
+      <div className="vs-ruler" onPointerDown={e=>{const r=e.currentTarget.getBoundingClientRect();setPlaying(false);seek((e.clientX-r.left)/pxPerSec)}}>
+       {Array.from({length:Math.ceil(trackWidth/pxPerSec)+1},(_,s)=>s%(pxPerSec<25?10:pxPerSec<60?5:1)===0&&<span key={s} style={{left:s*pxPerSec}}>{fmt(s).replace(/\.0$/,'')}</span>)}
+      </div>
+      <div className="vs-track vs-track-pictures" onPointerDown={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();seek((e.clientX-r.left)/pxPerSec);setSelected(null)}}}>
+       {layout.map(({clip,start})=><button type="button" key={clip.id} className={'vs-clip '+clip.type+(selected?.id===clip.id?' selected':'')} style={{left:start*pxPerSec,width:clipLength(clip)*pxPerSec-2,...(clip.type==='image'?{backgroundImage:`url(/api/images/${clip.source_id})`}:clip.type==='color'?{background:clip.color}:{})}} onClick={()=>{setSelected({kind:'clip',id:clip.id});if(time<start||time>=start+clipLength(clip))seek(start)}} title={clip.name}>
+        <span><i className={'fa-solid '+(clip.type==='video'?'fa-video':clip.type==='image'?'fa-image':'fa-square')}/> {clip.name}</span></button>)}
+       {!clips.length&&<span className="vs-track-hint">Drop videos or images here</span>}
+      </div>
+      <div className="vs-track vs-track-cues" onDoubleClick={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();addCue((e.clientX-r.left)/pxPerSec)}}}>
+       {cues.map(c=>{const pending=['queued','running'].includes(cueJobs[c.id]?.status),stale=c.audio&&!c.imported&&c.signature!==cueSignature(c),width=Math.max(60,(c.audio?cueLen(c):Math.max(2,c.text.split(/\s+/).length/2.6))*pxPerSec);
+        const overlap=c.audio&&cues.some(o=>o.id!==c.id&&o.start>c.start&&o.start<cueEnd(c));
+        return <div key={c.id} role="button" tabIndex={0} className={'vs-cue'+(c.audio?'':' draft')+(stale?' stale':'')+(overlap?' overlap':'')+(selected?.id===c.id?' selected':'')} style={{left:c.start*pxPerSec,width}}
+         onKeyDown={e=>{if(e.key==='Enter')setSelected({kind:'cue',id:c.id})}}
+         onPointerDown={e=>{e.preventDefault();setSelected({kind:'cue',id:c.id});const x0=e.clientX,s0=c.start;let moved=false;
+          const move=ev=>{const dx=ev.clientX-x0;if(Math.abs(dx)>3)moved=true;if(moved)setCue(c.id,{start:Math.max(0,Math.round((s0+dx/pxPerSec)*10)/10)})};
+          const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);if(!moved)seek(c.start)};
+          window.addEventListener('pointermove',move);window.addEventListener('pointerup',up)}}>
+         <span className="vs-cue-voice">{pending?<i className="fa-solid fa-spinner fa-spin"/>:<i className="fa-solid fa-microphone-lines"/>} {c.imported?'Narration Studio':voiceLabel(c.voice_key)||'No voice'}</span>
+         <span className="vs-cue-text">{c.text||'Empty cue'}</span>
+        </div>})}
+       {!cues.length&&<span className="vs-track-hint">Move the playhead and click “Add narration here”, or double-click this track</span>}
+      </div>
+      <div className="vs-playhead" style={{left:time*pxPerSec}}/>
+     </div>
+    </div>
+   </div>
+  </div>
   <div className="vs-main">
+   <div className="vs-left">
    <div className="vs-stage panel">
     <div className="vs-screen" style={{aspectRatio:aw+' / '+ah}}>
      {current?.clip.type==='video'&&<video ref={videoEl} key={current.clip.source_id} src={'/api/videos/'+current.clip.source_id} preload="auto" playsInline muted={!project.sound.keep_original}/>}
@@ -199,11 +293,14 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
      <button type="button" className="vs-play" aria-label={playing?'Pause':'Play'} title="Play / pause (Space)" onClick={()=>{if(time>=length)seek(0);setPlaying(p=>!p)}}><i className={'fa-solid '+(playing?'fa-pause':'fa-play')}/></button>
      <span className="vs-time">{fmt(time)} <small>/ {fmt(length)}</small></span>
      <input type="range" min="0" max={length||1} step="0.05" value={time} aria-label="Playhead" onChange={e=>{setPlaying(false);seek(Number(e.target.value))}}/>
-     <label className="check vs-cc"><input type="checkbox" checked={captionsOn} onChange={e=>setCaptionsOn(e.target.checked)}/> Captions</label>
+     <label className="check vs-cc"><input type="checkbox" checked={captionsOn} onChange={e=>update({burn_captions:e.target.checked})}/> Captions</label>
      <button type="button" className="primary vs-mark" onClick={()=>{setPlaying(false);addCue(time)}}><i className="fa-solid fa-location-dot"/> Add narration here</button>
     </div>
    </div>
 
+    <SoundDesk desk={project.desk||DEFAULT_DESK} open={deskOpen} onToggle={toggleDesk} onChange={desk=>update(p=>({...p,desk}))}
+   note="Applies to every narration cue. You hear it live here; Level match is applied when you export."/>
+   </div>
    <div className="vs-inspector panel">
     {!sel&&<div className="vs-inspector-empty">
      <h4>Sound</h4>
@@ -226,9 +323,14 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
        {sel.audio&&<button type="button" onClick={()=>{seek(sel.start);setPlaying(true)}}><i className="fa-solid fa-play"/> Play from cue</button>}
       </div>
       {cueJobs[sel.id]&&<small className={cueJobs[sel.id].status==='failed'?'vs-warn':'hint'}>{cueJobs[sel.id].message}</small>}
-      {sel.audio&&sel.signature!==cueSignature(sel)&&<small className="vs-warn">The script or voice changed. Regenerate to hear it.</small>}
+      {sel.audio&&sel.signature!==cueSignature(sel)&&<small className="vs-warn">The script, voice or pace changed. Regenerate to hear it.</small>}
      </>}
-     {sel.audio&&<small className="hint">{fmt(sel.length)} long · ends at {fmt(cueEnd(sel))}</small>}
+     {sel.audio&&<div className="vs-cue-sound">
+      <label><span>Loudness</span> <small>{(sel.gain||0)>0?'+':''}{sel.gain||0} dB</small><input type="range" min="-12" max="12" step="1" value={sel.gain||0} onChange={e=>setCue(sel.id,{gain:Number(e.target.value)})} onDoubleClick={()=>setCue(sel.id,{gain:0})}/></label>
+      <label><span>Pace</span> <small>{cueSpeed(sel).toFixed(2)}×</small><input type="range" min="0.8" max="1.25" step="0.01" value={cueSpeed(sel)} onChange={e=>setCue(sel.id,{speed:Number(e.target.value)})} onDoubleClick={()=>setCue(sel.id,{speed:1})}/></label>
+      <small className="hint">Fix one voice that sounds too loud, quiet, slow or rushed. Pace changes need Regenerate. Double-click a slider to reset it.</small>
+     </div>}
+     {sel.audio&&<small className="hint">{fmt(cueLen(sel))} long · ends at {fmt(cueEnd(sel))}</small>}
      {overlaps&&<small className="vs-warn"><i className="fa-solid fa-triangle-exclamation"/> Runs {(cueEnd(sel)-nextCue.start).toFixed(1)} s into the next cue. Move one of them or shorten the script.</small>}
      <button type="button" className="vs-remove" onClick={()=>removeCue(sel.id)}><i className="fa-solid fa-trash-can"/> Remove cue</button>
     </div>}
@@ -248,47 +350,6 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
    </div>
   </div>
 
-  <div className="vs-timeline panel" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();addFiles([...e.dataTransfer.files])}}>
-   <div className="vs-timeline-tools">
-    <button type="button" onClick={()=>pickFiles('video')}><i className="fa-solid fa-video"/> Video</button>
-    <button type="button" onClick={()=>pickFiles('image')}><i className="fa-solid fa-images"/> Images</button>
-    <button type="button" onClick={addColor}><i className="fa-solid fa-square"/> Colour card</button>
-    <button type="button" onClick={()=>addCue(time)}><i className="fa-solid fa-microphone-lines"/> Narration cue</button>
-    {narrationJob?.status==='complete'&&<button type="button" onClick={importNarration} title="Add the narration from Narration Studio at the start"><i className="fa-solid fa-file-import"/> From Narration Studio</button>}
-    <span className="vs-bar-spacer"/>
-    <label className="vs-zoom"><i className="fa-solid fa-magnifying-glass-minus"/><input type="range" min="10" max="160" value={zoom} onChange={e=>setZoom(Number(e.target.value))} aria-label="Timeline zoom"/><i className="fa-solid fa-magnifying-glass-plus"/></label>
-   </div>
-   <div className="vs-tracks" ref={timelineRef}>
-    <div className="vs-track-labels"><span/><span>Pictures</span><span>Narration</span></div>
-    <div className="vs-track-scroll">
-     <div style={{width:trackWidth,position:'relative'}}>
-      <div className="vs-ruler" onPointerDown={e=>{const r=e.currentTarget.getBoundingClientRect();setPlaying(false);seek((e.clientX-r.left)/pxPerSec)}}>
-       {Array.from({length:Math.ceil(trackWidth/pxPerSec)+1},(_,s)=>s%(pxPerSec<25?10:pxPerSec<60?5:1)===0&&<span key={s} style={{left:s*pxPerSec}}>{fmt(s).replace(/\.0$/,'')}</span>)}
-      </div>
-      <div className="vs-track vs-track-pictures" onPointerDown={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();seek((e.clientX-r.left)/pxPerSec);setSelected(null)}}}>
-       {layout.map(({clip,start})=><button type="button" key={clip.id} className={'vs-clip '+clip.type+(selected?.id===clip.id?' selected':'')} style={{left:start*pxPerSec,width:clipLength(clip)*pxPerSec-2,...(clip.type==='image'?{backgroundImage:`url(/api/images/${clip.source_id})`}:clip.type==='color'?{background:clip.color}:{})}} onClick={()=>{setSelected({kind:'clip',id:clip.id});if(time<start||time>=start+clipLength(clip))seek(start)}} title={clip.name}>
-        <span><i className={'fa-solid '+(clip.type==='video'?'fa-video':clip.type==='image'?'fa-image':'fa-square')}/> {clip.name}</span></button>)}
-       {!clips.length&&<span className="vs-track-hint">Drop videos or images here</span>}
-      </div>
-      <div className="vs-track vs-track-cues" onDoubleClick={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();addCue((e.clientX-r.left)/pxPerSec)}}}>
-       {cues.map(c=>{const pending=['queued','running'].includes(cueJobs[c.id]?.status),stale=c.audio&&!c.imported&&c.signature!==cueSignature(c),width=Math.max(60,(c.audio?c.length:Math.max(2,c.text.split(/\s+/).length/2.6))*pxPerSec);
-        const overlap=c.audio&&cues.some(o=>o.id!==c.id&&o.start>c.start&&o.start<cueEnd(c));
-        return <div key={c.id} role="button" tabIndex={0} className={'vs-cue'+(c.audio?'':' draft')+(stale?' stale':'')+(overlap?' overlap':'')+(selected?.id===c.id?' selected':'')} style={{left:c.start*pxPerSec,width}}
-         onKeyDown={e=>{if(e.key==='Enter')setSelected({kind:'cue',id:c.id})}}
-         onPointerDown={e=>{e.preventDefault();setSelected({kind:'cue',id:c.id});const x0=e.clientX,s0=c.start;let moved=false;
-          const move=ev=>{const dx=ev.clientX-x0;if(Math.abs(dx)>3)moved=true;if(moved)setCue(c.id,{start:Math.max(0,Math.round((s0+dx/pxPerSec)*10)/10)})};
-          const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);if(!moved)seek(c.start)};
-          window.addEventListener('pointermove',move);window.addEventListener('pointerup',up)}}>
-         <span className="vs-cue-voice">{pending?<i className="fa-solid fa-spinner fa-spin"/>:<i className="fa-solid fa-microphone-lines"/>} {c.imported?'Narration Studio':voiceLabel(c.voice_key)||'No voice'}</span>
-         <span className="vs-cue-text">{c.text||'Empty cue'}</span>
-        </div>})}
-       {!cues.length&&<span className="vs-track-hint">Move the playhead and click “Add narration here”, or double-click this track</span>}
-      </div>
-      <div className="vs-playhead" style={{left:time*pxPerSec}}/>
-     </div>
-    </div>
-   </div>
-  </div>
   </>}
   {cues.filter(c=>c.audio).map(c=><audio key={c.id+c.audio} ref={el=>{if(el)cueAudio.current[c.id]=el;else delete cueAudio.current[c.id]}} src={'/api/outputs/'+c.audio+'.wav'} preload="auto"/>)}
   {pickerFor&&<NarratorPicker api={api} options={voiceOptions} currentKey={cues.find(c=>c.id===pickerFor)?.voice_key||''} sectionNumber={cues.findIndex(c=>c.id===pickerFor)+1}

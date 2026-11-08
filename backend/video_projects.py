@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import re
 import time
+
+from backend import audio_fx
 from pathlib import Path
 from uuid import uuid4
 
@@ -22,6 +24,7 @@ def new_project(name='Untitled video'):
     return {'id': uuid4().hex, 'name': name, 'aspect': '16:9', 'clips': [], 'cues': [],
             'sound': {'keep_original': True, 'duck': True, 'original_volume': 1.0, 'duck_volume': 0.25,
                       'music_id': None, 'music_volume': 0.18, 'fade': True},
+            'desk': audio_fx.default_desk(),
             'created': time.time(), 'updated': time.time()}
 
 
@@ -32,8 +35,20 @@ def clip_length(clip):
     return max(0.5, float(clip.get('duration') or 4))
 
 
+def cue_speed(cue):
+    try:
+        return max(0.5, min(2.0, float(cue.get('speed') or 1)))
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def cue_length(cue):
+    # Pace is applied when the cue is generated, so length is the real length.
+    return float(cue.get('length') or 0)
+
+
 def cue_end(cue):
-    return float(cue.get('start') or 0) + float(cue.get('length') or 0)
+    return float(cue.get('start') or 0) + cue_length(cue)
 
 
 def total_length(project):
@@ -93,11 +108,15 @@ def _fmt(seconds):
     return f'{seconds:.3f}'
 
 
-def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=None):
+def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=None, voice=None, overlays=None):
     """Build the FFmpeg command for a project.
 
     ``resolve(kind, id)`` returns a Path for 'video', 'image', 'audio' (a cue's
     generated narration) and 'music' (a sound-library file), or raises.
+    ``voice(cue, path)`` returns the cue's audio with the sound desk applied
+    (see audio_fx.process); without it the desk's tone runs in the graph.
+    ``overlays`` is a list of (png_path, start, end): caption images drawn by
+    the app (this FFmpeg has no text filters) laid over the bottom of the frame.
     """
     width, height = ASPECTS.get(project.get('aspect'), ASPECTS['16:9'])
     sound = project.get('sound') or {}
@@ -159,6 +178,12 @@ def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=N
         graph.append(f'[vcat]fade=t=in:st=0:d=0.5,fade=t=out:st={_fmt(length - 0.6)}:d=0.6[vfade]')
         video_out = 'vfade'
 
+    for n, (image, start, end) in enumerate(overlays or []):
+        index = add_input('-i', str(image))
+        graph.append(f"[{video_out}][{index}:v]overlay=x=(W-w)/2:y=H-h:eof_action=repeat:"
+                     f"enable='between(t,{_fmt(float(start))},{_fmt(float(end))})'[vcap{n}]")
+        video_out = f'vcap{n}'
+
     # Lower the original sound (and music) while someone is speaking.
     spans = [(float(c['start']), cue_end(c)) for c in cues]
     def ducked(label, normal, low, out):
@@ -172,10 +197,15 @@ def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=N
     ducked('orig', original, original * float(sound.get('duck_volume', 0.25)), 'bed')
     mix = ['[bed]']
     for k, cue in enumerate(cues):
-        index = add_input('-i', str(resolve('audio', cue['audio'])))
+        cue_path = resolve('audio', cue['audio'])
+        if voice:
+            cue_path = voice(cue, cue_path)
+        index = add_input('-i', str(cue_path))
         delay = round(float(cue['start']) * 1000)
         volume = float(cue.get('volume', 1.0))
-        graph.append(f'[{index}:a]aresample={RATE},aformat=channel_layouts=stereo,volume={volume:.2f},adelay={delay}|{delay}[n{k}]')
+        desk = '' if voice else audio_fx.chain(project.get('desk'), cue.get('gain', 0))
+        desk = desk + ',' if desk else ''
+        graph.append(f'[{index}:a]{desk}aresample={RATE},aformat=channel_layouts=stereo,volume={volume:.2f},adelay={delay}|{delay}[n{k}]')
         mix.append(f'[n{k}]')
     if sound.get('music_id'):
         index = add_input('-stream_loop', '-1', '-i', str(resolve('music', sound['music_id'])))
@@ -208,7 +238,7 @@ def captions(project):
         text = re.sub(r'\[[^\]]*\]', '', cue['text']).strip()
         parts = [p.strip() for p in re.split(r'(?<=[.!?])\s+', text) if p.strip()] or [text]
         words = sum(len(p.split()) for p in parts) or 1
-        at, length = float(cue['start']), float(cue.get('length') or 0)
+        at, length = float(cue['start']), cue_length(cue)
         for part in parts:
             span = length * len(part.split()) / words
             entries.append((at, at + span, part))

@@ -39,6 +39,8 @@ on:
       - 'scripts/build_native_sidecar.py'
       - 'scripts/prepare_native_voice_pack.py'
       - 'scripts/prepare_native_sound_pack.py'
+      - 'scripts/release_download.py'
+      - 'scripts/prepare_tauri_nsis.py'
       - 'scripts/smoke_native_server.py'
       - 'backend/**'
       - 'frontend/**'
@@ -91,6 +93,10 @@ jobs:
       - name: Install existing React UI dependencies
         working-directory: frontend
         shell: bash
+        env:
+          # The UI never uses onnxruntime-node's optional CUDA binaries; skipping
+          # them avoids a GitHub release download that can time out (HTTP 504).
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
         run: |
           for attempt in 1 2 3; do
             if npm install --no-audit --no-fund; then exit 0; fi
@@ -115,10 +121,24 @@ jobs:
           python -m pip install "pytest>=8,<10" "httpx>=0.27,<1"
           python -m pytest -q tests/test_native_runtime.py tests/test_qwen_mlx_base.py tests/test_native_disk_space.py tests/test_native_updates.py tests/test_native_update_manifest.py tests/test_configure_native_updater.py tests/test_models.py::test_first_run_setup_persists_across_visits
 
+      # Packs are pinned and SHA-256 verified on every run, so a cached copy is
+      # safe and spares the build a GitHub release download.
+      - name: Restore verified voice and sound packs
+        uses: actions/cache@v4
+        with:
+          path: |
+            assets/voice-packs/humperdinck-builtin-voices-v1.zip
+            assets/sound-packs/humperdinck-cc0-nature-pack.zip
+          key: release-packs-${{ hashFiles('scripts/prepare_native_voice_pack.py', 'scripts/prepare_native_sound_pack.py') }}
+
       - name: Download and verify seven approved Built-In Humperdinck Voices
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/prepare_native_voice_pack.py
 
       - name: Download and verify nine approved Humperdinck Sound Effects
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/prepare_native_sound_pack.py
 
       - name: Compile the bundled localhost server
@@ -188,6 +208,11 @@ jobs:
         env:
           HUMPERDINCK_UPDATER_PUBKEY: ${{ secrets.HUMPERDINCK_UPDATER_PUBKEY }}
         run: python scripts/configure_native_updater.py
+      - name: Pre-stage Tauri NSIS toolchain (resilient download)
+        if: runner.os == 'Windows'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/prepare_tauri_nsis.py
       - name: Package native app
         working-directory: desktop
         shell: bash
@@ -206,7 +231,15 @@ jobs:
           if [ "$RUNNER_OS" = macOS ] && [ "${{ inputs.signed_updates }}" = true ]; then
             BUNDLE_TARGET="app,dmg"
           fi
-          npx tauri build --bundles "$BUNDLE_TARGET" "${CONFIG[@]}"
+          # Bundling downloads tools (NSIS, WiX, AppImage helpers) from GitHub
+          # releases, which can briefly return 5xx. Compiled output is reused,
+          # so a retry only redoes the bundling.
+          for attempt in 1 2 3; do
+            if npx tauri build --bundles "$BUNDLE_TARGET" "${CONFIG[@]}"; then break; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            echo "Packaging failed on attempt $attempt; retrying in $((attempt * 30)) s"
+            sleep $((attempt * 30))
+          done
       # Tauri may strip the PyInstaller helper entitlement. Re-sign the helper
       # and outer app with the selected ad-hoc or Developer ID identity.
       - name: Preserve signed macOS sidecar entitlements and rebuild DMG

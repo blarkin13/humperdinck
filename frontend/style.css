@@ -1160,3 +1160,42 @@ button.active small,.primary small{color:#3a3122}
 .vs-bar>input,.vs-bar>select,.vs-bar>button{width:auto!important;flex:0 0 auto}
 .vs-bar>.vs-name{flex:0 1 320px}
 .vs-row input,.vs-inspector select{width:100%}
+
+/* Sound desk (Narration Studio and Video Studio) */
+.sound-desk{margin:14px 0;border:1px solid var(--line,#ffffff1f);border-radius:14px;background:linear-gradient(180deg,#ffffff08,#0000001a);overflow:hidden}
+.sound-desk-head{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;cursor:pointer;font:inherit;color:inherit}
+.sound-desk-head:hover{background:#ffffff0a}.sound-desk-head:focus-visible{outline:2px solid var(--brass-hi,#c6a46a);outline-offset:-2px}
+.sound-desk-head>.fa-sliders{color:var(--brass-hi,#c6a46a)}
+.sound-desk-summary{font-size:.82rem;opacity:.7;padding:2px 10px;border-radius:999px;background:#ffffff10}
+.sound-desk-chevron{margin-left:auto;opacity:.6}
+.sound-desk.bypassed .sound-desk-summary{opacity:.45}
+.sound-desk-body{padding:4px 16px 16px;border-top:1px solid var(--line,#ffffff14)}
+.sound-desk-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:12px 0}
+.sound-desk-switch{display:flex!important;align-items:center;gap:6px;font-weight:600;white-space:nowrap}
+.sound-desk-switch input,.sound-desk-check input{width:auto!important;margin:0}
+.sound-desk-presets{display:flex;flex-wrap:wrap;gap:6px}
+.sound-desk-presets button,.sound-desk .vs-seg button{width:auto!important;padding:6px 12px!important;border-radius:999px!important;font-size:.85rem}
+.sound-desk-presets button.on,.sound-desk .vs-seg button.on{background:var(--brass-hi,#c6a46a)!important;color:#15120c!important;border-color:transparent!important}
+.sound-desk-grid{display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:20px;align-items:start}
+@media (max-width:700px){.sound-desk-grid{grid-template-columns:1fr}}
+.sound-desk-eq{display:flex;justify-content:space-around;gap:8px;padding:12px 8px;border-radius:12px;background:#0000002e;border:1px solid var(--line,#ffffff14)}
+.sound-desk-band{display:flex!important;flex-direction:column;align-items:center;gap:8px;font-size:.8rem;margin:0!important}
+.sound-desk-band input{writing-mode:vertical-lr;direction:rtl;width:28px!important;height:130px;margin:0;accent-color:var(--brass-hi,#c6a46a)}
+.sound-desk-db{font-variant-numeric:tabular-nums;font-size:.75rem;opacity:.75;min-width:44px;text-align:center}
+.sound-desk-side{display:grid;gap:12px}
+.sound-desk-check{display:flex!important;gap:10px;align-items:flex-start;margin:0!important}
+.sound-desk-check span{display:grid}.sound-desk-check small{opacity:.65;font-weight:400}
+.sound-desk-compress{display:grid;gap:6px;font-size:.9rem}
+.sound-desk .vs-seg{display:flex;gap:6px}
+.sound-desk-reset{justify-self:start}
+.sound-desk.bypassed .sound-desk-eq,.sound-desk.bypassed .sound-desk-side>*:not(.sound-desk-reset){opacity:.45}
+.vs-cue-sound{display:grid;gap:8px;padding:10px;border-radius:10px;background:#0000001f}
+.vs-cue-sound label small{float:right;opacity:.7;font-variant-numeric:tabular-nums}
+.vs-left{display:grid;gap:14px;min-width:0}
+.vs-left .sound-desk{margin:0}
+.vs-screen{container-type:size}
+.vs-caption{font-size:calc(min(100cqw,100cqh)*.05)!important;left:8%!important;right:8%!important;bottom:7%!important}
+.vs-cue-sound{gap:4px!important;padding:10px 12px!important}
+.vs-cue-sound label{display:grid!important;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;margin:0!important}
+.vs-cue-sound label small{float:none!important}
+.vs-cue-sound label input{grid-column:1/-1;margin:2px 0 6px!important}

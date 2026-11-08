@@ -26,7 +26,7 @@ from backend import catalog
 from backend import media_tools
 from backend import native_models
 from backend.voice_picker import VoicePicker
-from backend import video_projects
+from backend import video_projects, audio_fx
 from backend.characters import (Characters, TARGET_TEXT, NAMES as CHARACTER_NAMES, accents as character_accents,
                                 performer as character_performer, description as character_description)
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
@@ -863,12 +863,15 @@ class NarrationBlock(BaseModel):
     voice_key: str = Field(min_length=1)
     delay_after: float = Field(default=0, ge=0, le=30)
     effects: list[NarrationEffect] = Field(default_factory=list,max_length=8)
+    gain: float = Field(default=0, ge=-24, le=12)
+    speed: float = Field(default=1, ge=0.5, le=2)
 
 class MultiNarrationRequest(BaseModel):
     blocks: list[NarrationBlock] = Field(min_length=1, max_length=80)
     format: str = 'mp3'
     name: str = Field(default='Narration', max_length=120)
     ambience: NarrationAmbience | None = None
+    desk: dict | None = None
 
 def require_engine(role):
     choice = settings.load()[role]
@@ -1068,13 +1071,13 @@ def _missing_character():
     raise HTTPException(404, 'Character not found')
 
 
-def render_character(character_id, text, output, on_progress=None):
+def render_character(character_id, text, output, on_progress=None, speed=1.0):
     """Speak new text as a character: perform it, then convert into the original voice."""
     character = characters.get(character_id) or _missing_character()
     if character.get('performer'):
         source = output.with_name(output.stem + '-performance.wav')
         try:
-            engines.preset('kokoro', character['performer'], source, text, on_progress=on_progress)
+            engines.preset('kokoro', character['performer'], source, text, on_progress=on_progress, speed=speed)
             engines.convert(source, character_targets(character['source_key']), output)
         finally:
             source.unlink(missing_ok=True)
@@ -1298,11 +1301,17 @@ def run_multi(job_id, request, references):
                     narration_text = remove_speech_direction_tags(block.text)
                     if not narration_text:
                         raise ValueError('A narration section needs words beyond speech direction tags')
+                    # Pace: Kokoro voices (and Kokoro-performed characters) speak at the pace
+                    # natively; others are time-stretched afterwards, which can sound less clean.
+                    stretch=block.speed
                     if block.voice_key.startswith('character:'):
-                        render_character(block.voice_key[10:], narration_text, temp, on_progress=progress)
+                        performed=bool((characters.get(block.voice_key[10:]) or {}).get('performer'))
+                        render_character(block.voice_key[10:], narration_text, temp, on_progress=progress,speed=block.speed if performed else 1.0)
+                        if performed: stretch=1.0
                     elif reference is None:
                         preset_engine, preset_voice = ref_text
-                        engines.preset(preset_engine, preset_voice, temp, narration_text, on_progress=progress)
+                        engines.preset(preset_engine, preset_voice, temp, narration_text, on_progress=progress, speed=block.speed)
+                        stretch=1.0
                     else:
                         engines.clone(choice, temp, narration_text, reference, ref_text, on_progress=progress)
                     audio,rate=sf.read(temp,dtype='float32',always_2d=False)
@@ -1322,6 +1331,14 @@ def run_multi(job_id, request, references):
                                 refine_wav(refined,current)
                                 audio,_=sf.read(refined,dtype='float32')
                             finally:refined.unlink(missing_ok=True)
+                    if request.desk is not None or block.gain or stretch!=1:
+                        desked=DATA/'outputs'/f'{job_id}-{index}-desk.wav'
+                        sf.write(desked,audio,target_rate)
+                        try:
+                            audio_fx.process(desked,target_rate,request.desk,block.gain,stretch)
+                            audio,_=sf.read(desked,dtype='float32')
+                            if audio.ndim==2: audio=audio.mean(axis=1)
+                        finally:desked.unlink(missing_ok=True)
                     for effect in block.effects:
                         if effect.position not in ('before','after','mix'):
                             raise ValueError('Invalid sound effect position')
@@ -1576,6 +1593,7 @@ def save_video_project(project_id: str, project: dict):
 def delete_video_project(project_id: str):
     if not video_store.delete(project_id):
         _missing_project()
+    shutil.rmtree(_caption_folder(project_id), ignore_errors=True)
     return {'deleted': True}
 
 
@@ -1598,9 +1616,19 @@ def _project_media(kind, ident):
     raise ValueError(kind)
 
 
-def run_project_render(job_id, command, length):
+def run_project_render(job_id, build, length):
     job = jobs[job_id]
+    prepared = []
+    def voice(cue, path):
+        # The sound desk is applied to each cue before mixing (tone, then one steady level).
+        job.update(status='running', message=f'Balancing voices · {len(prepared)+1}')
+        output = DATA / 'outputs' / f'{job_id}-cue-{len(prepared)}.wav'
+        prepared.append(output)
+        audio_fx.process(path, video_projects.RATE, build.desk, cue.get('gain', 0), 1.0,
+                         shutil.which('ffmpeg') or 'ffmpeg', output=output)
+        return output
     try:
+        command = build(voice)
         job.update(status='running', message='Rendering video')
         process = subprocess.Popen(command[:-1] + ['-progress', 'pipe:1', '-nostats', command[-1]],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -1617,6 +1645,9 @@ def run_project_render(job_id, command, length):
         job.update(status='complete', progress=100, download_url=f"/api/outputs/{job_id}.mp4", message='Video ready')
     except Exception as exc:
         job.update(status='failed', message=f'Render failed: {exc}')
+    finally:
+        for path in prepared:
+            path.unlink(missing_ok=True)
 
 
 @app.post('/api/video-projects/{project_id}/render')
@@ -1625,14 +1656,63 @@ def render_video_project(project_id: str):
     if not shutil.which('ffmpeg'):
         raise HTTPException(503, 'FFmpeg is required')
     job_id = uuid4().hex
+    output, ffmpeg, encoder = DATA / 'outputs' / f'{job_id}.mp4', shutil.which('ffmpeg'), media_tools.video_encoder_args()
+    def build(voice=None):
+        return video_projects.render_command(project, _project_media, output, ffmpeg, encoder, voice=voice,
+                                             overlays=_caption_overlays(project))
+    build.desk = project.get('desk')
     try:
-        command = video_projects.render_command(project, _project_media, DATA / 'outputs' / f'{job_id}.mp4',
-                                                shutil.which('ffmpeg'), media_tools.video_encoder_args())
+        build()  # validate before starting the job
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(422, str(exc))
     jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0, 'message': 'Waiting to render'}
-    Thread(target=run_project_render, args=(job_id, command, video_projects.total_length(project)), daemon=True).start()
+    Thread(target=run_project_render, args=(job_id, build, video_projects.total_length(project)), daemon=True).start()
     return jobs[job_id]
+
+
+class CaptionImage(BaseModel):
+    start: float = Field(ge=0, le=36000)
+    end: float = Field(ge=0, le=36000)
+    png: str = Field(max_length=4_000_000)
+
+
+class CaptionImages(BaseModel):
+    items: list[CaptionImage] = Field(default_factory=list, max_length=2000)
+
+
+def _caption_folder(project_id):
+    video_store.path(project_id)  # validates the id
+    return DATA / 'video-projects' / f'{project_id}-captions'
+
+
+def _caption_overlays(project):
+    if not project.get('burn_captions', True):
+        return []
+    try:
+        listed = json.loads((_caption_folder(project['id']) / 'captions.json').read_text())
+    except (OSError, ValueError, KeyError):
+        return []
+    folder = _caption_folder(project['id'])
+    return [(folder / item['file'], item['start'], item['end']) for item in listed if (folder / item['file']).is_file()]
+
+
+@app.put('/api/video-projects/{project_id}/caption-images')
+def save_caption_images(project_id: str, request: CaptionImages):
+    import base64
+    video_store.get(project_id) or _missing_project()
+    folder = _caption_folder(project_id)
+    if folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True)
+    listed = []
+    for n, item in enumerate(request.items):
+        data = base64.b64decode(item.png.split(',', 1)[-1], validate=False)
+        if not data.startswith(b'\x89PNG'):
+            raise HTTPException(400, 'Caption images must be PNG')
+        (folder / f'{n}.png').write_bytes(data)
+        listed.append({'file': f'{n}.png', 'start': item.start, 'end': max(item.start, item.end)})
+    (folder / 'captions.json').write_text(json.dumps(listed))
+    return {'count': len(listed)}
 
 
 @app.get('/api/video-projects/{project_id}/captions.srt')

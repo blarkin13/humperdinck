@@ -58,3 +58,13 @@ def test_render_mixes_clips_cues_and_padding(tmp_path):
     video_stream = next(s for s in info['streams'] if s['codec_type'] == 'video')
     assert (video_stream['width'], video_stream['height']) == (1080, 1080)
     assert any(s['codec_type'] == 'audio' for s in info['streams'])
+
+
+def test_caption_overlays_join_the_video_chain(tmp_path):
+    project = vp.new_project()
+    project['clips'] = [{'id': 'c', 'type': 'color', 'color': '#000000', 'duration': 3}]
+    command = vp.render_command(project, lambda kind, i: tmp_path / i, tmp_path / 'o.mp4',
+                                            overlays=[(tmp_path / '0.png', 0.5, 1.5)])
+    graph = command[command.index('-filter_complex') + 1]
+    assert "overlay=x=(W-w)/2:y=H-h" in graph and "between(t,0.500,1.500)" in graph
+    assert command[command.index('-map') + 1] == '[vcap0]'

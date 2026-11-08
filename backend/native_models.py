@@ -7,6 +7,8 @@ import ssl
 import certifi
 import shutil
 import urllib.request
+import json
+import time
 from uuid import uuid4
 
 from backend.catalog import preset_path
@@ -20,7 +22,38 @@ SHA256 = {
 }
 
 
-def download_kokoro(progress=lambda _: None) -> Path:
+def _sources(name):
+    """The release download link, then the same asset through the GitHub API.
+
+    GitHub's release host sometimes returns 5xx for a while; the API is a
+    separate path to the identical file (the SHA-256 is checked either way)."""
+    yield SOURCE + name, {}
+    try:
+        context = ssl.create_default_context(cafile=certifi.where())
+        api = urllib.request.Request("https://api.github.com/repos/thewh1teagle/kokoro-onnx/releases/tags/model-files-v1.1",
+                                     headers={"User-Agent": "Humperdinck-Desktop/0.1", "Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(api, timeout=30, context=context) as response:
+            assets = json.loads(response.read(4 * 1024 * 1024)).get("assets", [])
+        asset = next((a for a in assets if a.get("name") == name), None)
+        if asset:
+            yield asset["url"], {"Accept": "application/octet-stream"}
+    except (OSError, ValueError):
+        return
+
+
+def _download(url, headers, partial):
+    request = urllib.request.Request(url, headers={"User-Agent": "Humperdinck-Desktop/0.1", **headers})
+    # PyInstaller on macOS has no reliable system CA bundle path.
+    # Supply an explicitly packaged, current trusted CA store; never disable TLS checks.
+    context = ssl.create_default_context(cafile=certifi.where())
+    with urllib.request.urlopen(request, timeout=120, context=context) as response, partial.open("wb") as output:
+        shutil.copyfileobj(response, output)
+        length = response.headers.get("Content-Length")
+        if length and partial.stat().st_size != int(length):
+            raise RuntimeError(partial.name + " download is incomplete")
+
+
+def download_kokoro(progress=lambda _: None, attempts=4) -> Path:
     directory = preset_path("kokoro", "")
     directory.mkdir(parents=True, exist_ok=True)
     for name, minimum in FILES:
@@ -30,15 +63,22 @@ def download_kokoro(progress=lambda _: None) -> Path:
         progress("Downloading " + name + " to shared model storage")
         partial = directory / (name + "." + uuid4().hex + ".partial")
         try:
-            request = urllib.request.Request(SOURCE + name, headers={"User-Agent": "Humperdinck-Desktop/0.1"})
-            # PyInstaller on macOS has no reliable system CA bundle path.
-            # Supply an explicitly packaged, current trusted CA store; never disable TLS checks.
-            context = ssl.create_default_context(cafile=certifi.where())
-            with urllib.request.urlopen(request, timeout=120, context=context) as response, partial.open("wb") as output:
-                shutil.copyfileobj(response, output)
-                length = response.headers.get("Content-Length")
-                if length and partial.stat().st_size != int(length):
-                    raise RuntimeError(name + " download is incomplete")
+            for attempt in range(attempts):
+                try:
+                    for url, headers in _sources(name):
+                        try:
+                            _download(url, headers, partial)
+                            break
+                        except (OSError, RuntimeError) as exc:
+                            failure = exc
+                    else:
+                        raise failure
+                    break
+                except (OSError, RuntimeError):
+                    if attempt == attempts - 1:
+                        raise
+                    progress(f"Download of {name} failed; retrying")
+                    time.sleep(min(30, 5 * 2 ** attempt))
             if partial.stat().st_size < minimum:
                 raise RuntimeError(name + " is smaller than expected")
             digest = hashlib.sha256()

@@ -16,7 +16,7 @@ class KokoroEngine:
             self.model = Kokoro(str(folder / 'kokoro-v1.0.onnx'), str(folder / 'voices-v1.0.bin'))
         return self.model
 
-    def synthesize(self, text: str, voice: str, destination: Path, on_progress=None):
+    def synthesize(self, text: str, voice: str, destination: Path, on_progress=None, speed=1.0):
         import numpy as np
         import soundfile as sf
         if voice not in PRESET_VOICES['kokoro']:
@@ -48,9 +48,9 @@ class KokoroEngine:
         for index, chunk in enumerate(chunks):
             if g2p is not None:
                 phonemes, _ = g2p(chunk)
-                samples, current_rate = model.create(phonemes, voice=voice, speed=1.0, is_phonemes=True)
+                samples, current_rate = model.create(phonemes, voice=voice, speed=speed, is_phonemes=True)
             else:
-                samples, current_rate = model.create(chunk, voice=voice, speed=1.0, lang=language)
+                samples, current_rate = model.create(chunk, voice=voice, speed=speed, lang=language)
             if rate is not None and current_rate != rate:
                 raise RuntimeError('Inconsistent Kokoro sample rates')
             rate = current_rate
