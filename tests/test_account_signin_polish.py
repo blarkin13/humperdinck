@@ -137,3 +137,17 @@ def test_open_link_allows_only_known_https_sites(monkeypatch):
     cross = client.post('/api/open-link', json={'url': 'https://brew.sh'}, headers={'Origin': 'https://evil.test'})
     assert cross.status_code == 403
     assert opened == ['https://brew.sh']
+
+
+def test_sign_out_and_back_in_reuses_the_same_installation(tmp_path, monkeypatch):
+    """Pro slots are keyed by installation_id; signing out must keep it and the license."""
+    from backend import pro_license
+    first = pro_license.installation(tmp_path)
+    license_file = tmp_path / 'pro-license.json'
+    license_file.write_text('{"keep": true}')
+    _signed_in(tmp_path)
+    monkeypatch.setattr(account_client, '_call', lambda *a, **k: {'ok': True})
+    account_client.disconnect(tmp_path)
+    assert not account_client.status(tmp_path)['connected']
+    assert pro_license.installation(tmp_path) == first
+    assert license_file.read_text() == '{"keep": true}'
