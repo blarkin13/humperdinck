@@ -15,3 +15,7 @@ jobs:
           python-version: '3.11'
       - name: Compile all Python sources
         run: python -m compileall -q backend scripts tests
+      - name: Install API test dependencies
+        run: python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+      - name: Validate Free/Pro API behavior and built-in voice packs
+        run: python -m pytest -q tests/test_api.py tests/test_starter_voice_packs.py
