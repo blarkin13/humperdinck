@@ -19,6 +19,8 @@ def test_connect_and_poll_keep_bearer_out_of_ui(tmp_path, monkeypatch):
             return {'status': 'complete', 'access_token': 't' * 43,
                     'expires_at': int(time.time())+3600,
                     'user': {'id': 'id-1', 'email': 'example@domain.test', 'display_name': 'Example'}}
+        if path == 'license':
+            return {'plan': 'free', 'license': None}
         if path == 'logout':
             assert token == 't' * 43
             return {'ok': True}

@@ -17,6 +17,7 @@ import urllib.request
 import webbrowser
 
 from fastapi import HTTPException
+from backend import pro_license
 
 DEFAULT_ORIGIN = 'https://humperdinck.studio'
 _pending: dict | None = None
@@ -115,6 +116,14 @@ def poll(data: Path) -> dict:
         raise HTTPException(503, 'Invalid completed account pairing')
     _save(data, {'token': token, 'user': user, 'expires_at': expiry})
     _pending = None
+    # Customers who already own Pro automatically activate this installation.
+    # An offline local license remains valid even if this request fails.
+    try:
+        overview = _call('license', token=token)
+        if overview.get('plan') == 'pro':
+            _activate_with_token(data, token)
+    except HTTPException:
+        pass
     return {'pending': False, **status(data)}
 
 
@@ -138,3 +147,33 @@ def disconnect(data: Path) -> dict:
     return {'connected': False, 'online_session_revoked': revoked,
             'message': 'Signed out of this device.' if revoked else
                        'Signed out locally. Online access may remain valid until its session expires.'}
+
+
+def _connected_token(data: Path) -> str:
+    try:
+        state = json.loads(_account_file(data).read_text(encoding='utf-8'))
+        if not isinstance(state.get('token'), str) or state.get('expires_at', 0) <= time.time():
+            raise ValueError('Expired session')
+        return state['token']
+    except (OSError, TypeError, ValueError):
+        raise HTTPException(401, 'Connect your Humperdinck account to activate Pro')
+
+
+def _activate_with_token(data: Path, token: str) -> dict:
+    info = pro_license.installation(data)
+    result = _call('license/activate', info, token=token)
+    certificate = result.get('license')
+    if not isinstance(certificate, str):
+        raise HTTPException(503, 'Account server did not supply a signed license')
+    try:
+        saved = pro_license.save(data, certificate)
+    except pro_license.InvalidLicense as exc:
+        raise HTTPException(503, 'Server license signature could not be verified') from exc
+    return {'activated': True, 'license': saved,
+            'active_devices': result.get('active_devices'),
+            'device_limit': result.get('device_limit', 10),
+            'warning': result.get('warning')}
+
+
+def activate_pro(data: Path) -> dict:
+    return _activate_with_token(data, _connected_token(data))
