@@ -447,3 +447,16 @@ def test_pro_preview_requires_explicit_source_mode_and_never_activates_native(cl
     monkeypatch.delenv('HUMPERDINCK_NATIVE_PACKAGE')
     monkeypatch.delenv('HUMPERDINCK_ENABLE_DEV_ENTITLEMENTS')
     assert client.get('/api/entitlements').json()['plan'] == 'free'
+
+
+
+def test_local_license_api_requires_signed_certificate(client, monkeypatch):
+    monkeypatch.delenv('HUMPERDINCK_DEV_PRO', raising=False)
+    state = client.get('/api/license')
+    assert state.status_code == 200
+    assert state.json()['plan'] == 'free'
+    forged = 'A' * 200 + '.' + 'B' * 86
+    response = client.post('/api/license/import', json={'license': forged})
+    assert response.status_code == 400, response.text
+    assert client.get('/api/entitlements').json()['plan'] == 'free'
+    assert client.get('/api/license/export').status_code == 404
