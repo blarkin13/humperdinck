@@ -7,3 +7,7 @@
 .account-panel-license .account-panel-footnote{font-size:11px;opacity:.65}
 .account-panel-success{border:1px solid rgba(170,170,170,.55);border-radius:8px;padding:10px;font-size:12px;line-height:1.5}
 @media(max-width:480px){.account-panel{padding:17px}.account-panel-license{gap:12px}}
+
+.account-panel-steps{margin:10px 0 6px;padding-left:20px;line-height:1.7;color:var(--muted,#aaa)}
+.account-panel-steps b{color:var(--text,#fff)}
+.account-panel-code{font-family:ui-monospace,Menlo,monospace;letter-spacing:.06em}

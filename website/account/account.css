@@ -121,3 +121,10 @@
 @media(max-width:520px){.account-page{padding:0 17px 70px}.account-hero h1{font-size:clamp(41px,10vw,55px);margin:20px 0 15px}.account-hero p{font-size:13px}.account-gate{margin-top:22px;padding:19px}.account-gate-heading{gap:8px}.account-gate h2{font-size:26px}.dashboard-welcome{flex-direction:column;align-items:flex-start;gap:15px}.dashboard-welcome .account-action{min-height:39px}.dashboard-stat{padding:17px 14px}.dashboard-stat>strong{font-size:23px}.dashboard-stat>span{font-size:9px}.dashboard-stat>small{font-size:10px}.dashboard-jump{gap:7px}.dashboard-jump a{padding:9px 12px;font-size:11px}.dashboard-section-title h2{font-size:clamp(34px,8.5vw,45px)}.dashboard-section-title{gap:15px}.account-featured-card,.account-detail-card{padding:21px}.purchase-facts div{align-items:start;gap:12px}.purchase-facts dt{max-width:40%}.account-device{gap:7px}.account-device-main small{font-size:10px}.account-counter{font-size:10px;padding:6px 8px}.account-card-heading h3{font-size:21px}.recovery-code-grid{grid-template-columns:1fr}.pairing-request{grid-template-columns:1fr}}
 @media(max-width:370px){.account-page{padding-inline:13px}.dashboard-stat{padding:15px 11px}.dashboard-stat>strong{font-size:21px}.account-gate{padding:16px}.account-featured-card,.account-detail-card{padding:17px}.dashboard-jump a{padding:8px 10px}}
 @media(prefers-reduced-motion:reduce){.account-page .account-action,.account-page .account-provider,.dashboard-jump a{transition:none}}
+
+/* Desktop pairing: the app waits on this card, so it stands out. */
+.pairing-request{border-color:#c9a45c;box-shadow:0 0 0 3px rgba(201,164,92,.18)}
+.pairing-request #device-code{font-family:ui-monospace,Menlo,monospace;letter-spacing:.08em;color:#fff}
+.pairing-request.approved{border-color:#3fb96b;box-shadow:0 0 0 3px rgba(63,185,107,.18)}
+.pairing-request #pair-result:empty{display:none}
+.pairing-request #pair-result{grid-column:1/-1;color:#ddd;font-size:13px}

@@ -9,6 +9,10 @@ async function localApi(path,method='GET',body){
  if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:(data.error||'Account service unavailable'));
  return data;
 }
+function deviceCode(url){
+ const code=/[?&]device=([A-Z2-7]{10})/.exec(url||'')?.[1];
+ return code?code.slice(0,5)+'-'+code.slice(5):'';
+}
 function saveFile(filename,value){
  const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob);
@@ -93,7 +97,8 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{},onAccountCh
       {account.user?.email&&<span className="account-panel-email">{account.user.email}</span>}
       <button type="button" className="account-panel-secondary" disabled={working} onClick={signOut}>Sign out of this computer</button>
      </>:<><p>Sign in to connect your purchase and manage online device activations. Free narration never requires a login.</p>
-      {pending?<><div className="account-panel-pending"><i className="fa-solid fa-circle-notch fa-spin"/> Complete sign-in in your browser…</div>{pending.verification_url&&<a target="_blank" rel="noopener noreferrer" href={pending.verification_url}>{pending.browser_opened===false?'Your browser did not open. Open the sign-in page':'Open the sign-in page again'}</a>}</>
+      {pending?<><div className="account-panel-pending"><i className="fa-solid fa-circle-notch fa-spin"/> Waiting for your browser…</div>
+       <ol className="account-panel-steps"><li>Sign in on the page that opened.</li><li>Click <b>Approve connection</b>{deviceCode(pending.verification_url)&&<> for code <b className="account-panel-code">{deviceCode(pending.verification_url)}</b></>}.</li><li>Come back here; this finishes by itself.</li></ol>{pending.verification_url&&<a target="_blank" rel="noopener noreferrer" href={pending.verification_url}>{pending.browser_opened===false?'Your browser did not open. Open the sign-in page':'Open the sign-in page again'}</a>}</>
       :<button type="button" disabled={working} onClick={connect}><i className={'fa-solid '+(working?'fa-spinner fa-spin':'fa-arrow-up-right-from-square')}/> {working?'Connecting…':'Sign in using browser'}</button>}
      </>}
    </div>

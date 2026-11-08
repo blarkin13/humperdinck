@@ -175,6 +175,10 @@ async function load(){
    if(validDevice){
     q('pairing').hidden=false;
     q('device-code').textContent=device.slice(0,5)+'-'+device.slice(5);
+    // The desktop app waits on this one click; make it the first thing seen.
+    document.title='Approve Humperdinck desktop sign-in';
+    q('pairing').scrollIntoView({block:'center'});
+    q('approve').focus({preventScroll:true});
    }
    try{await refresh()}catch(error){notice('Account dashboard could not load: '+error.message,true)}
    if(params.get('recovered')==='1')notice('Recovery code accepted. Link another sign-in method and generate a fresh recovery kit.');
@@ -224,8 +228,10 @@ q('approve').addEventListener('click',async()=>{
  q('pair-result').textContent='Connecting…';
  try{
   await request('/device/approve',{method:'POST',data:{code:device}});
-  q('pair-result').textContent='Desktop connection approved. Return to your application.';
+  q('pair-result').textContent='Approved. Return to Humperdinck: it finishes signing in within a few seconds. You can close this tab.';
   button.hidden=true;
+  q('pairing').classList.add('approved');
+  history.replaceState(null,'','/account/');
  }catch(error){q('pair-result').textContent=error.message;button.disabled=false}
 });
 q('disconnect-all').addEventListener('click',async()=>{
