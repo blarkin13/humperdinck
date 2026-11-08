@@ -157,7 +157,9 @@ class Worker:
         self.model = model
         self.errors = tempfile.TemporaryFile('w+')
         native = os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'
-        bundled_worker = native and engine == 'kokoro'
+        # The packaged app runs Kokoro inside its own executable. Production mode
+        # from source (scripts/start_production_mode.py) has no such executable.
+        bundled_worker = native and engine == 'kokoro' and getattr(sys, 'frozen', False)
         command = ([str(python), '--native-engine-worker', '--serve'] if bundled_worker
                    else [str(python), '-m', 'backend.worker', '--serve'])
         env = worker_env()
