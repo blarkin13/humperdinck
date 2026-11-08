@@ -17,7 +17,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         working-directory: frontend
-        run: npm install --no-audit --no-fund
+        env:
+          npm_config_onnxruntime_node_install_cuda: skip
+        run: npm install --no-audit --no-fund --onnxruntime-node-install-cuda=skip
       - name: Test frontend update-response handling
         working-directory: frontend
         run: npm test
