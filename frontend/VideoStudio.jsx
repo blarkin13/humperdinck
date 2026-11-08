@@ -55,10 +55,10 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  const [music,setMusic]=useState([]);
  const videoEl=useRef(null),cueAudio=useRef({}),clock=useRef({t:0,last:0}),saveTimer=useRef(null),fileInput=useRef(null),pendingKind=useRef('');
  const timelineRef=useRef(null);
- const [deskOpen,setDeskOpen]=useState(()=>{try{return localStorage.getItem('humperdinck-video-desk')==='open'}catch{return false}});
+ const [soundTab,setSoundTab]=useState(()=>{try{return localStorage.getItem('humperdinck-video-sound-tab')==='eq'?'eq':'mix'}catch{return 'mix'}});
  const captionsOn=project?.burn_captions!==false;
  const connectDesk=useDeskPreview(project?.desk||DEFAULT_DESK);
- function toggleDesk(){setDeskOpen(o=>{try{localStorage.setItem('humperdinck-video-desk',o?'closed':'open')}catch{};return !o})}
+ function pickTab(k){setSoundTab(k);try{localStorage.setItem('humperdinck-video-sound-tab',k)}catch{}}
 
  // ---- projects -------------------------------------------------------------
  const loadProjects=useCallback(async()=>{const list=await api('video-projects');setProjects(list);return list},[api]);
@@ -298,12 +298,11 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
     </div>
    </div>
 
-    <SoundDesk desk={project.desk||DEFAULT_DESK} open={deskOpen} onToggle={toggleDesk} onChange={desk=>update(p=>({...p,desk}))}
-   note="Applies to every narration cue. You hear it live here; Level match is applied when you export."/>
    </div>
    <div className="vs-inspector panel">
-    {!sel&&<div className="vs-inspector-empty">
-     <h4>Sound</h4>
+    {!sel&&<div className="vs-tabs" role="tablist">{[['mix','Mix'],['eq','Voice EQ']].map(([k,l])=><button type="button" role="tab" key={k} aria-selected={soundTab===k} className={soundTab===k?'on':''} onClick={()=>pickTab(k)}>{l}</button>)}</div>}
+    {!sel&&soundTab==='eq'&&<SoundDesk embedded desk={project.desk||DEFAULT_DESK} onChange={desk=>update(p=>({...p,desk}))} note="Applies to every narration cue. You hear it live; Level match is applied when you export."/>}
+    {!sel&&soundTab==='mix'&&<div className="vs-inspector-empty">
      <label className="check"><input type="checkbox" checked={project.sound.keep_original} onChange={e=>update(p=>({...p,sound:{...p.sound,keep_original:e.target.checked}}))}/> Keep the video's own sound</label>
      <label className="check"><input type="checkbox" checked={project.sound.duck} onChange={e=>update(p=>({...p,sound:{...p.sound,duck:e.target.checked}}))}/> Lower it while narration plays</label>
      <label>Background music<select value={project.sound.music_id||''} onChange={e=>update(p=>({...p,sound:{...p.sound,music_id:e.target.value||null}}))}><option value="">None</option>{music.map(m=><option key={m.id} value={m.id}>{m.name}{m.category?' · '+m.category:''}</option>)}</select></label>
