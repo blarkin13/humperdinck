@@ -2,6 +2,7 @@
  * No account or cloud request is required for Free desktop narration.
  * OAuth code flow + PKCE + cryptographically validated OIDC ID tokens.
  */
+import {handleProLicense} from './pro-license.js';
 const ORIGIN = 'https://humperdinck.studio';
 const COOKIE = '__Host-humperdinck_session';
 const FLOW_COOKIE = '__Host-humperdinck_oauth';
@@ -72,7 +73,8 @@ async function session(request,env){
 async function profile(env,user){
   const identities=await env.AUTH_DB.prepare('SELECT provider FROM auth_identities WHERE user_id=?').bind(user.id).all();
   return {id:user.id,email:user.email||null,display_name:user.display_name||null,
-    providers:(identities.results||[]).map(r=>r.provider),plan:'free'};
+    providers:(identities.results||[]).map(r=>r.provider),
+    plan:(await env.AUTH_DB.prepare("SELECT id FROM pro_licenses WHERE user_id=? AND status='active'").bind(user.id).first())?'pro':'free'};
 }
 async function saveSession(env,userId,kind){
   const token=random(), expire=now()+(kind==='desktop'?DESKTOP_TTL:WEB_TTL);
@@ -238,6 +240,8 @@ export async function handleAccount(request,env){
     return json({available:configured(env),providers:providers(env),desktop_connection:Object.values(providers(env)).some(Boolean)});
   if(!configured(env))return problem(503,'Customer accounts are not configured yet');
   try{
+    if(path==='/api/account/license'||path.startsWith('/api/account/license/'))
+      return handleProLicense(request,env,{session,sameOrigin});
     if(path==='/api/account/me'&&request.method==='GET'){
       const user=await session(request,env);
       return user?json({authenticated:true,user:await profile(env,user)}):json({authenticated:false});
