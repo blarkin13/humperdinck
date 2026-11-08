@@ -3,7 +3,11 @@
 # This runs in Cloudflare's Linux build environment before Wrangler deploys static assets.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-npm install --prefix frontend --no-audit --no-fund
+# The Cloudflare Linux builder only needs ONNX Runtime Web's WASM assets.
+# onnxruntime-node's optional CUDA binary is not used by the public browser
+# studio. Skip that download to avoid failures from GitHub release 504s.
+export npm_config_onnxruntime_node_install_cuda=skip
+npm install --prefix frontend --no-audit --no-fund --onnxruntime-node-install-cuda=skip
 BUILD_ID="$(git rev-parse --short=12 HEAD 2>/dev/null || date -u +%Y%m%d%H%M%S)"
 VITE_PUBLIC_STUDIO=1 VITE_BUILD_ID="$BUILD_ID" npm run build --prefix frontend -- --base=/studio/
 mkdir -p website/studio
