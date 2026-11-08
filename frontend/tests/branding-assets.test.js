@@ -17,13 +17,14 @@ test('all four studio theme logos exist and contain PNG data', () => {
   }
 });
 
-test('marketing site branding references existing files', () => {
-  for (const filename of ['vintage-logo-dark.png', 'brand-modern.png', 'og-image.png']) {
+test('marketing site uses the main logo, never the Vintage one', () => {
+  // The website has no Vintage theme; Vintage artwork belongs to the app only.
+  for (const filename of ['brand-modern.png', 'og-image.png']) {
     assert.ok(existsSync(resolve(websiteAssets, filename)), 'Missing website asset: ' + filename);
   }
   const html = readFileSync(resolve(repoRoot, 'website/index.html'), 'utf8');
-  assert.match(html, /\/assets\/vintage-logo-dark\.png/);
   assert.match(html, /\/assets\/brand-modern\.png/);
+  assert.doesNotMatch(html, /vintage-logo/);
 });
 
 test('public studio routes each color and theme to an existing logo', () => {
