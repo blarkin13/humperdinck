@@ -22,6 +22,7 @@ from backend.jobs import JobStore
 from backend import catalog
 from backend import media_tools
 from backend import native_models
+from backend.voice_picker import VoicePicker
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
 from backend.curated_sounds import BY_SLUG,public_catalog
@@ -825,6 +826,28 @@ def require_engine(role):
         model = catalog.model_info(choice['engine'], choice['model'])['label']
         raise HTTPException(503, f'To {job}, Humperdinck needs the {label} model "{model}", which is not downloaded yet. '
                                  'Open Models and click Setup guide, then Set up everything, or click its download button in Models.')
+
+voice_picker = VoicePicker(DATA / 'voice-picker.json')
+
+class PickerFavoriteInput(BaseModel):
+    voice_key: str = Field(min_length=3, max_length=150)
+    favorite: bool = True
+
+class PickerUsedInput(BaseModel):
+    voice_key: str = Field(min_length=3, max_length=150)
+
+@app.get('/api/voice-picker')
+def get_voice_picker():
+    return voice_picker.load()
+
+@app.put('/api/voice-picker/favorites')
+def set_voice_favorite(request: PickerFavoriteInput):
+    return voice_picker.favorite(request.voice_key, request.favorite)
+
+@app.post('/api/voice-picker/recent')
+def note_voice_used(request: PickerUsedInput):
+    return voice_picker.used(request.voice_key)
+
 
 @app.get('/api/preset-voices')
 def list_preset_voices():

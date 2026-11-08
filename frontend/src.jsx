@@ -21,6 +21,7 @@ import SoundEffects from './SoundEffects.jsx';
 import UploadedVoiceRefinement from './UploadedVoiceRefinement.jsx';
 import StarterVoicePack from './StarterVoicePack.jsx';
 import VoiceCatalog from './VoiceCatalog.jsx';
+import NarratorPicker from './NarratorPicker.jsx';
 import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,suggestSpeechDirections} from './narrationSections.js';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 const PUBLIC_STUDIO=import.meta.env.VITE_PUBLIC_STUDIO==='1';
@@ -143,7 +144,11 @@ function App(){
  async function deleteVoice(){if(!selected||!await askConfirm('Delete this voice?',{title:'Delete voice',confirmLabel:'Delete voice',danger:true}))return;try{await api('designed-voices/'+selected,{method:'DELETE'});newVoice();await refresh()}catch(e){setStatus(e.message)}}
  async function approveExisting(sample,version){try{await api(`designed-voices/${selected}/versions/${version}/approve/${sample}`,{method:'POST'});await openVoice(selected);setStatus('Reference approved.')}catch(e){setStatus(e.message)}}
  const duplicatedPresetNames=new Set(presets.map(v=>v.name).filter((name,i,all)=>all.indexOf(name)!==i));
-  const voiceOptions=[...presets.map(v=>({value:v.key,label:v.name+(duplicatedPresetNames.has(v.name)?' · '+(v.accent||'').split(' · ')[0]:''),accent:v.accent||'Built-in voice'})),...designed.filter(v=>v.narration_sample_id).map(v=>({value:'design:'+v.id,label:v.name,accent:v.description||'Custom designed voice'})),...uploads.map(v=>({value:'upload:'+v.voice_id,label:v.filename,accent:'Recorded / uploaded voice'}))];
+  const genderOf=t=>/\b(female|woman|girl|feminine)\b/i.test(t||'')?'female':/\b(male|man|boy|masculine)\b/i.test(t||'')?'male':'';
+  const voiceOptions=[...presets.map(v=>{const [region,gender]=(v.accent||'').split(' · ');return {value:v.key,label:v.name+(duplicatedPresetNames.has(v.name)?' · '+region:''),accent:v.accent||'Built-in voice',kind:'builtin',region,gender:genderOf(gender),baseDescription:`A ${gender||''} ${region||''} voice`.replace(/\s+/g,' ')}}),
+   ...uploads.filter(v=>['builtin-humperdinck','humperdinck-catalog'].includes(v.origin)).map(v=>({value:'upload:'+v.voice_id,label:v.filename,accent:v.origin==='builtin-humperdinck'?'Official Humperdinck voice':'From the voice gallery',kind:v.origin==='builtin-humperdinck'?'builtin':'gallery',previewUrl:'/api/voices/'+v.voice_id+'/audio'})),
+   ...designed.filter(v=>v.narration_sample_id).map(v=>({value:'design:'+v.id,label:v.name,accent:v.description||'Custom designed voice',kind:'designed',gender:genderOf(v.description),baseDescription:v.description,previewUrl:'/api/designed-samples/'+(v.approved_sample_id||v.narration_sample_id)})),
+   ...uploads.filter(v=>!['builtin-humperdinck','humperdinck-catalog'].includes(v.origin)).map(v=>({value:'upload:'+v.voice_id,label:v.filename,accent:v.category||'Recorded / uploaded voice',kind:'uploaded',previewUrl:'/api/voices/'+v.voice_id+'/audio'}))];
  const busy=job=>['queued','running'].includes(job?.status);
  function changeBlock(id,field,value){
   setBlocks(old=>field==='text'?replaceSectionText(old,id,value):field==='voice_key'?assignSectionSpeaker(old,id,value):old.map(b=>b.id===id?{...b,[field]:value}:b));
@@ -352,7 +357,7 @@ function App(){
  {setupOpen&&<FirstRunSetup onClose={()=>setSetupOpen(false)} onComplete={()=>{setSetupOpen(false);refresh()}}/>}
  <nav>{[['voices','Voice Library','fa-record-vinyl'],['creator','Voice Creator','fa-wand-magic-sparkles'],['narration','Narration Studio','fa-sliders'],['video','Video Studio','fa-film'],['effects','Sound Effects','fa-music'],['models','Models','fa-microchip']].map(([id,label,icon])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><i className={'fa-solid '+icon}/> {label}</button>)}</nav>
  {tab==='voices'&&<section><div className="heading"><div><h2>Voice Library</h2><p>Browse built-in and saved voices. Select a built-in voice for narration or edit your own voices in Voice Creator.</p></div><button className="primary" onClick={()=>{newVoice();setMethod('controls');setTab('creator')}}><i className="fa-solid fa-plus"/> New voice</button></div>
- {!PUBLIC_STUDIO&&<VoiceCatalog api={api} onInstalled={refresh}/>}
+ {!PUBLIC_STUDIO&&<div id="voice-gallery"><VoiceCatalog api={api} onInstalled={refresh}/></div>}
  <VoiceGrid builtinPublisher={!PUBLIC_STUDIO&&nativePackage===false?<StarterVoicePack api={api} voices={uploads}/>:null} previewDisabled={PUBLIC_STUDIO} onPreviewVoice={PUBLIC_STUDIO?(v)=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration')}:undefined} onCreate={()=>{newVoice();setMethod("controls");setTab("creator")}} items={[...presets.map(v=>({key:v.key,voiceKey:v.key,method:'preset',name:v.name,category:'Built-in · '+v.accent.split(' · ')[0],ready:true,status:'Ready for narration',summary:v.accent,traits:[v.accent],specs:[],onOpen:()=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration');}})),...designed.map(v=>({key:'d'+v.id,voiceKey:'design:'+v.id,method:v.method||'designed',name:v.name,category:'My Voices',selected:selected===v.id,ready:!!v.narration_sample_id,
   status:v.narration_sample_id?'Ready · v'+v.narration_version+' approved':'Draft · v'+v.active_version,summary:voiceSummary(v),
   meters:['pitch','rasp','pace','warmth'].map(k=>[traitLabels[k][0],v.characteristics?.[k]??50,traitLabels[k][1],traitLabels[k][2]]),
@@ -471,26 +476,10 @@ function App(){
 
 
  </div>
- {speakerEditor!==null&&(()=>{
-  const sectionIndex=blocks.findIndex(b=>b.id===speakerEditor);
-  const current=blocks[sectionIndex];
-  const selectedVoice=voiceOptions.find(v=>v.value===current?.voice_key);
-  const filter=voiceSearch.trim().toLowerCase();
-  const filtered=voiceOptions.filter(v=>!filter||v.label.toLowerCase().includes(filter)||String(v.accent||'').toLowerCase().includes(filter));
-  return <div className="narrator-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSpeakerEditor(null)}}>
-   <div className="narrator-modal" role="dialog" aria-modal="true" aria-label={'Choose narrator for section '+(sectionIndex+1)}>
-    <div className="narrator-modal-head"><div><h3>Section {sectionIndex+1} narrator</h3><p>Choose a voice for this section. Unassigned following sections will inherit it.</p></div><button type="button" className="narrator-close" onClick={()=>setSpeakerEditor(null)} aria-label="Close narrator selector"><i className="fa-solid fa-xmark"/></button></div>
-    <div className="narrator-current"><span className="narrator-avatar"><i className="fa-solid fa-microphone-lines"/></span><div><strong>{selectedVoice?.label||'No narrator selected'}</strong><small>{selectedVoice?.accent||'Select a voice from the library below.'}</small></div></div>
-    <label className="narrator-search"><i className="fa-solid fa-magnifying-glass" aria-hidden="true"/><input autoFocus value={voiceSearch} onChange={e=>setVoiceSearch(e.target.value)} placeholder="Search voices" aria-label="Search narrator voices"/></label>
-    <div className="narrator-options">{filtered.length?filtered.map(v=><button type="button" className={'narrator-option '+(current?.voice_key===v.value?'selected':'')} key={v.value} onClick={()=>selectSpeaker(v.value)}>
-     <span className="narrator-avatar"><i className={'fa-solid '+(v.value.startsWith('design:')?'fa-wand-magic-sparkles':v.value.startsWith('upload:')?'fa-file-audio':'fa-microphone-lines')}/></span>
-     <span className="narrator-option-text"><strong>{v.label}</strong><small>{v.accent|| (v.value.startsWith('design:')?'Custom designed voice':v.value.startsWith('upload:')?'Uploaded voice':'Built-in voice')}</small></span>
-     {current?.voice_key===v.value&&<i className="fa-solid fa-check" aria-label="Selected"/>}
-    </button>):<p className="hint">No voices match this search.</p>}</div>
-    <div className="narrator-modal-footer"><button type="button" onClick={()=>selectSpeaker('')}>Clear narrator</button><button type="button" onClick={()=>setSpeakerEditor(null)}>Cancel</button></div>
-   </div>
-  </div>;
- })()}
+ {speakerEditor!==null&&<NarratorPicker api={api} options={voiceOptions} publicStudio={PUBLIC_STUDIO}
+  currentKey={blocks.find(b=>b.id===speakerEditor)?.voice_key||''} sectionNumber={blocks.findIndex(b=>b.id===speakerEditor)+1}
+  usedKeys={[...new Set(blocks.map(b=>b.voice_key).filter(Boolean))]} onSelect={selectSpeaker} onClose={()=>setSpeakerEditor(null)}
+  onVoiceCreated={refresh} onOpenGallery={()=>{setSpeakerEditor(null);setTab('voices');setTimeout(()=>document.getElementById('voice-gallery')?.scrollIntoView({behavior:'smooth'}),150)}}/>}
  <audio ref={hiddenAudio} className="hidden-section-audio" aria-hidden="true" preload="auto" onPlay={e=>setAudibleSectionId(Number(e.currentTarget.dataset.sectionId)||null)} onPause={()=>setAudibleSectionId(null)} onEnded={()=>setAudibleSectionId(null)}/>
  {PUBLIC_STUDIO&&<BrowserKokoro voices={PUBLIC_VOICES.map(v=>[v.key,v.name,v.accent])} voice={blocks.find(b=>b.id===activePreview)?.voice_key||''} text={blocks.find(b=>b.id===activePreview)?.text||''} sectionNumber={Math.max(1,blocks.findIndex(b=>b.id===activePreview)+1)} compact playRequest={playSectionRequest} onPlaybackState={(id,state)=>{if(state==='ready'||state==='error'||state==='idle')setSectionPlayingId(old=>old===id?null:old);else if(state==='generating')setSectionPlayingId(id)}} onSectionAudio={(id,url)=>{if(id===null)return;const pending=pendingSignature.current;if(pending?.sectionId!==id)return;setSectionAudio(old=>({...old,[id]:{signature:pending.signature,url}}));replaySection(url,id)}} onSectionError={(id,message)=>setSectionPlayError({id,message})} />}
  {!PUBLIC_STUDIO&&<div className="actions narration-export-actions" ref={downloadWrapRef}><div className="narration-download-wrap">
