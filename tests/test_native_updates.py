@@ -21,7 +21,7 @@ def test_website_binary_release(monkeypatch):
     got = native_updates.check()
     assert got["available"] and got["latest"] == "0.2.0"
     assert not got["can_install"] and got["can_download"]
-    assert got["download_url"].startswith("https://humperdinck.larki-brian.workers.dev/downloads/")
+    assert got["download_url"].startswith("https://humperdinck.studio/downloads/")
 
 def test_no_binary_release(monkeypatch):
     monkeypatch.setattr(native_updates, "urlopen",

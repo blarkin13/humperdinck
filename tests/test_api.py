@@ -26,6 +26,10 @@ def fake_synthesize(engine, output, text, *, model, mode, description='', refere
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv('HUMPERDINCK_DATA', str(tmp_path))
+    # Existing API integration cases exercise the full creator in source-only preview.
+    monkeypatch.setenv('HUMPERDINCK_ENABLE_DEV_ENTITLEMENTS', '1')
+    monkeypatch.setenv('HUMPERDINCK_DEV_PRO', '1')
+    monkeypatch.delenv('HUMPERDINCK_NATIVE_PACKAGE', raising=False)
     monkeypatch.setattr(engines, 'available', lambda engine: True)
     monkeypatch.setattr(engines, 'installed', lambda engine: True)
     monkeypatch.setattr(engines, 'synthesize', fake_synthesize)
@@ -109,7 +113,7 @@ def test_multi_voice_narration_uses_each_reference(client, tmp_path):
     references = [c['reference'] for c in fake_synthesize.calls if c['mode'] == 'clone']
     assert references[1] == upload and references[0] != upload
     audio, rate = sf.read(tmp_path / 'outputs' / f"{job['job_id']}.wav")
-    assert rate == 24000 and len(audio) == 24000 * 2 + int(24000 * .3)
+    assert rate == 24000 and len(audio) == 24000 * 2  # default section delay is 0
 
 
 def test_jobs_survive_restart_and_unfinished_jobs_are_marked_failed(client, tmp_path):
@@ -346,3 +350,100 @@ def test_standard_preview_rejects_invalid_voice_keys(client):
     assert client.post('/api/voice-previews', json={'voice_key': 'preset:kokoro:missing'}).status_code == 400
     assert client.post('/api/voice-previews', json={'voice_key': 'upload:doesnotexist'}).status_code == 400
     assert client.get('/api/voice-previews/../something.wav').status_code in (400, 404)
+
+
+def test_free_has_all_studios_and_cannot_create_personal_qwen_voices(client, monkeypatch):
+    monkeypatch.delenv('HUMPERDINCK_DEV_PRO')
+    state = client.get('/api/entitlements').json()
+    assert state['plan'] == 'free'
+    assert state['capabilities']['studio.narration']
+    assert state['capabilities']['studio.video']
+    assert state['capabilities']['voice.builtin_qwen']
+    assert state['capabilities']['audio.export']
+    assert not state['capabilities']['voice.personal_cloning']
+    assert not state['license_activated'] and not state['checkout_available']
+
+    blocked = [
+        client.post('/api/voices', files={'file': ('clip.wav', b'not audio', 'audio/wav')}),
+        client.post('/api/designed-voices', json={
+            'name': 'Private voice', 'description': 'Description', 'characteristics': SLIDERS}),
+        client.post('/api/designed-voices/draft-preview', json={
+            'text': 'Hi.', 'description': 'My voice', 'characteristics': SLIDERS}),
+        client.post('/api/generate', json={
+            'text': 'Hi.', 'voice_description': 'Personal', 'engine': 'qwen-design', 'format': 'wav'}),
+        client.post('/api/generate', json={
+            'text': 'Hi.', 'voice_id': 'f' * 32, 'engine': 'qwen-clone', 'format': 'wav'}),
+        client.post('/api/voice-catalog/' + 'a' * 32 + '/download'),
+    ]
+    for response in blocked:
+        assert response.status_code == 403, response.text
+        assert response.json()['detail']['code'] == 'PRO_REQUIRED'
+
+    # Free can generate, regenerate and export narration with Kokoro.
+    response = client.post('/api/narrations', json={
+        'format': 'wav', 'blocks': [{'text': 'Free local narration.', 'voice_key': 'preset:kokoro:bm_george'}]})
+    assert response.status_code == 200, response.text
+    assert wait(client, response.json())['status'] == 'complete'
+
+
+def test_bundled_qwen_reference_allowed_free_but_personal_lookalike_blocked(client, tmp_path, monkeypatch):
+    import json
+    from hashlib import sha256
+
+    uid = 'a' * 32
+    source = tmp_path / 'voices' / (uid + '.wav')
+    sf.write(source, np.zeros(24000, dtype='float32'), 24000)
+    digest = sha256(source.read_bytes()).hexdigest()
+    client.module.save_voice_meta({
+        uid: {'name': 'Curated narrator', 'origin': 'builtin-humperdinck',
+              'reference_text': client.module.STARTER_VOICE_TEXT, 'builtin_sha256': digest}
+    })
+    monkeypatch.delenv('HUMPERDINCK_DEV_PRO')
+    assert client.get('/api/entitlements').json()['plan'] == 'free'
+
+    response = client.post('/api/narrations', json={'format': 'wav', 'blocks': [
+        {'text': 'The old lighthouse remained open.', 'voice_key': 'upload:' + uid}]})
+    assert response.status_code == 200, response.text
+    assert wait(client, response.json())['status'] == 'complete'
+    assert fake_synthesize.calls[-1]['mode'] == 'clone'
+
+    # Curated bytes changed without an approved update: no silent Free exception.
+    source.write_bytes(source.read_bytes() + b'tamper')
+    response = client.post('/api/narrations', json={'format': 'wav', 'blocks': [
+        {'text': 'Not a trusted curated sample.', 'voice_key': 'upload:' + uid}]})
+    assert response.status_code == 403, response.text
+
+    # Display names/categories never decide access to the restricted Qwen path.
+    client.module.save_voice_meta({uid: {'name': 'Built-In Humperdinck Voice',
+        'category': 'Built-In Humperdinck Voices', 'origin': 'uploaded'}})
+    response = client.post('/api/generate', json={'text': 'Hello.',
+        'voice_id': uid, 'engine': 'qwen-clone', 'format': 'wav'})
+    assert response.status_code == 403, response.text
+
+
+def test_free_cannot_use_prior_custom_voice_or_preview(client, monkeypatch):
+    preview_job_id = preview(client, 'A custom personal voice.')
+    made = client.post('/api/designed-voices', json={
+        'name': 'Custom', 'description': 'A custom personal voice.',
+        'characteristics': SLIDERS}).json()
+    assert client.post(f"/api/designed-voices/{made['id']}/versions/1/attach-preview",
+        json={'job_id': preview_job_id, 'approve': True}).status_code == 200
+
+    monkeypatch.delenv('HUMPERDINCK_DEV_PRO')
+    custom_key = 'design:' + made['id']
+    assert client.post('/api/narrations', json={'format': 'wav', 'blocks': [
+        {'text': 'Personal voice', 'voice_key': custom_key}]}).status_code == 403
+    assert client.post('/api/voice-previews', json={'voice_key': custom_key}).status_code == 403
+    assert client.get('/api/designed-voices').status_code == 200  # never hide/delete a purchase's files
+
+
+def test_pro_preview_requires_explicit_source_mode_and_never_activates_native(client, monkeypatch):
+    assert client.get('/api/entitlements').json()['plan'] == 'pro'
+    assert client.get('/api/entitlements').json()['development_preview']
+    monkeypatch.setenv('HUMPERDINCK_NATIVE_PACKAGE', '1')
+    result = client.get('/api/entitlements').json()
+    assert result['plan'] == 'free'
+    assert not result['development_preview']
+    monkeypatch.delenv('HUMPERDINCK_NATIVE_PACKAGE')
+    monkeypatch.delenv('HUMPERDINCK_ENABLE_DEV_ENTITLEMENTS')
+    assert client.get('/api/entitlements').json()['plan'] == 'free'

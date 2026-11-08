@@ -15,7 +15,7 @@ def test_signed_updater_has_pubkey_and_first_party_endpoint(monkeypatch, tmp_pat
     assert config["bundle"]["createUpdaterArtifacts"] is True
     assert config["plugins"]["updater"]["pubkey"] == "A" * 152
     assert config["plugins"]["updater"]["endpoints"] == [
-        "https://humperdinck.larki-brian.workers.dev/updates/latest.json"
+        "https://humperdinck.studio/updates/latest.json"
     ]
 
 

@@ -12,8 +12,8 @@ from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 import certifi
 
-MANIFEST = "https://humperdinck.larki-brian.workers.dev/downloads.json"
-BASE = "https://humperdinck.larki-brian.workers.dev"
+MANIFEST = "https://humperdinck.studio/downloads.json"
+BASE = "https://humperdinck.studio"
 VERSION = os.environ.get("HUMPERDINCK_NATIVE_VERSION", "0.1.0")
 PLATFORMS = {"darwin": ("macos", ".dmg"), "win32": ("windows", ".exe"), "linux": ("linux", ".deb")}
 

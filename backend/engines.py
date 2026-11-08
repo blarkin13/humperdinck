@@ -332,7 +332,8 @@ def preset(engine, voice, output, text, on_progress=None, speed=1.0):
     """Speak with one named Kokoro voice, not a cloned reference recording."""
     if engine != 'kokoro' or voice not in catalog.PRESET_VOICES[engine]:
         raise ValueError('Unknown preset voice')
-    synthesize(engine, output, text, model=voice, mode='preset', on_progress=on_progress, speed=speed)
+    extra = {'speed': speed} if speed != 1 else {}
+    synthesize(engine, output, text, model=voice, mode='preset', on_progress=on_progress, **extra)
 
 
 def convert(source, targets, output, on_progress=None):
