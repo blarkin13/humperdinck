@@ -15,7 +15,9 @@ export default function StarterVoicePack({api,voices,disabled=false}){
   try{const result=await api('starter-voices');setApproved(result.approved);setPublished(result.published)}
   catch(err){notify(err.message,'error')}
  }
- useEffect(()=>{if(open)refresh()},[open,disabled]);
+ // Load on first render so the summary shows the real count before the section is opened.
+ useEffect(()=>{refresh()},[disabled]);
+ useEffect(()=>{if(open)refresh()},[open]);
  useEffect(()=>{
   const active=Object.entries(jobs).filter(([,j])=>j.status==='running'||j.status==='queued');
   if(!active.length)return;
