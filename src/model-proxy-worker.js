@@ -1,5 +1,6 @@
 import {recordAnalyticsEvent, handleAnalyticsEvent} from './site-analytics.js';
-import {handleAccount} from './account-auth.js';
+import {handleAccount,accountSession} from './account-auth.js';
+import {handleLemonTest} from './lemon-test-commerce.js';
 import {publicRelease} from './public-releases.js';
 // Model files only: browser synthesis remains local; this Worker performs no inference.
 // Restrict paths to the single public model to prevent an arbitrary URL proxy.
@@ -10,6 +11,7 @@ export default {
  async fetch(request,env,ctx){
   const url=new URL(request.url);
   if(url.pathname.startsWith('/api/account/'))return handleAccount(request,env);
+  if(url.pathname.startsWith('/api/commerce/test/'))return handleLemonTest(request,env,{session:accountSession});
   if(url.pathname==='/analytics/event')return handleAnalyticsEvent(request,env);
   if(url.pathname==='/downloads.json'||url.pathname==='/updates/latest.json'){
     return publicRelease(request,env);
