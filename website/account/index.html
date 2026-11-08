@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090909">
+<meta name="robots" content="noindex,follow">
+<title>Account | Humperdinck</title>
+<meta name="description" content="Sign in to manage your Humperdinck account and connect desktop devices. Local Free narration never requires a login.">
+<link rel="icon" href="/assets/humperdinck-favicon.ico">
+<link rel="stylesheet" href="/footer-unified.css?v=20261108">
+<link rel="stylesheet" href="/account/account.css?v=20261108">
+<script src="/account/account.js?v=20261108" defer></script>
+</head>
+<body>
+<div class="shell">
+<header class="header"><a class="brand" href="/" aria-label="Humperdinck home"><img src="/assets/brand-modern.png" alt="" width="44" height="44"><strong>humperdinck<span>.</span></strong></a><nav><a href="/#features">Features</a><a href="/#download">Download</a><a href="/studio/">Try the studio</a></nav></header>
+<main id="main" class="page">
+<div class="eyebrow">HUMPERDINCK / ACCOUNTS</div>
+<h1>Your studio. <span>Your account.</span></h1>
+<p class="intro">Sign in to connect your desktop installation and manage your account. Your local Free studios remain available without an account or internet connection.</p>
+<section class="panel" aria-live="polite">
+ <div class="panel-head"><h2 id="account-title">Account</h2><span id="account-state" class="status">Checking</span></div>
+ <p id="account-message" class="muted">Checking account availability…</p>
+ <div id="providers" class="providers" hidden>
+   <a id="google-login" class="provider" hidden href="/api/account/start/google">Continue with Google <span aria-hidden="true">↗</span></a>
+   <a id="apple-login" class="provider" hidden href="/api/account/start/apple">Continue with Apple <span aria-hidden="true">↗</span></a>
+ </div>
+ <div id="profile" hidden><div class="profile-grid"><div><small>Signed in as</small><strong id="account-name"></strong><span id="account-email"></span></div><div><small>Current edition</small><strong>Free</strong><span>Pro purchasing and activation are coming later.</span></div></div>
+ <button type="button" id="logout" class="secondary">Sign out</button></div>
+ <div id="pairing" class="pairing" hidden>
+   <div class="pair-icon" aria-hidden="true">↔</div><div><h3>Connect your desktop app</h3><p>This computer requested access to your Humperdinck account. Confirm only if you initiated it from the app.</p><p class="device-code">Request <code id="device-code"></code></p><button id="approve" type="button">Connect this computer</button><p id="pair-result" role="status"></p></div>
+ </div>
+</section>
+<div class="notes"><div><strong>Local by default</strong><p>Your voice projects, recordings, and AI models stay on your computer unless you choose to share them.</p></div><div><strong>Account is optional</strong><p>You can keep using built-in voices, narration, Video Studio, sound effects, and exports without signing in.</p></div></div>
+</main>
+<footer class="site-unified-footer"><div class="site-unified-footer-main"><a class="site-unified-footer-brand" href="/"><img src="/assets/brand-modern.png" alt="" width="36" height="36"><span>humperdinck<span class="site-unified-footer-dot">.</span></span></a><span class="site-unified-footer-tagline">A local-first voice studio.</span></div><nav class="site-unified-footer-links" aria-label="Footer navigation"><a href="/#features">Features</a><a href="/studio/">Studio preview</a><a href="/#download">Download</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/license/">Software license</a><a href="/voice-policy/">AI voice</a><a href="/refunds/">Refunds</a><a href="/cookies/">Cookies</a><a href="/copyright/">Copyright</a><a href="/licenses/">Licenses</a></nav><small class="site-unified-footer-copyright">© 2026 Humperdinck</small></footer>
+</div></body></html>
