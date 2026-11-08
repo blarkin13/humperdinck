@@ -76,6 +76,7 @@ async function profile(env,user){
 }
 async function saveSession(env,userId,kind){
   const token=random(), expire=now()+(kind==='desktop'?DESKTOP_TTL:WEB_TTL);
+  await env.AUTH_DB.prepare('DELETE FROM auth_sessions WHERE expires_at < ?').bind(now()).run();
   await env.AUTH_DB.prepare('INSERT INTO auth_sessions (token_hash,user_id,kind,created_at,expires_at) VALUES (?,?,?,?,?)')
     .bind(await hash(token),userId,kind,now(),expire).run();
   return {token,expires_at:expire};
@@ -120,6 +121,7 @@ async function oauthStart(request,env,provider){
   if(!await rateLimit(request,env,'oauth',20))return problem(429,'Too many sign-in attempts');
   const url=new URL(request.url), returnPath=safeReturn(url.searchParams.get('return_to'));
   const state=random(),nonce=random(),verifier=random(),challenge=await hash(verifier);
+  await env.AUTH_DB.prepare('DELETE FROM auth_flows WHERE expires_at < ?').bind(now()).run();
   await env.AUTH_DB.prepare('INSERT INTO auth_flows (state_hash,provider,nonce,verifier,return_path,expires_at) VALUES (?,?,?,?,?,?)')
     .bind(await hash(state),provider,nonce,verifier,returnPath,now()+FLOW_TTL).run();
   const redirect=host(env)+'/api/account/callback/'+provider;
@@ -198,6 +200,7 @@ async function beginDevice(request,env){
   const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   const codeBytes=crypto.getRandomValues(new Uint8Array(10));
   const safeCode=Array.from(codeBytes,b=>alphabet[b%alphabet.length]).join('');
+  await env.AUTH_DB.prepare('DELETE FROM auth_device_flows WHERE expires_at < ?').bind(now()).run();
   await env.AUTH_DB.prepare('INSERT INTO auth_device_flows (id,code,challenge,expires_at,created_at) VALUES (?,?,?,?,?)')
     .bind(id,safeCode,data.challenge,now()+FLOW_TTL,now()).run();
   return json({request_id:id,verification_url:host(env)+'/account/?device='+safeCode,expires_in:FLOW_TTL});
@@ -232,7 +235,7 @@ async function pollDevice(request,env){
 export async function handleAccount(request,env){
   const path=new URL(request.url).pathname;
   if(path==='/api/account/config'&&request.method==='GET')
-    return json({available:configured(env),providers:providers(env),desktop_connection:configured(env)});
+    return json({available:configured(env),providers:providers(env),desktop_connection:Object.values(providers(env)).some(Boolean)});
   if(!configured(env))return problem(503,'Customer accounts are not configured yet');
   try{
     if(path==='/api/account/me'&&request.method==='GET'){
@@ -257,7 +260,10 @@ export async function handleAccount(request,env){
       if(!['google','apple'].includes(provider))return problem(404,'Unknown provider');
       return oauthCallback(request,env,provider);
     }
-    if(path==='/api/account/device/begin'&&request.method==='POST')return beginDevice(request,env);
+    if(path==='/api/account/device/begin'&&request.method==='POST'){
+      if(!Object.values(providers(env)).some(Boolean))return problem(503,'Account sign-in providers are not configured yet');
+      return beginDevice(request,env);
+    }
     if(path==='/api/account/device/approve'&&request.method==='POST')return approveDevice(request,env);
     if(path==='/api/account/device/poll'&&request.method==='POST')return pollDevice(request,env);
     return problem(404,'Unknown account route');
