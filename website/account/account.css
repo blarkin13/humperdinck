@@ -128,3 +128,32 @@
 .pairing-request.approved{border-color:#3fb96b;box-shadow:0 0 0 3px rgba(63,185,107,.18)}
 .pairing-request #pair-result:empty{display:none}
 .pairing-request #pair-result{grid-column:1/-1;color:#ddd;font-size:13px}
+
+/* Consistent Font Awesome icon treatment: understated in monochrome. */
+.account-provider-content{display:inline-flex;align-items:center;gap:13px}
+.account-provider-content>i{font-size:18px;width:20px;text-align:center}
+.account-provider>i{font-size:13px;opacity:.7}
+.dashboard-jump a{gap:9px}
+.dashboard-jump a i{font-size:11px;color:#a8a8a8}
+.account-card-heading h3{display:flex;align-items:center;gap:11px}
+.account-card-heading h3 i{font-size:18px;color:#aaa}
+.account-action>i{font-size:12px;flex:none}
+.account-device-identity{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.account-device-icon{width:40px;height:40px;flex:none;border:1px solid #454545;background:#1d1d1d;color:#f0f0f0;border-radius:10px;display:grid;place-items:center}
+.account-device-icon i{font-size:18px}
+.account-device-main{min-width:0}
+.account-device-main small{overflow-wrap:anywhere;white-space:normal}
+.account-device>.account-action{white-space:nowrap}
+.identity-links a>span{display:inline-flex;align-items:center;gap:11px;min-width:0}
+.identity-links a>span i{width:16px;text-align:center;font-size:14px}
+.identity-links a>i{font-size:11px;opacity:.7;flex:none}
+#linked-providers{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.linked-provider{display:inline-flex;align-items:center;gap:7px;border:1px solid #424242;background:#1b1b1b;border-radius:100px;padding:6px 10px;white-space:nowrap}
+.linked-provider i{font-size:13px}
+@media(max-width:480px){
+ .account-device{flex-wrap:wrap;align-items:flex-start}
+ .account-device-identity{flex:1 1 100%}
+ .account-device>.account-action{margin-left:52px}
+ .account-device-main small{font-size:11px;line-height:1.65}
+ .dashboard-jump a{gap:7px}
+}

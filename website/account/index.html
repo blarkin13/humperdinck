@@ -11,9 +11,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=20261108-seo-launch">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 <link rel="stylesheet" href="/footer-unified.css?v=20261108">
-<link rel="stylesheet" href="/account/account.css?v=20261108-dashboard-v1">
-<script src="/account/account.js?v=20261108-dashboard-v1" defer></script>
+<link rel="stylesheet" href="/account/account.css?v=20261108-account-icons-v2">
+<script src="/account/account.js?v=20261108-account-icons-v2" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -52,8 +54,8 @@
     <div class="account-gate-heading"><div><span class="account-kicker">ACCOUNT ACCESS</span><h2 id="account-title">Loading your account</h2></div><span id="account-state" class="account-status">Checking</span></div>
     <p id="account-message" class="account-muted">Checking secure sign-in availability…</p>
     <div id="providers" class="account-providers" hidden>
-      <a id="google-login" class="account-provider" href="/api/account/start/google" hidden>Continue with Google <span aria-hidden="true">↗</span></a>
-      <a id="apple-login" class="account-provider" href="/api/account/start/apple" hidden>Continue with Apple <span aria-hidden="true">↗</span></a>
+      <a id="google-login" class="account-provider" href="/api/account/start/google" hidden><span class="account-provider-content"><i class="fa-brands fa-google" aria-hidden="true"></i>Continue with Google</span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+      <a id="apple-login" class="account-provider" href="/api/account/start/apple" hidden><span class="account-provider-content"><i class="fa-brands fa-apple" aria-hidden="true"></i>Continue with Apple</span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
     </div>
     <button id="recover-toggle" type="button" class="account-text-button" hidden>Use a recovery code instead <span aria-hidden="true">↓</span></button>
     <form id="recovery-login" class="recovery-login" hidden>
@@ -63,7 +65,7 @@
         <label>Account ID <input id="recover-account-id" name="account_id" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="Account ID from your recovery kit"></label>
         <label>One-time recovery code <input id="recover-code" name="code" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="Recovery code"></label>
       </div>
-      <button type="submit" class="account-action account-action-solid">Recover account <span aria-hidden="true">↗</span></button>
+      <button type="submit" class="account-action account-action-solid"><i class="fa-solid fa-key" aria-hidden="true"></i>Recover account</button>
       <p id="recover-result" class="account-muted" role="status"></p>
       <p class="account-fine-print">A recovery code restores website sign-in; it does not replace your original Google or Apple password.</p>
     </form>
@@ -72,12 +74,12 @@
   <div id="dashboard" class="account-dashboard" hidden>
     <div class="dashboard-welcome">
       <div><span class="account-kicker">YOUR DASHBOARD</span><h2>Welcome back<span class="muted-dot">.</span></h2><p id="welcome-account">Signed in</p></div>
-      <button id="logout" type="button" class="account-action account-action-outline">Sign out <span aria-hidden="true">↗</span></button>
+      <button id="logout" type="button" class="account-action account-action-outline"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Sign out</button>
     </div>
 
     <div id="pairing" class="pairing-request" hidden>
       <div><span class="account-kicker">DESKTOP AUTHORIZATION</span><h3>Connect this computer?</h3><p>Only approve if you started sign-in from your Humperdinck desktop app. Request <strong id="device-code"></strong>.</p></div>
-      <button id="approve" type="button" class="account-action account-action-solid">Approve connection</button>
+      <button id="approve" type="button" class="account-action account-action-solid"><i class="fa-solid fa-check" aria-hidden="true"></i>Approve connection</button>
       <p id="pair-result" role="status"></p>
     </div>
 
@@ -89,10 +91,10 @@
     </div>
 
     <nav class="dashboard-jump" aria-label="Dashboard sections">
-      <a href="#purchase">Purchase</a>
-      <a href="#computers">Computers</a>
-      <a href="#license-downloads">Downloads</a>
-      <a href="#account-recovery">Recovery</a>
+      <a href="#purchase"><i class="fa-solid fa-receipt" aria-hidden="true"></i>Purchase</a>
+      <a href="#computers"><i class="fa-solid fa-desktop" aria-hidden="true"></i>Computers</a>
+      <a href="#license-downloads"><i class="fa-solid fa-download" aria-hidden="true"></i>Downloads</a>
+      <a href="#account-recovery"><i class="fa-solid fa-key" aria-hidden="true"></i>Recovery</a>
     </nav>
 
     <section id="purchase" class="dashboard-section">
@@ -118,15 +120,15 @@
     <section id="computers" class="dashboard-section">
       <div class="dashboard-section-title"><div><span class="account-kicker">02 / DEVICES</span><h2>Your computers<span>.</span></h2><p>Manage online account access and Pro slots separately.</p></div></div>
       <div class="dashboard-two-column">
-        <div class="account-detail-card"><div class="account-card-heading"><h3>Connected desktops</h3><span id="connected-count" class="account-counter">0 connected</span></div><p>Computers signed in to your Humperdinck account. Signing one out revokes its online access.</p><div id="connected-list" class="account-device-list"></div><p id="legacy-notice" class="account-fine-print" hidden></p><button id="disconnect-all" type="button" class="account-action account-action-outline" hidden>Sign out all desktops</button></div>
-        <div class="account-detail-card"><div class="account-card-heading"><h3>Pro activations</h3><span id="pro-count" class="account-counter">0 / 10</span></div><p>One-time lifetime Pro activation allows up to 10 online device registrations.</p><div id="pro-list" class="account-device-list"></div><p class="account-fine-print">Releasing an online slot cannot disable a signed offline license already saved on that computer.</p></div>
+        <div class="account-detail-card"><div class="account-card-heading"><h3><i class="fa-solid fa-laptop" aria-hidden="true"></i>Connected desktops</h3><span id="connected-count" class="account-counter">0 connected</span></div><p>Computers signed in to your Humperdinck account. Signing one out revokes its online access.</p><div id="connected-list" class="account-device-list"></div><p id="legacy-notice" class="account-fine-print" hidden></p><button id="disconnect-all" type="button" class="account-action account-action-outline" hidden><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Sign out all desktops</button></div>
+        <div class="account-detail-card"><div class="account-card-heading"><h3><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Pro activations</h3><span id="pro-count" class="account-counter">0 / 10</span></div><p>One-time lifetime Pro activation allows up to 10 online device registrations.</p><div id="pro-list" class="account-device-list"></div><p class="account-fine-print">Releasing an online slot cannot disable a signed offline license already saved on that computer.</p></div>
       </div>
     </section>
 
     <section id="license-downloads" class="dashboard-section">
       <div class="dashboard-section-title"><div><span class="account-kicker">03 / FILES</span><h2>License downloads<span>.</span></h2><p>Your permanent offline access is a file you can keep.</p></div></div>
       <div class="dashboard-two-column">
-        <div class="account-featured-card"><span class="account-card-label">PERMANENT LICENSE</span><h3 id="license-title">Your Free edition needs no license</h3><p id="license-description">All Free features work without a license file or internet connection.</p><button id="download-license" type="button" class="account-action account-action-solid" hidden>Download signed Pro license <span aria-hidden="true">↓</span></button><p id="license-missing" class="account-fine-print">Pro license downloads become available after a verified purchase.</p></div>
+        <div class="account-featured-card"><span class="account-card-label">PERMANENT LICENSE</span><h3 id="license-title">Your Free edition needs no license</h3><p id="license-description">All Free features work without a license file or internet connection.</p><button id="download-license" type="button" class="account-action account-action-solid" hidden><i class="fa-solid fa-download" aria-hidden="true"></i>Download signed Pro license</button><p id="license-missing" class="account-fine-print">Pro license downloads become available after a verified purchase.</p></div>
         <div class="account-detail-card"><span class="account-card-label">RESTORE ANYTIME</span><h3>Keep a second copy.</h3><p>Store the signed license backup safely, then import it from the desktop app's My Account panel after a reinstall.</p><div class="restore-steps"><div><span>01</span> Download your license backup</div><div><span>02</span> Keep a copy in your preferred secure storage</div><div><span>03</span> Restore in the desktop app — even offline</div></div><p class="account-fine-print">A license file provides offline Pro access. Treat it as valuable and do not publish or share it.</p></div>
       </div>
     </section>
@@ -134,8 +136,8 @@
     <section id="account-recovery" class="dashboard-section">
       <div class="dashboard-section-title"><div><span class="account-kicker">04 / SECURITY</span><h2>Account recovery<span>.</span></h2><p>Stay in control if you lose access to a computer or sign-in provider.</p></div></div>
       <div class="dashboard-two-column">
-        <div class="account-featured-card"><span class="account-card-label">ONE-TIME RECOVERY CODES</span><h3>Your backup way in.</h3><p>Generate eight single-use codes that let you return to this dashboard if your Google or Apple login becomes unavailable. Save them somewhere secure.</p><p id="recovery-status" class="account-recovery-status" role="status">Checking codes…</p><button id="generate-recovery" type="button" class="account-action account-action-solid">Generate recovery kit <span aria-hidden="true">↗</span></button><div id="recovery-kit" class="recovery-kit" hidden><p>These codes are shown only once. Generating new codes invalidates the old ones.</p><code id="recovery-codes" class="recovery-code-grid"></code><button id="download-recovery" type="button" class="account-action account-action-outline">Download recovery kit <span aria-hidden="true">↓</span></button></div><p class="account-fine-print">Anyone with your account ID and an unused code can sign into your account. A code is consumed immediately when used.</p></div>
-        <div class="account-detail-card"><span class="account-card-label">SIGN-IN RECOVERY</span><h3>Keep another way back.</h3><p id="identity-summary">Your linked sign-in methods are displayed below.</p><div class="identity-links" id="identity-links"><a id="link-google" href="/api/account/link/start/google" hidden>Link another Google account <span aria-hidden="true">↗</span></a><a id="link-apple" href="/api/account/link/start/apple" hidden>Link an Apple account <span aria-hidden="true">↗</span></a><a href="https://accounts.google.com/signin/recovery" target="_blank" rel="noopener noreferrer">Recover your Google account <span aria-hidden="true">↗</span></a></div><p class="account-fine-print">If you lose your original provider, use a saved one-time code to sign in here, then link a new provider. Without a linked login or saved code, automatic account recovery is not available. Offline Pro license backups remain usable without sign-in.</p></div>
+        <div class="account-featured-card"><span class="account-card-label">ONE-TIME RECOVERY CODES</span><h3>Your backup way in.</h3><p>Generate eight single-use codes that let you return to this dashboard if your Google or Apple login becomes unavailable. Save them somewhere secure.</p><p id="recovery-status" class="account-recovery-status" role="status">Checking codes…</p><button id="generate-recovery" type="button" class="account-action account-action-solid"><i class="fa-solid fa-key" aria-hidden="true"></i>Generate recovery kit</button><div id="recovery-kit" class="recovery-kit" hidden><p>These codes are shown only once. Generating new codes invalidates the old ones.</p><code id="recovery-codes" class="recovery-code-grid"></code><button id="download-recovery" type="button" class="account-action account-action-outline"><i class="fa-solid fa-download" aria-hidden="true"></i>Download recovery kit</button></div><p class="account-fine-print">Anyone with your account ID and an unused code can sign into your account. A code is consumed immediately when used.</p></div>
+        <div class="account-detail-card"><span class="account-card-label">SIGN-IN RECOVERY</span><h3>Keep another way back.</h3><p id="identity-summary">Your linked sign-in methods are displayed below.</p><div class="identity-links" id="identity-links"><a id="link-google" href="/api/account/link/start/google" hidden><span><i class="fa-brands fa-google" aria-hidden="true"></i>Link another Google account</span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a><a id="link-apple" href="/api/account/link/start/apple" hidden><span><i class="fa-brands fa-apple" aria-hidden="true"></i>Link an Apple account</span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a><a href="https://accounts.google.com/signin/recovery" target="_blank" rel="noopener noreferrer"><span><i class="fa-brands fa-google" aria-hidden="true"></i>Recover your Google account</span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a></div><p class="account-fine-print">If you lose your original provider, use a saved one-time code to sign in here, then link a new provider. Without a linked login or saved code, automatic account recovery is not available. Offline Pro license backups remain usable without sign-in.</p></div>
       </div>
     </section>
 
