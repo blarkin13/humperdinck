@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from backend import engines
 from backend import entitlements
 from backend import account_client
+from backend import pro_license
 from backend.engine import export_mp3
 from backend import updater
 from backend.audio_edit import AudioEdit, render
@@ -78,6 +79,38 @@ class GenerateRequest(BaseModel):
 class RenameInput(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     category: str | None = Field(default=None, max_length=60)
+
+class LicenseImportInput(BaseModel):
+    license: str = Field(min_length=30, max_length=10000)
+
+
+@app.get('/api/license')
+def local_license_status():
+    return pro_license.status(DATA)
+
+
+@app.get('/api/license/export')
+def local_license_export():
+    try:
+        return pro_license.backup(DATA)
+    except pro_license.InvalidLicense as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@app.post('/api/license/import')
+def local_license_import(request: Request, imported: LicenseImportInput):
+    require_local_account_origin(request)
+    try:
+        return pro_license.save(DATA, imported.license)
+    except pro_license.InvalidLicense as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post('/api/license/activate')
+def local_license_activate(request: Request):
+    require_local_account_origin(request)
+    return account_client.activate_pro(DATA)
+
 
 @app.get('/api/entitlements')
 def get_entitlements():
