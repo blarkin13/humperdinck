@@ -123,6 +123,18 @@ ENGINES = {
         },
     },
 
+    'openvoice': {
+        'label': 'OpenVoice (character voices)', 'venv': 'openvoice', 'roles': ('convert',), 'platforms': ALL,
+        'imports': ('openvoice', 'torch', 'librosa'),
+        'packages': ['torch', 'librosa>=0.10', 'soundfile>=0.12', 'numpy>=1.24,<3', 'huggingface_hub'],
+        # OpenVoice pins many packages it only needs for its own text-to-speech;
+        # the converter needs none of them, so it is installed without dependencies.
+        'no_deps_packages': ['MyShell-OpenVoice @ https://github.com/myshell-ai/OpenVoice/archive/74a1d147b17a8c3092dd5430504bd83ef6c7eb23.zip'],
+        'note': 'Turns an accent or performance into one of your voices, for character voices. Runs well on CPU.',
+        'models': {
+            'myshell-ai/OpenVoiceV2': {'label': 'OpenVoice V2 converter', 'size_gb': 0.13, 'memory_gb': 1.0, 'roles': ('convert',)},
+        },
+    },
 }
 
 
@@ -218,6 +230,10 @@ def downloaded(model_id):
             continue
         # The root checkpoint alone is not sufficient for Qwen3-TTS on MLX.
         # It requires the separate decoder under speech_tokenizer/ as well.
+        if model_id == 'myshell-ai/OpenVoiceV2':
+            if (snapshot / 'converter' / 'checkpoint.pth').is_file():
+                return True
+            continue
         root_weights = any(f.is_file() and f.name.endswith(weights) for f in snapshot.iterdir())
         if not root_weights:
             continue

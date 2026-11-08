@@ -14,7 +14,7 @@ import sys
 
 from backend import catalog, shared_models
 
-SUPPORTED = frozenset(("qwen-mlx", "qwen-torch"))
+SUPPORTED = frozenset(("qwen-mlx", "qwen-torch", "openvoice"))
 
 
 def supported(engine: str) -> bool:
@@ -54,7 +54,7 @@ def environment(*, online: bool = False) -> dict:
     env["UV_NO_PROGRESS"] = "1"
     runtime = source_root()
     if not (runtime / "backend" / "worker.py").is_file():
-        raise RuntimeError("The bundled Qwen worker sources are missing")
+        raise RuntimeError("The bundled engine worker sources are missing")
     env["PYTHONPATH"] = str(runtime) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     shared_models.configure_hf_home()
     if online:
@@ -123,6 +123,9 @@ def install(engine: str, model: str | None = None) -> None:
     torch_backend = ["--torch-backend", "auto"] if engine == "qwen-torch" else []
     _execute([uv, "pip", "install", "--python", str(py), "--upgrade", *torch_backend,
               *catalog.ENGINES[engine]["packages"]], env)
+    if catalog.ENGINES[engine].get("no_deps_packages"):
+        _execute([uv, "pip", "install", "--python", str(py), "--upgrade", "--no-deps",
+                  *catalog.ENGINES[engine]["no_deps_packages"]], env)
     print("STEP Verifying installed engine", flush=True)
     modules = catalog.ENGINES[engine]["imports"]
     _execute([str(py), "-c", "import importlib; " +

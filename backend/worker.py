@@ -47,6 +47,9 @@ def engine_for(name, model):
         elif name == 'qwen-torch':
             from backend.qwen_torch_engine import QwenTorchEngine
             adapter = QwenTorchEngine(model)
+        elif name == 'openvoice':
+            from backend.voice_converter import VoiceConverter
+            adapter = VoiceConverter(model)
         elif name == 'kokoro':
             from backend.kokoro_engine import KokoroEngine
             adapter = KokoroEngine(model)
@@ -81,7 +84,9 @@ def handle(request):
     emit(loaded=True, device=device_of(request['engine'], engine))
     progress = lambda done, total: emit(progress=[done, total])
     output = Path(request['output'])
-    if request['mode'] == 'preset':
+    if request['mode'] == 'convert':
+        engine.convert(Path(request['reference']), [Path(t) for t in request['targets']], output, on_progress=progress)
+    elif request['mode'] == 'preset':
         if request['engine'] != 'kokoro':
             raise ValueError('Preset voices require Kokoro')
         engine.synthesize(request['text'], request['preset_voice'], output, on_progress=progress)

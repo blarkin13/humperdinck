@@ -407,3 +407,5 @@
 :root[data-theme="vintage"][data-mode="light"] .brand .brand-mark-vintage-light{display:block;width:72px;height:72px;flex:none}
 :root[data-theme="modern"] .brand .brand-mark-vintage-light{display:none}
 @media(max-width:640px){:root[data-theme="vintage"][data-mode="light"] .brand .brand-mark-vintage-light{width:44px;height:44px}}
+:root[data-mode="light"] .narrator-chip.on,:root[data-mode="light"] .narrator-icon:hover{background:var(--light-panel);color:var(--ink,inherit)}
+:root[data-mode="light"] .character-voice{background:var(--light-surface,#fff)}

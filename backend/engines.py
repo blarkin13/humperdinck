@@ -333,3 +333,11 @@ def preset(engine, voice, output, text, on_progress=None):
     if engine != 'kokoro' or voice not in catalog.PRESET_VOICES[engine]:
         raise ValueError('Unknown preset voice')
     synthesize(engine, output, text, model=voice, mode='preset', on_progress=on_progress)
+
+
+def convert(source, targets, output, on_progress=None):
+    """Re-voice the source recording into the voice heard in the target clips (OpenVoice)."""
+    model = next(iter(catalog.ENGINES['openvoice']['models']))
+    pool.synthesize('openvoice', {'engine': 'openvoice', 'model': model, 'mode': 'convert', 'text': '',
+                                  'reference': str(source), 'targets': [str(t) for t in targets],
+                                  'output': str(output)}, on_progress)

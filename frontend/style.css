@@ -1039,3 +1039,45 @@ button.active small,.primary small{color:#3a3122}
 .setup-engine{display:flex;gap:10px;align-items:center;font-size:13px;flex-wrap:wrap}
 .setup-engine select{min-height:36px;color:var(--ivory);background:var(--teal);border:1px solid var(--line);border-radius:8px;padding:6px}
 @media(max-width:620px){.setup-body{padding:0 16px 13px}.setup-step{grid-template-columns:22px minmax(0,1fr);}.setup-step-action{grid-column:2}}
+/* Narrator picker: groups, chips, row actions, character version */
+.narrator-picker{width:min(600px,100%);max-height:min(88vh,820px)}
+.narrator-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 20px 8px}
+.narrator-chip{font-size:12px;padding:4px 11px;border-radius:999px;border:1px solid var(--line,#34494a);background:transparent;color:var(--muted,#b5aa94)}
+.narrator-chip.on{font-weight:600;border-color:var(--brass-hi,#c6a46a)!important;background:rgba(198,164,106,.22)!important;color:var(--ivory,#f0e5cf)!important}
+.narrator-chip.clear{border-style:dashed}
+.narrator-group{margin-bottom:8px}
+.narrator-group-head{display:flex;align-items:center;gap:7px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#b5aa94);padding:10px 12px 4px}
+.narrator-group-head span{margin-left:auto;font-size:11px;opacity:.8}
+.narrator-option{cursor:pointer;border-radius:10px}
+.narrator-option:focus-visible{outline:2px solid var(--brass-hi,#c6a46a);outline-offset:-2px}
+.narrator-option-actions{display:flex;gap:2px;flex:0 0 auto}
+.narrator-icon{border:0;background:transparent;width:32px;height:32px;padding:0;border-radius:50%;color:var(--muted,#b5aa94);font-size:13px}
+.narrator-icon:hover,.narrator-icon.on{color:var(--brass-hi,#c6a46a);background:rgba(198,164,106,.12)}
+.narrator-heart.on,.narrator-heart.on:hover{color:#e0607e!important}
+.narrator-option.selected .narrator-add{color:var(--brass-hi,#c6a46a)}
+.narrator-gallery-link{margin-left:auto;margin-right:auto}
+.narrator-keys{margin:0;padding:0 20px 12px;font-size:11px;color:var(--muted,#b5aa94);text-align:center}
+.character-backdrop{z-index:2100}
+.character-voice{width:min(500px,100%)}
+.character-body{padding:4px 20px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.character-body label{display:flex;flex-direction:column;gap:5px;font-size:13px}
+.character-body textarea{min-height:58px!important;height:58px;resize:vertical}
+.character-body label small{color:var(--muted,#b5aa94)}
+.character-actions{display:flex;gap:8px}
+.character-error{color:#f08a7a;font-size:13px;margin:0}
+@media(max-width:620px){.narrator-icon{width:28px;height:28px}.narrator-keys{display:none}}
+.character-takes{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line,#34494a);border-radius:10px;padding:10px 12px}
+.character-takes>small{color:var(--muted,#b5aa94);font-size:12px}
+.character-take{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 6px;border-radius:8px}
+.character-take.on{background:rgba(198,164,106,.12)}
+.character-take label{flex-direction:row!important;align-items:center;gap:8px!important;cursor:pointer}
+.character-take small{color:var(--muted,#b5aa94);font-size:12px}
+.narrator-characters{position:relative}
+.narrator-count{position:absolute;top:1px;right:0;font-size:9px;line-height:13px;min-width:13px;border-radius:7px;background:var(--brass-hi,#c6a46a);color:#111;font-weight:700}
+.narrator-sub{margin:0 0 6px 30px;border-left:2px solid var(--line,#34494a);padding-left:6px}
+.narrator-sub .narrator-avatar{width:30px!important;height:30px!important;flex-basis:30px!important;font-size:12px!important}
+.narrator-new-character{border:1px dashed var(--line,#34494a)!important;background:transparent!important;font-size:12px;padding:6px 12px;margin:4px 0 2px 12px;border-radius:8px}
+.voice-characters-button{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px}
+.characters-panel{width:min(540px,100%)}
+.characters-panel .narrator-option{cursor:default}
+.characters-panel .narrator-option-text input{padding:4px 8px!important}
