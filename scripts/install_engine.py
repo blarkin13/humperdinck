@@ -188,6 +188,8 @@ def main():
         step('Using Windows-compatible Kokoro dependencies without the Japanese pyopenjtalk source build')
     step(f"Installing {engine['label']} packages (this can take several minutes)")
     subprocess.run(command, check=True)
+    if engine.get('no_deps_packages'):
+        subprocess.run([str(python), '-m', 'pip', 'install', '--no-deps', *engine['no_deps_packages']], check=True)
     if engine.get('torch') and sys.platform in ('win32', 'linux') and shutil.which('nvidia-smi'):
         use_cuda(python)
     step('Checking the installation')

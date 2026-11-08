@@ -1072,3 +1072,12 @@ button.active small,.primary small{color:#3a3122}
 .character-take.on{background:rgba(198,164,106,.12)}
 .character-take label{flex-direction:row!important;align-items:center;gap:8px!important;cursor:pointer}
 .character-take small{color:var(--muted,#b5aa94);font-size:12px}
+.narrator-characters{position:relative}
+.narrator-count{position:absolute;top:1px;right:0;font-size:9px;line-height:13px;min-width:13px;border-radius:7px;background:var(--brass-hi,#c6a46a);color:#111;font-weight:700}
+.narrator-sub{margin:0 0 6px 30px;border-left:2px solid var(--line,#34494a);padding-left:6px}
+.narrator-sub .narrator-avatar{width:30px!important;height:30px!important;flex-basis:30px!important;font-size:12px!important}
+.narrator-new-character{border:1px dashed var(--line,#34494a)!important;background:transparent!important;font-size:12px;padding:6px 12px;margin:4px 0 2px 12px;border-radius:8px}
+.voice-characters-button{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px}
+.characters-panel{width:min(540px,100%)}
+.characters-panel .narrator-option{cursor:default}
+.characters-panel .narrator-option-text input{padding:4px 8px!important}

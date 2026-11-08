@@ -3,22 +3,22 @@ import CharacterVoice from './CharacterVoice.jsx';
 
 // Voices are grouped by where they came from; favorites and voices already in
 // this script sit on top because multi-speaker scripts reuse a few voices.
-const GROUPS=[['builtin','Built-in voices'],['gallery','From the voice gallery'],['designed','Designed & character voices'],['uploaded','Uploaded & recorded']];
-const ICONS={builtin:'fa-microphone-lines',gallery:'fa-store',designed:'fa-wand-magic-sparkles',uploaded:'fa-file-audio'};
+// Characters live under their original voice's row, not in a group of their own.
+const GROUPS=[['builtin','Built-in voices'],['gallery','From the voice gallery'],['designed','Designed voices'],['uploaded','Uploaded & recorded']];
+const ICONS={builtin:'fa-microphone-lines',gallery:'fa-store',designed:'fa-wand-magic-sparkles',uploaded:'fa-file-audio',character:'fa-masks-theater'};
 const LOCAL_KEY='humperdinck-voice-picker';
 
 function readLocal(){try{const d=JSON.parse(localStorage.getItem(LOCAL_KEY)||'{}');return{favorites:d.favorites||[],recent:d.recent||[]}}catch{return{favorites:[],recent:[]}}}
 function writeLocal(d){try{localStorage.setItem(LOCAL_KEY,JSON.stringify(d))}catch{}}
 
-export default function NarratorPicker({api,options,currentKey,sectionNumber,usedKeys=[],publicStudio=false,onSelect,onClose,onOpenGallery,onVoiceCreated}){
+export default function NarratorPicker({api,options,currentKey,sectionNumber,usedKeys=[],publicStudio=false,onSelect,onClose,onOpenGallery,onVoiceCreated,onOpenModels}){
  const [search,setSearch]=useState(''),[chips,setChips]=useState([]),[picker,setPicker]=useState({favorites:[],recent:[]});
- const [playing,setPlaying]=useState(null),[previewState,setPreviewState]=useState({}),[variantOf,setVariantOf]=useState(null),[designReady,setDesignReady]=useState(false);
+ const [playing,setPlaying]=useState(null),[previewState,setPreviewState]=useState({}),[variantOf,setVariantOf]=useState(null),[expanded,setExpanded]=useState({});
  const audio=useRef(null),list=useRef(null),searchBox=useRef(null);
 
  useEffect(()=>{
   if(publicStudio){setPicker(readLocal());return}
   api('voice-picker').then(setPicker).catch(()=>{});
-  api('health').then(h=>setDesignReady(!!h.design_ready)).catch(()=>{});
  },[]);
  useEffect(()=>()=>audio.current?.pause(),[]);
 
@@ -40,6 +40,9 @@ export default function NarratorPicker({api,options,currentKey,sectionNumber,use
  const shownTop=new Set([...picker.favorites,...usedKeys]);
  const top=[['favorites','Favorites','fa-heart',pick(picker.favorites)],['used','In this narration','fa-list-check',pick(usedKeys)],['recent','Recently used','fa-clock-rotate-left',pick(picker.recent).filter(v=>!shownTop.has(v.value))]].filter(g=>g[3].length);
  const groups=GROUPS.map(([id,title])=>[id,title,ICONS[id],options.filter(v=>v.kind===id&&matches(v))]).filter(g=>g[3].length);
+ // A search that only matches a character's name still finds it.
+ if(q){const found=options.filter(v=>v.kind==='character'&&matches(v));if(found.length)groups.push(['character','Characters',ICONS.character,found])}
+ const charactersOf=v=>options.filter(c=>c.kind==='character'&&c.parent===v.value);
  const total=groups.reduce((n,g)=>n+g[3].length,0);
 
  async function toggleFavorite(v){
@@ -111,8 +114,11 @@ export default function NarratorPicker({api,options,currentKey,sectionNumber,use
      <i className={'fa-solid '+(loading?'fa-spinner fa-spin':playing===v.value?'fa-stop':'fa-play')} aria-hidden="true"/></button>}
     <button type="button" tabIndex={-1} className={'narrator-icon narrator-heart '+(fav?'on':'')} title={fav?'Remove from favorites (F)':'Add to favorites (F)'} aria-label={(fav?'Remove from favorites: ':'Add to favorites: ')+v.label} aria-pressed={fav} onClick={e=>{e.stopPropagation();toggleFavorite(v)}}>
      <i className={(fav?'fa-solid':'fa-regular')+' fa-heart'} aria-hidden="true"/></button>
-    {!publicStudio&&<button type="button" tabIndex={-1} className="narrator-icon" title="Make a character version (accent or performed voice)" aria-label={'Make a character version of '+v.label} onClick={e=>{e.stopPropagation();audio.current?.pause();setPlaying(null);setVariantOf(v)}}>
-     <i className="fa-solid fa-masks-theater" aria-hidden="true"/></button>}
+    {!publicStudio&&v.kind!=='character'&&(()=>{const count=charactersOf(v).length,open=!!expanded[v.value+group];
+     return <button type="button" tabIndex={-1} className={'narrator-icon narrator-characters '+(open?'on':'')} title={count?(open?'Hide characters':'Show characters'):'New character (accent or way of talking)'} aria-expanded={count?open:undefined}
+      aria-label={count?`${open?'Hide':'Show'} ${count} character${count===1?'':'s'} of ${v.label}`:'New character for '+v.label}
+      onClick={e=>{e.stopPropagation();if(count)setExpanded(o=>({...o,[v.value+group]:!open}));else{audio.current?.pause();setPlaying(null);setVariantOf(v)}}}>
+      <i className="fa-solid fa-masks-theater" aria-hidden="true"/>{count>0&&<span className="narrator-count">{count}</span>}</button>})()}
     <button type="button" tabIndex={-1} className="narrator-icon narrator-add" title="Use for this section (Enter)" aria-label={'Use '+v.label+' for this section'} onClick={e=>{e.stopPropagation();choose(v)}}>
      <i className={'fa-solid '+(currentKey===v.value?'fa-check':'fa-plus')} aria-hidden="true"/></button>
    </span>
@@ -120,7 +126,11 @@ export default function NarratorPicker({api,options,currentKey,sectionNumber,use
  };
  const section=([id,title,icon,items])=><div className="narrator-group" key={id} role="group" aria-label={title}>
   <div className="narrator-group-head"><i className={'fa-solid '+icon} aria-hidden="true"/> {title}<span>{items.length}</span></div>
-  {items.map(v=>row(v,id))}
+  {items.map(v=><React.Fragment key={id+v.value}>{row(v,id)}
+   {expanded[v.value+id]&&<div className="narrator-sub" role="group" aria-label={v.label+' characters'}>
+    {charactersOf(v).filter(matches).map(c=>row(c,id+'sub'))}
+    <button type="button" className="narrator-new-character" onClick={()=>{audio.current?.pause();setPlaying(null);setVariantOf(v)}}><i className="fa-solid fa-plus" aria-hidden="true"/> New character for {v.label}</button>
+   </div>}</React.Fragment>)}
  </div>;
 
  return <div className="narrator-modal-backdrop" onKeyDown={onModalKey} onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
@@ -142,7 +152,7 @@ export default function NarratorPicker({api,options,currentKey,sectionNumber,use
    </div>
    <p className="narrator-keys">↑ ↓ move · Enter pick · Space preview · F favorite</p>
   </div>
-  {variantOf&&<CharacterVoice api={api} source={variantOf} designReady={designReady} onClose={()=>setVariantOf(null)}
-   onCreated={async key=>{setVariantOf(null);await onVoiceCreated?.(key);choose({value:key})}}/>}
+  {variantOf&&<CharacterVoice api={api} source={variantOf} onOpenModels={onOpenModels} onClose={()=>setVariantOf(null)}
+   onCreated={async c=>{setVariantOf(null);await onVoiceCreated?.();choose({value:'character:'+c.id})}}/>}
  </div>;
 }

@@ -57,7 +57,7 @@ function VoiceShelf({name,count,children}){
 
 // Voice cards grouped by category in horizontally browsable shelves.
 // items: [{key,method,name,category,ready,status,summary,meters:[[label,0-100,low,high]],traits,specs:[[icon,text,title]],previewUrl,selected,onOpen,onDelete}]
-export default function VoiceGrid({items,onCreate,previewDisabled=false,onPreviewVoice=null,builtinPublisher=null}){
+export default function VoiceGrid({items,onCreate,previewDisabled=false,onPreviewVoice=null,builtinPublisher=null,characterCounts=null,onCharacters=null}){
  const [query,setQuery]=useState(''),[playing,setPlaying]=useState(null),[previewJobs,setPreviewJobs]=useState({}),audio=useRef(null);
  useEffect(()=>()=>audio.current?.pause(),[]);
  function playAudio(v,url,kind='generated'){
@@ -146,6 +146,9 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
        <span>{previewDisabled&&onPreviewVoice?'Use in Narration Studio':on?'Stop playback':working?'Generating…':(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')?v.method==='builtin-humperdinck'?'Play voice sample':'Play original':'Play voice sample'}</span>
       </button>
       {on&&<span className="voice-playback-indicator" aria-label="Playing"><i/><i/><i/><i/><i/></span>}
+      {onCharacters&&characterCounts&&v.voiceKey in characterCounts&&<button type="button" className="voice-characters-button" title="Characters: this voice with accents and ways of talking"
+       aria-label={`${v.name} characters (${characterCounts[v.voiceKey]})`} onClick={e=>{e.stopPropagation();onCharacters(v.voiceKey)}} onKeyDown={e=>e.stopPropagation()}>
+       <i className="fa-solid fa-masks-theater" aria-hidden="true"/><span>{characterCounts[v.voiceKey]||'Characters'}</span></button>}
      </div>
      {(['uploaded','recorded','edited'].includes(v.method))&&<div className="voice-comparison">
       <span className="voice-comparison-caption">Play auditions your original recording instantly.</span>

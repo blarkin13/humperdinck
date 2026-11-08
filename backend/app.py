@@ -23,6 +23,8 @@ from backend import catalog
 from backend import media_tools
 from backend import native_models
 from backend.voice_picker import VoicePicker
+from backend.characters import (Characters, TARGET_TEXT, NAMES as CHARACTER_NAMES, accents as character_accents,
+                                performer as character_performer, description as character_description)
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
 from backend.curated_sounds import BY_SLUG,public_catalog
@@ -849,6 +851,182 @@ def note_voice_used(request: PickerUsedInput):
     return voice_picker.used(request.voice_key)
 
 
+# Character versions of a voice (see backend/characters.py).
+characters = Characters(DATA / 'characters')
+CONVERTER_MODEL = 'myshell-ai/OpenVoiceV2'
+
+
+class CharacterTakesInput(BaseModel):
+    source_key: str = Field(min_length=3, max_length=150)
+    accent: str = Field(default='', max_length=60)
+    direction: str = Field(default='', max_length=400)
+    gender: str = Field(default='female', pattern='^(female|male|neutral)$')
+    text: str = Field(min_length=1, max_length=300)
+
+
+class CharacterInput(BaseModel):
+    source_key: str = Field(min_length=3, max_length=150)
+    name: str = Field(min_length=1, max_length=80)
+    accent: str = Field(default='', max_length=60)
+    direction: str = Field(default='', max_length=400)
+    gender: str = Field(default='female', pattern='^(female|male|neutral)$')
+    job_id: str
+    take: int = Field(ge=0, le=5)
+
+
+class CharacterRename(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+
+
+def require_converter():
+    if not engines.installed('openvoice') or not catalog.downloaded(CONVERTER_MODEL):
+        raise HTTPException(503, 'Character voices need the OpenVoice converter. Open Models and install it under '
+                                 'Character voices (about 130 MB plus PyTorch).')
+
+
+def character_targets(source_key):
+    """Clips of the original voice, used to tell the converter what it sounds like."""
+    if source_key.startswith('character:'):
+        raise HTTPException(422, 'Make characters from the original voice')
+    reference, detail = resolve_voice_key(source_key)
+    if reference is not None:
+        return [reference]
+    engine, voice = detail
+    target = characters.targets / f'{voice}.wav'
+    if not target.is_file():
+        engines.preset(engine, voice, target, TARGET_TEXT_FOR_CHARACTERS)
+    return [target]
+
+
+TARGET_TEXT_FOR_CHARACTERS = TARGET_TEXT
+
+
+def run_character_takes(job_id, request, count=3):
+    job = jobs[job_id]
+    sources = []
+    try:
+        with engine_lock:
+            job.update(status='running', message='Learning the original voice')
+            targets = character_targets(request.source_key)
+            # Perform every take first, then convert them all: one model switch instead of six.
+            for i in range(count):
+                job.update(message=f'Performing take {i + 1} of {count}', progress=round(i / count * 60))
+                source = characters.takes / f'{job_id}-{i}-source.wav'
+                voice = character_performer(request.accent, request.direction, request.gender, i)
+                if voice:
+                    engines.preset('kokoro', voice, source, request.text)
+                else:
+                    engines.design(settings.load()['design'], source, request.text,
+                                   character_description(request.accent, request.direction, request.gender))
+                sources.append((source, voice))
+            for i, (source, voice) in enumerate(sources):
+                job.update(message=f'Turning take {i + 1} into the original voice', progress=60 + round(i / count * 38))
+                engines.convert(source, targets, characters.take_path(job_id, i))
+                job['takes'][i] = {'status': 'complete', 'url': f'/api/characters/takes/{job_id}-{i}.wav', 'performer': voice}
+        job.update(status='complete', progress=100, message='Takes ready')
+    except Exception as exc:
+        job.update(status='failed', message=f'{type(exc).__name__}: {exc}' if not isinstance(exc, HTTPException) else exc.detail)
+    finally:
+        for source, _ in sources:
+            source.unlink(missing_ok=True)
+
+
+@app.get('/api/characters')
+def list_characters():
+    return characters.list()
+
+
+@app.get('/api/characters/options')
+def character_options():
+    return {'accents': character_accents(), 'names': CHARACTER_NAMES,
+            'converter_ready': engines.installed('openvoice') and catalog.downloaded(CONVERTER_MODEL),
+            'design_ready': engines.installed(settings.load()['design']['engine'])}
+
+
+@app.post('/api/characters/takes')
+def create_character_takes(request: CharacterTakesInput):
+    require_converter()
+    if request.source_key.startswith('character:'):
+        raise HTTPException(422, 'Make characters from the original voice')
+    resolve_voice_key(request.source_key)  # a clear error now rather than inside the job
+    if not character_performer(request.accent, request.direction, request.gender, 0):
+        require_engine('design')
+    characters.prune_takes()
+    # Kokoro is deterministic: one take per distinct speaker (French has just one).
+    performers = [character_performer(request.accent, request.direction, request.gender, i) for i in range(3)]
+    count = len(dict.fromkeys(performers)) if performers[0] else 3
+    job_id = uuid4().hex
+    jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0, 'message': 'Waiting for the voice engine',
+                    'text': request.text, 'takes': [{'status': 'pending'} for _ in range(count)]}
+    Thread(target=run_character_takes, args=(job_id, request, count), daemon=True).start()
+    return jobs[job_id]
+
+
+@app.get('/api/characters/takes/{filename}')
+def character_take_audio(filename: str):
+    stem, _, ext = filename.partition('.')
+    job_id, _, index = stem.rpartition('-')
+    if ext != 'wav' or len(job_id) != 32 or not job_id.isalnum() or not index.isdigit():
+        raise HTTPException(404, 'Take not found')
+    path = characters.take_path(job_id, int(index))
+    if not path.is_file():
+        raise HTTPException(404, 'Take not found')
+    return FileResponse(path, media_type='audio/wav')
+
+
+@app.post('/api/characters', status_code=201)
+def save_character(request: CharacterInput):
+    job = jobs.get(request.job_id)
+    if not job or job.get('status') != 'complete' or request.take >= len(job.get('takes', [])):
+        raise HTTPException(400, 'Those takes are no longer available. Make new takes.')
+    path = characters.take_path(request.job_id, request.take)
+    if not path.is_file():
+        raise HTTPException(404, 'Take audio is missing')
+    return characters.create(source_key=request.source_key, name=request.name.strip(), accent=request.accent,
+                             direction=request.direction.strip(), text=job.get('text', ''), gender=request.gender,
+                             take_path=path, performer_voice=job['takes'][request.take].get('performer'))
+
+
+@app.patch('/api/characters/{character_id}')
+def rename_character(character_id: str, request: CharacterRename):
+    return characters.update(character_id, name=request.name.strip()) or _missing_character()
+
+
+@app.delete('/api/characters/{character_id}')
+def delete_character(character_id: str):
+    if not characters.delete(character_id):
+        _missing_character()
+    return {'deleted': True}
+
+
+@app.get('/api/characters/{character_id}/sample.wav')
+def character_sample(character_id: str):
+    path = characters.audio(character_id) if characters.get(character_id) else None
+    if not path or not path.is_file():
+        _missing_character()
+    return FileResponse(path, media_type='audio/wav')
+
+
+def _missing_character():
+    raise HTTPException(404, 'Character not found')
+
+
+def render_character(character_id, text, output, on_progress=None):
+    """Speak new text as a character: perform it, then convert into the original voice."""
+    character = characters.get(character_id) or _missing_character()
+    if character.get('performer'):
+        source = output.with_name(output.stem + '-performance.wav')
+        try:
+            engines.preset('kokoro', character['performer'], source, text, on_progress=on_progress)
+            engines.convert(source, character_targets(character['source_key']), output)
+        finally:
+            source.unlink(missing_ok=True)
+    else:
+        # A designed performance: clone the saved take so every line keeps that delivery.
+        engines.clone(settings.load()['clone'], output, text, characters.audio(character_id),
+                      character.get('text'), on_progress=on_progress)
+
+
 @app.get('/api/preset-voices')
 def list_preset_voices():
     """Preset narration voices whose engine and weights are already installed."""
@@ -993,6 +1171,10 @@ def resolve_voice_key(key):
         approved = library.latest_approved(identifier)
         path = approved['path'] if approved else None
         text = approved['text'] if approved else None
+    elif key.startswith('character:'):
+        character = characters.get(key[10:]) or _missing_character()
+        path = characters.audio(character['id'])
+        text = character.get('text')
     elif key.startswith('upload:'):
         identifier = key[7:]
         if not identifier.isalnum(): raise HTTPException(400,'Invalid voice')
@@ -1022,7 +1204,9 @@ def run_multi(job_id, request, references):
                     narration_text = remove_speech_direction_tags(block.text)
                     if not narration_text:
                         raise ValueError('A narration section needs words beyond speech direction tags')
-                    if reference is None:
+                    if block.voice_key.startswith('character:'):
+                        render_character(block.voice_key[10:], narration_text, temp, on_progress=progress)
+                    elif reference is None:
                         preset_engine, preset_voice = ref_text
                         engines.preset(preset_engine, preset_voice, temp, narration_text, on_progress=progress)
                     else:
@@ -1124,7 +1308,12 @@ def create_narration(request: MultiNarrationRequest):
         except (ValueError,FileNotFoundError):
             raise HTTPException(404,'The background ambience is missing from the library')
     references=[resolve_voice_key(b.voice_key) for b in request.blocks]
-    if any(reference is not None for reference, _ in references):
+    # Accent characters are Kokoro + the converter; designed-performance characters are cloned.
+    performed={b.voice_key for b in request.blocks if b.voice_key.startswith('character:')
+               and (characters.get(b.voice_key[10:]) or {}).get('performer')}
+    if performed:
+        require_converter()
+    if any(reference is not None and b.voice_key not in performed for b,(reference, _) in zip(request.blocks,references)):
         require_engine('clone')
     job_id=uuid4().hex
     jobs[job_id]={'job_id':job_id,'status':'queued','progress':0,'message':'Waiting for narration engine'}
@@ -1384,7 +1573,7 @@ def list_models():
             'device': engines.devices.get(engine_id),
             'native_installable': (not (os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1')
                                    or engine_id == 'kokoro'
-                                   or (engine_id in ('qwen-mlx','qwen-torch') and supported)),
+                                   or (engine_id in ('qwen-mlx','qwen-torch','openvoice') and supported)),
             'platforms': [{'darwin': 'macOS', 'win32': 'Windows', 'linux': 'Linux'}[p] for p in engine['platforms']],
             'requires_apple_silicon': bool(engine.get('requires_apple_silicon')),
             'models': [{'id': model_id, **info, 'downloaded': catalog.downloaded(model_id),
@@ -1500,7 +1689,7 @@ def install_model(request: ModelInstall):
         raise HTTPException(422, 'Unknown model for this engine')
     if not install_lock.acquire(blocking=False):
         raise HTTPException(409, 'Another installation is already running')
-    if native and request.engine in ('qwen-mlx', 'qwen-torch'):
+    if native and request.engine in ('qwen-mlx', 'qwen-torch', 'openvoice'):
         job_id = uuid4().hex
         jobs[job_id] = {'job_id':job_id, 'status':'queued','progress':0,
                         'message':'Preparing an isolated ' + request.engine + ' runtime',
@@ -1509,6 +1698,10 @@ def install_model(request: ModelInstall):
         command = [sys.executable, '--native-install-engine', request.engine]
         if request.model:
             command += ['--model', request.model]
+        if not getattr(sys, 'frozen', False):
+            # Production mode from source has no bundled executable to re-run.
+            command = [sys.executable, '-c', 'import sys; from backend.native_runtime import install; '
+                       'install(sys.argv[1], sys.argv[2] or None)', request.engine, request.model or '']
         Thread(target=run_install, args=(job_id, command), daemon=True).start()
         return jobs[job_id]
     if native:
