@@ -1215,3 +1215,4 @@ button.active small,.primary small{color:#3a3122}
 .sound-desk.embedded .sound-desk-row{display:flex;align-items:center;justify-content:space-between}
 .sound-desk.embedded .sound-desk-switch,.sound-desk.embedded .sound-desk-check{display:flex;align-items:flex-start;gap:8px}
 .sound-desk.embedded .sound-desk-check span{display:flex;flex-direction:column}
+.app-version{opacity:.55;font-variant-numeric:tabular-nums;letter-spacing:0}

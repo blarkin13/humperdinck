@@ -70,7 +70,7 @@ export default function Models({onOpenSetup}){
     <small>{e.note}</small>
     {e.device&&<small className={'engine-device '+e.device.kind}><i className={'fa-solid '+(e.device.kind==='gpu'?'fa-bolt':'fa-microchip')} aria-hidden="true"/> Last ran on {e.device.kind==='gpu'?'GPU · '+e.device.name:'CPU'}{e.device.reason?' · '+e.device.reason:''}</small>}
     {e.id==='kokoro'?<KokoroVoices e={e} data={data} running={running} install={install} removeModel={removeModel}/>:<>
-    <div className="engine-model-scroll" role="region" aria-label={e.label+' models'} tabIndex={0}>{e.models.filter(m=>m.roles.includes(role)).slice(0,expanded[e.id]?undefined:4).map(m=>{const sel=role!=='preset'&&data.selected[role].engine===e.id&&data.selected[role].model===m.id,usable=e.supported&&e.installed&&m.downloaded;
+    <div className="engine-model-scroll" role="region" aria-label={e.label+' models'} tabIndex={0}>{e.models.filter(m=>m.roles.includes(role)).slice(0,expanded[e.id]?undefined:4).map(m=>{const sel=role!=='preset'&&data.selected[role]?.engine===e.id&&data.selected[role]?.model===m.id,usable=e.supported&&e.installed&&m.downloaded;
      return <div className={'model-row'+(sel?' chosen':'')} key={m.id}>
       <div className="model-info">
        <label className="check">{role!=='preset'&&<input type="radio" name={role} checked={sel} disabled={!usable} onChange={()=>choose(role,e.id,m.id)}/>} <span><strong>{m.label}</strong>{m.note&&<small> · {m.note}</small>}<br/><small className="mono">{m.id}</small></span></label>
