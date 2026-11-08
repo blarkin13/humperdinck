@@ -165,7 +165,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   }
   for(const cue of cues){const a=cueAudio.current[cue.id];if(!a)continue;
    const inside=cue.audio&&time>=cue.start&&time<cueEnd(cue);
-   a.playbackRate=cueSpeed(cue);a.preservesPitch=true;
+   if(a.playbackRate!==cueSpeed(cue)){a.playbackRate=cueSpeed(cue);a.preservesPitch=true}
    if(playing&&inside){connectDesk(a,cue.gain||0);const want=(time-cue.start)*cueSpeed(cue);if(Math.abs(a.currentTime-want)>.3)a.currentTime=want;if(a.paused)a.play().catch(()=>{})}
    else if(!a.paused)a.pause();
   }

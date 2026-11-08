@@ -28,9 +28,12 @@ export function useDeskPreview(desk){
  function build(){
   if(graph.current)return graph.current;
   const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return null;
-  const ctx=new Ctx(),hp=ctx.createBiquadFilter(),low=ctx.createBiquadFilter(),mid=ctx.createBiquadFilter(),high=ctx.createBiquadFilter(),comp=ctx.createDynamicsCompressor(),out=ctx.createGain();
+  const ctx=new Ctx(),hp=ctx.createBiquadFilter(),low=ctx.createBiquadFilter(),mid=ctx.createBiquadFilter(),high=ctx.createBiquadFilter(),comp=ctx.createDynamicsCompressor(),out=ctx.createGain(),limit=ctx.createDynamicsCompressor();
   hp.type='highpass';low.type='lowshelf';low.frequency.value=150;mid.type='peaking';mid.frequency.value=1800;mid.Q.value=1;high.type='highshelf';high.frequency.value=5500;
-  hp.connect(low);low.connect(mid);mid.connect(high);high.connect(comp);comp.connect(out);out.connect(ctx.destination);
+  hp.connect(low);low.connect(mid);mid.connect(high);high.connect(comp);comp.connect(out);out.connect(limit);limit.connect(ctx.destination);
+  // A fast brick-wall stage so EQ boosts can never clip (clipping crackles).
+  limit.threshold.value=-2;limit.knee.value=0;limit.ratio.value=20;limit.attack.value=.002;limit.release.value=.08;
+  comp.knee.value=6;comp.attack.value=.01;comp.release.value=.15;
   graph.current={ctx,hp,low,mid,high,comp,out,sources:new WeakMap()};return graph.current;
  }
  function apply(g,d){
@@ -39,7 +42,9 @@ export function useDeskPreview(desk){
   g.low.gain.setTargetAtTime(on?d.low:0,t,.02);g.mid.gain.setTargetAtTime(on?d.mid:0,t,.02);g.high.gain.setTargetAtTime(on?d.high:0,t,.02);
   const c=on?d.compress:'off';
   g.comp.threshold.setTargetAtTime(c==='strong'?-26:c==='gentle'?-20:0,t,.02);g.comp.ratio.setTargetAtTime(c==='strong'?4.5:c==='gentle'?2.5:1,t,.02);
-  g.out.gain.setTargetAtTime(c==='strong'?1.6:c==='gentle'?1.25:1,t,.02);
+  // Leave headroom for boosts instead of adding make-up gain.
+  const boost=on?Math.max(0,d.low,d.mid,d.high):0;
+  g.out.gain.setTargetAtTime(Math.pow(10,-boost/2/20),t,.02);
  }
  useEffect(()=>{if(graph.current)apply(graph.current,desk)},[JSON.stringify(desk)]);
  useEffect(()=>()=>{graph.current?.ctx.close().catch(()=>{})},[]);
@@ -48,7 +53,7 @@ export function useDeskPreview(desk){
   if(!el)return;const g=build();if(!g)return;
   let s=g.sources.get(el);
   if(!s){try{const src=g.ctx.createMediaElementSource(el),gain=g.ctx.createGain();src.connect(gain);gain.connect(g.hp);s={gain};g.sources.set(el,s);apply(g,desk)}catch{return}}
-  s.gain.gain.value=Math.pow(10,(gainDb||0)/20);
+  if(s.db!==gainDb){s.db=gainDb;s.gain.gain.setTargetAtTime(Math.pow(10,(gainDb||0)/20),g.ctx.currentTime,.02)}
   if(g.ctx.state==='suspended')g.ctx.resume().catch(()=>{});
  };
 }
