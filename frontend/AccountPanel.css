@@ -11,3 +11,4 @@
 .account-panel-steps{margin:10px 0 6px;padding-left:20px;line-height:1.7;color:var(--muted,#aaa)}
 .account-panel-steps b{color:var(--text,#fff)}
 .account-panel-code{font-family:ui-monospace,Menlo,monospace;letter-spacing:.06em}
+.account-panel-close{display:grid;place-items:center;padding:0;flex:none}
