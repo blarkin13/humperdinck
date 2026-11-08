@@ -1251,7 +1251,11 @@ html{scroll-padding-top:0}
 }
 @media(max-width:680px){
   .download-cards{grid-template-columns:minmax(0,1fr);gap:14px}
+  /* The editorial layout above gives macOS and Linux a more specific
+     display:flex declaration. Match that specificity here so ALL three
+     platforms use the same mobile grid and full-width release footer. */
   .download-card{display:grid;grid-template-columns:108px minmax(0,1fr);grid-template-rows:auto auto;min-height:0;border-radius:13px}
+  .download-card[data-platform="macos"],.download-card[data-platform="linux"]{display:grid}
   .download-card-visual{
     grid-row:1;grid-column:1;align-self:stretch;width:108px;height:auto;min-height:166px;
     border-bottom:0;border-right:1px solid #aaa;padding:0;
