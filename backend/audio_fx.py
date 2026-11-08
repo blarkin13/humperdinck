@@ -12,13 +12,15 @@ import re
 import subprocess
 from pathlib import Path
 
+# Seven bands (Hz): a low shelf, five peaks and a high shelf.
+BANDS = (60, 150, 400, 1000, 2500, 6000, 12000)
 PRESETS = {
-    'natural': {'low': 0, 'mid': 0, 'high': 0, 'compress': 'off'},
-    'warm': {'low': 3, 'mid': -1, 'high': -2, 'compress': 'gentle'},
-    'bright': {'low': -1, 'mid': 1, 'high': 4, 'compress': 'gentle'},
-    'podcast': {'low': 2, 'mid': 1, 'high': 2, 'compress': 'gentle'},
-    'radio': {'low': -6, 'mid': 4, 'high': 1, 'compress': 'strong'},
-    'deep': {'low': 5, 'mid': -1, 'high': -1, 'compress': 'gentle'},
+    'natural': {'eq': [0, 0, 0, 0, 0, 0, 0], 'compress': 'off'},
+    'warm': {'eq': [2, 3, 1, 0, -1, -2, -3], 'compress': 'gentle'},
+    'bright': {'eq': [-1, -1, 0, 1, 2, 3, 3], 'compress': 'gentle'},
+    'podcast': {'eq': [1, 2, 0, -1, 2, 2, 1], 'compress': 'gentle'},
+    'radio': {'eq': [-12, -6, 2, 4, 3, -4, -12], 'compress': 'strong'},
+    'deep': {'eq': [4, 5, 2, 0, -1, -1, -1], 'compress': 'gentle'},
 }
 COMPRESSORS = {
     'off': '',
@@ -30,7 +32,16 @@ LOUDNESS = -18  # integrated LUFS each voice part is matched to
 
 def default_desk():
     return {'enabled': True, 'preset': 'natural', 'level_match': True, 'cleanup': True,
-            'low': 0, 'mid': 0, 'high': 0, 'compress': 'off'}
+            'eq': [0] * len(BANDS), 'compress': 'off'}
+
+
+def eq_gains(desk):
+    """Seven band gains in dB; older desks stored bass/presence/air only."""
+    eq = desk.get('eq')
+    if isinstance(eq, list) and len(eq) == len(BANDS):
+        return [_clamp(g, -12, 12) for g in eq]
+    low, mid, high = (_clamp(desk.get(k), -12, 12) for k in ('low', 'mid', 'high'))
+    return [low, low, 0.0, mid, mid, high, high]
 
 
 def _clamp(value, low, high, fallback=0.0):
@@ -74,13 +85,15 @@ def chain(desk=None, gain=0.0, speed=1.0, level=0.0):
     if desk.get('enabled', True):
         if desk.get('cleanup', True):
             filters.append('highpass=f=75')
-        low, mid, high = (_clamp(desk.get(k), -12, 12) for k in ('low', 'mid', 'high'))
-        if low:
-            filters.append(f'bass=g={low:.1f}:f=150')
-        if mid:
-            filters.append(f'equalizer=f=1800:t=q:w=1:g={mid:.1f}')
-        if high:
-            filters.append(f'treble=g={high:.1f}:f=5500')
+        for i, (freq, g) in enumerate(zip(BANDS, eq_gains(desk))):
+            if not g:
+                continue
+            if i == 0:
+                filters.append(f'bass=g={g:.1f}:f={freq}')
+            elif i == len(BANDS) - 1:
+                filters.append(f'treble=g={g:.1f}:f={freq}')
+            else:
+                filters.append(f'equalizer=f={freq}:t=q:w=1.2:g={g:.1f}')
         compressor = COMPRESSORS.get(desk.get('compress') or 'off', '')
         if compressor:
             filters.append(compressor)

@@ -17,6 +17,7 @@ CAPABILITIES = {
     "voice.kokoro": "free",
     "voice.builtin_qwen": "free",
     "voice.basic_edit": "free",
+    "voice.mic_cloning": "free",
     "audio.export": "free",
     "voice.custom_qwen_design": "pro",
     "voice.personal_cloning": "pro",

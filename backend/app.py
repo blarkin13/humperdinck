@@ -426,8 +426,11 @@ def delete_voice(voice_id: str):
 
 @app.post('/api/voices')
 async def upload_voice(file: UploadFile = File(...)):
-    entitlements.require('voice.personal_cloning')
     suffix = Path(file.filename or '').suffix.lower()
+    # Recording your own voice with the microphone is Free; cloning from an
+    # uploaded audio file is Pro. Browser recordings arrive as .webm/.ogg/.mp4.
+    recorded = suffix in ('.webm','.ogg','.mp4')
+    entitlements.require('voice.mic_cloning' if recorded else 'voice.personal_cloning')
     # .webm/.ogg/.mp4 are what browsers produce when recording from the microphone.
     if suffix not in ('.wav','.mp3','.flac','.m4a','.webm','.ogg','.mp4'):
         raise HTTPException(400, 'Supported formats: WAV, MP3, FLAC, M4A, OGG (or a browser recording)')
@@ -448,7 +451,7 @@ async def upload_voice(file: UploadFile = File(...)):
         source.unlink(missing_ok=True)
     meta = voice_meta()
     meta[key] = {'name':Path(file.filename or 'Imported voice').stem, 'category':'',
-                 'origin':'recorded' if suffix in ('.webm','.ogg','.mp4') else 'uploaded'}
+                 'origin':'recorded' if recorded else 'uploaded'}
     save_voice_meta(meta)
     return {'voice_id':key, 'filename':meta[key]['name'], 'category':''}
 
@@ -1221,6 +1224,9 @@ def require_voice_selection(key: str) -> None:
     if key.startswith('upload:'):
         uid = key[7:]
         meta = voice_meta().get(uid, {})
+        if meta.get('origin') == 'recorded' and (DATA/'voices'/f'{uid}.wav').is_file():
+            entitlements.require('voice.mic_cloning')
+            return
         # A display name/category alone never grants Free access. The pack
         # installer registers origin, fixed transcript, approved bytes and ID.
         if (meta.get('origin') == 'builtin-humperdinck'
@@ -1779,7 +1785,9 @@ def edit_audio(request: AudioEditRequest):
         target.replace(source)
         return {'voice_id':key, 'filename':meta.get(key,{}).get('name',key), 'category':meta.get(key,{}).get('category','')}
     base = meta.get(key,{}) if kind == 'upload' else {'name':'Edited sample','category':''}
-    meta[new_id] = {'name':request.name.strip() or base.get('name','Voice')+' (edited)', 'category':base.get('category',''), 'origin':'edited'}
+    # An edit of your own mic recording stays a mic recording (Free).
+    meta[new_id] = {'name':request.name.strip() or base.get('name','Voice')+' (edited)', 'category':base.get('category',''),
+                    'origin':'recorded' if base.get('origin') == 'recorded' else 'edited'}
     save_voice_meta(meta)
     return {'voice_id':new_id, 'filename':meta[new_id]['name'], 'category':meta[new_id]['category']}
 

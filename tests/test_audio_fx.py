@@ -16,14 +16,14 @@ def test_chain_includes_eq_compression_gain_and_pace():
             'compress': 'gentle', 'level_match': True}
     filters = audio_fx.chain(desk, gain=-3, speed=1.1, level=5)
     assert 'loudnorm' not in filters
-    for part in ('highpass', 'bass=g=3.0', 'equalizer=f=1800', 'treble=g=4.0', 'acompressor',
+    for part in ('highpass', 'bass=g=3.0:f=60', 'equalizer=f=1000', 'equalizer=f=2500', 'treble=g=4.0:f=12000', 'acompressor',
                  'volume=2.0dB', 'atempo=1.100', 'alimiter'):
         assert part in filters
 
 
 def test_chain_clamps_extremes():
     filters = audio_fx.chain({'enabled': True, 'low': 99, 'level_match': False, 'cleanup': False}, gain=50, speed=9)
-    assert 'bass=g=12.0' in filters and 'volume=12.0dB' in filters and 'atempo=2.000' in filters
+    assert 'bass=g=12.0:f=60' in filters and 'volume=12.0dB' in filters and 'atempo=2.000' in filters
 
 
 def test_cue_pace_is_baked_into_its_length():
@@ -49,3 +49,12 @@ def test_level_match_is_one_steady_gain(tmp_path):
     desk = {'enabled': True, 'level_match': True}
     assert audio_fx.match_gain(desk, quiet) > audio_fx.match_gain(desk, loud) + 5
     assert audio_fx.match_gain({'level_match': False}, quiet) == 0
+
+
+def test_seven_band_eq():
+    filters = audio_fx.chain({'enabled': True, 'cleanup': False, 'level_match': False,
+                              'eq': [1, 2, 3, 0, -2, -3, 4]})
+    for part in ('bass=g=1.0:f=60', 'equalizer=f=150:t=q:w=1.2:g=2.0', 'equalizer=f=400:t=q:w=1.2:g=3.0',
+                 'equalizer=f=2500:t=q:w=1.2:g=-2.0', 'equalizer=f=6000:t=q:w=1.2:g=-3.0', 'treble=g=4.0:f=12000'):
+        assert part in filters
+    assert 'f=1000' not in filters  # flat bands add nothing

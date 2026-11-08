@@ -1199,3 +1199,19 @@ button.active small,.primary small{color:#3a3122}
 .vs-cue-sound label{display:grid!important;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;margin:0!important}
 .vs-cue-sound label small{float:none!important}
 .vs-cue-sound label input{grid-column:1/-1;margin:2px 0 6px!important}
+
+/* Video Studio inspector tabs + embedded 7-band desk */
+.vs-tabs{display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--line,#333)}
+.vs-tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:6px 10px;color:inherit;opacity:.7;cursor:pointer}
+.vs-tabs button.on{opacity:1;border-bottom-color:var(--accent,#8b7cf6);font-weight:600}
+.sound-desk.embedded{border:0;background:none;padding:0}
+.sound-desk.embedded .sound-desk-body{padding:0;display:flex;flex-direction:column;gap:12px}
+.sound-desk-eq{display:grid;grid-template-columns:repeat(7,minmax(28px,1fr));gap:4px;align-items:end}
+.sound-desk-band{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.sound-desk-band input[type=range]{writing-mode:vertical-lr;direction:rtl;width:22px;height:130px}
+.sound-desk-hz{font-size:11px;font-weight:600}
+.sound-desk-name{font-size:10px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.sound-desk-db{font-size:11px;font-variant-numeric:tabular-nums}
+.sound-desk.embedded .sound-desk-row{display:flex;align-items:center;justify-content:space-between}
+.sound-desk.embedded .sound-desk-switch,.sound-desk.embedded .sound-desk-check{display:flex;align-items:flex-start;gap:8px}
+.sound-desk.embedded .sound-desk-check span{display:flex;flex-direction:column}
