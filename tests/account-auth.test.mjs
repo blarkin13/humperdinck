@@ -233,6 +233,8 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
   expectedNonce=login.searchParams.get('nonce');
   const state=login.searchParams.get('state');
   const csrfCookie=started.headers.get('set-cookie').split(';')[0];
+  assert.match(csrfCookie,/^__Host-humperdinck_oauth_[A-Za-z0-9_-]{16}=/);
+  assert.match(started.headers.get('set-cookie'),/SameSite=Lax/);
   assert.match(expectedNonce,/^[A-Za-z0-9_-]{43}$/);
   assert.equal(login.searchParams.get('code_challenge_method'),'S256');
   const callback=await call('/api/account/callback/google?code=once&state='+state,{cookie:csrfCookie},env);
@@ -245,7 +247,40 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
   assert.equal(account.user.email,'valid@example.com');
   assert.deepEqual(account.user.providers,['google']);
   const replay=await call('/api/account/callback/google?code=once&state='+state,{cookie:csrfCookie},env);
-  assert.equal(replay.status,400);
+  assert.equal(replay.status,303);
+  assert.equal(replay.headers.get('location'),base+'/account/?error=signin_expired');
+  assert.match(callback.headers.get('set-cookie'),/Max-Age=0/);
+
+  // Starting a second login must not invalidate a still-pending first login.
+  const firstPending=await call('/api/account/start/google',{},env);
+  const secondPending=await call('/api/account/start/google',{},env);
+  const firstURL=new URL(firstPending.headers.get('location'));
+  const secondURL=new URL(secondPending.headers.get('location'));
+  const firstCookie=firstPending.headers.get('set-cookie').split(';')[0];
+  const secondCookie=secondPending.headers.get('set-cookie').split(';')[0];
+  assert.notEqual(firstCookie.split('=')[0],secondCookie.split('=')[0]);
+  expectedNonce=firstURL.searchParams.get('nonce');
+  claimModifier=null;
+  const firstResult=await call('/api/account/callback/google?code=parallel-one&state='+firstURL.searchParams.get('state'),
+    {cookie:firstCookie+'; '+secondCookie},env);
+  assert.equal(firstResult.status,303);
+  expectedNonce=secondURL.searchParams.get('nonce');
+  const secondResult=await call('/api/account/callback/google?code=parallel-two&state='+secondURL.searchParams.get('state'),
+    {cookie:secondCookie},env);
+  assert.equal(secondResult.status,303);
+
+  // Invalid/missing cookie should render an account retry, never raw JSON.
+  const expiredStart=await call('/api/account/start/google',{},env);
+  const expiredState=new URL(expiredStart.headers.get('location')).searchParams.get('state');
+  const expiredResponse=await call('/api/account/callback/google?code=unauthorized&state='+expiredState,{},env);
+  assert.equal(expiredResponse.status,303);
+  assert.equal(expiredResponse.headers.get('location'),base+'/account/?error=signin_expired');
+
+  // A www start should redirect before setting host-only state cookies.
+  const wwwStart=await handleAccount(new Request('https://www.humperdinck.studio/api/account/start/google?return_to=%2Faccount%2F'),env);
+  assert.equal(wwwStart.status,303);
+  assert.equal(wwwStart.headers.get('location'),base+'/api/account/start/google?return_to=%2Faccount%2F');
+  assert.equal(wwwStart.headers.has('set-cookie'),false);
 
   // An authenticated account owner may link a second Google identity, even
   // after recovering the account from a one-time code, without merging users.

@@ -7,6 +7,10 @@ import {handleAccountDashboard,createLinkIntent,readLinkIntent} from './account-
 const ORIGIN = 'https://humperdinck.studio';
 const COOKIE = '__Host-humperdinck_session';
 const FLOW_COOKIE = '__Host-humperdinck_oauth';
+// Each pending OAuth attempt gets its own HttpOnly cookie. A second tab or a
+// retry must not overwrite the state of an earlier in-flight sign-in.
+const flowCookieName = state => FLOW_COOKIE+'_'+state.slice(0,16);
+const flowSameSite = provider => provider==='apple'?'None':'Lax';
 const WEB_TTL = 30 * 86400, DESKTOP_TTL = 90 * 86400, FLOW_TTL = 600;
 const enc = new TextEncoder();
 const now = () => Math.floor(Date.now() / 1000);
@@ -25,9 +29,9 @@ const providers = env => ({
   apple: configured(env)&&Boolean(env.APPLE_CLIENT_ID&&env.APPLE_TEAM_ID&&env.APPLE_KEY_ID&&env.APPLE_PRIVATE_KEY)
 });
 const host = env => (env.AUTH_PUBLIC_ORIGIN || ORIGIN).replace(/\/$/,'');
-const go = (url, cookie='') => {
-  const headers = {'Location':url,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'};
-  if(cookie)headers['Set-Cookie']=cookie;
+const go = (url, cookies=[]) => {
+  const headers = new Headers({'Location':url,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'});
+  for(const value of (Array.isArray(cookies)?cookies:[cookies]))if(value)headers.append('Set-Cookie',value);
   return new Response(null,{status:303,headers});
 };
 const cookie = (name,value,age,sameSite='Lax') =>
@@ -139,8 +143,9 @@ async function oauthStart(request,env,provider,linkUser=null){
   }
   else p.set('response_mode','form_post');
   const endpoint=provider==='google'?'https://accounts.google.com/o/oauth2/v2/auth':'https://appleid.apple.com/auth/authorize';
-  // SameSite=None is required because Apple's authorization callback is form_post.
-  return go(endpoint+'?'+p.toString(),cookie(FLOW_COOKIE,state,FLOW_TTL,'None'));
+  // Google's top-level GET callback works with SameSite=Lax, including Chrome
+  // with third-party-cookie restrictions. Apple's form_post requires None.
+  return go(endpoint+'?'+p.toString(),cookie(flowCookieName(state),state,FLOW_TTL,flowSameSite(provider)));
 }
 async function oauthCallback(request,env,provider){
   if(!providers(env)[provider])return problem(503,'Provider is not configured');
@@ -151,14 +156,19 @@ async function oauthCallback(request,env,provider){
     p=new URLSearchParams(await request.text());
   }else return problem(405,'Unsupported callback method');
   const state=p.get('state'),code=p.get('code');
-  if(!validId(state)||!code||code.length>4096||readCookie(request,FLOW_COOKIE)!==state)
-    return problem(400,'Invalid or expired sign-in state');
+  const clearFlow=validId(state)?clearCookie(flowCookieName(state),flowSameSite(provider)):'';
+  const fail=reason=>go(host(env)+'/account/?error='+reason,clearFlow);
+  if(!validId(state)||!code||code.length>4096)return fail('signin_expired');
+  // The browser must demonstrate possession of the cookie from this specific
+  // login attempt. Accept the old cookie for sign-ins started pre-deployment.
+  const match=readCookie(request,flowCookieName(state))===state||readCookie(request,FLOW_COOKIE)===state;
+  if(!match)return fail('signin_expired');
   const stateHash=await hash(state);
   const flow=await env.AUTH_DB.prepare('SELECT * FROM auth_flows WHERE state_hash=? AND provider=? AND expires_at>?')
     .bind(stateHash,provider,now()).first();
-  if(!flow)return problem(400,'Sign-in session expired');
+  if(!flow)return fail('signin_expired');
   const removed=await env.AUTH_DB.prepare('DELETE FROM auth_flows WHERE state_hash=?').bind(stateHash).run();
-  if(removed.meta?.changes!==1)return problem(400,'Sign-in session already used');
+  if(removed.meta?.changes!==1)return fail('signin_expired');
   try{
     const form=new URLSearchParams({client_id:env[provider==='google'?'GOOGLE_CLIENT_ID':'APPLE_CLIENT_ID'],
       client_secret:provider==='google'?env.GOOGLE_CLIENT_SECRET:await appleSecret(env),
@@ -182,10 +192,7 @@ async function oauthCallback(request,env,provider){
       await env.AUTH_DB.prepare('DELETE FROM auth_link_intents WHERE state_hash=?')
         .bind(stateHash).run();
       const linkedSession=await saveSession(env,linkedUserId,'web');
-      return new Response(null,{status:303,headers:{
-        'Location':host(env)+'/account/','Cache-Control':'no-store','Referrer-Policy':'no-referrer',
-        'Set-Cookie':cookie(COOKIE,linkedSession.token,WEB_TTL)
-      }});
+      return go(host(env)+'/account/',[cookie(COOKIE,linkedSession.token,WEB_TTL),clearFlow]);
     }
     let userId=existing?.user_id;
     let displayName=(claim.name||'').slice(0,120);
@@ -206,13 +213,10 @@ async function oauthCallback(request,env,provider){
         .bind(displayName||null,email,userId).run();
     }
     const saved=await saveSession(env,userId,'web');
-    const headers={'Location':host(env)+safeReturn(flow.return_path),'Cache-Control':'no-store',
-      'Referrer-Policy':'no-referrer','Set-Cookie':cookie(COOKIE,saved.token,WEB_TTL)};
-    // OAuth state cookie expires on its own; it cannot be read by scripts.
-    return new Response(null,{status:303,headers});
+    return go(host(env)+safeReturn(flow.return_path),[cookie(COOKIE,saved.token,WEB_TTL),clearFlow]);
   }catch(error){
     console.error('Humperdinck identity callback failed:',error.message);
-    return go(host(env)+'/account/?error=login_failed');
+    return go(host(env)+'/account/?error=login_failed',clearFlow);
   }
 }
 async function beginDevice(request,env){
@@ -257,7 +261,12 @@ async function pollDevice(request,env){
     user:await profile(env,account)});
 }
 export async function handleAccount(request,env){
-  const path=new URL(request.url).pathname;
+  const url=new URL(request.url),path=url.pathname;
+  // Always start OAuth on the callback's canonical host: __Host- cookies are
+  // host-only, so a start on www and a callback on the apex cannot match.
+  if(request.method==='GET'&&/\/(?:start|link\/start)\/(?:google|apple)$/.test(path)
+      &&url.origin!==new URL(host(env)).origin)
+    return go(host(env)+path+url.search);
   if(path==='/api/account/config'&&request.method==='GET')
     return json({available:configured(env),providers:providers(env),desktop_connection:Object.values(providers(env)).some(Boolean)});
   if(!configured(env))return problem(503,'Customer accounts are not configured yet');

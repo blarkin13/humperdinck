@@ -220,7 +220,12 @@ async function load(){
    link.href='/api/account/start/'+provider+'?return_to='+encodeURIComponent(returnTo);
   }
   q('recover-toggle').hidden=false;
-  if(params.get('error'))accountMessage('Sign-in issue','Please try again','Your sign-in was not completed. Retry or use a saved recovery code.');
+  if(params.get('error')){
+   const expired=params.get('error')==='signin_expired';
+   accountMessage('Sign-in issue',expired?'Your sign-in could not be completed':'Please try again',
+    expired?'The secure sign-in attempt expired or was interrupted. Select Google or Apple below to start a fresh sign-in.':
+    'The identity provider could not complete sign-in. Please try again or use a saved recovery code.');
+  }
  }catch(error){
   accountMessage('Unavailable','Cannot load account','Please try again. Your local Humperdinck Free studios still work without sign-in.');
  }
