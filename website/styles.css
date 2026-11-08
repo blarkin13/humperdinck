@@ -1149,3 +1149,141 @@ html{scroll-padding-top:0}
 @media(prefers-reduced-motion:reduce){
   .download-card .download-card-visual::after{transition:none!important;transform:none!important}
 }
+
+/* Download experience v2: oversized editorial platform panels.
+   Distinct visual art, strong contrast and purpose-built mobile composition. */
+.download-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(13px,1.45vw,24px);align-items:stretch}
+.download-card,.download-card[data-platform="macos"],.download-card[data-platform="linux"]{
+  min-height:0;padding:0;border:1px solid #535353;border-radius:16px;
+  background:#141414;box-shadow:0 20px 48px #0006;
+  display:flex;flex-direction:column;overflow:hidden;isolation:isolate;
+}
+.download-card::before{background:radial-gradient(330px circle at var(--spot-x,50%) var(--spot-y,35%),#ffffff18,transparent 73%);z-index:3}
+.download-card::after{display:none}
+.download-card-visual{
+  box-sizing:border-box;width:100%;height:230px;padding:21px 24px;
+  position:relative;display:block;flex:none;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 45%,#f7f7f7,#d2d2d2 78%,#bcbcbc);
+  border:0;border-bottom:1px solid #aaa;
+}
+.download-card[data-platform="macos"] .download-card-visual{background:radial-gradient(ellipse at 52% 45%,#fdfdfd,#d9d9d9 72%,#a8a8a8)}
+.download-card[data-platform="linux"] .download-card-visual{background:radial-gradient(ellipse at 50% 45%,#f1f1f1,#c7c7c7 75%,#a4a4a4)}
+.download-card-visual::after{
+  content:"";position:absolute;inset:-20%;z-index:2;pointer-events:none;
+  background:linear-gradient(115deg,transparent 34%,#fff8 49%,transparent 63%);
+  transform:translateX(-115%);transition:transform .7s ease;
+}
+.download-card .download-os-icon{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-45%);
+  display:grid;place-items:center;width:150px;height:150px;z-index:1;
+  border:0;border-radius:0;background:transparent;box-shadow:none;
+  filter:drop-shadow(0 12px 17px #0002);
+  transition:transform .5s cubic-bezier(.16,.8,.18,1);
+}
+.download-card .download-os-icon img{width:116px;height:116px;filter:none;transition:transform .5s ease}
+.download-card[data-platform="macos"] .download-os-icon img{width:118px;height:118px}
+.download-card[data-platform="linux"] .download-os-icon img{width:112px;height:112px}
+.download-card-index,.download-visual-caption{
+  position:absolute;z-index:3;color:#242424;letter-spacing:.15em;
+  font-size:10px;font-weight:800;line-height:1.2;
+}
+.download-card-index{top:23px;left:23px}
+.download-visual-caption{right:22px;bottom:20px}
+.download-visual-rings{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:198px;height:198px;border:1px solid #0002;border-radius:50%;
+  box-shadow:0 0 0 32px #00000008,0 0 0 70px #00000007;
+}
+.download-card-art{position:absolute;inset:0;width:auto;height:auto;opacity:1;transform:none}
+.download-card[data-platform="windows"] .download-card-art{
+  background:repeating-linear-gradient(0deg,transparent 0 36px,#0000000a 37px 38px),
+             repeating-linear-gradient(90deg,transparent 0 36px,#0000000a 37px 38px);
+  mask-image:linear-gradient(0deg,#000,transparent 95%);transform:none;
+}
+.download-card[data-platform="macos"] .download-card-art{
+  right:-50px;left:auto;top:24px;bottom:auto;width:140px;height:140px;
+  border:1px solid #0002;border-radius:50%;box-shadow:0 0 0 25px #00000006,0 0 0 51px #00000006;
+}
+.download-card[data-platform="linux"] .download-card-art{
+  inset:0;width:auto;height:auto;transform:none;
+  background:repeating-linear-gradient(135deg,transparent 0 24px,#0000000a 25px 26px);
+  mask-image:linear-gradient(90deg,transparent,#000);
+}
+.download-card-copy{padding:26px 27px 22px;display:block;flex:1}
+.download-edition{display:block;color:#9b9b9b;font-size:10px;font-weight:800;letter-spacing:.18em;margin-bottom:11px}
+.download-card h3{font-size:clamp(36px,3.5vw,54px);line-height:1;letter-spacing:-.065em;margin:0 0 12px;font-weight:700;color:#f5f5f5}
+.download-card .download-card-copy>p{font-size:14px;color:#aaa;min-height:0;line-height:1.45;margin:0}
+.download-specs{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 0}
+.download-specs span{
+  display:inline-flex;align-items:center;min-height:32px;padding:7px 11px;
+  background:#252525;color:#ededed;border:1px solid #555;
+  border-radius:5px;font-size:11px;font-weight:650;letter-spacing:.02em;
+}
+.download-card-bottom{
+  padding:21px 27px 26px;margin-top:auto;border-top:1px solid #383838;
+  background:#191919;display:flex;flex-direction:column;gap:17px;
+}
+.download-build-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.download-build-label{font-size:10px;letter-spacing:.12em;color:#999;white-space:nowrap}
+.download-card .download-version{margin:0;font-size:11px;color:#c4c4c4;min-height:0;line-height:1.5;text-align:right}
+.download-card .download-action{
+  width:100%;min-height:56px;display:flex;align-items:center;justify-content:center;
+  border-radius:6px;box-sizing:border-box;font-weight:800;font-size:14px;
+  letter-spacing:-.01em;margin:0;padding:13px 17px;
+}
+.download-card a.download-action{background:#f4f4f4;color:#111;border:1px solid #f4f4f4}
+.download-card a.download-action:hover{background:#fff;color:#000}
+.download-card .download-action.unavailable{background:#292929;border:1px solid #484848;color:#999}
+@media(hover:hover) and (pointer:fine){
+  .download-card:hover{background:#141414;border-color:#eee;box-shadow:0 30px 60px #000b,0 0 36px #ffffff12;transform:translateY(-7px)}
+  .download-card:hover .download-card-visual::after{transform:translateX(115%)}
+  .download-card:hover .download-os-icon{transform:translate(-50%,-50%) scale(1.13);border:0;background:transparent;box-shadow:none}
+  .download-card:hover .download-os-icon img,
+  .download-card[data-platform="macos"]:hover .download-os-icon img,
+  .download-card[data-platform="linux"]:hover .download-os-icon img{transform:none}
+  .download-card:hover h3{color:#fff;transform:none}
+}
+.download-card.is-touch-active .download-card-visual::after{transform:translateX(115%)}
+.download-card.is-touch-active .download-os-icon{transform:translate(-50%,-50%) scale(1.08);border:0;background:transparent;box-shadow:none}
+.download-card.is-touch-active .download-os-icon img{transform:none}
+@media(min-width:681px) and (max-width:1050px){
+  .download-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:680px){
+  .download-cards{grid-template-columns:minmax(0,1fr);gap:14px}
+  .download-card{display:grid;grid-template-columns:108px minmax(0,1fr);grid-template-rows:auto auto;min-height:0;border-radius:13px}
+  .download-card-visual{
+    grid-row:1;grid-column:1;align-self:stretch;width:108px;height:auto;min-height:166px;
+    border-bottom:0;border-right:1px solid #aaa;padding:0;
+  }
+  .download-card .download-os-icon{width:88px;height:88px;left:50%;top:51%;transform:translate(-50%,-50%)}
+  .download-card .download-os-icon img,.download-card[data-platform="macos"] .download-os-icon img,
+  .download-card[data-platform="linux"] .download-os-icon img{width:69px;height:69px}
+  .download-card-index{top:12px;left:11px;font-size:9px}
+  .download-visual-caption{left:9px;right:9px;bottom:10px;font-size:7px;letter-spacing:.06em;text-align:center}
+  .download-visual-rings{width:105px;height:105px;box-shadow:0 0 0 18px #00000008}
+  .download-card-copy{grid-row:1;grid-column:2;padding:21px 18px 14px;min-width:0}
+  .download-edition{font-size:9px;letter-spacing:.12em;margin-bottom:8px}
+  .download-card h3{font-size:clamp(30px,8vw,39px);margin:0 0 7px;line-height:1.05}
+  .download-card .download-card-copy>p{font-size:12px;line-height:1.4}
+  .download-specs{margin:14px 0 0;gap:6px}
+  .download-specs span{font-size:10px;min-height:26px;padding:5px 8px}
+  .download-card-bottom{grid-column:1/-1;grid-row:2;padding:13px 15px 15px;gap:11px}
+  .download-build-row{gap:5px}
+  .download-card .download-version{font-size:11px}
+  .download-card .download-action{min-height:52px}
+}
+@media(max-width:360px){
+  .download-card{grid-template-columns:90px minmax(0,1fr)}
+  .download-card-visual{width:90px;min-height:162px}
+  .download-card .download-os-icon{width:72px;height:72px}
+  .download-card .download-os-icon img,.download-card[data-platform="macos"] .download-os-icon img,
+  .download-card[data-platform="linux"] .download-os-icon img{width:56px;height:56px}
+  .download-card-copy{padding:18px 12px 12px}
+  .download-card h3{font-size:29px}
+  .download-edition{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .download-card .download-card-visual::after,.download-card .download-os-icon{transition:none!important}
+  .download-card:hover .download-os-icon,.download-card.is-touch-active .download-os-icon{transform:translate(-50%,-50%)!important}
+}
