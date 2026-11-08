@@ -23,6 +23,7 @@ import StarterVoicePack from './StarterVoicePack.jsx';
 import VoiceCatalog from './VoiceCatalog.jsx';
 import NarratorPicker from './NarratorPicker.jsx';
 import CharactersPanel from './CharactersPanel.jsx';
+import VideoStudio from './VideoStudio.jsx';
 import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,suggestSpeechDirections} from './narrationSections.js';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 const PUBLIC_STUDIO=import.meta.env.VITE_PUBLIC_STUDIO==='1';
@@ -515,54 +516,10 @@ function App(){
  {narrationJob&&<div className="job"><p>{narrationJob.message}</p><progress max="100" value={narrationJob.progress}/>{narrationJob.status==='complete'&&<><button onClick={()=>setTab('video')}>Add to Video →</button>
   <AudioEditor src={narrationJob.download_url.replace(/\.mp3$/,'.wav')} source={'output:'+narrationJob.job_id} saveLabel="Apply edits" onSaved={j=>{setNarrationJob({...j,job_id:j.download_url.split('/').pop().split('.')[0]});setStatus('Edited narration ready. Video Studio will use this version.')}}/></>}</div>}</section>}
  {tab==='video'&&<section className="video-studio">
- <div className="video-studio-heading">
-  <div><h2>Video Studio</h2><p>Position narration, preview the result, and download your video.</p></div>
- </div>
- <div className="video-workspace">
-  <div className="panel video-stage">
-   <div className="video-stage-header">
-    <div className="video-stage-title"><i className="fa-solid fa-film" aria-hidden="true"/><strong>Preview</strong></div>
-    {videoJob?.status==='complete'&&<div className="video-preview-tabs" role="group" aria-label="Video preview version">
-     <button type="button" aria-pressed={videoPreviewMode==='source'} className={videoPreviewMode==='source'?'active':''} onClick={()=>setVideoPreviewMode('source')}>Source</button>
-     <button type="button" aria-pressed={videoPreviewMode==='rendered'} className={videoPreviewMode==='rendered'?'active':''} onClick={()=>setVideoPreviewMode('rendered')}>Rendered</button>
-    </div>}
-   </div>
-   {video?
-    <div className="video-stage-player"><video key={videoPreviewMode==='rendered'&&videoJob?.status==='complete'?videoJob.download_url:video.video_id} className="video-preview" controls preload="metadata" src={videoPreviewMode==='rendered'&&videoJob?.status==='complete'?videoJob.download_url:'/api/videos/'+video.video_id}/></div>
-    :<div className="video-stage-empty"><DropZone disabled={PUBLIC_STUDIO} accept=".mp4,.mov,.mkv,.webm" onFile={file=>upload(file,'videos')} title="Add a video" hint="MP4, MOV, MKV or WEBM"/></div>}
-   <div className="video-stage-footer">
-    <div className="video-stage-meta">{video?<><i className="fa-regular fa-file-video" aria-hidden="true"/><span title={video.filename}>{video.filename}</span></>:<span>Choose a video to get started</span>}</div>
-    <div className="video-stage-actions">
-     {video&&<details className="video-replace"><summary title="Replace source video" aria-label="Replace source video"><i className="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"/><span>Replace</span></summary><div className="video-replace-picker"><DropZone disabled={PUBLIC_STUDIO} accept=".mp4,.mov,.mkv,.webm" onFile={file=>upload(file,'videos')} title="Choose replacement video" hint="MP4, MOV, MKV or WEBM"/></div></details>}
-     {videoJob?.status==='complete'&&<a className="video-icon-action video-download" href={videoJob.download_url} download aria-label="Download rendered MP4" title="Download rendered MP4"><i className="fa-solid fa-download" aria-hidden="true"/></a>}
-    </div>
-   </div>
-  </div>
-  <div className="panel video-controls">
-   <div className="video-panel-heading"><h3><i className="fa-solid fa-microphone-lines" aria-hidden="true"/> Narration</h3>
-    <button type="button" className="video-icon-action" title="Open Narration Studio" aria-label="Open Narration Studio" onClick={()=>setTab('narration')}><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"/></button>
-   </div>
-   {narrationJob?.status==='complete'?<>
-     <div className="video-track-status"><i className="fa-solid fa-circle-check" aria-hidden="true"/><span>Audio track ready</span></div>
-     <div className="video-setting-row">
-      <label htmlFor="video-start-offset">Start time</label>
-      <div className="video-time-control"><input id="video-start-offset" type="number" min="0" step="0.1" value={offset} onChange={e=>setOffset(e.target.value)} aria-label="Narration start time in seconds"/><span>seconds</span></div>
-     </div>
-     <label className="check video-mix-option"><input type="checkbox" checked={mix} onChange={e=>setMix(e.target.checked)}/> Keep original video sound</label>
-   </>:<div className="video-no-narration"><i className="fa-solid fa-wave-square" aria-hidden="true"/><p>Generate your narration in Narration Studio to add a soundtrack.</p></div>}
-   <div className="video-render-footer">
-    <div className="video-render-status">
-     <strong>{busy(videoJob)?'Rendering video':videoJob?.status==='complete'?'Render complete':video&&narrationJob?.status==='complete'?'Ready to render':'Waiting for media'}</strong>
-     <small>{busy(videoJob)?'Processing your video and narration':videoJob?.status==='complete'?'Preview or download your MP4':video&&narrationJob?.status==='complete'?'Create the finished MP4':'Add a video and narration track'}</small>
-    </div>
-    <button type="button" className="video-icon-action primary video-render-action" aria-label="Render video" title="Render video" disabled={!video||narrationJob?.status!=='complete'||busy(videoJob)||PUBLIC_STUDIO} onClick={()=>{setVideoPreviewMode('source');renderVideo()}}><i className={'fa-solid '+(busy(videoJob)?'fa-spinner fa-spin':'fa-clapperboard')} aria-hidden="true"/></button>
-   </div>
-   {videoJob&&<div className="video-render-progress" role="status">
-    {videoJob.status!=='complete'&&videoJob.status!=='failed'&&<progress max="100" value={videoJob.progress||0}/>}
-    {videoJob.status==='failed'&&<small className="video-render-error">{videoJob.message}</small>}
-   </div>}
-  </div>
- </div>
+ <div className="video-studio-heading"><div><h2>Video Studio</h2><p>Put narration on a video or a slideshow. Mark where each script starts, generate it, and export an MP4.</p></div></div>
+ {PUBLIC_STUDIO?<div className="notice">Video Studio needs the desktop app.</div>
+ :<VideoStudio api={api} voiceOptions={voiceOptions} narrationJob={narrationJob} notify={notify} refreshVoices={refresh}
+   narrationText={blocks.map(b=>spokenText(b.text)).filter(Boolean).join(' ')} onOpenNarration={()=>setTab('narration')}/>}
  </section>}
  {tab==='effects'&&<section><SoundEffects api={api} disabled={PUBLIC_STUDIO}/></section>}
  {tab==='models'&&(PUBLIC_STUDIO?<section><h2>Models</h2><p>Download Humperdinck to install and manage local voice models.</p><div className="panel"><h3>Built-in voices</h3><p>The browser preview offers six voices. Other models and downloads are available in the desktop app.</p><button disabled>Install / Download · desktop only</button></div></section>:<Models onOpenSetup={()=>setSetupOpen(true)}/>)}
