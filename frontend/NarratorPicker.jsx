@@ -53,6 +53,7 @@ export default function NarratorPicker({api,options,currentKey,sectionNumber,use
   try{setPicker(await api('voice-picker/favorites',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice_key:v.value,favorite:on})}))}catch{}
  }
  function choose(v){
+  if(v?.locked)return;
   const key=v?.value||'';
   if(key){
    const next={...picker,recent:[key,...picker.recent.filter(k=>k!==key)].slice(0,8)};
@@ -105,10 +106,10 @@ export default function NarratorPicker({api,options,currentKey,sectionNumber,use
  const row=(v,group)=>{
   const state=previewState[v.value],loading=['queued','running'].includes(state?.status),fav=favorites.has(v.value);
   return <div role="option" tabIndex={0} aria-selected={currentKey===v.value} data-key={v.value} key={group+v.value}
-   className={'narrator-option '+(currentKey===v.value?'selected':'')} onClick={()=>choose(v)}>
+   className={'narrator-option '+(currentKey===v.value?'selected':'')+(v.locked?' locked':'')} aria-disabled={!!v.locked} onClick={()=>choose(v)}>
    <span className="narrator-avatar"><i className={'fa-solid '+ICONS[v.kind]} aria-hidden="true"/></span>
    <span className="narrator-option-text"><strong>{v.label}</strong>
-    <small>{state?.status==='failed'?state.message:loading?(state.message||'Generating preview…'):v.accent}</small></span>
+    <small>{state?.status==='failed'?state.message:loading?(state.message||'Generating preview…'):v.locked?'Pro required · '+v.accent:v.accent}</small></span>
    <span className="narrator-option-actions">
     {!publicStudio&&<button type="button" tabIndex={-1} className={'narrator-icon '+(playing===v.value?'on':'')} title={playing===v.value?'Stop preview':'Play preview (Space)'} aria-label={(playing===v.value?'Stop preview of ':'Play preview of ')+v.label} onClick={e=>{e.stopPropagation();preview(v)}}>
      <i className={'fa-solid '+(loading?'fa-spinner fa-spin':playing===v.value?'fa-stop':'fa-play')} aria-hidden="true"/></button>}
@@ -119,8 +120,8 @@ export default function NarratorPicker({api,options,currentKey,sectionNumber,use
       aria-label={count?`${open?'Hide':'Show'} ${count} character${count===1?'':'s'} of ${v.label}`:'New character for '+v.label}
       onClick={e=>{e.stopPropagation();if(count)setExpanded(o=>({...o,[v.value+group]:!open}));else{audio.current?.pause();setPlaying(null);setVariantOf(v)}}}>
       <i className="fa-solid fa-masks-theater" aria-hidden="true"/>{count>0&&<span className="narrator-count">{count}</span>}</button>})()}
-    <button type="button" tabIndex={-1} className="narrator-icon narrator-add" title="Use for this section (Enter)" aria-label={'Use '+v.label+' for this section'} onClick={e=>{e.stopPropagation();choose(v)}}>
-     <i className={'fa-solid '+(currentKey===v.value?'fa-check':'fa-plus')} aria-hidden="true"/></button>
+    <button type="button" tabIndex={-1} className="narrator-icon narrator-add" disabled={!!v.locked} title={v.locked?'Requires Humperdinck Pro':'Use for this section (Enter)'} aria-label={v.locked?'Pro required for '+v.label:'Use '+v.label+' for this section'} onClick={e=>{e.stopPropagation();choose(v)}}>
+     <i className={'fa-solid '+(v.locked?'fa-lock':currentKey===v.value?'fa-check':'fa-plus')} aria-hidden="true"/></button>
    </span>
   </div>;
  };
