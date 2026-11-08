@@ -7,11 +7,11 @@ This means a ten-device online-registration cap is not an offline copy lock.
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import os
 from pathlib import Path
 import secrets
-import socket
 import time
 from uuid import UUID, uuid4
 
@@ -47,7 +47,7 @@ def verify(token: str) -> dict:
             raise InvalidLicense('Invalid license signature length')
         Ed25519PublicKey.from_public_bytes(base64.b64decode(PRO_PUBLIC_KEY_BASE64)).verify(signature, encoded)
         info = json.loads(encoded)
-    except (InvalidSignature, ValueError, TypeError, KeyError, UnicodeError) as exc:
+    except (InvalidSignature, ValueError, TypeError, KeyError, UnicodeError, binascii.Error) as exc:
         raise InvalidLicense('License signature is invalid') from exc
     if (not isinstance(info, dict) or info.get('version') != 1 or
         info.get('type') != LICENSE_TYPE or info.get('key_id') != PRO_KEY_ID or
@@ -124,7 +124,8 @@ def installation(data: Path) -> dict:
                 'label': stored.get('label') or 'Humperdinck desktop'}
     except (OSError, ValueError, TypeError, KeyError):
         Path(data).mkdir(parents=True, exist_ok=True)
-        info = {'installation_id': str(uuid4()), 'label': (socket.gethostname() or 'Humperdinck desktop')[:80]}
+        # No hardware identifier or hostname is collected. Labels can be edited in the account.
+        info = {'installation_id': str(uuid4()), 'label': 'Humperdinck desktop'}
         temp = Path(data) / ('.installation-' + secrets.token_hex(8))
         try:
             fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
