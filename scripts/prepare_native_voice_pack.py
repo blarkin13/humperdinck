@@ -15,6 +15,10 @@ from io import BytesIO
 
 import certifi
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from release_download import fetch  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "humperdinck-builtin-voices-v1.zip"
 URL = "https://github.com/blarkin13/humperdinck/releases/download/builtin-humperdinck-voices-v1/" + NAME
@@ -48,10 +52,7 @@ def main() -> None:
     if DESTINATION.is_file():
         raw = DESTINATION.read_bytes()
     else:
-        req = Request(URL, headers={"User-Agent": "Humperdinck-NativeBuilder/1.0"})
-        context = ssl.create_default_context(cafile=certifi.where())
-        with urlopen(req, timeout=120, context=context) as response:
-            raw = response.read(120 * 1024 * 1024 + 1)
+        raw = fetch(URL, 120 * 1024 * 1024, timeout=120)
     count = validate(raw)
     DESTINATION.parent.mkdir(parents=True, exist_ok=True)
     temp = DESTINATION.with_suffix(".tmp")
