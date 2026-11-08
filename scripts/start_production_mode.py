@@ -33,6 +33,8 @@ APP_SUPPORT = Path.home() / "Library" / "Application Support"
 DATA = Path(os.environ.get("HUMPERDINCK_TEST_DATA", APP_SUPPORT / "Humperdinck Test"))
 INSTALLED_APP_DATA = APP_SUPPORT / "com.humperdinck.desktop"
 # Same extra packages the desktop build adds (see .github/workflows/native-desktop.yml).
+# Its own ports, so it can run next to the regular dev copy (8000/5173).
+API_PORT, UI_PORT = 8100, 5180
 NATIVE_PACKAGES = {"kokoro_onnx": "kokoro-onnx>=0.6,<1", "espeakng_loader": "espeakng-loader",
                    "certifi": "certifi>=2025.1", "uv": "uv>=0.8,<1", "imageio_ffmpeg": "imageio-ffmpeg>=0.5,<1"}
 
@@ -99,13 +101,14 @@ def main() -> None:
     prepare_data(args.fresh, args.own_engines)
 
     env = dict(os.environ, HUMPERDINCK_DATA=str(DATA), HUMPERDINCK_NATIVE_PACKAGE="1",
-               HUMPERDINCK_SKIP_STARTUP_UPDATE="1")
+               HUMPERDINCK_SKIP_STARTUP_UPDATE="1",
+               HUMPERDINCK_API=f"http://127.0.0.1:{API_PORT}")
     say(f"Data folder: {DATA}")
     processes = [
         subprocess.Popen([str(PY), "-m", "uvicorn", "scripts.production_mode_app:app", "--host", "127.0.0.1",
-                          "--port", "8000", "--reload", "--reload-dir", "backend", "--reload-dir", "scripts"],
+                          "--port", str(API_PORT), "--reload", "--reload-dir", "backend", "--reload-dir", "scripts"],
                          cwd=ROOT, env=env),
-        subprocess.Popen(["npm", "run", "dev", "--", "--host", "127.0.0.1"], cwd=ROOT / "frontend", env=env),
+        subprocess.Popen(["npm", "run", "dev", "--", "--host", "127.0.0.1", "--port", str(UI_PORT), "--strictPort"], cwd=ROOT / "frontend", env=env),
     ]
 
     def stop(*_):
@@ -116,8 +119,10 @@ def main() -> None:
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
     time.sleep(4)
-    webbrowser.open("http://127.0.0.1:5173")
-    say("Running in production mode at http://127.0.0.1:5173. Close this window or press Ctrl+C to stop.")
+    url = f"http://127.0.0.1:{UI_PORT}"
+    if not os.environ.get("HUMPERDINCK_TEST_NO_BROWSER"):
+        webbrowser.open(url)
+    say(f"Running in production mode at {url}. Close this window or press Ctrl+C to stop.")
     while all(p.poll() is None for p in processes):
         time.sleep(1)
     stop()
