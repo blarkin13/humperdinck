@@ -4,6 +4,7 @@ from pathlib import Path
 from uuid import uuid4
 from threading import Thread, Lock
 import json
+import re
 from datetime import datetime, timezone
 import soundfile as sf
 import shutil
@@ -23,6 +24,7 @@ from backend import catalog
 from backend import media_tools
 from backend import native_models
 from backend.voice_picker import VoicePicker
+from backend import video_projects
 from backend.characters import (Characters, TARGET_TEXT, NAMES as CHARACTER_NAMES, accents as character_accents,
                                 performer as character_performer, description as character_description)
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
@@ -1374,6 +1376,179 @@ def create_video_render(request: VideoRenderRequest):
     jobs[job_id]={'job_id':job_id,'status':'queued','progress':0,'message':'Waiting to render video'}
     Thread(target=run_video_render,args=(job_id,video,audio,request),daemon=True).start()
     return jobs[job_id]
+
+# Video Studio projects: pictures, narration cues placed in time, sound (backend/video_projects.py).
+video_store = video_projects.Store(DATA / 'video-projects')
+IMAGE_TYPES = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp'}
+(DATA / 'images').mkdir(parents=True, exist_ok=True)
+
+
+def _hex_id(value):
+    if len(value or '') != 32 or any(c not in '0123456789abcdef' for c in value):
+        raise HTTPException(400, 'Invalid ID')
+    return value
+
+
+def _video_file(video_id):
+    found = next(iter((DATA / 'videos').glob(_hex_id(video_id) + '.*')), None)
+    if not found:
+        raise HTTPException(404, 'Video not found')
+    return found
+
+
+def _image_file(image_id):
+    found = next((p for p in (DATA / 'images').glob(_hex_id(image_id) + '.*') if p.suffix in IMAGE_TYPES), None)
+    if not found:
+        raise HTTPException(404, 'Image not found')
+    return found
+
+
+@app.get('/api/videos/{video_id}/info')
+def video_info(video_id: str):
+    path = _video_file(video_id)
+    probe = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration:stream=codec_type,width,height',
+                            '-of', 'json', str(path)], capture_output=True, text=True, timeout=60)
+    try:
+        info = json.loads(probe.stdout)
+    except ValueError:
+        raise HTTPException(422, 'Could not read this video')
+    streams = info.get('streams', [])
+    picture = next((s for s in streams if s.get('codec_type') == 'video'), {})
+    return {'duration': round(float(info.get('format', {}).get('duration') or 0), 3),
+            'width': picture.get('width'), 'height': picture.get('height'),
+            'has_audio': any(s.get('codec_type') == 'audio' for s in streams)}
+
+
+@app.post('/api/images')
+async def upload_image(file: UploadFile = File(...)):
+    suffix = Path(file.filename or '').suffix.lower()
+    if suffix not in IMAGE_TYPES:
+        raise HTTPException(400, 'Use a PNG, JPG or WEBP image')
+    key = uuid4().hex
+    path = DATA / 'images' / f'{key}{suffix}'
+    size = 0
+    with path.open('wb') as output:
+        while chunk := await file.read(1024 * 1024):
+            size += len(chunk)
+            if size > 50 * 1024 * 1024:
+                output.close(); path.unlink(missing_ok=True)
+                raise HTTPException(413, 'Images must be under 50 MB')
+            output.write(chunk)
+    return {'image_id': key, 'filename': file.filename}
+
+
+@app.get('/api/images/{image_id}')
+def get_image(image_id: str):
+    path = _image_file(image_id)
+    return FileResponse(path, media_type=IMAGE_TYPES[path.suffix])
+
+
+class VideoProjectInput(BaseModel):
+    name: str = Field(default='Untitled video', max_length=120)
+
+
+@app.get('/api/video-projects')
+def list_video_projects():
+    return video_store.list()
+
+
+@app.post('/api/video-projects', status_code=201)
+def create_video_project(request: VideoProjectInput):
+    return video_store.save(video_projects.new_project(request.name.strip() or 'Untitled video'))
+
+
+@app.get('/api/video-projects/{project_id}')
+def get_video_project(project_id: str):
+    return video_store.get(project_id) or _missing_project()
+
+
+@app.put('/api/video-projects/{project_id}')
+def save_video_project(project_id: str, project: dict):
+    if not video_store.get(project_id):
+        _missing_project()
+    if project.get('id') != project_id or not isinstance(project.get('clips'), list) or not isinstance(project.get('cues'), list):
+        raise HTTPException(422, 'Invalid project')
+    if project.get('aspect') not in video_projects.ASPECTS:
+        raise HTTPException(422, 'Unknown aspect ratio')
+    for clip in project['clips']:
+        if clip.get('type') not in ('video', 'image', 'color'):
+            raise HTTPException(422, 'Unknown clip type')
+    if len(json.dumps(project)) > 2_000_000:
+        raise HTTPException(413, 'Project is too large')
+    return video_store.save(project)
+
+
+@app.delete('/api/video-projects/{project_id}')
+def delete_video_project(project_id: str):
+    if not video_store.delete(project_id):
+        _missing_project()
+    return {'deleted': True}
+
+
+def _missing_project():
+    raise HTTPException(404, 'Video project not found')
+
+
+def _project_media(kind, ident):
+    if kind == 'video':
+        return _video_file(ident)
+    if kind == 'image':
+        return _image_file(ident)
+    if kind == 'audio':
+        path = DATA / 'outputs' / f'{_hex_id(ident)}.wav'
+        if not path.is_file():
+            raise HTTPException(404, 'A narration cue needs to be generated again')
+        return path
+    if kind == 'music':
+        return sound_effects.get_path(ident)
+    raise ValueError(kind)
+
+
+def run_project_render(job_id, command, length):
+    job = jobs[job_id]
+    try:
+        job.update(status='running', message='Rendering video')
+        process = subprocess.Popen(command[:-1] + ['-progress', 'pipe:1', '-nostats', command[-1]],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        for line in process.stdout:
+            if line.startswith('out_time_us='):
+                try:
+                    done = int(line.split('=')[1]) / 1e6
+                except ValueError:
+                    continue
+                job.update(progress=min(99, round(done / length * 100)), message=f'Rendering · {int(done)} of {int(length)} s')
+        errors = process.stderr.read()
+        if process.wait():
+            raise RuntimeError(errors.strip().splitlines()[-1] if errors.strip() else f'FFmpeg exit code {process.returncode}')
+        job.update(status='complete', progress=100, download_url=f"/api/outputs/{job_id}.mp4", message='Video ready')
+    except Exception as exc:
+        job.update(status='failed', message=f'Render failed: {exc}')
+
+
+@app.post('/api/video-projects/{project_id}/render')
+def render_video_project(project_id: str):
+    project = video_store.get(project_id) or _missing_project()
+    if not shutil.which('ffmpeg'):
+        raise HTTPException(503, 'FFmpeg is required')
+    job_id = uuid4().hex
+    try:
+        command = video_projects.render_command(project, _project_media, DATA / 'outputs' / f'{job_id}.mp4',
+                                                shutil.which('ffmpeg'), media_tools.video_encoder_args())
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(422, str(exc))
+    jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0, 'message': 'Waiting to render'}
+    Thread(target=run_project_render, args=(job_id, command, video_projects.total_length(project)), daemon=True).start()
+    return jobs[job_id]
+
+
+@app.get('/api/video-projects/{project_id}/captions.srt')
+def video_project_captions(project_id: str):
+    from fastapi.responses import Response
+    project = video_store.get(project_id) or _missing_project()
+    name = re.sub(r'[^A-Za-z0-9 _-]', '', project.get('name') or 'captions').strip() or 'captions'
+    return Response(video_projects.captions(project), media_type='application/x-subrip',
+                    headers={'Content-Disposition': f'attachment; filename="{name}.srt"'})
+
 
 @app.get('/api/rendered-videos/{filename}')
 def rendered_video(filename: str):
