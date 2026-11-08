@@ -1,0 +1,8 @@
+# Cloudflare MCP servers for Codex in this trusted project.
+# Each developer authorizes their own Cloudflare account via OAuth.
+# No credentials or API tokens are stored in this file.
+[mcp_servers.cloudflare]
+url = "https://mcp.cloudflare.com/mcp"
+
+[mcp_servers.cloudflare-docs]
+url = "https://docs.mcp.cloudflare.com/mcp"
