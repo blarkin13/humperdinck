@@ -116,6 +116,12 @@ def poll(data: Path) -> dict:
         raise HTTPException(503, 'Invalid completed account pairing')
     _save(data, {'token': token, 'user': user, 'expires_at': expiry})
     _pending = None
+    # A random installation identifier enables the account dashboard's remote
+    # sign-out feature. Never send a hardware fingerprint or device serial.
+    try:
+        _call('dashboard/connections/register', pro_license.installation(data), token=token)
+    except HTTPException:
+        pass  # Account pairing and offline Free still work during a dashboard outage.
     # Customers who already own Pro automatically activate this installation.
     # An offline local license remains valid even if this request fails.
     try:
