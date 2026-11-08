@@ -107,11 +107,13 @@ def _fmt(seconds):
     return f'{seconds:.3f}'
 
 
-def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=None):
+def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=None, voice=None):
     """Build the FFmpeg command for a project.
 
     ``resolve(kind, id)`` returns a Path for 'video', 'image', 'audio' (a cue's
     generated narration) and 'music' (a sound-library file), or raises.
+    ``voice(cue, path)`` returns the cue's audio with the sound desk applied
+    (see audio_fx.process); without it the desk's tone runs in the graph.
     """
     width, height = ASPECTS.get(project.get('aspect'), ASPECTS['16:9'])
     sound = project.get('sound') or {}
@@ -186,10 +188,13 @@ def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=N
     ducked('orig', original, original * float(sound.get('duck_volume', 0.25)), 'bed')
     mix = ['[bed]']
     for k, cue in enumerate(cues):
-        index = add_input('-i', str(resolve('audio', cue['audio'])))
+        cue_path = resolve('audio', cue['audio'])
+        if voice:
+            cue_path = voice(cue, cue_path)
+        index = add_input('-i', str(cue_path))
         delay = round(float(cue['start']) * 1000)
         volume = float(cue.get('volume', 1.0))
-        desk = audio_fx.chain(project.get('desk'), cue.get('gain', 0), cue_speed(cue))
+        desk = '' if voice else audio_fx.chain(project.get('desk'), cue.get('gain', 0), cue_speed(cue))
         desk = desk + ',' if desk else ''
         graph.append(f'[{index}:a]{desk}aresample={RATE},aformat=channel_layouts=stereo,volume={volume:.2f},adelay={delay}|{delay}[n{k}]')
         mix.append(f'[n{k}]')

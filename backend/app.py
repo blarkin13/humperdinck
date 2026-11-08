@@ -1233,7 +1233,7 @@ def run_multi(job_id, request, references):
                                 refine_wav(refined,current)
                                 audio,_=sf.read(refined,dtype='float32')
                             finally:refined.unlink(missing_ok=True)
-                    if audio_fx.chain(request.desk,block.gain,block.speed):
+                    if request.desk is not None or block.gain or block.speed!=1:
                         desked=DATA/'outputs'/f'{job_id}-{index}-desk.wav'
                         sf.write(desked,audio,target_rate)
                         try:
@@ -1515,9 +1515,19 @@ def _project_media(kind, ident):
     raise ValueError(kind)
 
 
-def run_project_render(job_id, command, length):
+def run_project_render(job_id, build, length):
     job = jobs[job_id]
+    prepared = []
+    def voice(cue, path):
+        # The sound desk is applied to each cue before mixing (tone, then one steady level).
+        job.update(status='running', message=f'Balancing voices · {len(prepared)+1}')
+        output = DATA / 'outputs' / f'{job_id}-cue-{len(prepared)}.wav'
+        prepared.append(output)
+        audio_fx.process(path, video_projects.RATE, build.desk, cue.get('gain', 0), video_projects.cue_speed(cue),
+                         shutil.which('ffmpeg') or 'ffmpeg', output=output)
+        return output
     try:
+        command = build(voice)
         job.update(status='running', message='Rendering video')
         process = subprocess.Popen(command[:-1] + ['-progress', 'pipe:1', '-nostats', command[-1]],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -1534,6 +1544,9 @@ def run_project_render(job_id, command, length):
         job.update(status='complete', progress=100, download_url=f"/api/outputs/{job_id}.mp4", message='Video ready')
     except Exception as exc:
         job.update(status='failed', message=f'Render failed: {exc}')
+    finally:
+        for path in prepared:
+            path.unlink(missing_ok=True)
 
 
 @app.post('/api/video-projects/{project_id}/render')
@@ -1542,13 +1555,16 @@ def render_video_project(project_id: str):
     if not shutil.which('ffmpeg'):
         raise HTTPException(503, 'FFmpeg is required')
     job_id = uuid4().hex
+    output, ffmpeg, encoder = DATA / 'outputs' / f'{job_id}.mp4', shutil.which('ffmpeg'), media_tools.video_encoder_args()
+    def build(voice=None):
+        return video_projects.render_command(project, _project_media, output, ffmpeg, encoder, voice=voice)
+    build.desk = project.get('desk')
     try:
-        command = video_projects.render_command(project, _project_media, DATA / 'outputs' / f'{job_id}.mp4',
-                                                shutil.which('ffmpeg'), media_tools.video_encoder_args())
+        build()  # validate before starting the job
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(422, str(exc))
     jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0, 'message': 'Waiting to render'}
-    Thread(target=run_project_render, args=(job_id, command, video_projects.total_length(project)), daemon=True).start()
+    Thread(target=run_project_render, args=(job_id, build, video_projects.total_length(project)), daemon=True).start()
     return jobs[job_id]
 
 
