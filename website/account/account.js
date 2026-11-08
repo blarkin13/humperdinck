@@ -44,9 +44,9 @@ function empty(message){
 // Use a recognisable platform icon without inferring hardware identity.
 function deviceIcon(name){
  const label=String(name||'').trim().toLowerCase();
- if(/^(mac(?:os|book)?|imac|apple)(?:$|[\\s·-])/.test(label))return 'fa-brands fa-apple';
- if(/^(windows|win(?:dows)?|pc)(?:$|[\\s·-])/.test(label))return 'fa-brands fa-windows';
- if(/^(linux|ubuntu|debian|fedora|arch)(?:$|[\\s·-])/.test(label))return 'fa-brands fa-linux';
+ if(/^(mac(?:os|book)?|imac|apple)(?:$|[\s·-])/.test(label))return 'fa-brands fa-apple';
+ if(/^(windows|win(?:dows)?|pc)(?:$|[\s·-])/.test(label))return 'fa-brands fa-windows';
+ if(/^(linux|ubuntu|debian|fedora|arch)(?:$|[\s·-])/.test(label))return 'fa-brands fa-linux';
  return 'fa-solid fa-desktop';
 }
 function deviceRow(name,subline,actionLabel,onClick){
