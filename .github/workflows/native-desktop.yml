@@ -225,7 +225,15 @@ jobs:
           if [ "$RUNNER_OS" = macOS ] && [ "${{ inputs.signed_updates }}" = true ]; then
             BUNDLE_TARGET="app,dmg"
           fi
-          npx tauri build --bundles "$BUNDLE_TARGET" "${CONFIG[@]}"
+          # Bundling downloads tools (NSIS, WiX, AppImage helpers) from GitHub
+          # releases, which can briefly return 5xx. Compiled output is reused,
+          # so a retry only redoes the bundling.
+          for attempt in 1 2 3; do
+            if npx tauri build --bundles "$BUNDLE_TARGET" "${CONFIG[@]}"; then break; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            echo "Packaging failed on attempt $attempt; retrying in $((attempt * 30)) s"
+            sleep $((attempt * 30))
+          done
       # Tauri may strip the PyInstaller helper entitlement. Re-sign the helper
       # and outer app with the selected ad-hoc or Developer ID identity.
       - name: Preserve signed macOS sidecar entitlements and rebuild DMG
