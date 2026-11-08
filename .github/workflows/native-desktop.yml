@@ -265,7 +265,14 @@ jobs:
           /usr/bin/codesign --force --sign "$SIGN_ID" --options runtime --entitlements "$ENTITLEMENTS" "$APP"
           /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
           PATCHED_DMG="$RUNNER_TEMP/humperdinck-resigned.dmg"
-          /usr/bin/hdiutil create -volname "Humperdinck" -srcfolder "$PAYLOAD" -format UDZO "$PATCHED_DMG"
+          # hdiutil create sometimes fails with "Resource busy" on hosted runners; retry.
+          for attempt in 1 2 3 4 5; do
+            rm -f "$PATCHED_DMG"
+            if /usr/bin/hdiutil create -volname "Humperdinck" -srcfolder "$PAYLOAD" -format UDZO "$PATCHED_DMG"; then break; fi
+            if [ "$attempt" = 5 ]; then echo "hdiutil create failed after 5 attempts" >&2; exit 1; fi
+            echo "hdiutil create failed (attempt $attempt); retrying in $((attempt * 10))s"
+            sleep $((attempt * 10))
+          done
           mv "$PATCHED_DMG" "$DMG"
 
       # Tauri's initial macOS updater tarball is made before our custom
