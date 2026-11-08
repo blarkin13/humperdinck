@@ -7,7 +7,7 @@ The recommended setup is **private source repository + public `humperdinck-downl
 
 ## Native binary updates without a public GitHub repository
 
-The installed application must get its updates from the Humperdinck website, not GitHub. `backend/native_updates.py` uses the public `/downloads.json` manifest to offer newer installers for **manual** updates. `desktop/src-tauri/src/main.rs` points Tauri's **signed** updater at `https://humperdinck.larki-brian.workers.dev/updates/latest.json`.
+The installed application must get its updates from the Humperdinck website, not GitHub. `backend/native_updates.py` uses the public `/downloads.json` manifest to offer newer installers for **manual** updates. `desktop/src-tauri/src/main.rs` points Tauri's **signed** updater at `https://humperdinck.studio/updates/latest.json`.
 
 **Automatic installation is not active for unsigned preview builds.** The Tauri updater only activates when a trusted `HUMPERDINCK_UPDATER_PUBKEY` is embedded at compilation. Until valid signed update artifacts and a signed-update JSON manifest exist, leave that build variable unset. This intentionally offers a normal website download rather than running arbitrary binaries.
 
@@ -35,7 +35,7 @@ The homepage now has a dedicated downloadable-app section, not a prominent GitHu
 
 ### One-time hosting setup
 
-Use Cloudflare R2 for installer binaries (typically too large for a regular Workers static-asset upload). The Worker streams published binaries at `https://humperdinck.larki-brian.workers.dev/downloads/FILENAME`, so users remain on your domain.
+Use Cloudflare R2 for installer binaries (typically too large for a regular Workers static-asset upload). The Worker streams published binaries at `https://humperdinck.studio/downloads/FILENAME`, so users remain on your domain.
 
 1. Create a private R2 bucket called `humperdinck-downloads` in the Cloudflare dashboard.
 2. Add an **R2 bucket binding** to the Humperdinck Worker named **`INSTALLER_BUCKET`**, pointing at that bucket. For a Wrangler-managed binding, add `"r2_buckets": [{"binding":"INSTALLER_BUCKET","bucket_name":"humperdinck-downloads"}]` to `wrangler.jsonc` **after** creating the bucket; do not add it earlier or deploys may fail. Since Wrangler deploy configuration is authoritative, prefer storing the binding in `wrangler.jsonc`.
@@ -133,7 +133,7 @@ To finish this change, upload these five binary images to `website/assets/` **on
 
 The assets are packaged separately as `humperdinck-branding-assets.zip` in the ChatGPT conversation where these changes were made. Extract that ZIP and add its five files through GitHub's **Add file → Upload files** into the branch's `website/assets/` folder. The source HTML in this branch already references these filenames. **Do not merge until all five files are present.**
 
-The current Open Graph absolute URL points to `https://humperdinck.larki-brian.workers.dev/assets/og-image.jpg`. Update the share URL when adding a custom domain. Social platforms may cache a previous share preview; re-scrape the URL after deployment if necessary.
+The current Open Graph absolute URL points to `https://humperdinck.studio/assets/og-image.jpg`. Update the share URL when adding a custom domain. Social platforms may cache a previous share preview; re-scrape the URL after deployment if necessary.
 
 ## Interactive browser studio (React preview)
 
@@ -200,7 +200,7 @@ The public build uses `VITE_PUBLIC_STUDIO=1`, preventing desktop FastAPI request
 - Workers static assets honor `website/_headers`: HTML pages, the site script, and `build.json` are `Cache-Control: no-store`. Fingerprinted assets may be cached for one year because their URLs change as content changes.
 - The build embeds the Git commit short SHA in the Studio preview banner, and writes `website/build.json` for a machine-readable live deployment revision. The homepage footer shows that revision.
 - `scripts/build-public-studio.sh` stamps every `/studio/` link in the homepage with `?v=<sha>`, forcing a fresh navigation URL after deployment.
-- Verify Cloudflare deployed the same SHA as GitHub by opening `https://humperdinck.larki-brian.workers.dev/build.json` and comparing with the version in the public Studio banner. `build.json` does **not** exist in Git; it is generated at deploy time.
+- Verify Cloudflare deployed the same SHA as GitHub by opening `https://humperdinck.studio/build.json` and comparing with the version in the public Studio banner. `build.json` does **not** exist in Git; it is generated at deploy time.
 
 The static homepage remains a separate marketing website. The statement about matching the desktop applies only to the /studio/ app shell and shared components; browser preview restrictions necessarily change some controls, and production visual comparison on Safari/Chrome should be done after deployment before claiming pixel-for-pixel parity.
 
@@ -230,7 +230,7 @@ Leave the build root set to the repository root. The committed `wrangler.jsonc` 
 
 After deploying, open:
 
-`https://humperdinck.larki-brian.workers.dev/model/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/config.json`
+`https://humperdinck.studio/model/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/config.json`
 
 Expected: JSON with `"model_type": "style_text_to_speech_2"`. A 404 means this proxy was not deployed or the upstream returned 404; a 502 means Cloudflare couldn't retrieve the upstream. Check Worker logs and the actual deployment revision, not just the UI build banner. Then test a short generated sentence under Narration Studio in Safari and Chrome.
 

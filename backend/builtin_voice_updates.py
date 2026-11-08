@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 
 from backend.starter_voice_packs import MAX_PACK_BYTES, install
 
-SITE = os.environ.get("HUMPERDINCK_VOICES_URL", "https://humperdinck.larki-brian.workers.dev/voices/")
+SITE = os.environ.get("HUMPERDINCK_VOICES_URL", "https://humperdinck.studio/voices/")
 HEADERS = {"User-Agent": "Humperdinck-Voices/1.0"}
 
 

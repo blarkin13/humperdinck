@@ -28,7 +28,7 @@ export default function Updates(){
        available:true,latest:signed.version,version:signed.version,
        current_version:signed.current_version,summary:'Signed desktop application update',
        can_install:true,can_download:false,changed_files:[],removed_files:[],
-       url:'https://humperdinck.larki-brian.workers.dev/#download'
+       url:'https://humperdinck.studio/#download'
      }:{available:false,reason:'Up to date with signed desktop releases',can_install:false});
      stateRef.current='checked';setState('checked');return;
     }
