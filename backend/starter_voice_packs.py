@@ -225,7 +225,9 @@ def install(data:Path,raw:bytes):
                     tmp.replace(path)
                     updated.append(uid)
                 existing[uid].update(name=str(item.get("name") or "Starter Voice")[:120],
-                                     category=str(item.get("category") or "")[:60])
+                                     category=str(item.get("category") or "")[:60],
+                                     reference_text=SENTENCE,
+                                     builtin_sha256=sha256(audio).hexdigest())
                 continue
             if uid in previously_seen or path.is_file():
                 # Preserve user edits and don't resurrect deleted built-in voices.
@@ -238,6 +240,7 @@ def install(data:Path,raw:bytes):
                 "category":str(item.get("category") or "")[:60],
                 "origin":"builtin-humperdinck",
                 "reference_text":SENTENCE,
+                "builtin_sha256":sha256(audio).hexdigest(),
                 # The generated sample already has these adjustments baked in.
                 "starter_refinement_notes":item.get("refinement_description") or {}
             }
