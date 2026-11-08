@@ -4,16 +4,16 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#090909">
 <meta name="robots" content="noindex,follow">
-<title>Account | Humperdinck</title>
-<meta name="description" content="Sign in to manage your Humperdinck account and connect desktop devices. Local Free narration never requires a login.">
+<title>My Account &amp; License Dashboard | Humperdinck</title>
+<meta name="description" content="Manage your Humperdinck account, purchases, connected computers, lifetime Pro licenses and recovery codes.">
 <link rel="icon" href="/assets/humperdinck-favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=20261108-seo-launch">
 <link rel="stylesheet" href="/footer-unified.css?v=20261108">
-<link rel="stylesheet" href="/account/account.css?v=20261108-license">
-<script src="/account/account.js?v=20261108-license" defer></script>
+<link rel="stylesheet" href="/account/account.css?v=20261108-dashboard-v1">
+<script src="/account/account.js?v=20261108-dashboard-v1" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -36,31 +36,113 @@
       <a class="header-cta header-studio-cta" href="/studio/">Try the studio <span aria-hidden="true">↗</span></a>
       <a class="mobile-cta" href="/studio/">Studio <span aria-hidden="true">↗</span></a>
     </header>
-<main id="main" class="page">
-<div class="eyebrow">HUMPERDINCK / ACCOUNTS</div>
-<h1>Your studio. <span>Your account.</span></h1>
-<p class="intro">Sign in to connect your desktop installation and manage your account. Your local Free studios remain available without an account or internet connection.</p>
-<section class="panel" aria-live="polite">
- <div class="panel-head"><h2 id="account-title">Account</h2><span id="account-state" class="status">Checking</span></div>
- <p id="account-message" class="muted">Checking account availability…</p>
- <div id="providers" class="providers" hidden>
-   <a id="google-login" class="provider" hidden href="/api/account/start/google">Continue with Google <span aria-hidden="true">↗</span></a>
-   <a id="apple-login" class="provider" hidden href="/api/account/start/apple">Continue with Apple <span aria-hidden="true">↗</span></a>
- </div>
- <div id="profile" hidden><div class="profile-grid"><div><small>Signed in as</small><strong id="account-name"></strong><span id="account-email"></span></div><div><small>Current edition</small><strong id="account-plan">Free</strong><span id="account-plan-desc">Pro purchasing and activation are coming later.</span></div></div>
- <div id="license-dashboard" class="license-dashboard" hidden>
-   <h3>Lifetime Pro license</h3>
-   <p id="license-summary" aria-live="polite"></p>
-   <div id="device-list" class="device-list" aria-live="polite"></div>
-   <button type="button" id="download-license" class="secondary" hidden>Download permanent offline backup</button>
-   <p class="license-notice">Offline backup files remain valid even if Humperdinck goes offline. Deactivating an online device releases a slot but cannot revoke an existing offline backup.</p>
- </div>
- <button type="button" id="logout" class="secondary">Sign out</button></div>
- <div id="pairing" class="pairing" hidden>
-   <div class="pair-icon" aria-hidden="true">↔</div><div><h3>Connect your desktop app</h3><p>This computer requested access to your Humperdinck account. Confirm only if you initiated it from the app.</p><p class="device-code">Request <code id="device-code"></code></p><button id="approve" type="button">Connect this computer</button><p id="pair-result" role="status"></p></div>
- </div>
-</section>
-<div class="notes"><div><strong>Local by default</strong><p>Your voice projects, recordings, and AI models stay on your computer unless you choose to share them.</p></div><div><strong>Account is optional</strong><p>You can keep using built-in voices, narration, Video Studio, sound effects, and exports without signing in.</p></div></div>
+<main id="main" class="account-page">
+  <div class="account-hero">
+    <div class="account-kicker"><span class="account-kicker-rule"></span> HUMPERDINCK / MY ACCOUNT</div>
+    <div class="account-hero-grid">
+      <div>
+        <h1>Everything yours. <span>All in one place.</span></h1>
+        <p>Your purchase, computers, downloads and recovery options. Your voices and projects stay on your own hardware.</p>
+      </div>
+      <div class="account-hero-art" aria-hidden="true"><span class="hero-ring hero-ring-outer"></span><span class="hero-ring hero-ring-middle"></span><span class="hero-ring hero-ring-inner"></span><span class="hero-art-center">H<span>.</span></span></div>
+    </div>
+  </div>
+
+  <section id="account-gate" class="account-gate" aria-live="polite">
+    <div class="account-gate-heading"><div><span class="account-kicker">ACCOUNT ACCESS</span><h2 id="account-title">Loading your account</h2></div><span id="account-state" class="account-status">Checking</span></div>
+    <p id="account-message" class="account-muted">Checking secure sign-in availability…</p>
+    <div id="providers" class="account-providers" hidden>
+      <a id="google-login" class="account-provider" href="/api/account/start/google" hidden>Continue with Google <span aria-hidden="true">↗</span></a>
+      <a id="apple-login" class="account-provider" href="/api/account/start/apple" hidden>Continue with Apple <span aria-hidden="true">↗</span></a>
+    </div>
+    <button id="recover-toggle" type="button" class="account-text-button" hidden>Use a recovery code instead <span aria-hidden="true">↓</span></button>
+    <form id="recovery-login" class="recovery-login" hidden>
+      <h3>Recover access to your account</h3>
+      <p>Use your saved account ID and one unused recovery code. Each code can be used once.</p>
+      <div class="recovery-fields">
+        <label>Account ID <input id="recover-account-id" name="account_id" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="Account ID from your recovery kit"></label>
+        <label>One-time recovery code <input id="recover-code" name="code" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="Recovery code"></label>
+      </div>
+      <button type="submit" class="account-action account-action-solid">Recover account <span aria-hidden="true">↗</span></button>
+      <p id="recover-result" class="account-muted" role="status"></p>
+      <p class="account-fine-print">A recovery code restores website sign-in; it does not replace your original Google or Apple password.</p>
+    </form>
+  </section>
+
+  <div id="dashboard" class="account-dashboard" hidden>
+    <div class="dashboard-welcome">
+      <div><span class="account-kicker">YOUR DASHBOARD</span><h2>Welcome back<span class="muted-dot">.</span></h2><p id="welcome-account">Signed in</p></div>
+      <button id="logout" type="button" class="account-action account-action-outline">Sign out <span aria-hidden="true">↗</span></button>
+    </div>
+
+    <div id="pairing" class="pairing-request" hidden>
+      <div><span class="account-kicker">DESKTOP AUTHORIZATION</span><h3>Connect this computer?</h3><p>Only approve if you started sign-in from your Humperdinck desktop app. Request <strong id="device-code"></strong>.</p></div>
+      <button id="approve" type="button" class="account-action account-action-solid">Approve connection</button>
+      <p id="pair-result" role="status"></p>
+    </div>
+
+    <div class="dashboard-stats" aria-label="Account at a glance">
+      <div class="dashboard-stat"><span>01 / EDITION</span><strong id="stat-edition">Free</strong><small id="stat-edition-note">Your local studio</small></div>
+      <div class="dashboard-stat"><span>02 / PRO DEVICES</span><strong id="stat-pro-seats">—</strong><small>of 10 online slots</small></div>
+      <div class="dashboard-stat"><span>03 / CONNECTED</span><strong id="stat-connected">—</strong><small>desktop sessions</small></div>
+      <div class="dashboard-stat"><span>04 / RECOVERY</span><strong id="stat-recovery">—</strong><small>unused backup codes</small></div>
+    </div>
+
+    <nav class="dashboard-jump" aria-label="Dashboard sections">
+      <a href="#purchase">Purchase</a>
+      <a href="#computers">Computers</a>
+      <a href="#license-downloads">Downloads</a>
+      <a href="#account-recovery">Recovery</a>
+    </nav>
+
+    <section id="purchase" class="dashboard-section">
+      <div class="dashboard-section-title"><div><span class="account-kicker">01 / OWNERSHIP</span><h2>Your purchase<span>.</span></h2><p>A clear record of your current edition and lifetime license status.</p></div><span id="purchase-badge" class="account-status">Free</span></div>
+      <div class="dashboard-two-column">
+        <div class="account-featured-card">
+          <span class="account-card-label">CURRENT EDITION</span>
+          <strong id="purchase-name">Humperdinck Free</strong>
+          <p id="purchase-message">Your Free studios, built-in voices and exports are ready to use with no account required.</p>
+          <div class="account-card-divider"></div>
+          <dl class="purchase-facts">
+            <div><dt>Purchase status</dt><dd id="purchase-status">No purchase on file</dd></div>
+            <div><dt>Purchase date</dt><dd id="purchase-date">—</dd></div>
+            <div><dt>Payment provider</dt><dd id="purchase-provider">Not configured</dd></div>
+            <div><dt>Order reference</dt><dd id="purchase-reference">—</dd></div>
+          </dl>
+        </div>
+        <div class="account-detail-card"><span class="account-card-label">YOUR ACCOUNT</span><h3 id="account-display-name">Humperdinck user</h3><p id="account-display-email">Signed in securely</p><div class="account-card-divider"></div><div class="account-detail-facts"><div><span>Account ID</span><code id="account-id-value">—</code></div><div><span>Sign-in methods</span><strong id="linked-providers">Google</strong></div></div><p class="account-fine-print">Keep your account ID in your recovery kit. It is not a password or proof of ownership by itself.</p></div>
+      </div>
+      <p id="purchase-footnote" class="account-section-footnote">One-time Pro checkout is not open yet. No subscription or payment has been charged by this dashboard.</p>
+    </section>
+
+    <section id="computers" class="dashboard-section">
+      <div class="dashboard-section-title"><div><span class="account-kicker">02 / DEVICES</span><h2>Your computers<span>.</span></h2><p>Manage online account access and Pro slots separately.</p></div></div>
+      <div class="dashboard-two-column">
+        <div class="account-detail-card"><div class="account-card-heading"><h3>Connected desktops</h3><span id="connected-count" class="account-counter">0 connected</span></div><p>Computers signed in to your Humperdinck account. Signing one out revokes its online access.</p><div id="connected-list" class="account-device-list"></div><p id="legacy-notice" class="account-fine-print" hidden></p><button id="disconnect-all" type="button" class="account-action account-action-outline" hidden>Sign out all desktops</button></div>
+        <div class="account-detail-card"><div class="account-card-heading"><h3>Pro activations</h3><span id="pro-count" class="account-counter">0 / 10</span></div><p>One-time lifetime Pro activation allows up to 10 online device registrations.</p><div id="pro-list" class="account-device-list"></div><p class="account-fine-print">Releasing an online slot cannot disable a signed offline license already saved on that computer.</p></div>
+      </div>
+    </section>
+
+    <section id="license-downloads" class="dashboard-section">
+      <div class="dashboard-section-title"><div><span class="account-kicker">03 / FILES</span><h2>License downloads<span>.</span></h2><p>Your permanent offline access is a file you can keep.</p></div></div>
+      <div class="dashboard-two-column">
+        <div class="account-featured-card"><span class="account-card-label">PERMANENT LICENSE</span><h3 id="license-title">Your Free edition needs no license</h3><p id="license-description">All Free features work without a license file or internet connection.</p><button id="download-license" type="button" class="account-action account-action-solid" hidden>Download signed Pro license <span aria-hidden="true">↓</span></button><p id="license-missing" class="account-fine-print">Pro license downloads become available after a verified purchase.</p></div>
+        <div class="account-detail-card"><span class="account-card-label">RESTORE ANYTIME</span><h3>Keep a second copy.</h3><p>Store the signed license backup safely, then import it from the desktop app's My Account panel after a reinstall.</p><div class="restore-steps"><div><span>01</span> Download your license backup</div><div><span>02</span> Keep a copy in your preferred secure storage</div><div><span>03</span> Restore in the desktop app — even offline</div></div><p class="account-fine-print">A license file provides offline Pro access. Treat it as valuable and do not publish or share it.</p></div>
+      </div>
+    </section>
+
+    <section id="account-recovery" class="dashboard-section">
+      <div class="dashboard-section-title"><div><span class="account-kicker">04 / SECURITY</span><h2>Account recovery<span>.</span></h2><p>Stay in control if you lose access to a computer or sign-in provider.</p></div></div>
+      <div class="dashboard-two-column">
+        <div class="account-featured-card"><span class="account-card-label">ONE-TIME RECOVERY CODES</span><h3>Your backup way in.</h3><p>Generate eight single-use codes that let you return to this dashboard if your Google or Apple login becomes unavailable. Save them somewhere secure.</p><p id="recovery-status" class="account-recovery-status" role="status">Checking codes…</p><button id="generate-recovery" type="button" class="account-action account-action-solid">Generate recovery kit <span aria-hidden="true">↗</span></button><div id="recovery-kit" class="recovery-kit" hidden><p>These codes are shown only once. Generating new codes invalidates the old ones.</p><code id="recovery-codes" class="recovery-code-grid"></code><button id="download-recovery" type="button" class="account-action account-action-outline">Download recovery kit <span aria-hidden="true">↓</span></button></div><p class="account-fine-print">Anyone with your account ID and an unused code can sign into your account. A code is consumed immediately when used.</p></div>
+        <div class="account-detail-card"><span class="account-card-label">SIGN-IN RECOVERY</span><h3>Keep another way back.</h3><p id="identity-summary">Your linked sign-in methods are displayed below.</p><div class="identity-links" id="identity-links"><a id="link-google" href="/api/account/link/start/google" hidden>Link another Google account <span aria-hidden="true">↗</span></a><a id="link-apple" href="/api/account/link/start/apple" hidden>Link an Apple account <span aria-hidden="true">↗</span></a><a href="https://accounts.google.com/signin/recovery" target="_blank" rel="noopener noreferrer">Recover your Google account <span aria-hidden="true">↗</span></a></div><p class="account-fine-print">If you lose your original provider, use a saved one-time code to sign in here, then link a new provider. Without a linked login or saved code, automatic account recovery is not available. Offline Pro license backups remain usable without sign-in.</p></div>
+      </div>
+    </section>
+
+    <p id="dashboard-notice" class="dashboard-notice" role="status" aria-live="polite" hidden></p>
+  </div>
+
+  <div class="account-bottom-notes"><div><strong>Local by default.</strong><p>Your models, projects and recordings stay on your computer unless you explicitly share them.</p></div><div><strong>No subscriptions.</strong><p>Humperdinck Free needs no account. Pro is designed as a one-time lifetime purchase.</p></div></div>
 </main>
 <footer class="site-unified-footer"><div class="site-unified-footer-main"><a class="site-unified-footer-brand" href="/"><img src="/assets/brand-modern.png" alt="" width="36" height="36"><span>humperdinck<span class="site-unified-footer-dot">.</span></span></a><span class="site-unified-footer-tagline">A local-first voice studio.</span></div><nav class="site-unified-footer-links" aria-label="Footer navigation"><a href="/#features">Features</a><a href="/studio/">Studio preview</a><a href="/#download">Download</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/license/">Software license</a><a href="/voice-policy/">AI voice</a><a href="/refunds/">Refunds</a><a href="/cookies/">Cookies</a><a href="/copyright/">Copyright</a><a href="/licenses/">Licenses</a></nav><small class="site-unified-footer-copyright">© 2026 Humperdinck</small></footer>
 </div></body></html>

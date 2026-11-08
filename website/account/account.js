@@ -1,131 +1,269 @@
 'use strict';
+// Account UI: plain DOM and textContent only for user-controlled values.
+// No private recordings, model data, session tokens or recovery codes are persisted
+// in browser storage. Recovery codes exist in memory until this page is closed.
 const q=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
 const device=params.get('device');
-const validDevice=typeof device==='string' && /^[A-Z2-7]{10}$/.test(device);
+const validDevice=typeof device==='string'&&/^[A-Z2-7]{10}$/.test(device);
 const returnTo=validDevice?'/account/?device='+device:'/account/';
-const message=(status,title,body)=>{
-  q('account-state').textContent=status;q('account-title').textContent=title;q('account-message').textContent=body;
+const state={config:null,dashboard:null,license:null,recoveryKit:null};
+const fmt=seconds=>{
+ if(!Number.isFinite(Number(seconds))||Number(seconds)<=0)return '—';
+ return new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'numeric'}).format(new Date(Number(seconds)*1000));
 };
-async function load(){
-  if(params.get('error'))message('Error','Sign-in incomplete','Authentication could not be completed. You can try again.');
-  let config;
-  try{
-    const response=await fetch('/api/account/config',{cache:'no-store'});
-    if(!response.ok)throw Error('Account service unavailable');
-    config=await response.json();
-  }catch{message('Offline','Accounts unavailable','You can continue using all local Free features without signing in.');return}
-  if(!config.available || !Object.values(config.providers||{}).some(Boolean)){
-    message('Not active','Accounts coming soon','Account infrastructure is prepared, but sign-in has not been activated. Free remains available without an account.');
-    return;
-  }
-  try{
-    const response=await fetch('/api/account/me',{cache:'no-store'});
-    if(!response.ok)throw Error('Account service unavailable');
-    const state=await response.json();
-    if(state.authenticated){
-      message('Connected','Your account','Account details and desktop connections.');
-      q('profile').hidden=false;
-      q('account-name').textContent=state.user.display_name||'Humperdinck user';
-      q('account-email').textContent=state.user.email||'Private email';
-      await loadLicenseDashboard();
-      if(validDevice){
-        q('pairing').hidden=false;
-        q('device-code').textContent=device.slice(0,5)+'-'+device.slice(5);
-      }
-    }else{
-      message('Sign in','Sign in to Humperdinck','Choose a provider to connect an account. No login is required for the Free desktop app.');
-      q('providers').hidden=false;
-      for(const provider of ['google','apple']){
-        const button=q(provider+'-login');
-        if(config.providers?.[provider]){
-          button.hidden=false;
-          button.href='/api/account/start/'+provider+'?return_to='+encodeURIComponent(returnTo);
-        }
-      }
-    }
-  }catch{message('Unavailable','Account service unavailable','Please try again when the service is online. Your local Free studios still work.')}
+async function request(path,{method='GET',data}={}){
+ const response=await fetch('/api/account'+path,{
+  method,credentials:'same-origin',cache:'no-store',
+  headers:{'Accept':'application/json',...(method==='GET'?{}:{'Content-Type':'application/json'})},
+  ...(method==='GET'?{}:{body:JSON.stringify(data??{})})
+ });
+ const result=await response.json().catch(()=>({}));
+ if(!response.ok)throw Error(result.error||'The account service is temporarily unavailable.');
+ return result;
 }
-q('logout').addEventListener('click',async()=>{
-  try{
-    const r=await fetch('/api/account/logout',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});
-    if(!r.ok)throw Error();
-    location.href='/account/';
-  }catch{message('Error','Could not sign out','Please try again.')}
-});
-q('approve').addEventListener('click',async()=>{
-  if(!validDevice)return;
-  q('approve').disabled=true;
-  q('pair-result').textContent='Connecting…';
-  try{
-    const r=await fetch('/api/account/device/approve',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:device})});
-    if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.error||'This request has expired. Restart sign-in from the app.')}
-    q('pair-result').textContent='This computer is connected. Return to Humperdinck.';
-    q('approve').hidden=true;
-  }catch(error){q('pair-result').textContent=error.message;q('approve').disabled=false}
-});
-load();
-
-async function loadLicenseDashboard(){
- const dashboard=q('license-dashboard');
- if(!dashboard)return;
+function notice(text,error=false){
+ const p=q('dashboard-notice');p.textContent=text;p.hidden=false;
+ p.dataset.tone=error?'error':'info';
+}
+function accountMessage(status,title,description){
+ q('account-state').textContent=status;q('account-title').textContent=title;q('account-message').textContent=description;
+}
+function downloadJson(filename,data){
+ const blob=new Blob([JSON.stringify(data,null,2)+'\n'],{type:'application/json'});
+ const url=URL.createObjectURL(blob);
  try{
-  const r=await fetch('/api/account/license',{cache:'no-store',credentials:'same-origin'});
-  if(!r.ok)throw Error('Could not retrieve license status');
-  const state=await r.json();
-  const isPro=state.plan==='pro'&&state.license?.lifetime===true;
-  q('account-plan').textContent=isPro?'Pro · Lifetime':'Free';
-  q('account-plan-desc').textContent=isPro?'Permanent, exportable offline license':'One-time Pro purchasing and activation are coming later.';
-  dashboard.hidden=!isPro;
-  if(!isPro)return;
-  const active=Number(state.active_devices||0),max=Number(state.device_limit||10);
-  q('license-summary').textContent=active+' of '+max+' online device slots in use.';
-  q('download-license').hidden=!state.license.backup_available;
-  const list=q('device-list');
-  list.replaceChildren();
-  for(const device of state.devices||[]){
-   const row=document.createElement('div');row.className='license-device';
-   const info=document.createElement('div');info.className='license-device-info';
-   const name=document.createElement('strong');name.textContent=device.label||'Humperdinck installation';
-   const status=document.createElement('small');status.textContent=device.active?'Active device':'Deactivated';
-   info.append(name,status);
-   row.append(info);
-   if(device.active){
-    const button=document.createElement('button');button.type='button';button.className='secondary';
-    button.textContent='Deactivate';button.setAttribute('aria-label','Deactivate '+name.textContent);
-    button.addEventListener('click',async()=>{
-      if(!confirm('Release this device slot? Previously exported offline Pro licenses on that computer cannot be remotely disabled.'))return;
-      button.disabled=true;
-      try{
-       const r=await fetch('/api/account/license/devices/'+encodeURIComponent(device.id)+'/deactivate',{
-        method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:'{}'});
-       if(!r.ok){const data=await r.json().catch(()=>({}));throw Error(data.error||'Unable to deactivate device')}
-       await loadLicenseDashboard();
-      }catch(error){alert(error.message);button.disabled=false}
-    });
-    row.append(button);
-   }
-   list.append(row);
-  }
-  if(active>=8)q('license-summary').textContent+=' Consider deactivating unused devices before adding more.';
+  const anchor=document.createElement('a');
+  anchor.href=url;anchor.download=filename;document.body.append(anchor);anchor.click();anchor.remove();
+ }finally{setTimeout(()=>URL.revokeObjectURL(url),3000)}
+}
+function empty(message){
+ const p=document.createElement('p');p.className='account-empty';p.textContent=message;return p;
+}
+function deviceRow(name,subline,actionLabel,onClick){
+ const row=document.createElement('div');row.className='account-device';
+ const detail=document.createElement('div');detail.className='account-device-main';
+ const label=document.createElement('strong');label.textContent=name;
+ const metadata=document.createElement('small');metadata.textContent=subline;
+ detail.append(label,metadata);row.append(detail);
+ if(actionLabel){
+  const button=document.createElement('button');button.type='button';
+  button.className='account-action account-action-outline';button.textContent=actionLabel;
+  button.setAttribute('aria-label',actionLabel+' '+name);
+  button.addEventListener('click',async()=>{
+   button.disabled=true;
+   try{await onClick();}catch(error){notice(error.message,true)}finally{button.disabled=false}
+  });
+  row.append(button);
+ }
+ return row;
+}
+function renderPurchase(info,license){
+ const purchase=info.purchase||{};
+ const active=purchase.status==='active';
+ const label=active?'Pro · Lifetime':'Free';
+ const details={
+  active:'Lifetime Pro license on file',
+  refunded:'Refunded',
+  void:'Cancelled',
+  none:'No purchase on file'
+ };
+ q('purchase-badge').textContent=active?'Lifetime Pro':purchase.status==='refunded'?'Refunded':purchase.status==='void'?'Cancelled':'Free edition';
+ q('purchase-name').textContent=active?'Humperdinck Pro':'Humperdinck Free';
+ q('purchase-message').textContent=active?
+  'Your lifetime Pro entitlement is associated with this account. There are no renewals or mandatory online checks for an installed signed license.':
+  purchase.status==='refunded'||purchase.status==='void'?
+  'No active Pro entitlement is associated with this account. Previously exported offline licenses cannot be remotely revoked.':
+  'Your Free studios, built-in voices and exports remain available without signing in or entering payment details.';
+ q('purchase-status').textContent=details[purchase.status]||'Not available';
+ q('purchase-date').textContent=active?fmt(purchase.issued_at):'—';
+ q('purchase-provider').textContent=purchase.provider||'Not connected';
+ q('purchase-reference').textContent=purchase.reference||'—';
+ q('stat-edition').textContent=label;
+ q('stat-edition-note').textContent=active?'Permanent Pro access':'Your local studio';
+ q('purchase-footnote').textContent=active?
+  'Purchases are one-time; payment receipts will be linked here when the checkout provider is integrated.':
+  'One-time Pro checkout is not available yet. No payment has been charged through this dashboard.';
+ const proDevices=Array.isArray(license?.devices)?license.devices:[];
+ const count=Number(license?.active_devices||0),limit=Number(license?.device_limit||10);
+ q('stat-pro-seats').textContent=active?count+' / '+limit:'0 / 10';
+ q('pro-count').textContent=active?count+' / '+limit:'0 / 10';
+ const list=q('pro-list');list.replaceChildren();
+ if(!active||!proDevices.length)list.append(empty(active?'No Pro activations yet. Activate Pro in your desktop app.':'Pro activations appear after a verified lifetime purchase.'));
+ for(const item of proDevices){
+  const name=item.label||'Humperdinck installation';
+  list.append(deviceRow(name,(item.active?'Active':'Deactivated')+' · Registered '+fmt(item.activated_at),
+   item.active?'Deactivate':null,async()=>{
+    if(!confirm('Deactivate this online Pro slot? An offline license already exported to this computer remains valid.'))return;
+    await request('/license/devices/'+encodeURIComponent(item.id)+'/deactivate',{method:'POST'});
+    notice('Online Pro slot released. Offline license files are unaffected.');
+    await refresh();
+   }));
+ }
+ const canDownload=active&&Boolean(license?.license?.backup_available);
+ q('download-license').hidden=!canDownload;
+ q('license-title').textContent=active?'Your signed lifetime Pro license':'Your Free edition needs no license';
+ q('license-description').textContent=active?
+  'Export your permanent Pro license as a signed JSON backup. You can restore it from the desktop app without an internet connection.':
+  'All Free features work without a license file or an internet connection.';
+ q('license-missing').textContent=active&&!canDownload?'License download is temporarily unavailable. Your installed offline backup remains valid.':
+  'Pro license downloads become available after a verified purchase.';
+ q('license-missing').hidden=canDownload;
+}
+function renderConnections(info){
+ const connected=Array.isArray(info.connected_desktops)?info.connected_desktops:[];
+ const older=Number(info.older_desktop_sessions||0);
+ const total=connected.length+older;
+ q('stat-connected').textContent=String(total);
+ q('connected-count').textContent=total+' connected';
+ const list=q('connected-list');list.replaceChildren();
+ if(!connected.length&&!older)list.append(empty('No connected desktop sessions. Sign in from the desktop app to connect a computer.'));
+ for(const item of connected){
+  list.append(deviceRow(item.label||'Humperdinck desktop','Connected '+fmt(item.connected_at)+' · Expires '+fmt(item.expires_at),
+   'Sign out',async()=>{
+    if(!confirm('Sign this computer out of its online account? Saved offline Pro licenses and local projects will stay on it.'))return;
+    await request('/dashboard/connections/'+encodeURIComponent(item.id)+'/revoke',{method:'POST'});
+    notice('Desktop session signed out remotely.');
+    await refresh();
+   }));
+ }
+ q('legacy-notice').hidden=older===0;
+ q('legacy-notice').textContent=older+' older session'+(older===1?'':'s')+' cannot be named individually. Use “Sign out all desktops” to revoke them.';
+ q('disconnect-all').hidden=total===0;
+}
+function renderRecovery(info){
+ const recovery=info.recovery||{};
+ const number=Number(recovery.codes_remaining||0);
+ q('stat-recovery').textContent=number+' / 8';
+ q('recovery-status').textContent=number?
+  number+' unused recovery code'+(number===1?'':'s')+' available.':
+  'No recovery codes saved yet. Generate a kit before you need one.';
+ const providers=Array.isArray(info.account?.providers)?info.account.providers:[];
+ q('linked-providers').textContent=providers.length?providers.map(p=>p==='google'?'Google':p==='apple'?'Apple':p).join(', '):'No linked provider';
+ q('identity-summary').textContent=providers.length?
+  'Linked sign-in: '+providers.map(p=>p==='google'?'Google':p==='apple'?'Apple':p).join(', ')+'. You can link an additional provider using a signed-in session.':
+  'No linked sign-in provider. Add one while you can access this dashboard.';
+ q('link-google').hidden=!state.config?.providers?.google;
+ q('link-apple').hidden=!state.config?.providers?.apple;
+}
+async function refresh(){
+ const [account,license]=await Promise.all([request('/dashboard'),request('/license')]);
+ state.dashboard=account;state.license=license;
+ const profile=account.account||{};
+ q('welcome-account').textContent=profile.email||profile.display_name||'Signed in securely';
+ q('account-display-name').textContent=profile.display_name||'Humperdinck account';
+ q('account-display-email').textContent=profile.email||'Private email';
+ q('account-id-value').textContent=profile.id||'—';
+ renderPurchase(account,license);
+ renderConnections(account);
+ renderRecovery(account);
+}
+async function load(){
+ try{
+  state.config=await request('/config');
+  if(!state.config?.available)throw Error('Account service is not configured');
  }catch(error){
-  dashboard.hidden=false;
-  q('license-summary').textContent='Account license details unavailable: '+error.message;
-  q('download-license').hidden=true;
+  accountMessage('Unavailable','Account sign-in unavailable',
+   'The account service cannot be reached. Humperdinck Free still works offline.');
+  q('recover-toggle').hidden=true;return;
+ }
+ try{
+  const me=await request('/me');
+  if(me.authenticated){
+   q('account-gate').hidden=true;
+   q('dashboard').hidden=false;
+   if(validDevice){
+    q('pairing').hidden=false;
+    q('device-code').textContent=device.slice(0,5)+'-'+device.slice(5);
+   }
+   try{await refresh()}catch(error){notice('Account dashboard could not load: '+error.message,true)}
+   if(params.get('recovered')==='1')notice('Recovery code accepted. Link another sign-in method and generate a fresh recovery kit.');
+   return;
+  }
+  accountMessage('Sign in','Your Humperdinck account',
+   'Access your purchases, connected computers, license backups and recovery settings.');
+  const configured=Object.values(state.config.providers||{}).some(Boolean);
+  q('providers').hidden=!configured;
+  for(const provider of ['google','apple']){
+   const link=q(provider+'-login');
+   link.hidden=!state.config.providers?.[provider];
+   link.href='/api/account/start/'+provider+'?return_to='+encodeURIComponent(returnTo);
+  }
+  q('recover-toggle').hidden=false;
+  if(params.get('error'))accountMessage('Sign-in issue','Please try again','Your sign-in was not completed. Retry or use a saved recovery code.');
+ }catch(error){
+  accountMessage('Unavailable','Cannot load account','Please try again. Your local Humperdinck Free studios still work without sign-in.');
  }
 }
+q('recover-toggle').addEventListener('click',()=>{
+ const form=q('recovery-login');form.hidden=!form.hidden;
+ q('recover-toggle').setAttribute('aria-expanded',String(!form.hidden));
+ if(!form.hidden)q('recover-account-id').focus();
+});
+q('recovery-login').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const button=event.currentTarget.querySelector('button[type="submit"]');
+ button.disabled=true;
+ q('recover-result').textContent='Checking your one-time code…';
+ try{
+  const result=await request('/recovery/redeem',{method:'POST',data:{
+   account_id:q('recover-account-id').value.trim(),code:q('recover-code').value.trim()}});
+  if(!result.recovered)throw Error('Recovery was not completed');
+  q('recover-code').value='';
+  location.replace('/account/?recovered=1');
+ }catch(error){q('recover-result').textContent=error.message;button.disabled=false}
+});
+q('logout').addEventListener('click',async()=>{
+ const button=q('logout');button.disabled=true;
+ try{await request('/logout',{method:'POST'});location.assign('/account/')}
+ catch(error){notice(error.message,true);button.disabled=false}
+});
+q('approve').addEventListener('click',async()=>{
+ if(!validDevice)return;
+ const button=q('approve');button.disabled=true;
+ q('pair-result').textContent='Connecting…';
+ try{
+  await request('/device/approve',{method:'POST',data:{code:device}});
+  q('pair-result').textContent='Desktop connection approved. Return to your application.';
+  button.hidden=true;
+ }catch(error){q('pair-result').textContent=error.message;button.disabled=false}
+});
+q('disconnect-all').addEventListener('click',async()=>{
+ if(!confirm('Sign out every desktop session connected to this account? Offline Pro licenses and local files will continue to work.'))return;
+ const button=q('disconnect-all');button.disabled=true;
+ try{
+  const result=await request('/dashboard/connections/revoke-all',{method:'POST'});
+  notice('Signed out '+result.revoked+' desktop session'+(result.revoked===1?'':'s')+'.');
+  await refresh();
+ }catch(error){notice(error.message,true)}finally{button.disabled=false}
+});
 q('download-license').addEventListener('click',async()=>{
  const button=q('download-license');button.disabled=true;
  try{
-  const r=await fetch('/api/account/license/backup',{credentials:'same-origin',cache:'no-store'});
-  if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.error||'Could not download backup')}
-  const data=await r.json();
-  const blob=new Blob([JSON.stringify({format:data.format,license:data.license},null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  try{
-   const a=document.createElement('a');a.href=url;a.download='humperdinck-pro-license.json';
-   document.body.append(a);a.click();a.remove();
-  }finally{setTimeout(()=>URL.revokeObjectURL(url),3000)}
- }catch(error){alert(error.message)}
- finally{button.disabled=false}
+  const backup=await request('/license/backup');
+  downloadJson('humperdinck-pro-license.json',{format:backup.format,license:backup.license});
+  notice('Permanent offline license backup downloaded. Store it securely.');
+ }catch(error){notice(error.message,true)}finally{button.disabled=false}
 });
+q('generate-recovery').addEventListener('click',async()=>{
+ if(!confirm('Generate eight new one-time recovery codes? All previously saved unused codes will stop working.'))return;
+ const button=q('generate-recovery');button.disabled=true;
+ try{
+  const kit=await request('/dashboard/recovery/codes',{method:'POST'});
+  if(!Array.isArray(kit.codes)||kit.codes.length!==8)throw Error('Recovery kit was not returned');
+  state.recoveryKit=kit;
+  const grid=q('recovery-codes');grid.replaceChildren();
+  for(const code of kit.codes){
+   const item=document.createElement('span');item.textContent=code;grid.append(item);
+  }
+  q('recovery-kit').hidden=false;
+  notice('Eight codes created. Download your kit now; these codes will not be shown again.');
+  await refresh();
+ }catch(error){notice(error.message,true)}finally{button.disabled=false}
+});
+q('download-recovery').addEventListener('click',()=>{
+ if(!state.recoveryKit){notice('Generate recovery codes first.',true);return}
+ downloadJson('humperdinck-account-recovery.json',state.recoveryKit);
+ notice('Recovery kit downloaded. Anyone holding this file can recover your account; protect it like a password.');
+});
+load();

@@ -23,6 +23,10 @@ class MockDB {
     }
     if(sql.includes('SELECT * FROM auth_device_flows WHERE id='))return database.flows.get(args[0])||null;
     if(sql.includes('SELECT * FROM auth_users WHERE id='))return database.users.get(args[0])||null;
+    if(sql.startsWith('SELECT token_hash FROM auth_sessions')){
+     const found=database.sessions.get(args[0]);
+     return found&&found.user_id===args[1]&&found.kind==='web'&&found.expires_at>args[2]?{token_hash:args[0]}:null;
+    }
     return null;
    },
    async all(){return {results:[]}},
@@ -124,10 +128,10 @@ test('desktop flow requires a secret verifier, web sign-in, and explicit same-or
 });
 
 class OAuthDB extends MockDB {
- constructor(){super();this.oauthFlows=new Map();this.identities=new Map();}
+ constructor(){super();this.oauthFlows=new Map();this.identities=new Map();this.linkIntents=new Map();}
  prepare(sql){
   const db=this;
-  if(sql.includes('auth_flows')||sql.includes('auth_identities')||sql.startsWith('INSERT INTO auth_users')||sql.startsWith('UPDATE auth_users')){
+  if(sql.includes('auth_flows')||sql.includes('auth_identities')||sql.includes('auth_link_intents')||sql.startsWith('INSERT INTO auth_users')||sql.startsWith('UPDATE auth_users')){
    return {bind(...args){return {
     async first(){
      if(sql.includes('SELECT * FROM auth_flows')){
@@ -137,6 +141,10 @@ class OAuthDB extends MockDB {
      if(sql.includes('SELECT user_id FROM auth_identities')){
       const user_id=db.identities.get(args[0]+'|'+args[1]);
       return user_id?{user_id}:null;
+     }
+     if(sql.includes('SELECT user_id,session_hash FROM auth_link_intents')){
+      const found=db.linkIntents.get(args[0]);
+      return found&&found.expires_at>args[1]?found:null;
      }
      return null;
     },
@@ -166,6 +174,17 @@ class OAuthDB extends MockDB {
      }
      if(sql.startsWith('INSERT INTO auth_identities')){
       db.identities.set(args[0]+'|'+args[1],args[2]);
+      return {meta:{changes:1}};
+     }
+     if(sql.startsWith('DELETE FROM auth_link_intents WHERE expires_at')){
+      for(const [key,found] of db.linkIntents)if(found.expires_at<args[0])db.linkIntents.delete(key);
+      return {meta:{changes:0}};
+     }
+     if(sql.startsWith('DELETE FROM auth_link_intents WHERE state_hash')){
+      return {meta:{changes:db.linkIntents.delete(args[0])?1:0}};
+     }
+     if(sql.startsWith('INSERT INTO auth_link_intents')){
+      db.linkIntents.set(args[0],{state_hash:args[0],user_id:args[1],session_hash:args[2],expires_at:args[3]});
       return {meta:{changes:1}};
      }
      if(sql.startsWith('UPDATE auth_users'))return {meta:{changes:1}};
@@ -227,6 +246,34 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
   assert.deepEqual(account.user.providers,['google']);
   const replay=await call('/api/account/callback/google?code=once&state='+state,{cookie:csrfCookie},env);
   assert.equal(replay.status,400);
+
+  // An authenticated account owner may link a second Google identity, even
+  // after recovering the account from a one-time code, without merging users.
+  assert.equal((await call('/api/account/link/start/google',{},env)).status,401);
+  let linked=await call('/api/account/link/start/google',{cookie:sessionCookie},env);
+  assert.equal(linked.status,303);
+  let linkLogin=new URL(linked.headers.get('location'));
+  assert.equal(linkLogin.searchParams.get('prompt'),'select_account');
+  expectedNonce=linkLogin.searchParams.get('nonce');
+  claimModifier=payload=>{payload.sub='replacement-google-account';payload.email='new@example.test'};
+  const linkCallback=await call('/api/account/callback/google?code=link&state='+linkLogin.searchParams.get('state'),
+    {cookie:linked.headers.get('set-cookie').split(';')[0]},env);
+  assert.equal(linkCallback.status,303);
+  assert.equal(db.identities.get('google|replacement-google-account'),account.user.id);
+  assert.equal(db.users.size,1,'Linking does not create another customer record');
+
+  // Never merge into a separate customer even if the Google account is valid.
+  db.identities.set('google|already-used-elsewhere','someone-else');
+  linked=await call('/api/account/link/start/google',{cookie:sessionCookie},env);
+  linkLogin=new URL(linked.headers.get('location'));
+  expectedNonce=linkLogin.searchParams.get('nonce');
+  claimModifier=payload=>{payload.sub='already-used-elsewhere'};
+  const blocked=await call('/api/account/callback/google?code=conflict&state='+linkLogin.searchParams.get('state'),
+    {cookie:linked.headers.get('set-cookie').split(';')[0]},env);
+  assert.equal(blocked.status,303);
+  assert.equal(blocked.headers.get('location'),base+'/account/?error=login_failed');
+  assert.equal(db.identities.get('google|already-used-elsewhere'),'someone-else');
+
   started=await call('/api/account/start/google',{},env);
   login=new URL(started.headers.get('location'));
   expectedNonce=login.searchParams.get('nonce');

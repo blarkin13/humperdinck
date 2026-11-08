@@ -3,6 +3,7 @@
  * OAuth code flow + PKCE + cryptographically validated OIDC ID tokens.
  */
 import {handleProLicense} from './pro-license.js';
+import {handleAccountDashboard,createLinkIntent,readLinkIntent} from './account-dashboard.js';
 const ORIGIN = 'https://humperdinck.studio';
 const COOKIE = '__Host-humperdinck_session';
 const FLOW_COOKIE = '__Host-humperdinck_oauth';
@@ -118,19 +119,24 @@ async function appleSecret(env){
   const sig=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,enc.encode(input));
   return input+'.'+b64(sig);
 }
-async function oauthStart(request,env,provider){
+async function oauthStart(request,env,provider,linkUser=null){
   if(!providers(env)[provider])return problem(503,'This sign-in provider is not configured yet');
   if(!await rateLimit(request,env,'oauth',20))return problem(429,'Too many sign-in attempts');
-  const url=new URL(request.url), returnPath=safeReturn(url.searchParams.get('return_to'));
+  const url=new URL(request.url), returnPath=linkUser?'__link__':safeReturn(url.searchParams.get('return_to'));
   const state=random(),nonce=random(),verifier=random(),challenge=await hash(verifier);
   await env.AUTH_DB.prepare('DELETE FROM auth_flows WHERE expires_at < ?').bind(now()).run();
+  const stateHash=await hash(state);
   await env.AUTH_DB.prepare('INSERT INTO auth_flows (state_hash,provider,nonce,verifier,return_path,expires_at) VALUES (?,?,?,?,?,?)')
-    .bind(await hash(state),provider,nonce,verifier,returnPath,now()+FLOW_TTL).run();
+    .bind(stateHash,provider,nonce,verifier,returnPath,now()+FLOW_TTL).run();
+  if(linkUser)await createLinkIntent(env,stateHash,linkUser);
   const redirect=host(env)+'/api/account/callback/'+provider;
   const p=new URLSearchParams({client_id:env[provider==='google'?'GOOGLE_CLIENT_ID':'APPLE_CLIENT_ID'],
     redirect_uri:redirect,response_type:'code',scope:provider==='google'?'openid email profile':'name email',
     state,nonce});
-  if(provider==='google'){p.set('code_challenge',challenge);p.set('code_challenge_method','S256');}
+  if(provider==='google'){
+    p.set('code_challenge',challenge);p.set('code_challenge_method','S256');
+    if(linkUser)p.set('prompt','select_account');
+  }
   else p.set('response_mode','form_post');
   const endpoint=provider==='google'?'https://accounts.google.com/o/oauth2/v2/auth':'https://appleid.apple.com/auth/authorize';
   // SameSite=None is required because Apple's authorization callback is form_post.
@@ -165,6 +171,22 @@ async function oauthCallback(request,env,provider){
     const claim=await verifyIdentity(tokens.id_token,provider,env[provider==='google'?'GOOGLE_CLIENT_ID':'APPLE_CLIENT_ID'],flow.nonce);
     const existing=await env.AUTH_DB.prepare('SELECT user_id FROM auth_identities WHERE provider=? AND subject=?')
       .bind(provider,claim.sub).first();
+    if(flow.return_path==='__link__'){
+      const linkedUserId=await readLinkIntent(env,stateHash);
+      if(existing&&existing.user_id!==linkedUserId)
+        throw Error('This identity already belongs to another Humperdinck account');
+      if(!existing){
+        await env.AUTH_DB.prepare('INSERT INTO auth_identities (provider,subject,user_id,created_at) VALUES (?,?,?,?)')
+          .bind(provider,claim.sub,linkedUserId,now()).run();
+      }
+      await env.AUTH_DB.prepare('DELETE FROM auth_link_intents WHERE state_hash=?')
+        .bind(stateHash).run();
+      const linkedSession=await saveSession(env,linkedUserId,'web');
+      return new Response(null,{status:303,headers:{
+        'Location':host(env)+'/account/','Cache-Control':'no-store','Referrer-Policy':'no-referrer',
+        'Set-Cookie':cookie(COOKIE,linkedSession.token,WEB_TTL)
+      }});
+    }
     let userId=existing?.user_id;
     let displayName=(claim.name||'').slice(0,120);
     if(provider==='apple'&&p.get('user')){
@@ -242,6 +264,11 @@ export async function handleAccount(request,env){
   try{
     if(path==='/api/account/license'||path.startsWith('/api/account/license/'))
       return handleProLicense(request,env,{session,sameOrigin});
+    if(path==='/api/account/dashboard'||path.startsWith('/api/account/dashboard/')||
+       path==='/api/account/recovery/redeem')
+      return handleAccountDashboard(request,env,{
+        session,sameOrigin,saveSession,cookie,cookieName:COOKIE,rateLimit
+      });
     if(path==='/api/account/me'&&request.method==='GET'){
       const user=await session(request,env);
       return user?json({authenticated:true,user:await profile(env,user)}):json({authenticated:false});
@@ -253,6 +280,13 @@ export async function handleAccount(request,env){
       const user=await session(request,env);
       if(user)await env.AUTH_DB.prepare('DELETE FROM auth_sessions WHERE token_hash=?').bind(user.token_hash).run();
       return json({ok:true},200,bearer?{}:{'Set-Cookie':clearCookie(COOKIE)});
+    }
+    if(path.startsWith('/api/account/link/start/')&&request.method==='GET'){
+      const user=await session(request,env);
+      if(!user||user.kind!=='web')return problem(401,'Sign in to link another login method');
+      const provider=path.split('/').pop();
+      if(!['google','apple'].includes(provider))return problem(404,'Unknown provider');
+      return oauthStart(request,env,provider,user);
     }
     if(path.startsWith('/api/account/start/')&&request.method==='GET'){
       const provider=path.split('/').pop();
