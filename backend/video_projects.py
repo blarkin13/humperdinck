@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import re
 import time
+
+from backend import audio_fx
 from pathlib import Path
 from uuid import uuid4
 
@@ -22,6 +24,7 @@ def new_project(name='Untitled video'):
     return {'id': uuid4().hex, 'name': name, 'aspect': '16:9', 'clips': [], 'cues': [],
             'sound': {'keep_original': True, 'duck': True, 'original_volume': 1.0, 'duck_volume': 0.25,
                       'music_id': None, 'music_volume': 0.18, 'fade': True},
+            'desk': audio_fx.default_desk(),
             'created': time.time(), 'updated': time.time()}
 
 
@@ -32,8 +35,19 @@ def clip_length(clip):
     return max(0.5, float(clip.get('duration') or 4))
 
 
+def cue_speed(cue):
+    try:
+        return max(0.5, min(2.0, float(cue.get('speed') or 1)))
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def cue_length(cue):
+    return float(cue.get('length') or 0) / cue_speed(cue)
+
+
 def cue_end(cue):
-    return float(cue.get('start') or 0) + float(cue.get('length') or 0)
+    return float(cue.get('start') or 0) + cue_length(cue)
 
 
 def total_length(project):
@@ -175,7 +189,9 @@ def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=N
         index = add_input('-i', str(resolve('audio', cue['audio'])))
         delay = round(float(cue['start']) * 1000)
         volume = float(cue.get('volume', 1.0))
-        graph.append(f'[{index}:a]aresample={RATE},aformat=channel_layouts=stereo,volume={volume:.2f},adelay={delay}|{delay}[n{k}]')
+        desk = audio_fx.chain(project.get('desk'), cue.get('gain', 0), cue_speed(cue))
+        desk = desk + ',' if desk else ''
+        graph.append(f'[{index}:a]{desk}aresample={RATE},aformat=channel_layouts=stereo,volume={volume:.2f},adelay={delay}|{delay}[n{k}]')
         mix.append(f'[n{k}]')
     if sound.get('music_id'):
         index = add_input('-stream_loop', '-1', '-i', str(resolve('music', sound['music_id'])))
@@ -208,7 +224,7 @@ def captions(project):
         text = re.sub(r'\[[^\]]*\]', '', cue['text']).strip()
         parts = [p.strip() for p in re.split(r'(?<=[.!?])\s+', text) if p.strip()] or [text]
         words = sum(len(p.split()) for p in parts) or 1
-        at, length = float(cue['start']), float(cue.get('length') or 0)
+        at, length = float(cue['start']), cue_length(cue)
         for part in parts:
             span = length * len(part.split()) / words
             entries.append((at, at + span, part))

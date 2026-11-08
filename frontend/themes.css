@@ -415,3 +415,7 @@
 :root .vs-stage-wrap button.vs-play,:root button.vs-play{background:#c6a46a!important;background-image:none!important;color:#15120c!important;box-shadow:0 1px 3px #0004!important}
 :root button.vs-play i{color:#15120c!important}
 :root button.vs-play:hover{background:#d8b87c!important}
+:root[data-mode="light"] .sound-desk{background:var(--light-panel);border-color:#0000001a}
+:root[data-mode="light"] .sound-desk-eq,:root[data-mode="light"] .vs-cue-sound{background:#00000008;border-color:#00000014}
+:root[data-mode="light"] .sound-desk-summary{background:#0000000d}
+:root[data-mode="light"] .sound-desk-head:hover{background:#00000008}

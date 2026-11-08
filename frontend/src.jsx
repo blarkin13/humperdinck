@@ -24,6 +24,7 @@ import VoiceCatalog from './VoiceCatalog.jsx';
 import NarratorPicker from './NarratorPicker.jsx';
 import CharactersPanel from './CharactersPanel.jsx';
 import VideoStudio from './VideoStudio.jsx';
+import SoundDesk,{DEFAULT_DESK,useDeskPreview} from './SoundDesk.jsx';
 import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,suggestSpeechDirections} from './narrationSections.js';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 const PUBLIC_STUDIO=import.meta.env.VITE_PUBLIC_STUDIO==='1';
@@ -66,6 +67,10 @@ function App(){
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[characters,setCharacters]=useState([]),[charactersFor,setCharactersFor]=useState(null),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
  const [name,setName]=useState('New voice'),[gender,setGender]=useState('masculine'),[description,setDescription]=useState(''),[settings,setSettings]=useState({...defaults}),[previewText,setPreviewText]=useState(starter),[candidates,setCandidates]=useState([]),[chosen,setChosen]=useState(''),[previewJob,setPreviewJob]=useState(null),[status,setStatus]=useState('');
  const [blocks,setBlocks]=useState([{id:1,text:'',voice_key:'',delay_after:0}]),[activePreview,setActivePreview]=useState(1),[speakerEditor,setSpeakerEditor]=useState(null),[voiceSearch,setVoiceSearch]=useState(''),[draggingSection,setDraggingSection]=useState(null),[playSectionRequest,setPlaySectionRequest]=useState(null),[sectionJob,setSectionJob]=useState(null),[sectionPreviewUrl,setSectionPreviewUrl]=useState(''),[sectionPlayingId,setSectionPlayingId]=useState(null),[audibleSectionId,setAudibleSectionId]=useState(null),[sectionPlayError,setSectionPlayError]=useState(null),[sectionAudio,setSectionAudio]=useState({}),[sectionMenu,setSectionMenu]=useState(null),[sectionPopover,setSectionPopover]=useState(null),[sectionSpeed,setSectionSpeed]=useState({}),[effectPicker,setEffectPicker]=useState(null),[ambiencePicker,setAmbiencePicker]=useState(false),[ambience,setAmbience]=useState(null),[format]=useState('mp3'),[downloadOpen,setDownloadOpen]=useState(false),[wholeMenuOpen,setWholeMenuOpen]=useState(false),[narrationJob,setNarrationJob]=useState(null),[wholeAudio,setWholeAudio]=useState(null),[wholeAudible,setWholeAudible]=useState(false),[video,setVideo]=useState(null),[videoJob,setVideoJob]=useState(null),[videoPreviewMode,setVideoPreviewMode]=useState('source'),[offset,setOffset]=useState(0),[mix,setMix]=useState(false);
+ const [desk,setDeskState]=useState(()=>{try{return {...DEFAULT_DESK,...JSON.parse(localStorage.getItem('humperdinck-narration-desk')||'{}')}}catch{return DEFAULT_DESK}}),[deskOpen,setDeskOpen]=useState(()=>{try{return localStorage.getItem('humperdinck-narration-desk-open')==='open'}catch{return false}});
+ const connectDesk=useDeskPreview(desk);
+ function setDesk(next){setDeskState(next);try{localStorage.setItem('humperdinck-narration-desk',JSON.stringify(next))}catch{}}
+ function toggleDesk(){setDeskOpen(o=>{try{localStorage.setItem('humperdinck-narration-desk-open',o?'closed':'open')}catch{};return !o})}
  const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null),wholeAudioRef=useRef(null),wholeCompletedRef=useRef(null),downloadWrapRef=useRef(null),narrationBusyRef=useRef(false);
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
  useEffect(()=>{
@@ -233,6 +238,7 @@ function App(){
   if(audio.src!==new URL(url,window.location.href).href)audio.src=url;
   audio.currentTime=0;
   audio.playbackRate=sectionSpeed[id]||1;
+  connectDesk(audio);
   audio.play().then(()=>setAudibleSectionId(id)).catch(()=>{setAudibleSectionId(null);setSectionPlayError({id,message:'Your browser blocked automatic playback. Click Play again to retry.'})});
  }
  function stopSection(){
@@ -302,7 +308,7 @@ function App(){
   document.addEventListener('keydown',onKey);
   return()=>{document.removeEventListener('pointerdown',dismiss);document.removeEventListener('keydown',onKey)};
  },[downloadOpen,wholeMenuOpen]);
- const fullNarrationSignature=JSON.stringify([format,blocks.map(b=>[b.text,b.voice_key,sectionDelay(b.delay_after),(b.effects||[]).map(e=>[e.sound_id,e.position,e.volume,e.fade_in,e.fade_out,e.loop,e.ending,e.ducking])]),ambience]);
+ const fullNarrationSignature=JSON.stringify([format,blocks.map(b=>[b.text,b.voice_key,sectionDelay(b.delay_after),(b.effects||[]).map(e=>[e.sound_id,e.position,e.volume,e.fade_in,e.fade_out,e.loop,e.ending,e.ducking]),sectionSpeed[b.id]||1]),ambience,desk]);
  function stopWholeNarration(){
   const player=wholeAudioRef.current;
   if(player){player.pause();player.currentTime=0}
@@ -338,7 +344,7 @@ function App(){
    stopWholeNarration();
    narrationBusyRef.current=true;
    setNarrationJob({status:'queued',message:'Preparing narration…',progress:0,signature:fullNarrationSignature});
-   const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:spokenText(b.text),voice_key:b.voice_key,delay_after:sectionDelay(b.delay_after),effects:(b.effects||[]).map(e=>({sound_id:e.sound_id,position:e.position,volume:e.volume,fade_in:e.fade_in||0,fade_out:e.fade_out||0,loop:e.loop||false,ending:e.ending||'section',ducking:e.ducking??1}))})),format,ambience:ambience?{sound_id:ambience.sound_id,volume:ambience.volume,ducking:ambience.ducking,fade_in:ambience.fade_in,fade_out:ambience.fade_out}:null}));
+   const j=await api('narrations',json('POST',{blocks:blocks.map(b=>({text:spokenText(b.text),voice_key:b.voice_key,delay_after:sectionDelay(b.delay_after),effects:(b.effects||[]).map(e=>({sound_id:e.sound_id,position:e.position,volume:e.volume,fade_in:e.fade_in||0,fade_out:e.fade_out||0,loop:e.loop||false,ending:e.ending||'section',ducking:e.ducking??1})),speed:Math.min(2,Math.max(.5,sectionSpeed[b.id]||1))})),format,desk,ambience:ambience?{sound_id:ambience.sound_id,volume:ambience.volume,ducking:ambience.ducking,fade_in:ambience.fade_in,fade_out:ambience.fade_out}:null}));
    wholeCompletedRef.current=null;
    setNarrationJob({...j,signature:fullNarrationSignature});
    setStatus('Generating narration...');
@@ -485,6 +491,7 @@ function App(){
 
 
  </div>
+ {!PUBLIC_STUDIO&&<SoundDesk desk={desk} onChange={setDesk} open={deskOpen} onToggle={toggleDesk} note="Evens out and shapes every voice. Section previews play through it live; the full narration bakes it in when generated."/>}
  {speakerEditor!==null&&<NarratorPicker api={api} options={voiceOptions} publicStudio={PUBLIC_STUDIO}
   currentKey={blocks.find(b=>b.id===speakerEditor)?.voice_key||''} sectionNumber={blocks.findIndex(b=>b.id===speakerEditor)+1}
   usedKeys={[...new Set(blocks.map(b=>b.voice_key).filter(Boolean))]} onSelect={selectSpeaker} onClose={()=>setSpeakerEditor(null)}

@@ -24,7 +24,7 @@ from backend import catalog
 from backend import media_tools
 from backend import native_models
 from backend.voice_picker import VoicePicker
-from backend import video_projects
+from backend import video_projects, audio_fx
 from backend.characters import (Characters, TARGET_TEXT, NAMES as CHARACTER_NAMES, accents as character_accents,
                                 performer as character_performer, description as character_description)
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
@@ -811,12 +811,15 @@ class NarrationBlock(BaseModel):
     voice_key: str = Field(min_length=1)
     delay_after: float = Field(default=0, ge=0, le=30)
     effects: list[NarrationEffect] = Field(default_factory=list,max_length=8)
+    gain: float = Field(default=0, ge=-24, le=12)
+    speed: float = Field(default=1, ge=0.5, le=2)
 
 class MultiNarrationRequest(BaseModel):
     blocks: list[NarrationBlock] = Field(min_length=1, max_length=80)
     format: str = 'mp3'
     name: str = Field(default='Narration', max_length=120)
     ambience: NarrationAmbience | None = None
+    desk: dict | None = None
 
 def require_engine(role):
     choice = settings.load()[role]
@@ -1230,6 +1233,14 @@ def run_multi(job_id, request, references):
                                 refine_wav(refined,current)
                                 audio,_=sf.read(refined,dtype='float32')
                             finally:refined.unlink(missing_ok=True)
+                    if audio_fx.chain(request.desk,block.gain,block.speed):
+                        desked=DATA/'outputs'/f'{job_id}-{index}-desk.wav'
+                        sf.write(desked,audio,target_rate)
+                        try:
+                            audio_fx.process(desked,target_rate,request.desk,block.gain,block.speed)
+                            audio,_=sf.read(desked,dtype='float32')
+                            if audio.ndim==2: audio=audio.mean(axis=1)
+                        finally:desked.unlink(missing_ok=True)
                     for effect in block.effects:
                         if effect.position not in ('before','after','mix'):
                             raise ValueError('Invalid sound effect position')

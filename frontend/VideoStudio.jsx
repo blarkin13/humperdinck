@@ -1,13 +1,16 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import NarratorPicker from './NarratorPicker.jsx';
+import SoundDesk,{DEFAULT_DESK,useDeskPreview} from './SoundDesk.jsx';
 
-// Video Studio: a picture track (videos, images, colour cards), narration cues
+// Video Studio: a picture track (videos and images), narration cues
 // placed in time, and sound. Projects autosave; Export renders one MP4.
 const ASPECTS=[['16:9','Landscape 16:9'],['9:16','Vertical 9:16'],['1:1','Square 1:1'],['4:5','Portrait 4:5']];
 const uid=()=>Math.random().toString(36).slice(2,10);
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const clipLength=c=>c.type==='video'?Math.max(.1,(c.trim_end??c.duration??0)-(c.trim_start||0)):Math.max(.5,Number(c.duration)||4);
-const cueEnd=c=>(Number(c.start)||0)+(Number(c.length)||0);
+const cueSpeed=c=>Math.min(2,Math.max(.5,Number(c.speed)||1));
+const cueLen=c=>(Number(c.length)||0)/cueSpeed(c);
+const cueEnd=c=>(Number(c.start)||0)+cueLen(c);
 const fmt=t=>{t=Math.max(0,t||0);const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)};
 const cueSignature=c=>JSON.stringify([c.text,c.voice_key]);
 function audioLength(url){return new Promise(resolve=>{const a=new Audio();a.preload='metadata';a.onloadedmetadata=()=>resolve(a.duration||0);a.onerror=()=>resolve(0);a.src=url})}
@@ -24,6 +27,9 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  const [music,setMusic]=useState([]),[captionsOn,setCaptionsOn]=useState(true);
  const videoEl=useRef(null),cueAudio=useRef({}),clock=useRef({t:0,last:0}),saveTimer=useRef(null),fileInput=useRef(null),pendingKind=useRef('');
  const timelineRef=useRef(null);
+ const [deskOpen,setDeskOpen]=useState(()=>{try{return localStorage.getItem('humperdinck-video-desk')==='open'}catch{return false}});
+ const connectDesk=useDeskPreview(project?.desk||DEFAULT_DESK);
+ function toggleDesk(){setDeskOpen(o=>{try{localStorage.setItem('humperdinck-video-desk',o?'closed':'open')}catch{};return !o})}
 
  // ---- projects -------------------------------------------------------------
  const loadProjects=useCallback(async()=>{const list=await api('video-projects');setProjects(list);return list},[api]);
@@ -75,7 +81,6 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   }catch(e){notify?.(e.message,'error')}finally{setBusy('')}
  }
  function pickFiles(kind){pendingKind.current=kind;fileInput.current.accept=kind==='video'?'.mp4,.mov,.mkv,.webm':kind==='image'?'.png,.jpg,.jpeg,.webp':'.mp4,.mov,.mkv,.webm,.png,.jpg,.jpeg,.webp';fileInput.current.click()}
- function addColor(){const c={id:uid(),type:'color',color:'#14252c',duration:3,name:'Colour card'};update(p=>({...p,clips:[...p.clips,c]}));setSelected({kind:'clip',id:c.id})}
  const setClip=(id,change)=>update(p=>({...p,clips:p.clips.map(c=>c.id===id?{...c,...change}:c)}));
  const moveClip=(id,step)=>update(p=>{const list=[...p.clips],i=list.findIndex(c=>c.id===id),j=i+step;if(j<0||j>=list.length)return p;[list[i],list[j]]=[list[j],list[i]];return {...p,clips:list}});
  const removeClip=id=>{update(p=>({...p,clips:p.clips.filter(c=>c.id!==id)}));setSelected(null)};
@@ -106,7 +111,6 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   const seconds=await audioLength('/api/outputs/'+narrationJob.job_id+'.wav');
   const cue={id:uid(),start:0,text:narrationText||'',voice_key:'',audio:narrationJob.job_id,length:Math.round(seconds*100)/100,imported:true};
   update(p=>({...p,cues:[...p.cues,cue].sort((a,b)=>a.start-b.start)}));setSelected({kind:'cue',id:cue.id});
-  if(!clips.length)update(p=>({...p,clips:[{id:uid(),type:'color',color:'#14252c',duration:Math.max(3,Math.ceil(seconds)),name:'Colour card'}]}));
  }
 
  // ---- playback --------------------------------------------------------------
@@ -132,7 +136,8 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   }
   for(const cue of cues){const a=cueAudio.current[cue.id];if(!a)continue;
    const inside=cue.audio&&time>=cue.start&&time<cueEnd(cue);
-   if(playing&&inside){const want=time-cue.start;if(Math.abs(a.currentTime-want)>.3)a.currentTime=want;if(a.paused)a.play().catch(()=>{})}
+   a.playbackRate=cueSpeed(cue);a.preservesPitch=true;
+   if(playing&&inside){connectDesk(a,cue.gain||0);const want=(time-cue.start)*cueSpeed(cue);if(Math.abs(a.currentTime-want)>.3)a.currentTime=want;if(a.paused)a.play().catch(()=>{})}
    else if(!a.paused)a.pause();
   }
  });
@@ -156,7 +161,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  const sel=selected?.kind==='clip'?clips.find(c=>c.id===selected.id):selected?.kind==='cue'?cues.find(c=>c.id===selected.id):null;
  const empty=!clips.length&&!cues.length;
  const pxPerSec=zoom,trackWidth=Math.max(600,(length+8)*pxPerSec);
- const captionText=captionsOn&&activeCue?(()=>{const parts=activeCue.text.replace(/\[[^\]]*\]/g,'').split(/(?<=[.!?])\s+/).filter(Boolean);if(!parts.length)return '';const words=parts.map(p=>p.split(/\s+/).length),total=words.reduce((a,b)=>a+b,0);let at=activeCue.start;for(let i=0;i<parts.length;i++){at+=activeCue.length*words[i]/total;if(time<at)return parts[i]}return parts[parts.length-1]})():'';
+ const captionText=captionsOn&&activeCue?(()=>{const parts=activeCue.text.replace(/\[[^\]]*\]/g,'').split(/(?<=[.!?])\s+/).filter(Boolean);if(!parts.length)return '';const words=parts.map(p=>p.split(/\s+/).length),total=words.reduce((a,b)=>a+b,0);let at=activeCue.start;for(let i=0;i<parts.length;i++){at+=cueLen(activeCue)*words[i]/total;if(time<at)return parts[i]}return parts[parts.length-1]})():'';
  const voiceLabel=key=>voiceOptions.find(v=>v.value===key)?.label;
  const nextCue=sel&&selected.kind==='cue'?cues.find(c=>c.start>sel.start&&c.id!==sel.id):null;
  const overlaps=sel&&selected.kind==='cue'&&nextCue&&sel.audio&&cueEnd(sel)>nextCue.start;
@@ -228,7 +233,12 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
       {cueJobs[sel.id]&&<small className={cueJobs[sel.id].status==='failed'?'vs-warn':'hint'}>{cueJobs[sel.id].message}</small>}
       {sel.audio&&sel.signature!==cueSignature(sel)&&<small className="vs-warn">The script or voice changed. Regenerate to hear it.</small>}
      </>}
-     {sel.audio&&<small className="hint">{fmt(sel.length)} long · ends at {fmt(cueEnd(sel))}</small>}
+     {sel.audio&&<div className="vs-cue-sound">
+      <label>Loudness <small>{(sel.gain||0)>0?'+':''}{sel.gain||0} dB</small><input type="range" min="-12" max="12" step="1" value={sel.gain||0} onChange={e=>setCue(sel.id,{gain:Number(e.target.value)})} onDoubleClick={()=>setCue(sel.id,{gain:0})}/></label>
+      <label>Pace <small>{cueSpeed(sel).toFixed(2)}×</small><input type="range" min="0.8" max="1.25" step="0.01" value={cueSpeed(sel)} onChange={e=>setCue(sel.id,{speed:Number(e.target.value)})} onDoubleClick={()=>setCue(sel.id,{speed:1})}/></label>
+      <small className="hint">Fix one voice that sounds too loud, quiet, slow or rushed. Double-click a slider to reset it.</small>
+     </div>}
+     {sel.audio&&<small className="hint">{fmt(cueLen(sel))} long · ends at {fmt(cueEnd(sel))}</small>}
      {overlaps&&<small className="vs-warn"><i className="fa-solid fa-triangle-exclamation"/> Runs {(cueEnd(sel)-nextCue.start).toFixed(1)} s into the next cue. Move one of them or shorten the script.</small>}
      <button type="button" className="vs-remove" onClick={()=>removeCue(sel.id)}><i className="fa-solid fa-trash-can"/> Remove cue</button>
     </div>}
@@ -248,11 +258,12 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
    </div>
   </div>
 
+  <SoundDesk desk={project.desk||DEFAULT_DESK} open={deskOpen} onToggle={toggleDesk} onChange={desk=>update(p=>({...p,desk}))}
+   note="Applies to every narration cue. You hear it live here; Level match is applied when you export."/>
   <div className="vs-timeline panel" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();addFiles([...e.dataTransfer.files])}}>
    <div className="vs-timeline-tools">
     <button type="button" onClick={()=>pickFiles('video')}><i className="fa-solid fa-video"/> Video</button>
     <button type="button" onClick={()=>pickFiles('image')}><i className="fa-solid fa-images"/> Images</button>
-    <button type="button" onClick={addColor}><i className="fa-solid fa-square"/> Colour card</button>
     <button type="button" onClick={()=>addCue(time)}><i className="fa-solid fa-microphone-lines"/> Narration cue</button>
     {narrationJob?.status==='complete'&&<button type="button" onClick={importNarration} title="Add the narration from Narration Studio at the start"><i className="fa-solid fa-file-import"/> From Narration Studio</button>}
     <span className="vs-bar-spacer"/>
@@ -271,7 +282,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
        {!clips.length&&<span className="vs-track-hint">Drop videos or images here</span>}
       </div>
       <div className="vs-track vs-track-cues" onDoubleClick={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();addCue((e.clientX-r.left)/pxPerSec)}}}>
-       {cues.map(c=>{const pending=['queued','running'].includes(cueJobs[c.id]?.status),stale=c.audio&&!c.imported&&c.signature!==cueSignature(c),width=Math.max(60,(c.audio?c.length:Math.max(2,c.text.split(/\s+/).length/2.6))*pxPerSec);
+       {cues.map(c=>{const pending=['queued','running'].includes(cueJobs[c.id]?.status),stale=c.audio&&!c.imported&&c.signature!==cueSignature(c),width=Math.max(60,(c.audio?cueLen(c):Math.max(2,c.text.split(/\s+/).length/2.6))*pxPerSec);
         const overlap=c.audio&&cues.some(o=>o.id!==c.id&&o.start>c.start&&o.start<cueEnd(c));
         return <div key={c.id} role="button" tabIndex={0} className={'vs-cue'+(c.audio?'':' draft')+(stale?' stale':'')+(overlap?' overlap':'')+(selected?.id===c.id?' selected':'')} style={{left:c.start*pxPerSec,width}}
          onKeyDown={e=>{if(e.key==='Enter')setSelected({kind:'cue',id:c.id})}}
