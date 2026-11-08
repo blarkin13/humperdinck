@@ -120,8 +120,8 @@ def poll(data: Path) -> dict:
     # sign-out feature. Never send a hardware fingerprint or device serial.
     try:
         _call('dashboard/connections/register', pro_license.installation(data), token=token)
-    except HTTPException:
-        pass  # Account pairing and offline Free still work during a dashboard outage.
+    except (HTTPException, OSError, ValueError):
+        pass  # Pairing and offline Free still work if registration cannot be completed.
     # Customers who already own Pro automatically activate this installation.
     # An offline local license remains valid even if this request fails.
     try:
