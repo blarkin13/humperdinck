@@ -1216,3 +1216,6 @@ button.active small,.primary small{color:#3a3122}
 .sound-desk.embedded .sound-desk-switch,.sound-desk.embedded .sound-desk-check{display:flex;align-items:flex-start;gap:8px}
 .sound-desk.embedded .sound-desk-check span{display:flex;flex-direction:column}
 .app-version{opacity:.55;font-variant-numeric:tabular-nums;letter-spacing:0}
+/* Account icon: a small dot when this computer is signed in */
+.header-server-icon.signed-in{position:relative;color:var(--accent,#c9a45c)}
+.header-server-icon.signed-in::after{content:"";position:absolute;right:5px;bottom:5px;width:7px;height:7px;border-radius:50%;background:#3fb96b;box-shadow:0 0 0 2px var(--bg,#111)}

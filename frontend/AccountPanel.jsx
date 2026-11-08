@@ -17,13 +17,19 @@ function saveFile(filename,value){
 }
 
 /** Free uses no cloud login. Verified lifetime certificates work even offline. */
-export default function AccountPanel({onClose,onLicenseChange=()=>{}}){
+export default function AccountPanel({onClose,onLicenseChange=()=>{},onAccountChange=()=>{}}){
  const [account,setAccount]=useState(null),[pending,setPending]=useState(null);
  const [license,setLicense]=useState({plan:'free'}),[error,setError]=useState('');
  const [message,setMessage]=useState(''),[working,setWorking]=useState(false);
  const fileRef=useRef(null);
  function refresh(){
-  localApi('account').then(setAccount).catch(e=>setError(e.message));
+  // Resume a sign-in still waiting in the browser; otherwise confirm the
+  // saved session with the server (signs out here if revoked online).
+  localApi('account/connect/status').then(r=>{
+   if(r.pending){setPending(p=>p||{verification_url:r.verification_url});return}
+   return localApi('account?verify=true').then(a=>{setAccount(a);onAccountChange(a);
+    if(a.revoked)setMessage('This computer was signed out from your account dashboard. Your installed edition is unchanged.')});
+  }).catch(e=>setError(e.message));
   localApi('license').then(setLicense).catch(e=>setError(e.message));
  }
  useEffect(()=>{refresh()},[]);
@@ -35,12 +41,12 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{}}){
     const result=await localApi('account/connect/status');
     if(!alive)return;
     if(!result.pending){
-     setPending(null);setAccount(result);
+     setPending(null);setAccount(result);onAccountChange(result);
      const next=await localApi('license');
      if(alive){setLicense(next);onLicenseChange()}
      if(result.expired)setError('Connection expired. Start sign-in again.');
     }
-   }catch(e){if(alive){setPending(null);setError(e.message)}}
+   }catch(e){if(alive){setPending(null);setError(e.message)}}  // 5xx/429 come back as {pending:true}, so this is a real failure
   },2500);
   return ()=>{alive=false;clearInterval(interval)};
  },[pending]);
@@ -51,7 +57,7 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{}}){
  function connect(){return run(async()=>setPending(await localApi('account/connect','POST')))}
  function signOut(){return run(async()=>{
   const result=await localApi('account/disconnect','POST');
-  setAccount(result);
+  setAccount(result);onAccountChange(result);
   if(!result.online_session_revoked)setMessage('Signed out locally; the remote session may remain valid until expiry.');
  })}
  function activate(){return run(async()=>{
@@ -87,7 +93,7 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{}}){
       {account.user?.email&&<span className="account-panel-email">{account.user.email}</span>}
       <button type="button" className="account-panel-secondary" disabled={working} onClick={signOut}>Sign out of this computer</button>
      </>:<><p>Sign in to connect your purchase and manage online device activations. Free narration never requires a login.</p>
-      {pending?<><div className="account-panel-pending"><i className="fa-solid fa-circle-notch fa-spin"/> Complete sign-in in your browser…</div><a target="_blank" rel="noopener noreferrer" href={pending.verification_url}>Open account confirmation</a></>
+      {pending?<><div className="account-panel-pending"><i className="fa-solid fa-circle-notch fa-spin"/> Complete sign-in in your browser…</div>{pending.verification_url&&<a target="_blank" rel="noopener noreferrer" href={pending.verification_url}>{pending.browser_opened===false?'Your browser did not open. Open the sign-in page':'Open the sign-in page again'}</a>}</>
       :<button type="button" disabled={working} onClick={connect}><i className={'fa-solid '+(working?'fa-spinner fa-spin':'fa-arrow-up-right-from-square')}/> {working?'Connecting…':'Sign in using browser'}</button>}
      </>}
    </div>
