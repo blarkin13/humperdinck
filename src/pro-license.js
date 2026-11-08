@@ -57,7 +57,7 @@ async function licenseOverview(env,user){
       backup_available:!!env.PRO_LICENSE_ED25519_PRIVATE},devices,
     active_devices:devices.filter(d=>d.active).length,device_limit:license.max_devices,
     checkout_available:false,
-    warning:devices.filter(d=>d.active).length>=8?'You are nearing your ten-device limit.':null};
+    warning:devices.filter(d=>d.active).length>=10?'All ten device slots are in use. Deactivate an unused device before registering another.':(devices.filter(d=>d.active).length>=8?'You are nearing your ten-device limit.':null)};
 }
 export async function handleProLicense(request,env,{session,sameOrigin}){
   const path=new URL(request.url).pathname;
