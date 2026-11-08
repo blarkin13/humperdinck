@@ -223,6 +223,46 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
    <button type="button" className="vs-start" onClick={()=>pickFiles('image')}><i className="fa-solid fa-images"/><strong>Make a slideshow</strong><small>Add photos or slides. They gently zoom while your narration plays.</small></button>
    <button type="button" className="vs-start" disabled={narrationJob?.status!=='complete'} onClick={importNarration}><i className="fa-solid fa-microphone-lines"/><strong>Start from my narration</strong><small>{narrationJob?.status==='complete'?'Use the narration you made in Narration Studio, then add pictures or video.':'Generate a narration in Narration Studio first.'}</small></button>
   </div>:<>
+  <div className="vs-timeline panel" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();addFiles([...e.dataTransfer.files])}}>
+   <div className="vs-timeline-tools">
+    <button type="button" onClick={()=>pickFiles('video')}><i className="fa-solid fa-video"/> Video</button>
+    <button type="button" onClick={()=>pickFiles('image')}><i className="fa-solid fa-images"/> Images</button>
+    <button type="button" onClick={()=>addCue(time)}><i className="fa-solid fa-microphone-lines"/> Narration cue</button>
+    {narrationJob?.status==='complete'&&<button type="button" onClick={importNarration} title="Add the narration from Narration Studio at the start"><i className="fa-solid fa-file-import"/> From Narration Studio</button>}
+    <span className="vs-bar-spacer"/>
+    <label className="vs-zoom"><i className="fa-solid fa-magnifying-glass-minus"/><input type="range" min="10" max="160" value={zoom} onChange={e=>setZoom(Number(e.target.value))} aria-label="Timeline zoom"/><i className="fa-solid fa-magnifying-glass-plus"/></label>
+   </div>
+   <div className="vs-tracks" ref={timelineRef}>
+    <div className="vs-track-labels"><span/><span>Pictures</span><span>Narration</span></div>
+    <div className="vs-track-scroll">
+     <div style={{width:trackWidth,position:'relative'}}>
+      <div className="vs-ruler" onPointerDown={e=>{const r=e.currentTarget.getBoundingClientRect();setPlaying(false);seek((e.clientX-r.left)/pxPerSec)}}>
+       {Array.from({length:Math.ceil(trackWidth/pxPerSec)+1},(_,s)=>s%(pxPerSec<25?10:pxPerSec<60?5:1)===0&&<span key={s} style={{left:s*pxPerSec}}>{fmt(s).replace(/\.0$/,'')}</span>)}
+      </div>
+      <div className="vs-track vs-track-pictures" onPointerDown={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();seek((e.clientX-r.left)/pxPerSec);setSelected(null)}}}>
+       {layout.map(({clip,start})=><button type="button" key={clip.id} className={'vs-clip '+clip.type+(selected?.id===clip.id?' selected':'')} style={{left:start*pxPerSec,width:clipLength(clip)*pxPerSec-2,...(clip.type==='image'?{backgroundImage:`url(/api/images/${clip.source_id})`}:clip.type==='color'?{background:clip.color}:{})}} onClick={()=>{setSelected({kind:'clip',id:clip.id});if(time<start||time>=start+clipLength(clip))seek(start)}} title={clip.name}>
+        <span><i className={'fa-solid '+(clip.type==='video'?'fa-video':clip.type==='image'?'fa-image':'fa-square')}/> {clip.name}</span></button>)}
+       {!clips.length&&<span className="vs-track-hint">Drop videos or images here</span>}
+      </div>
+      <div className="vs-track vs-track-cues" onDoubleClick={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();addCue((e.clientX-r.left)/pxPerSec)}}}>
+       {cues.map(c=>{const pending=['queued','running'].includes(cueJobs[c.id]?.status),stale=c.audio&&!c.imported&&c.signature!==cueSignature(c),width=Math.max(60,(c.audio?cueLen(c):Math.max(2,c.text.split(/\s+/).length/2.6))*pxPerSec);
+        const overlap=c.audio&&cues.some(o=>o.id!==c.id&&o.start>c.start&&o.start<cueEnd(c));
+        return <div key={c.id} role="button" tabIndex={0} className={'vs-cue'+(c.audio?'':' draft')+(stale?' stale':'')+(overlap?' overlap':'')+(selected?.id===c.id?' selected':'')} style={{left:c.start*pxPerSec,width}}
+         onKeyDown={e=>{if(e.key==='Enter')setSelected({kind:'cue',id:c.id})}}
+         onPointerDown={e=>{e.preventDefault();setSelected({kind:'cue',id:c.id});const x0=e.clientX,s0=c.start;let moved=false;
+          const move=ev=>{const dx=ev.clientX-x0;if(Math.abs(dx)>3)moved=true;if(moved)setCue(c.id,{start:Math.max(0,Math.round((s0+dx/pxPerSec)*10)/10)})};
+          const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);if(!moved)seek(c.start)};
+          window.addEventListener('pointermove',move);window.addEventListener('pointerup',up)}}>
+         <span className="vs-cue-voice">{pending?<i className="fa-solid fa-spinner fa-spin"/>:<i className="fa-solid fa-microphone-lines"/>} {c.imported?'Narration Studio':voiceLabel(c.voice_key)||'No voice'}</span>
+         <span className="vs-cue-text">{c.text||'Empty cue'}</span>
+        </div>})}
+       {!cues.length&&<span className="vs-track-hint">Move the playhead and click “Add narration here”, or double-click this track</span>}
+      </div>
+      <div className="vs-playhead" style={{left:time*pxPerSec}}/>
+     </div>
+    </div>
+   </div>
+  </div>
   <div className="vs-main">
    <div className="vs-left">
    <div className="vs-stage panel">
@@ -295,46 +335,6 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
    </div>
   </div>
 
-  <div className="vs-timeline panel" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();addFiles([...e.dataTransfer.files])}}>
-   <div className="vs-timeline-tools">
-    <button type="button" onClick={()=>pickFiles('video')}><i className="fa-solid fa-video"/> Video</button>
-    <button type="button" onClick={()=>pickFiles('image')}><i className="fa-solid fa-images"/> Images</button>
-    <button type="button" onClick={()=>addCue(time)}><i className="fa-solid fa-microphone-lines"/> Narration cue</button>
-    {narrationJob?.status==='complete'&&<button type="button" onClick={importNarration} title="Add the narration from Narration Studio at the start"><i className="fa-solid fa-file-import"/> From Narration Studio</button>}
-    <span className="vs-bar-spacer"/>
-    <label className="vs-zoom"><i className="fa-solid fa-magnifying-glass-minus"/><input type="range" min="10" max="160" value={zoom} onChange={e=>setZoom(Number(e.target.value))} aria-label="Timeline zoom"/><i className="fa-solid fa-magnifying-glass-plus"/></label>
-   </div>
-   <div className="vs-tracks" ref={timelineRef}>
-    <div className="vs-track-labels"><span/><span>Pictures</span><span>Narration</span></div>
-    <div className="vs-track-scroll">
-     <div style={{width:trackWidth,position:'relative'}}>
-      <div className="vs-ruler" onPointerDown={e=>{const r=e.currentTarget.getBoundingClientRect();setPlaying(false);seek((e.clientX-r.left)/pxPerSec)}}>
-       {Array.from({length:Math.ceil(trackWidth/pxPerSec)+1},(_,s)=>s%(pxPerSec<25?10:pxPerSec<60?5:1)===0&&<span key={s} style={{left:s*pxPerSec}}>{fmt(s).replace(/\.0$/,'')}</span>)}
-      </div>
-      <div className="vs-track vs-track-pictures" onPointerDown={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();seek((e.clientX-r.left)/pxPerSec);setSelected(null)}}}>
-       {layout.map(({clip,start})=><button type="button" key={clip.id} className={'vs-clip '+clip.type+(selected?.id===clip.id?' selected':'')} style={{left:start*pxPerSec,width:clipLength(clip)*pxPerSec-2,...(clip.type==='image'?{backgroundImage:`url(/api/images/${clip.source_id})`}:clip.type==='color'?{background:clip.color}:{})}} onClick={()=>{setSelected({kind:'clip',id:clip.id});if(time<start||time>=start+clipLength(clip))seek(start)}} title={clip.name}>
-        <span><i className={'fa-solid '+(clip.type==='video'?'fa-video':clip.type==='image'?'fa-image':'fa-square')}/> {clip.name}</span></button>)}
-       {!clips.length&&<span className="vs-track-hint">Drop videos or images here</span>}
-      </div>
-      <div className="vs-track vs-track-cues" onDoubleClick={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();addCue((e.clientX-r.left)/pxPerSec)}}}>
-       {cues.map(c=>{const pending=['queued','running'].includes(cueJobs[c.id]?.status),stale=c.audio&&!c.imported&&c.signature!==cueSignature(c),width=Math.max(60,(c.audio?cueLen(c):Math.max(2,c.text.split(/\s+/).length/2.6))*pxPerSec);
-        const overlap=c.audio&&cues.some(o=>o.id!==c.id&&o.start>c.start&&o.start<cueEnd(c));
-        return <div key={c.id} role="button" tabIndex={0} className={'vs-cue'+(c.audio?'':' draft')+(stale?' stale':'')+(overlap?' overlap':'')+(selected?.id===c.id?' selected':'')} style={{left:c.start*pxPerSec,width}}
-         onKeyDown={e=>{if(e.key==='Enter')setSelected({kind:'cue',id:c.id})}}
-         onPointerDown={e=>{e.preventDefault();setSelected({kind:'cue',id:c.id});const x0=e.clientX,s0=c.start;let moved=false;
-          const move=ev=>{const dx=ev.clientX-x0;if(Math.abs(dx)>3)moved=true;if(moved)setCue(c.id,{start:Math.max(0,Math.round((s0+dx/pxPerSec)*10)/10)})};
-          const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);if(!moved)seek(c.start)};
-          window.addEventListener('pointermove',move);window.addEventListener('pointerup',up)}}>
-         <span className="vs-cue-voice">{pending?<i className="fa-solid fa-spinner fa-spin"/>:<i className="fa-solid fa-microphone-lines"/>} {c.imported?'Narration Studio':voiceLabel(c.voice_key)||'No voice'}</span>
-         <span className="vs-cue-text">{c.text||'Empty cue'}</span>
-        </div>})}
-       {!cues.length&&<span className="vs-track-hint">Move the playhead and click “Add narration here”, or double-click this track</span>}
-      </div>
-      <div className="vs-playhead" style={{left:time*pxPerSec}}/>
-     </div>
-    </div>
-   </div>
-  </div>
   </>}
   {cues.filter(c=>c.audio).map(c=><audio key={c.id+c.audio} ref={el=>{if(el)cueAudio.current[c.id]=el;else delete cueAudio.current[c.id]}} src={'/api/outputs/'+c.audio+'.wav'} preload="auto"/>)}
   {pickerFor&&<NarratorPicker api={api} options={voiceOptions} currentKey={cues.find(c=>c.id===pickerFor)?.voice_key||''} sectionNumber={cues.findIndex(c=>c.id===pickerFor)+1}
