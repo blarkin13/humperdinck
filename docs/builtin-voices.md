@@ -15,7 +15,7 @@ Publishing uses your GitHub CLI sign-in (`gh auth login`). It uploads `pack.zip`
 
 ## What people see
 
-When the installed app starts, it checks `https://humperdinck.larki-brian.workers.dev/voices/latest.json`. If you published something newer, it downloads the pack and then:
+When the installed app starts, it checks `https://humperdinck.studio/voices/latest.json`. If you published something newer, it downloads the pack and then:
 
 - adds new voices
 - replaces the sample and name of voices you changed
@@ -30,7 +30,7 @@ If the computer is offline, the app keeps the voices it already has. Brand-new i
 Each voice in the publisher has a **Built-in / Gallery** choice:
 
 - **Built-in:** every install gets it automatically (described above).
-- **Gallery:** it's listed at `https://humperdinck.larki-brian.workers.dev/gallery/` and in the app under **Voice Library → Browse the voice gallery**. People download the ones they want.
+- **Gallery:** it's listed at `https://humperdinck.studio/gallery/` and in the app under **Voice Library → Browse the voice gallery**. People download the ones they want.
 
 Publishing uploads one `catalog-<id>.wav` per gallery voice plus `catalog.json` to the same `voices` release, and deletes files for voices that left the gallery.
 

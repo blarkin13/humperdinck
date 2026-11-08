@@ -49,7 +49,7 @@ Counts are events, not unique people. Installer clicks are not completed downloa
 
 ## Unique visitors / full website coverage
 
-To measure **unique visitors** and traffic across the homepage and public `/studio/` app, set up **Cloudflare Web Analytics** for `humperdinck.larki-brian.workers.dev` from the Cloudflare dashboard. Add the generated site-specific beacon snippet to the homepage and the public studio's Vite entry HTML, or enable auto-injection if available for your hostname. The snippet has a unique token generated in your account; it cannot be determined from the repository. Without this dashboard step, our custom dataset reports page views, not unique visitors, and it does not count Studio route changes.
+To measure **unique visitors** and traffic across the homepage and public `/studio/` app, set up **Cloudflare Web Analytics** for `humperdinck.studio` from the Cloudflare dashboard. Add the generated site-specific beacon snippet to the homepage and the public studio's Vite entry HTML, or enable auto-injection if available for your hostname. The snippet has a unique token generated in your account; it cannot be determined from the repository. Without this dashboard step, our custom dataset reports page views, not unique visitors, and it does not count Studio route changes.
 
 Official instructions: https://developers.cloudflare.com/web-analytics/get-started/
 

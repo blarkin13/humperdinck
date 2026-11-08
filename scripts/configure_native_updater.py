@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 
-ENDPOINT = "https://humperdinck.larki-brian.workers.dev/updates/latest.json"
+ENDPOINT = "https://humperdinck.studio/updates/latest.json"
 
 def main():
     pubkey = os.environ.get("HUMPERDINCK_UPDATER_PUBKEY", "").strip()
