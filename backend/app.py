@@ -139,6 +139,12 @@ def local_account_connect_status():
     return account_client.poll(DATA)
 
 
+@app.post('/api/account/open/{page}')
+def local_account_open(page: str, request: Request):
+    require_local_account_origin(request)
+    return account_client.open_page(page)
+
+
 @app.post('/api/account/disconnect')
 def local_account_disconnect(request: Request):
     require_local_account_origin(request)

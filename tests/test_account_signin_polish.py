@@ -97,3 +97,26 @@ def test_requests_identify_the_desktop_app(monkeypatch):
     assert account_client._call('config') == {'available': True}
     assert seen['ua'].startswith('Humperdinck-Desktop/')
     assert seen['context'] is not None
+
+
+def test_open_page_only_opens_fixed_destinations(monkeypatch):
+    opened = []
+    monkeypatch.setattr(account_client.webbrowser, 'open', lambda url: opened.append(url) or True)
+    url = 'https://humperdinck.studio/account/?device=ABCDEFGHIJ'
+    account_client._pending = {'request_id': 'a' * 43, 'verifier': 'v' * 43,
+                               'verification_url': url, 'expires_at': time.time() + 600}
+    assert account_client.open_page('signin') == {'opened': True}
+    assert account_client.open_page('dashboard') == {'opened': True}
+    assert opened == [url, 'https://humperdinck.studio/account/']
+    for bad in ('https://evil.test', '../x'):
+        try:
+            account_client.open_page(bad)
+            raise AssertionError('expected 400')
+        except HTTPException as exc:
+            assert exc.status_code == 400
+    account_client._pending = None
+    try:
+        account_client.open_page('signin')
+        raise AssertionError('expected 409')
+    except HTTPException as exc:
+        assert exc.status_code == 409

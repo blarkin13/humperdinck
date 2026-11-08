@@ -58,6 +58,8 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{},onAccountCh
   setWorking(true);setError('');setMessage('');
   try{await callback()}catch(e){setError(e.message)}finally{setWorking(false)}
  }
+ // The desktop window ignores new-window links, so the backend opens the system browser.
+ function openPage(event,page){event.preventDefault();localApi('account/open/'+page,'POST').catch(e=>setError(e.message))}
  function connect(){return run(async()=>setPending(await localApi('account/connect','POST')))}
  function signOut(){return run(async()=>{
   const result=await localApi('account/disconnect','POST');
@@ -98,7 +100,7 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{},onAccountCh
       <button type="button" className="account-panel-secondary" disabled={working} onClick={signOut}>Sign out of this computer</button>
      </>:<><p>Sign in to connect your purchase and manage online device activations. Free narration never requires a login.</p>
       {pending?<><div className="account-panel-pending"><i className="fa-solid fa-circle-notch fa-spin"/> Waiting for your browser…</div>
-       <ol className="account-panel-steps"><li>Sign in on the page that opened.</li><li>Click <b>Approve connection</b>{deviceCode(pending.verification_url)&&<> for code <b className="account-panel-code">{deviceCode(pending.verification_url)}</b></>}.</li><li>Come back here; this finishes by itself.</li></ol>{pending.verification_url&&<a target="_blank" rel="noopener noreferrer" href={pending.verification_url}>{pending.browser_opened===false?'Your browser did not open. Open the sign-in page':'Open the sign-in page again'}</a>}</>
+       <ol className="account-panel-steps"><li>Sign in on the page that opened.</li><li>Click <b>Approve connection</b>{deviceCode(pending.verification_url)&&<> for code <b className="account-panel-code">{deviceCode(pending.verification_url)}</b></>}.</li><li>Come back here; this finishes by itself.</li></ol>{pending.verification_url&&<a target="_blank" rel="noopener noreferrer" href={pending.verification_url} onClick={e=>openPage(e,'signin')}>{pending.browser_opened===false?'Your browser did not open. Open the sign-in page':'Open the sign-in page again'}</a>}</>
       :<button type="button" disabled={working} onClick={connect}><i className={'fa-solid '+(working?'fa-spinner fa-spin':'fa-arrow-up-right-from-square')}/> {working?'Connecting…':'Sign in using browser'}</button>}
      </>}
    </div>
@@ -117,6 +119,6 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{},onAccountCh
    </div>
    {error&&<p className="account-panel-error" role="alert">{error}</p>}
    {message&&<p className="account-panel-success" role="status">{message}</p>}
-   <a href="https://humperdinck.studio/account/" target="_blank" rel="noopener noreferrer" className="account-panel-website">Manage account and devices <i className="fa-solid fa-arrow-up-right-from-square"/></a>
+   <a href="https://humperdinck.studio/account/" target="_blank" rel="noopener noreferrer" className="account-panel-website" onClick={e=>openPage(e,'dashboard')}>Manage account and devices <i className="fa-solid fa-arrow-up-right-from-square"/></a>
   </section></div>;
 }
