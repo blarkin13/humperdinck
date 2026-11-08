@@ -12,8 +12,8 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=20261108-seo-launch">
 <link rel="stylesheet" href="/footer-unified.css?v=20261108">
-<link rel="stylesheet" href="/account/account.css?v=20261108-shared-header">
-<script src="/account/account.js?v=20261108" defer></script>
+<link rel="stylesheet" href="/account/account.css?v=20261108-license">
+<script src="/account/account.js?v=20261108-license" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -47,7 +47,14 @@
    <a id="google-login" class="provider" hidden href="/api/account/start/google">Continue with Google <span aria-hidden="true">↗</span></a>
    <a id="apple-login" class="provider" hidden href="/api/account/start/apple">Continue with Apple <span aria-hidden="true">↗</span></a>
  </div>
- <div id="profile" hidden><div class="profile-grid"><div><small>Signed in as</small><strong id="account-name"></strong><span id="account-email"></span></div><div><small>Current edition</small><strong>Free</strong><span>Pro purchasing and activation are coming later.</span></div></div>
+ <div id="profile" hidden><div class="profile-grid"><div><small>Signed in as</small><strong id="account-name"></strong><span id="account-email"></span></div><div><small>Current edition</small><strong id="account-plan">Free</strong><span id="account-plan-desc">Pro purchasing and activation are coming later.</span></div></div>
+ <div id="license-dashboard" class="license-dashboard" hidden>
+   <h3>Lifetime Pro license</h3>
+   <p id="license-summary" aria-live="polite"></p>
+   <div id="device-list" class="device-list" aria-live="polite"></div>
+   <button type="button" id="download-license" class="secondary" hidden>Download permanent offline backup</button>
+   <p class="license-notice">Offline backup files remain valid even if Humperdinck goes offline. Deactivating an online device releases a slot but cannot revoke an existing offline backup.</p>
+ </div>
  <button type="button" id="logout" class="secondary">Sign out</button></div>
  <div id="pairing" class="pairing" hidden>
    <div class="pair-icon" aria-hidden="true">↔</div><div><h3>Connect your desktop app</h3><p>This computer requested access to your Humperdinck account. Confirm only if you initiated it from the app.</p><p class="device-code">Request <code id="device-code"></code></p><button id="approve" type="button">Connect this computer</button><p id="pair-result" role="status"></p></div>
