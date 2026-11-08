@@ -37,3 +37,29 @@ test('older or preview release rejected',async()=>{
  const r=await publicRelease(request('/updates/latest.json'),env);
  assert.equal(r.status,404);
 });
+
+test('update manifest falls back to the GitHub API when the release host fails',async()=>{
+ const manifest={version:'1.2.3',platforms:{'windows-x86_64':{url:prefix+'a.exe',signature:'s'}}};
+ const apiUrl='https://api.github.com/repos/blarkin13/humperdinck-downloads/releases/assets/42';
+ const calls=[];
+ globalThis.fetch=async(url,init={})=>{
+  calls.push(url);
+  if(url.endsWith('/releases/latest'))return Response.json(release([{name:'latest.json',browser_download_url:prefix+'latest.json',url:apiUrl,size:500,state:'uploaded'}]));
+  if(url===prefix+'latest.json')return new Response('Gateway Time-out',{status:504});
+  if(url===apiUrl){assert.equal(init.headers.Accept,'application/octet-stream');return Response.json(manifest)}
+  throw Error('unexpected '+url);
+ };
+ const r=await publicRelease(request('/updates/latest.json'),env);
+ assert.equal(r.status,200);
+ assert.equal((await r.json()).version,'1.2.3');
+ assert.deepEqual(calls.slice(1),[prefix+'latest.json',apiUrl]);
+});
+test('update manifest ignores asset API URLs from other repositories',async()=>{
+ globalThis.fetch=async(url)=>{
+  if(url.endsWith('/releases/latest'))return Response.json(release([{name:'latest.json',browser_download_url:prefix+'latest.json',url:'https://api.github.com/repos/evil/x/releases/assets/1',size:500,state:'uploaded'}]));
+  if(url===prefix+'latest.json')return new Response('',{status:504});
+  throw Error('should not fetch '+url);
+ };
+ const r=await publicRelease(request('/updates/latest.json'),env);
+ assert.equal(r.status,502);
+});

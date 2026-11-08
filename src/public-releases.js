@@ -50,14 +50,24 @@ export async function publicRelease(request,env){
     // Never treat an installer or SHA256 checksum as a signed update.
     const asset=assetFor('latest.json');
     if(!asset)return json({error:'No signed updater artifacts in this release'},404);
-    try{
-      const r=await fetch(asset.browser_download_url,{redirect:'follow'});
-      if(!r.ok)return json({error:'Signed updater manifest unavailable'},502);
-      const manifest=await r.json();
-      if(manifest.version!==version||!manifest.platforms||typeof manifest.platforms!=='object')
-        return json({error:'Invalid signed updater manifest'},502);
-      return json(manifest);
-    }catch{return json({error:'Signed updater manifest unavailable'},502)}
+    // GitHub's release-download host sometimes hangs or returns 5xx while the
+    // API serves the same asset, so try both, each with a timeout.
+    const sources=[[asset.browser_download_url,{}]];
+    if(typeof asset.url==='string'&&asset.url.startsWith('https://api.github.com/repos/'+REPO+'/releases/assets/'))
+      sources.push([asset.url,{Accept:'application/octet-stream'}]);
+    let unavailable=false;
+    for(const [source,extra] of sources){
+      try{
+        const r=await fetch(source,{redirect:'follow',headers:{'User-Agent':HEADERS['User-Agent'],...extra},
+          signal:AbortSignal.timeout(8000)});
+        if(!r.ok){unavailable=true;continue}
+        const manifest=await r.json();
+        if(manifest.version!==version||!manifest.platforms||typeof manifest.platforms!=='object')
+          return json({error:'Invalid signed updater manifest'},502);
+        return json(manifest);
+      }catch{unavailable=true}
+    }
+    if(unavailable)return json({error:'Signed updater manifest unavailable'},502);
   }
   return null;
 }
