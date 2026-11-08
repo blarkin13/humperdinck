@@ -151,7 +151,8 @@ def defaults():
             ('qwen-torch', 'Qwen/Qwen3-TTS-12Hz-0.6B-Base')
     return {'design': {'engine': design[0], 'model': design[1]},
             'clone': {'engine': clone[0], 'model': clone[1]},
-            'preset': {'engine': 'kokoro', 'model': 'bm_george'}}
+            'preset': {'engine': 'kokoro', 'model': 'bm_george'},
+            'convert': {'engine': 'openvoice', 'model': 'myshell-ai/OpenVoiceV2'}}
 
 
 def model_info(engine_id, model_id):

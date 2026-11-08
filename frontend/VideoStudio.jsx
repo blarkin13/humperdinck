@@ -58,7 +58,9 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  const [soundTab,setSoundTab]=useState(()=>{try{return localStorage.getItem('humperdinck-video-sound-tab')==='eq'?'eq':'mix'}catch{return 'mix'}});
  const captionsOn=project?.burn_captions!==false;
  const connectDesk=useDeskPreview(project?.desk||DEFAULT_DESK);
- function pickTab(k){setSoundTab(k);try{localStorage.setItem('humperdinck-video-sound-tab',k)}catch{}}
+ const [showSel,setShowSel]=useState(true);
+ useEffect(()=>{setShowSel(true)},[selected?.kind,selected?.id]);
+ function pickTab(k){if(k==='sel'){setShowSel(true);return}setShowSel(false);setSoundTab(k);try{localStorage.setItem('humperdinck-video-sound-tab',k)}catch{}}
 
  // ---- projects -------------------------------------------------------------
  const loadProjects=useCallback(async()=>{const list=await api('video-projects');setProjects(list);return list},[api]);
@@ -207,6 +209,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  if(!project)return <div className="vs-empty-start panel"><h3>Make your first video</h3><p>Combine a video or pictures with narration, then export an MP4.</p><button className="primary" onClick={newProject}><i className="fa-solid fa-plus"/> New video project</button></div>;
  const [aw,ah]=project.aspect.split(':').map(Number);
  const sel=selected?.kind==='clip'?clips.find(c=>c.id===selected.id):selected?.kind==='cue'?cues.find(c=>c.id===selected.id):null;
+ const tab=sel&&showSel?'sel':soundTab;
  const empty=!clips.length&&!cues.length;
  const pxPerSec=zoom,trackWidth=Math.max(600,(length+8)*pxPerSec);
  const captionText=captionsOn?(captionEntries(cues).find(e=>time>=e.start&&time<e.end)?.text||''):'';
@@ -300,9 +303,9 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
 
    </div>
    <div className="vs-inspector panel">
-    {!sel&&<div className="vs-tabs" role="tablist">{[['mix','Mix'],['eq','Voice EQ']].map(([k,l])=><button type="button" role="tab" key={k} aria-selected={soundTab===k} className={soundTab===k?'on':''} onClick={()=>pickTab(k)}>{l}</button>)}</div>}
-    {!sel&&soundTab==='eq'&&<SoundDesk embedded desk={project.desk||DEFAULT_DESK} onChange={desk=>update(p=>({...p,desk}))} note="Applies to every narration cue. You hear it live; Level match is applied when you export."/>}
-    {!sel&&soundTab==='mix'&&<div className="vs-inspector-empty">
+    <div className="vs-tabs" role="tablist">{[...(sel?[['sel',selected.kind==='cue'?'Cue':'Clip']]:[]),['mix','Mix'],['eq','Voice EQ']].map(([k,l])=><button type="button" role="tab" key={k} aria-selected={tab===k} className={tab===k?'on':''} onClick={()=>pickTab(k)}>{l}</button>)}</div>
+    {tab==='eq'&&<SoundDesk embedded desk={project.desk||DEFAULT_DESK} onChange={desk=>update(p=>({...p,desk}))} note="Applies to every narration cue. You hear it live; Level match is applied when you export."/>}
+    {tab==='mix'&&<div className="vs-inspector-empty">
      <label className="check"><input type="checkbox" checked={project.sound.keep_original} onChange={e=>update(p=>({...p,sound:{...p.sound,keep_original:e.target.checked}}))}/> Keep the video's own sound</label>
      <label className="check"><input type="checkbox" checked={project.sound.duck} onChange={e=>update(p=>({...p,sound:{...p.sound,duck:e.target.checked}}))}/> Lower it while narration plays</label>
      <label>Background music<select value={project.sound.music_id||''} onChange={e=>update(p=>({...p,sound:{...p.sound,music_id:e.target.value||null}}))}><option value="">None</option>{music.map(m=><option key={m.id} value={m.id}>{m.name}{m.category?' · '+m.category:''}</option>)}</select></label>
@@ -310,7 +313,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
      <label className="check"><input type="checkbox" checked={project.sound.fade} onChange={e=>update(p=>({...p,sound:{...p.sound,fade:e.target.checked}}))}/> Fade in and out</label>
      <p className="hint">Select a clip or a narration cue on the timeline to edit it. Music comes from your Sound Effects library.</p>
     </div>}
-    {sel&&selected.kind==='cue'&&<div className="vs-cue-editor">
+    {tab==='sel'&&selected.kind==='cue'&&<div className="vs-cue-editor">
      <div className="vs-inspector-head"><h4><i className="fa-solid fa-microphone-lines"/> Narration cue</h4><button type="button" className="icon-action" aria-label="Close" onClick={()=>setSelected(null)}><i className="fa-solid fa-xmark"/></button></div>
      <div className="vs-row"><label>Starts at<input type="number" min="0" step="0.1" value={sel.start} onChange={e=>setCue(sel.id,{start:Math.max(0,Number(e.target.value)||0)})}/></label>
       <button type="button" onClick={()=>setCue(sel.id,{start:Math.round(time*10)/10})} title="Move this cue to the playhead"><i className="fa-solid fa-location-dot"/> Use playhead ({fmt(time)})</button></div>
@@ -333,7 +336,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
      {overlaps&&<small className="vs-warn"><i className="fa-solid fa-triangle-exclamation"/> Runs {(cueEnd(sel)-nextCue.start).toFixed(1)} s into the next cue. Move one of them or shorten the script.</small>}
      <button type="button" className="vs-remove" onClick={()=>removeCue(sel.id)}><i className="fa-solid fa-trash-can"/> Remove cue</button>
     </div>}
-    {sel&&selected.kind==='clip'&&<div className="vs-clip-editor">
+    {tab==='sel'&&selected.kind==='clip'&&<div className="vs-clip-editor">
      <div className="vs-inspector-head"><h4><i className={'fa-solid '+(sel.type==='video'?'fa-video':sel.type==='image'?'fa-image':'fa-square')}/> {sel.name}</h4><button type="button" className="icon-action" aria-label="Close" onClick={()=>setSelected(null)}><i className="fa-solid fa-xmark"/></button></div>
      {sel.type==='video'?<>
       <div className="vs-row"><label>Start at<input type="number" min="0" max={sel.trim_end} step="0.1" value={sel.trim_start} onChange={e=>setClip(sel.id,{trim_start:Math.max(0,Math.min(sel.trim_end-.1,Number(e.target.value)||0))})}/></label>
