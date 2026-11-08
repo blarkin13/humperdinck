@@ -1066,3 +1066,9 @@ button.active small,.primary small{color:#3a3122}
 .character-actions{display:flex;gap:8px}
 .character-error{color:#f08a7a;font-size:13px;margin:0}
 @media(max-width:620px){.narrator-icon{width:28px;height:28px}.narrator-keys{display:none}}
+.character-takes{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line,#34494a);border-radius:10px;padding:10px 12px}
+.character-takes>small{color:var(--muted,#b5aa94);font-size:12px}
+.character-take{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 6px;border-radius:8px}
+.character-take.on{background:rgba(198,164,106,.12)}
+.character-take label{flex-direction:row!important;align-items:center;gap:8px!important;cursor:pointer}
+.character-take small{color:var(--muted,#b5aa94);font-size:12px}
