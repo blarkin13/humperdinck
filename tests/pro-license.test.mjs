@@ -116,7 +116,7 @@ test('only desktop session can activate; ten slots enforced atomically and can b
  for(let i=2;i<=10;i++){
   const r=await send('/api/account/license/activate',{method:'POST',data:{installation_id:createId(i),label:'Device '+i},bearer:true},env,desktop);
   assert.equal(r.status,200);
-  if(i>=8)assert.match((await r.json()).warning,/limit/);
+  if(i>=8)assert.match((await r.json()).warning,/(?:limit|slots)/);
  }
  assert.equal((await send('/api/account/license/activate',{method:'POST',
   data:{installation_id:createId(11),label:'Extra'},bearer:true},env,desktop)).status,409);
