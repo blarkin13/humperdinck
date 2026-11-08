@@ -125,7 +125,9 @@ def installation(data: Path) -> dict:
     except (OSError, ValueError, TypeError, KeyError):
         Path(data).mkdir(parents=True, exist_ok=True)
         # No hardware identifier or hostname is collected. Labels can be edited in the account.
-        info = {'installation_id': str(uuid4()), 'label': 'Humperdinck desktop'}
+        new_id = str(uuid4())
+        os_name = {'Darwin': 'Mac', 'Windows': 'Windows', 'Linux': 'Linux'}.get(os.uname().sysname if hasattr(os, 'uname') else os.name, 'Desktop')
+        info = {'installation_id': new_id, 'label': f'{os_name} · {new_id[-6:]}'}
         temp = Path(data) / ('.installation-' + secrets.token_hex(8))
         try:
             fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
