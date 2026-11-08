@@ -61,9 +61,9 @@ def test_render_mixes_clips_cues_and_padding(tmp_path):
 
 
 def test_caption_overlays_join_the_video_chain(tmp_path):
-    project = video_projects.new_project()
+    project = vp.new_project()
     project['clips'] = [{'id': 'c', 'type': 'color', 'color': '#000000', 'duration': 3}]
-    command = video_projects.render_command(project, lambda kind, i: tmp_path / i, tmp_path / 'o.mp4',
+    command = vp.render_command(project, lambda kind, i: tmp_path / i, tmp_path / 'o.mp4',
                                             overlays=[(tmp_path / '0.png', 0.5, 1.5)])
     graph = command[command.index('-filter_complex') + 1]
     assert "overlay=x=(W-w)/2:y=H-h" in graph and "between(t,0.500,1.500)" in graph
