@@ -193,9 +193,9 @@ async function beginDevice(request,env){
   if(!await rateLimit(request,env,'device',10))return problem(429,'Too many device requests');
   const data=await body(request);
   if(!validId(data.challenge))return problem(400,'Invalid desktop challenge');
-  const id=random(),code=b64(crypto.getRandomValues(new Uint8Array(8))).toUpperCase().replace(/[^A-Z2-7]/g,'').slice(0,10);
-  // Generate code from a strict base32 alphabet for 50 bits of entropy.
-  const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const id=random();
+  // Ten RFC-4648 Base32 characters give 50 bits of entropy.
+  const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   const codeBytes=crypto.getRandomValues(new Uint8Array(10));
   const safeCode=Array.from(codeBytes,b=>alphabet[b%alphabet.length]).join('');
   await env.AUTH_DB.prepare('INSERT INTO auth_device_flows (id,code,challenge,expires_at,created_at) VALUES (?,?,?,?,?)')
