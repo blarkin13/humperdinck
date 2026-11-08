@@ -1324,3 +1324,9 @@ html{scroll-padding-top:0}
 @media(max-width:1000px){.seo-home-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.seo-home-heading{display:block}.seo-home-heading p{margin-top:15px}}
 @media(max-width:620px){.seo-home-grid{grid-template-columns:1fr}.seo-home-card{min-height:0;padding:21px}.seo-home-card h3{font-size:25px}}
 @media(prefers-reduced-motion:reduce){.seo-home-card{transition:none}.seo-home-card:hover{transform:none}}
+
+/* Optional account access, visible on mobile and desktop. */
+.header-account-link{display:inline-flex;align-items:center;gap:7px;padding:10px 13px;border:1px solid rgba(255,255,255,.23);border-radius:999px;color:#ddd;font-size:12px;line-height:1;text-decoration:none;white-space:nowrap;transition:color .2s,border-color .2s,background .2s}
+.header-account-link:hover{color:#fff;border-color:#aaa;background:rgba(255,255,255,.06)}
+.account-section-link{display:inline-flex;gap:9px;margin-top:16px;font-size:13px;font-weight:650;text-decoration:underline;text-underline-offset:4px}
+@media(max-width:600px){.header-account-link{padding:10px}.header-account-link span{display:none}}

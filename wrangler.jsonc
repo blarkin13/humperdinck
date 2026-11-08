@@ -12,7 +12,8 @@
       "/downloads/*",
       "/downloads.json",
       "/updates/latest.json",
-      "/voices/*"
+      "/voices/*",
+      "/api/account/*"
     ]
   }
 }

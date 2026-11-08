@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from backend import engines
 from backend import entitlements
+from backend import account_client
 from backend.engine import export_mp3
 from backend import updater
 from backend.audio_edit import AudioEdit, render
@@ -81,6 +82,35 @@ class RenameInput(BaseModel):
 @app.get('/api/entitlements')
 def get_entitlements():
     return entitlements.status()
+
+def require_local_account_origin(request: Request):
+    """Block cross-site browser requests against localhost account actions."""
+    origin = request.headers.get('origin')
+    if origin and origin != f'{request.url.scheme}://{request.url.netloc}':
+        raise HTTPException(403, 'Invalid account request origin')
+
+
+@app.get('/api/account')
+def local_account_status():
+    return account_client.status(DATA)
+
+
+@app.post('/api/account/connect')
+def local_account_connect(request: Request):
+    require_local_account_origin(request)
+    return account_client.begin()
+
+
+@app.get('/api/account/connect/status')
+def local_account_connect_status():
+    return account_client.poll(DATA)
+
+
+@app.post('/api/account/disconnect')
+def local_account_disconnect(request: Request):
+    require_local_account_origin(request)
+    return account_client.disconnect(DATA)
+
 
 @app.get('/api/health')
 def health():
