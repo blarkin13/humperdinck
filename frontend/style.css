@@ -1219,3 +1219,6 @@ button.active small,.primary small{color:#3a3122}
 /* Account icon: a small dot when this computer is signed in */
 .header-server-icon.signed-in{position:relative;color:var(--accent,#c9a45c)}
 .header-server-icon.signed-in::after{content:"";position:absolute;right:5px;bottom:5px;width:7px;height:7px;border-radius:50%;background:#3fb96b;box-shadow:0 0 0 2px var(--bg,#111)}
+/* Header icon buttons: no inherited padding, so icons sit dead centre; one height for the row. */
+.header-server-icon{padding:0;height:40px}
+.header-actions .theme-trigger{min-height:40px}

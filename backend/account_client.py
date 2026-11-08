@@ -139,6 +139,23 @@ def begin() -> dict:
     return {'pending': True, 'verification_url': verification_url, 'browser_opened': bool(browser_opened)}
 
 
+def open_page(page: str) -> dict:
+    """Open the pending sign-in page or the account dashboard in the system browser.
+
+    The desktop webview ignores target=_blank links. Only these two fixed
+    destinations are allowed, never a URL supplied by the page.
+    """
+    if page == 'signin':
+        if not _pending or time.time() >= _pending['expires_at'] or not _pending.get('verification_url'):
+            raise HTTPException(409, 'Sign-in expired. Start it again.')
+        url = _pending['verification_url']
+    elif page == 'dashboard':
+        url = _origin() + '/account/'
+    else:
+        raise HTTPException(400, 'Unknown account page')
+    return {'opened': bool(webbrowser.open(url))}
+
+
 def poll(data: Path) -> dict:
     global _pending
     pending = _pending

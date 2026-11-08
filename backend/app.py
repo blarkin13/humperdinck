@@ -139,6 +139,32 @@ def local_account_connect_status():
     return account_client.poll(DATA)
 
 
+@app.post('/api/account/open/{page}')
+def local_account_open(page: str, request: Request):
+    require_local_account_origin(request)
+    return account_client.open_page(page)
+
+
+# The desktop webview ignores target=_blank links; open them in the system
+# browser instead. Only https links to these sites, never arbitrary URLs.
+EXTERNAL_LINK_HOSTS = {'humperdinck.studio', 'github.com', 'brew.sh', 'ffmpeg.org', 'commons.wikimedia.org'}
+
+
+class ExternalLink(BaseModel):
+    url: str
+
+
+@app.post('/api/open-link')
+def open_external_link(link: ExternalLink, request: Request):
+    require_local_account_origin(request)
+    from urllib.parse import urlsplit
+    import webbrowser
+    parts = urlsplit(link.url)
+    if parts.scheme != 'https' or parts.hostname not in EXTERNAL_LINK_HOSTS or parts.username or parts.port:
+        raise HTTPException(400, 'This link cannot be opened from Humperdinck')
+    return {'opened': bool(webbrowser.open(link.url))}
+
+
 @app.post('/api/account/disconnect')
 def local_account_disconnect(request: Request):
     require_local_account_origin(request)

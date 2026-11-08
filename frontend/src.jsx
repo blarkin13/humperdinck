@@ -68,6 +68,20 @@ function App(){
  const [serverSettingsOpen,setServerSettingsOpen]=useState(false);
  const [accountOpen,setAccountOpen]=useState(false);
  const [account,setAccount]=useState(null);
+ // The desktop window ignores new-window links: hand them to the system browser.
+ useEffect(()=>{
+  if(PUBLIC_STUDIO)return;
+  const onClick=e=>{
+   if(e.defaultPrevented||e.button!==0)return;
+   const a=e.target.closest?.('a[target="_blank"]');
+   if(!a||!/^https:/.test(a.href))return;
+   e.preventDefault();
+   fetch('/api/open-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.href})})
+    .then(r=>{if(!r.ok)window.open(a.href,'_blank','noopener')}).catch(()=>window.open(a.href,'_blank','noopener'));
+  };
+  document.addEventListener('click',onClick);
+  return ()=>document.removeEventListener('click',onClick);
+ },[]);
  useEffect(()=>{if(PUBLIC_STUDIO)return;fetch('/api/account').then(r=>r.ok?r.json():null).then(a=>a&&setAccount(a)).catch(()=>{})},[]);
  const [setupOpen,setSetupOpen]=useState(false),[setupChecked,setSetupChecked]=useState(false);
  const [tab,setTab]=useState('voices'),[method,setMethod]=useState('controls'),[designed,setDesigned]=useState([]),[uploads,setUploads]=useState([]),[presets,setPresets]=useState([]),[characters,setCharacters]=useState([]),[charactersFor,setCharactersFor]=useState(null),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null);
