@@ -310,10 +310,10 @@ class Pool:
 pool = Pool()
 
 
-def synthesize(engine, output, text, *, model, mode, description='', reference=None, ref_text=None, on_progress=None):
+def synthesize(engine, output, text, *, model, mode, description='', reference=None, ref_text=None, on_progress=None, speed=1.0):
     pool.synthesize(engine, {'engine': engine, 'model': model, 'mode': mode, 'text': text, 'description': description,
                              'reference': str(reference) if reference else None, 'ref_text': ref_text,
-                             'preset_voice': model if mode == 'preset' else None,
+                             'preset_voice': model if mode == 'preset' else None, 'speed': float(speed),
                              'output': str(output)}, on_progress)
 
 
@@ -328,11 +328,11 @@ def clone(choice, output, text, reference, ref_text=None, on_progress=None):
                ref_text=ref_text, on_progress=on_progress)
 
 
-def preset(engine, voice, output, text, on_progress=None):
+def preset(engine, voice, output, text, on_progress=None, speed=1.0):
     """Speak with one named Kokoro voice, not a cloned reference recording."""
     if engine != 'kokoro' or voice not in catalog.PRESET_VOICES[engine]:
         raise ValueError('Unknown preset voice')
-    synthesize(engine, output, text, model=voice, mode='preset', on_progress=on_progress)
+    synthesize(engine, output, text, model=voice, mode='preset', on_progress=on_progress, speed=speed)
 
 
 def convert(source, targets, output, on_progress=None):

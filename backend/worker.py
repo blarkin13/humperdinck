@@ -89,7 +89,8 @@ def handle(request):
     elif request['mode'] == 'preset':
         if request['engine'] != 'kokoro':
             raise ValueError('Preset voices require Kokoro')
-        engine.synthesize(request['text'], request['preset_voice'], output, on_progress=progress)
+        engine.synthesize(request['text'], request['preset_voice'], output, on_progress=progress,
+                          speed=max(0.5, min(2.0, float(request.get('speed') or 1.0))))
     elif request['engine'] == 'qwen-mlx' and request['mode'] == 'clone':
         engine.synthesize(request['text'], Path(request['reference']), output,
                           ref_text=request.get('ref_text'), on_progress=progress)

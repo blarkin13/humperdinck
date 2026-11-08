@@ -43,7 +43,8 @@ def cue_speed(cue):
 
 
 def cue_length(cue):
-    return float(cue.get('length') or 0) / cue_speed(cue)
+    # Pace is applied when the cue is generated, so length is the real length.
+    return float(cue.get('length') or 0)
 
 
 def cue_end(cue):
@@ -202,7 +203,7 @@ def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=N
         index = add_input('-i', str(cue_path))
         delay = round(float(cue['start']) * 1000)
         volume = float(cue.get('volume', 1.0))
-        desk = '' if voice else audio_fx.chain(project.get('desk'), cue.get('gain', 0), cue_speed(cue))
+        desk = '' if voice else audio_fx.chain(project.get('desk'), cue.get('gain', 0))
         desk = desk + ',' if desk else ''
         graph.append(f'[{index}:a]{desk}aresample={RATE},aformat=channel_layouts=stereo,volume={volume:.2f},adelay={delay}|{delay}[n{k}]')
         mix.append(f'[n{k}]')

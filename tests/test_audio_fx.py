@@ -26,9 +26,9 @@ def test_chain_clamps_extremes():
     assert 'bass=g=12.0' in filters and 'volume=12.0dB' in filters and 'atempo=2.000' in filters
 
 
-def test_cue_speed_changes_timing():
+def test_cue_pace_is_baked_into_its_length():
     cue = {'start': 2, 'length': 6, 'speed': 1.5, 'audio': 'x'}
-    assert video_projects.cue_end(cue) == pytest.approx(6)
+    assert video_projects.cue_end(cue) == pytest.approx(8)
 
 
 @pytest.mark.skipif(not shutil.which('ffmpeg'), reason='needs ffmpeg')

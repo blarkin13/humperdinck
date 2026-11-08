@@ -9,10 +9,10 @@ const uid=()=>Math.random().toString(36).slice(2,10);
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const clipLength=c=>c.type==='video'?Math.max(.1,(c.trim_end??c.duration??0)-(c.trim_start||0)):Math.max(.5,Number(c.duration)||4);
 const cueSpeed=c=>Math.min(2,Math.max(.5,Number(c.speed)||1));
-const cueLen=c=>(Number(c.length)||0)/cueSpeed(c);
+const cueLen=c=>Number(c.length)||0; // pace is applied when generating
 const cueEnd=c=>(Number(c.start)||0)+cueLen(c);
 const fmt=t=>{t=Math.max(0,t||0);const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)};
-const cueSignature=c=>JSON.stringify([c.text,c.voice_key]);
+const cueSignature=c=>JSON.stringify(cueSpeed(c)===1?[c.text,c.voice_key]:[c.text,c.voice_key,cueSpeed(c)]);
 // Captions: each cue split into sentences, timed by their share of its words
 // (the same rule as the .srt export).
 function captionEntries(cues){
@@ -127,7 +127,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   if(!cue.voice_key){setPickerFor(cue.id);return}
   setCueJobs(o=>({...o,[cue.id]:{status:'queued',message:'Starting…'}}));
   try{
-   let j=await api('narrations',json('POST',{blocks:[{text:cue.text,voice_key:cue.voice_key,delay_after:0}],format:'wav'}));
+   let j=await api('narrations',json('POST',{blocks:[{text:cue.text,voice_key:cue.voice_key,delay_after:0,speed:cueSpeed(cue)}],format:'wav',desk:{enabled:false,level_match:false}}));
    while(!['complete','failed'].includes(j.status)){setCueJobs(o=>({...o,[cue.id]:j}));await new Promise(r=>setTimeout(r,800));j=await api('jobs/'+j.job_id)}
    if(j.status==='failed')throw Error(j.message);
    const seconds=await audioLength('/api/outputs/'+j.job_id+'.wav');
@@ -165,8 +165,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   }
   for(const cue of cues){const a=cueAudio.current[cue.id];if(!a)continue;
    const inside=cue.audio&&time>=cue.start&&time<cueEnd(cue);
-   if(a.playbackRate!==cueSpeed(cue)){a.playbackRate=cueSpeed(cue);a.preservesPitch=true}
-   if(playing&&inside){connectDesk(a,cue.gain||0);const want=(time-cue.start)*cueSpeed(cue);if(Math.abs(a.currentTime-want)>.3)a.currentTime=want;if(a.paused)a.play().catch(()=>{})}
+   if(playing&&inside){connectDesk(a,cue.gain||0);const want=time-cue.start;if(Math.abs(a.currentTime-want)>.3)a.currentTime=want;if(a.paused)a.play().catch(()=>{})}
    else if(!a.paused)a.pause();
   }
  });
@@ -308,12 +307,12 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
        {sel.audio&&<button type="button" onClick={()=>{seek(sel.start);setPlaying(true)}}><i className="fa-solid fa-play"/> Play from cue</button>}
       </div>
       {cueJobs[sel.id]&&<small className={cueJobs[sel.id].status==='failed'?'vs-warn':'hint'}>{cueJobs[sel.id].message}</small>}
-      {sel.audio&&sel.signature!==cueSignature(sel)&&<small className="vs-warn">The script or voice changed. Regenerate to hear it.</small>}
+      {sel.audio&&sel.signature!==cueSignature(sel)&&<small className="vs-warn">The script, voice or pace changed. Regenerate to hear it.</small>}
      </>}
      {sel.audio&&<div className="vs-cue-sound">
       <label><span>Loudness</span> <small>{(sel.gain||0)>0?'+':''}{sel.gain||0} dB</small><input type="range" min="-12" max="12" step="1" value={sel.gain||0} onChange={e=>setCue(sel.id,{gain:Number(e.target.value)})} onDoubleClick={()=>setCue(sel.id,{gain:0})}/></label>
       <label><span>Pace</span> <small>{cueSpeed(sel).toFixed(2)}×</small><input type="range" min="0.8" max="1.25" step="0.01" value={cueSpeed(sel)} onChange={e=>setCue(sel.id,{speed:Number(e.target.value)})} onDoubleClick={()=>setCue(sel.id,{speed:1})}/></label>
-      <small className="hint">Fix one voice that sounds too loud, quiet, slow or rushed. Double-click a slider to reset it.</small>
+      <small className="hint">Fix one voice that sounds too loud, quiet, slow or rushed. Pace changes need Regenerate. Double-click a slider to reset it.</small>
      </div>}
      {sel.audio&&<small className="hint">{fmt(cueLen(sel))} long · ends at {fmt(cueEnd(sel))}</small>}
      {overlaps&&<small className="vs-warn"><i className="fa-solid fa-triangle-exclamation"/> Runs {(cueEnd(sel)-nextCue.start).toFixed(1)} s into the next cue. Move one of them or shorten the script.</small>}

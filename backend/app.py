@@ -1016,13 +1016,13 @@ def _missing_character():
     raise HTTPException(404, 'Character not found')
 
 
-def render_character(character_id, text, output, on_progress=None):
+def render_character(character_id, text, output, on_progress=None, speed=1.0):
     """Speak new text as a character: perform it, then convert into the original voice."""
     character = characters.get(character_id) or _missing_character()
     if character.get('performer'):
         source = output.with_name(output.stem + '-performance.wav')
         try:
-            engines.preset('kokoro', character['performer'], source, text, on_progress=on_progress)
+            engines.preset('kokoro', character['performer'], source, text, on_progress=on_progress, speed=speed)
             engines.convert(source, character_targets(character['source_key']), output)
         finally:
             source.unlink(missing_ok=True)
@@ -1209,11 +1209,17 @@ def run_multi(job_id, request, references):
                     narration_text = remove_speech_direction_tags(block.text)
                     if not narration_text:
                         raise ValueError('A narration section needs words beyond speech direction tags')
+                    # Pace: Kokoro voices (and Kokoro-performed characters) speak at the pace
+                    # natively; others are time-stretched afterwards, which can sound less clean.
+                    stretch=block.speed
                     if block.voice_key.startswith('character:'):
-                        render_character(block.voice_key[10:], narration_text, temp, on_progress=progress)
+                        performed=bool((characters.get(block.voice_key[10:]) or {}).get('performer'))
+                        render_character(block.voice_key[10:], narration_text, temp, on_progress=progress,speed=block.speed if performed else 1.0)
+                        if performed: stretch=1.0
                     elif reference is None:
                         preset_engine, preset_voice = ref_text
-                        engines.preset(preset_engine, preset_voice, temp, narration_text, on_progress=progress)
+                        engines.preset(preset_engine, preset_voice, temp, narration_text, on_progress=progress, speed=block.speed)
+                        stretch=1.0
                     else:
                         engines.clone(choice, temp, narration_text, reference, ref_text, on_progress=progress)
                     audio,rate=sf.read(temp,dtype='float32',always_2d=False)
@@ -1233,11 +1239,11 @@ def run_multi(job_id, request, references):
                                 refine_wav(refined,current)
                                 audio,_=sf.read(refined,dtype='float32')
                             finally:refined.unlink(missing_ok=True)
-                    if request.desk is not None or block.gain or block.speed!=1:
+                    if request.desk is not None or block.gain or stretch!=1:
                         desked=DATA/'outputs'/f'{job_id}-{index}-desk.wav'
                         sf.write(desked,audio,target_rate)
                         try:
-                            audio_fx.process(desked,target_rate,request.desk,block.gain,block.speed)
+                            audio_fx.process(desked,target_rate,request.desk,block.gain,stretch)
                             audio,_=sf.read(desked,dtype='float32')
                             if audio.ndim==2: audio=audio.mean(axis=1)
                         finally:desked.unlink(missing_ok=True)
@@ -1524,7 +1530,7 @@ def run_project_render(job_id, build, length):
         job.update(status='running', message=f'Balancing voices · {len(prepared)+1}')
         output = DATA / 'outputs' / f'{job_id}-cue-{len(prepared)}.wav'
         prepared.append(output)
-        audio_fx.process(path, video_projects.RATE, build.desk, cue.get('gain', 0), video_projects.cue_speed(cue),
+        audio_fx.process(path, video_projects.RATE, build.desk, cue.get('gain', 0), 1.0,
                          shutil.which('ffmpeg') or 'ffmpeg', output=output)
         return output
     try:
