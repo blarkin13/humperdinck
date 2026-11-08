@@ -1,6 +1,6 @@
 [package]
 name = "humperdinck-desktop"
-version = "0.1.0"
+version = "0.1.20"
 description = "Humperdinck desktop application"
 authors = ["Humperdinck contributors"]
 edition = "2021"

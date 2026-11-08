@@ -398,3 +398,12 @@
 :root[data-theme="modern"] .setup-stage:has(.setup-stage-trigger[aria-expanded=true]){border-color:var(--muted)}
 :root[data-theme="modern"] .setup-stage-body select{background:var(--midnight);color:var(--ivory);border-color:var(--line)}
 :root[data-theme="modern"] .setup-count progress,:root[data-theme="modern"] .setup-job progress{accent-color:var(--brass-hi)}
+
+/* Vintage branding: independent square artwork for light and dark modes. */
+.brand .brand-mark-vintage-light{display:none;object-fit:contain}
+:root[data-theme="vintage"][data-mode="dark"] .brand .brand-mark-vintage{display:block}
+:root[data-theme="vintage"][data-mode="dark"] .brand .brand-mark-vintage-light{display:none}
+:root[data-theme="vintage"][data-mode="light"] .brand .brand-mark-vintage{display:none}
+:root[data-theme="vintage"][data-mode="light"] .brand .brand-mark-vintage-light{display:block;width:72px;height:72px;flex:none}
+:root[data-theme="modern"] .brand .brand-mark-vintage-light{display:none}
+@media(max-width:640px){:root[data-theme="vintage"][data-mode="light"] .brand .brand-mark-vintage-light{width:44px;height:44px}}
