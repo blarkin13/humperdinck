@@ -2,7 +2,7 @@ import React,{useState} from 'react';
 import {useNotifications} from './Notifications.jsx';
 
 /** Humperdinck Voice Gallery: listen to optional voices and download the ones you want. */
-export default function VoiceCatalog({api,onInstalled}){
+export default function VoiceCatalog({api,onInstalled,canDownload=false}){
  const {notify}=useNotifications();
  const [open,setOpen]=useState(false),[voices,setVoices]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState('');
  async function load(){
@@ -10,6 +10,7 @@ export default function VoiceCatalog({api,onInstalled}){
   try{setVoices((await api('voice-catalog')).voices)}catch(e){setError(e.message)}
  }
  async function download(voice){
+  if(!canDownload){notify('Voice downloads require Pro. Checkout is not available yet.','info');return}
   setBusy(voice.voice_id);
   try{
    await api('voice-catalog/'+voice.voice_id+'/download',{method:'POST'});
@@ -31,8 +32,8 @@ export default function VoiceCatalog({api,onInstalled}){
     <div className="starter-voice-pack-actions">
      <audio controls preload="none" src={v.sample_url} aria-label={'Sample of '+v.name}/>
      {v.installed?<span className="catalog-installed"><i className="fa-solid fa-circle-check"/> In your library</span>
-      :<button type="button" className="primary" disabled={!!busy} onClick={()=>download(v)}>
-       <i className={'fa-solid '+(busy===v.voice_id?'fa-spinner fa-spin':'fa-download')}/> Download</button>}
+      :<button type="button" className="primary" disabled={!!busy} onClick={()=>download(v)} title={canDownload?'Download this voice':'Pro required to download this voice'}>
+       <i className={'fa-solid '+(busy===v.voice_id?'fa-spinner fa-spin':canDownload?'fa-download':'fa-lock')}/> {canDownload?'Download':'Pro download'}</button>}
     </div></div>)}</div>
   </div>}
  </details>;
