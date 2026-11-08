@@ -74,7 +74,7 @@ def test_installation_id_random_and_stable(tmp_path):
     one=pro_license.installation(tmp_path)
     two=pro_license.installation(tmp_path)
     assert one==two
-    assert one['label']=='Humperdinck desktop'
+    assert one['installation_id'][-6:] in one['label']
     assert len(one['installation_id'])==36
     third=pro_license.installation(tmp_path/'another')
     assert third['installation_id']!=one['installation_id']
