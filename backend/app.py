@@ -1493,6 +1493,7 @@ def save_video_project(project_id: str, project: dict):
 def delete_video_project(project_id: str):
     if not video_store.delete(project_id):
         _missing_project()
+    shutil.rmtree(_caption_folder(project_id), ignore_errors=True)
     return {'deleted': True}
 
 
@@ -1557,7 +1558,8 @@ def render_video_project(project_id: str):
     job_id = uuid4().hex
     output, ffmpeg, encoder = DATA / 'outputs' / f'{job_id}.mp4', shutil.which('ffmpeg'), media_tools.video_encoder_args()
     def build(voice=None):
-        return video_projects.render_command(project, _project_media, output, ffmpeg, encoder, voice=voice)
+        return video_projects.render_command(project, _project_media, output, ffmpeg, encoder, voice=voice,
+                                             overlays=_caption_overlays(project))
     build.desk = project.get('desk')
     try:
         build()  # validate before starting the job
@@ -1566,6 +1568,51 @@ def render_video_project(project_id: str):
     jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0, 'message': 'Waiting to render'}
     Thread(target=run_project_render, args=(job_id, build, video_projects.total_length(project)), daemon=True).start()
     return jobs[job_id]
+
+
+class CaptionImage(BaseModel):
+    start: float = Field(ge=0, le=36000)
+    end: float = Field(ge=0, le=36000)
+    png: str = Field(max_length=4_000_000)
+
+
+class CaptionImages(BaseModel):
+    items: list[CaptionImage] = Field(default_factory=list, max_length=2000)
+
+
+def _caption_folder(project_id):
+    video_store.path(project_id)  # validates the id
+    return DATA / 'video-projects' / f'{project_id}-captions'
+
+
+def _caption_overlays(project):
+    if not project.get('burn_captions', True):
+        return []
+    try:
+        listed = json.loads((_caption_folder(project['id']) / 'captions.json').read_text())
+    except (OSError, ValueError, KeyError):
+        return []
+    folder = _caption_folder(project['id'])
+    return [(folder / item['file'], item['start'], item['end']) for item in listed if (folder / item['file']).is_file()]
+
+
+@app.put('/api/video-projects/{project_id}/caption-images')
+def save_caption_images(project_id: str, request: CaptionImages):
+    import base64
+    video_store.get(project_id) or _missing_project()
+    folder = _caption_folder(project_id)
+    if folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True)
+    listed = []
+    for n, item in enumerate(request.items):
+        data = base64.b64decode(item.png.split(',', 1)[-1], validate=False)
+        if not data.startswith(b'\x89PNG'):
+            raise HTTPException(400, 'Caption images must be PNG')
+        (folder / f'{n}.png').write_bytes(data)
+        listed.append({'file': f'{n}.png', 'start': item.start, 'end': max(item.start, item.end)})
+    (folder / 'captions.json').write_text(json.dumps(listed))
+    return {'count': len(listed)}
 
 
 @app.get('/api/video-projects/{project_id}/captions.srt')

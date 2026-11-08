@@ -1191,3 +1191,11 @@ button.active small,.primary small{color:#3a3122}
 .sound-desk.bypassed .sound-desk-eq,.sound-desk.bypassed .sound-desk-side>*:not(.sound-desk-reset){opacity:.45}
 .vs-cue-sound{display:grid;gap:8px;padding:10px;border-radius:10px;background:#0000001f}
 .vs-cue-sound label small{float:right;opacity:.7;font-variant-numeric:tabular-nums}
+.vs-left{display:grid;gap:14px;min-width:0}
+.vs-left .sound-desk{margin:0}
+.vs-screen{container-type:size}
+.vs-caption{font-size:calc(min(100cqw,100cqh)*.05)!important;left:8%!important;right:8%!important;bottom:7%!important}
+.vs-cue-sound{gap:4px!important;padding:10px 12px!important}
+.vs-cue-sound label{display:grid!important;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;margin:0!important}
+.vs-cue-sound label small{float:none!important}
+.vs-cue-sound label input{grid-column:1/-1;margin:2px 0 6px!important}

@@ -57,7 +57,7 @@ export default function SoundDesk({desk,onChange,open,onToggle,note}){
  const d={...DEFAULT_DESK,...desk};
  const set=patch=>onChange({...d,...patch});
  const pick=key=>{const p=PRESETS[key];set({preset:key,low:p.low,mid:p.mid,high:p.high,compress:p.compress,enabled:true})};
- return <section className={'sound-desk'+(open?' open':'')+(d.enabled?'':' bypassed')}>
+ return <div className={'sound-desk'+(open?' open':'')+(d.enabled?'':' bypassed')}>
   <button type="button" className="sound-desk-head" aria-expanded={open} onClick={onToggle}>
    <i className="fa-solid fa-sliders" aria-hidden="true"/><strong>Sound desk</strong><span className="sound-desk-summary">{deskSummary(d)}</span>
    <i className={'fa-solid fa-chevron-'+(open?'up':'down')+' sound-desk-chevron'} aria-hidden="true"/>
@@ -88,5 +88,5 @@ export default function SoundDesk({desk,onChange,open,onToggle,note}){
    </div>
    {note&&<p className="hint">{note}</p>}
   </div>}
- </section>;
+ </div>;
 }

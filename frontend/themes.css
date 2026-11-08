@@ -419,3 +419,4 @@
 :root[data-mode="light"] .sound-desk-eq,:root[data-mode="light"] .vs-cue-sound{background:#00000008;border-color:#00000014}
 :root[data-mode="light"] .sound-desk-summary{background:#0000000d}
 :root[data-mode="light"] .sound-desk-head:hover{background:#00000008}
+:root .sound-desk .sound-desk-presets button.on,:root .sound-desk .vs-seg button.on{background:#c6a46a!important;background-image:none!important;color:#15120c!important;border-color:transparent!important}

@@ -107,13 +107,15 @@ def _fmt(seconds):
     return f'{seconds:.3f}'
 
 
-def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=None, voice=None):
+def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=None, voice=None, overlays=None):
     """Build the FFmpeg command for a project.
 
     ``resolve(kind, id)`` returns a Path for 'video', 'image', 'audio' (a cue's
     generated narration) and 'music' (a sound-library file), or raises.
     ``voice(cue, path)`` returns the cue's audio with the sound desk applied
     (see audio_fx.process); without it the desk's tone runs in the graph.
+    ``overlays`` is a list of (png_path, start, end): caption images drawn by
+    the app (this FFmpeg has no text filters) laid over the bottom of the frame.
     """
     width, height = ASPECTS.get(project.get('aspect'), ASPECTS['16:9'])
     sound = project.get('sound') or {}
@@ -174,6 +176,12 @@ def render_command(project, resolve, output: Path, ffmpeg='ffmpeg', video_args=N
     if sound.get('fade', True) and length > 2:
         graph.append(f'[vcat]fade=t=in:st=0:d=0.5,fade=t=out:st={_fmt(length - 0.6)}:d=0.6[vfade]')
         video_out = 'vfade'
+
+    for n, (image, start, end) in enumerate(overlays or []):
+        index = add_input('-i', str(image))
+        graph.append(f"[{video_out}][{index}:v]overlay=x=(W-w)/2:y=H-h:eof_action=repeat:"
+                     f"enable='between(t,{_fmt(float(start))},{_fmt(float(end))})'[vcap{n}]")
+        video_out = f'vcap{n}'
 
     # Lower the original sound (and music) while someone is speaking.
     spans = [(float(c['start']), cue_end(c)) for c in cues]

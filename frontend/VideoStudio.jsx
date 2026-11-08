@@ -13,6 +13,34 @@ const cueLen=c=>(Number(c.length)||0)/cueSpeed(c);
 const cueEnd=c=>(Number(c.start)||0)+cueLen(c);
 const fmt=t=>{t=Math.max(0,t||0);const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)};
 const cueSignature=c=>JSON.stringify([c.text,c.voice_key]);
+// Captions: each cue split into sentences, timed by their share of its words
+// (the same rule as the .srt export).
+function captionEntries(cues){
+ const out=[];
+ for(const c of [...cues].filter(c=>c.audio&&c.text).sort((a,b)=>a.start-b.start)){
+  const parts=c.text.replace(/\[[^\]]*\]/g,'').split(/(?<=[.!?])\s+/).map(p=>p.trim()).filter(Boolean);if(!parts.length)continue;
+  const words=parts.map(p=>p.split(/\s+/).length),total=words.reduce((a,b)=>a+b,0);let at=Number(c.start)||0;
+  parts.forEach((text,i)=>{const span=cueLen(c)*words[i]/total;out.push({text,start:at,end:at+span});at+=span});
+ }
+ return out;
+}
+const OUTPUT={'16:9':[1920,1080],'9:16':[1080,1920],'1:1':[1080,1080],'4:5':[1080,1350]};
+// Draw one caption as a transparent PNG strip for the bottom of the frame,
+// matching the preview: 5% of the short side, 84% wide, 7% above the bottom.
+function captionImage(text,W,H){
+ const size=Math.round(Math.min(W,H)*.05),line=Math.round(size*1.35),family=getComputedStyle(document.body).fontFamily||'sans-serif';
+ const c=document.createElement('canvas'),ctx=c.getContext('2d');ctx.font=`600 ${size}px ${family}`;
+ const max=W*.84,lines=[];let cur='';
+ for(const w of text.split(/\s+/)){const t=cur?cur+' '+w:w;if(cur&&ctx.measureText(t).width>max){lines.push(cur);cur=w}else cur=t}
+ if(cur)lines.push(cur);
+ const pad=Math.round(size*.6);c.width=W;c.height=Math.round(H*.07)+lines.length*line+pad;
+ ctx.font=`600 ${size}px ${family}`;ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillStyle='#fff';
+ ctx.shadowColor='rgba(0,0,0,.95)';
+ lines.forEach((l,i)=>{const y=pad+i*line+size;
+  ctx.shadowBlur=size*.28;ctx.shadowOffsetY=size*.08;ctx.fillText(l,W/2,y);
+  ctx.shadowBlur=size*.08;ctx.shadowOffsetY=0;ctx.fillText(l,W/2,y)});
+ return c.toDataURL('image/png');
+}
 function audioLength(url){return new Promise(resolve=>{const a=new Audio();a.preload='metadata';a.onloadedmetadata=()=>resolve(a.duration||0);a.onerror=()=>resolve(0);a.src=url})}
 async function uploadFile(kind,file){
  const body=new FormData();body.append('file',file);
@@ -24,10 +52,11 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  const [projects,setProjects]=useState([]),[project,setProject]=useState(null),[selected,setSelected]=useState(null);
  const [time,setTime]=useState(0),[playing,setPlaying]=useState(false),[zoom,setZoom]=useState(40);
  const [busy,setBusy]=useState(''),[render,setRender]=useState(null),[cueJobs,setCueJobs]=useState({}),[pickerFor,setPickerFor]=useState(null);
- const [music,setMusic]=useState([]),[captionsOn,setCaptionsOn]=useState(true);
+ const [music,setMusic]=useState([]);
  const videoEl=useRef(null),cueAudio=useRef({}),clock=useRef({t:0,last:0}),saveTimer=useRef(null),fileInput=useRef(null),pendingKind=useRef('');
  const timelineRef=useRef(null);
  const [deskOpen,setDeskOpen]=useState(()=>{try{return localStorage.getItem('humperdinck-video-desk')==='open'}catch{return false}});
+ const captionsOn=project?.burn_captions!==false;
  const connectDesk=useDeskPreview(project?.desk||DEFAULT_DESK);
  function toggleDesk(){setDeskOpen(o=>{try{localStorage.setItem('humperdinck-video-desk',o?'closed':'open')}catch{};return !o})}
 
@@ -150,7 +179,11 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   const missing=cues.filter(c=>!c.audio||(!c.imported&&c.signature!==cueSignature(c)));
   if(missing.length&&!window.confirm(`${missing.length} cue${missing.length>1?'s are':' is'} not generated or out of date and will be ${missing.some(c=>!c.audio)?'left out':'used as last generated'}. Export anyway?`))return;
   clearTimeout(saveTimer.current);await api('video-projects/'+project.id,json('PUT',project));
-  try{let j=await api('video-projects/'+project.id+'/render',{method:'POST'});setRender(j);
+  try{
+   if(captionsOn){setRender({status:'running',message:'Drawing captions',progress:0});
+    const [W,H]=OUTPUT[project.aspect]||OUTPUT['16:9'];
+    const items=captionEntries(cues).map(e=>({start:e.start,end:e.end,png:captionImage(e.text,W,H)}));
+    await api('video-projects/'+project.id+'/caption-images',json('PUT',{items}))}let j=await api('video-projects/'+project.id+'/render',{method:'POST'});setRender(j);
    while(!['complete','failed'].includes(j.status)){await new Promise(r=>setTimeout(r,1000));j=await api('jobs/'+j.job_id);setRender(j)}
   }catch(e){setRender({status:'failed',message:e.message})}
  }
@@ -161,7 +194,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  const sel=selected?.kind==='clip'?clips.find(c=>c.id===selected.id):selected?.kind==='cue'?cues.find(c=>c.id===selected.id):null;
  const empty=!clips.length&&!cues.length;
  const pxPerSec=zoom,trackWidth=Math.max(600,(length+8)*pxPerSec);
- const captionText=captionsOn&&activeCue?(()=>{const parts=activeCue.text.replace(/\[[^\]]*\]/g,'').split(/(?<=[.!?])\s+/).filter(Boolean);if(!parts.length)return '';const words=parts.map(p=>p.split(/\s+/).length),total=words.reduce((a,b)=>a+b,0);let at=activeCue.start;for(let i=0;i<parts.length;i++){at+=cueLen(activeCue)*words[i]/total;if(time<at)return parts[i]}return parts[parts.length-1]})():'';
+ const captionText=captionsOn?(captionEntries(cues).find(e=>time>=e.start&&time<e.end)?.text||''):'';
  const voiceLabel=key=>voiceOptions.find(v=>v.value===key)?.label;
  const nextCue=sel&&selected.kind==='cue'?cues.find(c=>c.start>sel.start&&c.id!==sel.id):null;
  const overlaps=sel&&selected.kind==='cue'&&nextCue&&sel.audio&&cueEnd(sel)>nextCue.start;
@@ -191,6 +224,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
    <button type="button" className="vs-start" disabled={narrationJob?.status!=='complete'} onClick={importNarration}><i className="fa-solid fa-microphone-lines"/><strong>Start from my narration</strong><small>{narrationJob?.status==='complete'?'Use the narration you made in Narration Studio, then add pictures or video.':'Generate a narration in Narration Studio first.'}</small></button>
   </div>:<>
   <div className="vs-main">
+   <div className="vs-left">
    <div className="vs-stage panel">
     <div className="vs-screen" style={{aspectRatio:aw+' / '+ah}}>
      {current?.clip.type==='video'&&<video ref={videoEl} key={current.clip.source_id} src={'/api/videos/'+current.clip.source_id} preload="auto" playsInline muted={!project.sound.keep_original}/>}
@@ -204,11 +238,14 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
      <button type="button" className="vs-play" aria-label={playing?'Pause':'Play'} title="Play / pause (Space)" onClick={()=>{if(time>=length)seek(0);setPlaying(p=>!p)}}><i className={'fa-solid '+(playing?'fa-pause':'fa-play')}/></button>
      <span className="vs-time">{fmt(time)} <small>/ {fmt(length)}</small></span>
      <input type="range" min="0" max={length||1} step="0.05" value={time} aria-label="Playhead" onChange={e=>{setPlaying(false);seek(Number(e.target.value))}}/>
-     <label className="check vs-cc"><input type="checkbox" checked={captionsOn} onChange={e=>setCaptionsOn(e.target.checked)}/> Captions</label>
+     <label className="check vs-cc"><input type="checkbox" checked={captionsOn} onChange={e=>update({burn_captions:e.target.checked})}/> Captions</label>
      <button type="button" className="primary vs-mark" onClick={()=>{setPlaying(false);addCue(time)}}><i className="fa-solid fa-location-dot"/> Add narration here</button>
     </div>
    </div>
 
+    <SoundDesk desk={project.desk||DEFAULT_DESK} open={deskOpen} onToggle={toggleDesk} onChange={desk=>update(p=>({...p,desk}))}
+   note="Applies to every narration cue. You hear it live here; Level match is applied when you export."/>
+   </div>
    <div className="vs-inspector panel">
     {!sel&&<div className="vs-inspector-empty">
      <h4>Sound</h4>
@@ -234,8 +271,8 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
       {sel.audio&&sel.signature!==cueSignature(sel)&&<small className="vs-warn">The script or voice changed. Regenerate to hear it.</small>}
      </>}
      {sel.audio&&<div className="vs-cue-sound">
-      <label>Loudness <small>{(sel.gain||0)>0?'+':''}{sel.gain||0} dB</small><input type="range" min="-12" max="12" step="1" value={sel.gain||0} onChange={e=>setCue(sel.id,{gain:Number(e.target.value)})} onDoubleClick={()=>setCue(sel.id,{gain:0})}/></label>
-      <label>Pace <small>{cueSpeed(sel).toFixed(2)}×</small><input type="range" min="0.8" max="1.25" step="0.01" value={cueSpeed(sel)} onChange={e=>setCue(sel.id,{speed:Number(e.target.value)})} onDoubleClick={()=>setCue(sel.id,{speed:1})}/></label>
+      <label><span>Loudness</span> <small>{(sel.gain||0)>0?'+':''}{sel.gain||0} dB</small><input type="range" min="-12" max="12" step="1" value={sel.gain||0} onChange={e=>setCue(sel.id,{gain:Number(e.target.value)})} onDoubleClick={()=>setCue(sel.id,{gain:0})}/></label>
+      <label><span>Pace</span> <small>{cueSpeed(sel).toFixed(2)}×</small><input type="range" min="0.8" max="1.25" step="0.01" value={cueSpeed(sel)} onChange={e=>setCue(sel.id,{speed:Number(e.target.value)})} onDoubleClick={()=>setCue(sel.id,{speed:1})}/></label>
       <small className="hint">Fix one voice that sounds too loud, quiet, slow or rushed. Double-click a slider to reset it.</small>
      </div>}
      {sel.audio&&<small className="hint">{fmt(cueLen(sel))} long · ends at {fmt(cueEnd(sel))}</small>}
@@ -258,8 +295,6 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
    </div>
   </div>
 
-  <SoundDesk desk={project.desk||DEFAULT_DESK} open={deskOpen} onToggle={toggleDesk} onChange={desk=>update(p=>({...p,desk}))}
-   note="Applies to every narration cue. You hear it live here; Level match is applied when you export."/>
   <div className="vs-timeline panel" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();addFiles([...e.dataTransfer.files])}}>
    <div className="vs-timeline-tools">
     <button type="button" onClick={()=>pickFiles('video')}><i className="fa-solid fa-video"/> Video</button>
