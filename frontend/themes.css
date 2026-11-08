@@ -412,3 +412,6 @@
 :root[data-mode="light"] .vs-track{background:var(--light-panel)}
 :root[data-mode="light"] .vs-cue{background:#ece6f8;color:#3a2d5c;border-color:#b6a6dc}
 :root[data-mode="light"] .vs-cue.draft{background:transparent}
+:root .vs-stage-wrap button.vs-play,:root button.vs-play{background:#c6a46a!important;background-image:none!important;color:#15120c!important;box-shadow:0 1px 3px #0004!important}
+:root button.vs-play i{color:#15120c!important}
+:root button.vs-play:hover{background:#d8b87c!important}
