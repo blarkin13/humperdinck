@@ -122,3 +122,118 @@ test('desktop flow requires a secret verifier, web sign-in, and explicit same-or
  const unavailable=await call('/api/account/me',{authorization:'Bearer '+result.access_token},env);
  assert.equal((await unavailable.json()).authenticated,false);
 });
+
+class OAuthDB extends MockDB {
+ constructor(){super();this.oauthFlows=new Map();this.identities=new Map();}
+ prepare(sql){
+  const db=this;
+  if(sql.includes('auth_flows')||sql.includes('auth_identities')||sql.startsWith('INSERT INTO auth_users')||sql.startsWith('UPDATE auth_users')){
+   return {bind(...args){return {
+    async first(){
+     if(sql.includes('SELECT * FROM auth_flows')){
+      const row=db.oauthFlows.get(args[0]);
+      return row&&row.provider===args[1]&&row.expires_at>args[2]?row:null;
+     }
+     if(sql.includes('SELECT user_id FROM auth_identities')){
+      const user_id=db.identities.get(args[0]+'|'+args[1]);
+      return user_id?{user_id}:null;
+     }
+     return null;
+    },
+    async all(){
+     if(sql.includes('SELECT provider FROM auth_identities')){
+      return {results:[...db.identities.entries()].filter(([key,user])=>user===args[0]).map(([key])=>({provider:key.split('|')[0]}))};
+     }
+     return {results:[]};
+    },
+    async run(){
+     if(sql.startsWith('DELETE FROM auth_flows WHERE expires_at')){
+      for(const [key,flow] of db.oauthFlows){if(flow.expires_at<args[0])db.oauthFlows.delete(key)}
+      return {meta:{changes:1}};
+     }
+     if(sql.startsWith('INSERT INTO auth_flows')){
+      const [state_hash,provider,nonce,verifier,return_path,expires_at]=args;
+      db.oauthFlows.set(state_hash,{state_hash,provider,nonce,verifier,return_path,expires_at});
+      return {meta:{changes:1}};
+     }
+     if(sql.startsWith('DELETE FROM auth_flows WHERE state_hash')){
+      return {meta:{changes:db.oauthFlows.delete(args[0])?1:0}};
+     }
+     if(sql.startsWith('INSERT INTO auth_users')){
+      const [id,display_name,email,created_at]=args;
+      db.users.set(id,{id,display_name,email,created_at});
+      return {meta:{changes:1}};
+     }
+     if(sql.startsWith('INSERT INTO auth_identities')){
+      db.identities.set(args[0]+'|'+args[1],args[2]);
+      return {meta:{changes:1}};
+     }
+     if(sql.startsWith('UPDATE auth_users'))return {meta:{changes:1}};
+     throw Error('Unexpected OAuth SQL: '+sql);
+    }
+   }}};
+  }
+  return super.prepare(sql);
+ }
+}
+
+test('Google OIDC callback validates signed ID token, audience, nonce, and one-time state',async()=>{
+ const db=new OAuthDB(), env={AUTH_DB:db,AUTH_RATE_SECRET:'test-pepper',
+   GOOGLE_CLIENT_ID:'google-test-client',GOOGLE_CLIENT_SECRET:'test-secret'};
+ const keyPair=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,
+   publicExponent:Uint8Array.from([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
+ const jwk=await crypto.subtle.exportKey('jwk',keyPair.publicKey);
+ jwk.kid='test-kid';jwk.alg='RS256';
+ const originalFetch=globalThis.fetch;
+ let expectedNonce='';
+ let claimModifier=null;
+ globalThis.fetch=async(url,opts)=>{
+  if(String(url)==='https://oauth2.googleapis.com/token'){
+   const values=new URLSearchParams(opts.body);
+   assert.equal(values.get('client_id'),env.GOOGLE_CLIENT_ID);
+   assert.equal(values.get('grant_type'),'authorization_code');
+   const header=Buffer.from(JSON.stringify({alg:'RS256',kid:'test-kid'})).toString('base64url');
+   const payload={iss:'https://accounts.google.com',aud:env.GOOGLE_CLIENT_ID,
+     sub:'user-oidc-test',email:'valid@example.com',email_verified:true,
+     nonce:expectedNonce,iat:Math.floor(Date.now()/1000)-30,exp:Math.floor(Date.now()/1000)+300};
+   if(claimModifier)claimModifier(payload);
+   const body=Buffer.from(JSON.stringify(payload)).toString('base64url');
+   const raw=header+'.'+body;
+   const signed=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',keyPair.privateKey,new TextEncoder().encode(raw));
+   return new Response(JSON.stringify({id_token:raw+'.'+Buffer.from(signed).toString('base64url')}),{status:200});
+  }
+  if(String(url)==='https://www.googleapis.com/oauth2/v3/certs'){
+   return new Response(JSON.stringify({keys:[jwk]}),{status:200});
+  }
+  throw Error('Unexpected upstream request '+url);
+ };
+ try{
+  let started=await call('/api/account/start/google',{},env);
+  assert.equal(started.status,303);
+  let login=new URL(started.headers.get('location'));
+  expectedNonce=login.searchParams.get('nonce');
+  const state=login.searchParams.get('state');
+  const csrfCookie=started.headers.get('set-cookie').split(';')[0];
+  assert.match(expectedNonce,/^[A-Za-z0-9_-]{43}$/);
+  assert.equal(login.searchParams.get('code_challenge_method'),'S256');
+  const callback=await call('/api/account/callback/google?code=once&state='+state,{cookie:csrfCookie},env);
+  assert.equal(callback.status,303);
+  assert.equal(callback.headers.get('Location'),base+'/account/');
+  const sessionCookie=callback.headers.get('set-cookie').split(';')[0];
+  assert.ok(sessionCookie.startsWith('__Host-humperdinck_session='));
+  const account=await (await call('/api/account/me',{cookie:sessionCookie},env)).json();
+  assert.equal(account.authenticated,true);
+  assert.equal(account.user.email,'valid@example.com');
+  assert.deepEqual(account.user.providers,['google']);
+  const replay=await call('/api/account/callback/google?code=once&state='+state,{cookie:csrfCookie},env);
+  assert.equal(replay.status,400);
+  started=await call('/api/account/start/google',{},env);
+  login=new URL(started.headers.get('location'));
+  expectedNonce=login.searchParams.get('nonce');
+  claimModifier=payload=>{payload.aud='incorrect-audience'};
+  const rejected=await call('/api/account/callback/google?code=invalid&state='+login.searchParams.get('state'),
+    {cookie:started.headers.get('set-cookie').split(';')[0]},env);
+  assert.equal(rejected.status,303);
+  assert.equal(rejected.headers.get('location'),base+'/account/?error=login_failed');
+ }finally{globalThis.fetch=originalFetch}
+});
