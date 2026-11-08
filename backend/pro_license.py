@@ -54,7 +54,7 @@ def verify(token: str) -> dict:
         info.get('expires_at', 'missing') is not None or
         info.get('features') != ['pro'] or
         not isinstance(info.get('issued_at'), int) or
-        info['issued_at'] <= 0 or info['issued_at'] > int(time.time()) + 86400 or
+        info['issued_at'] <= 0 or
         not isinstance(info.get('license_id'), str) or
         not isinstance(info.get('subject'), str)):
         raise InvalidLicense('License does not grant perpetual Humperdinck Pro')
