@@ -39,10 +39,12 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
     if(!publishedInstaller(entry,platform))continue;
     const action=card.querySelector('[data-download-action]');
     const anchor=document.createElement('a');
-    anchor.className='button button-primary download-action';
+    anchor.className='download-action';
     anchor.href=entry.url;
-    anchor.textContent='Download '+(platform==='windows'?'for Windows':platform==='macos'?'for macOS':'for Linux')+' ↓';
-    anchor.setAttribute('aria-label', 'Download Humperdinck '+entry.version+' for '+platform);
+    const platformName=platform==='windows'?'Windows':platform==='macos'?'macOS':'Linux';
+    anchor.setAttribute('aria-label', 'Download Humperdinck '+entry.version+' for '+platformName);
+    anchor.title='Download for '+platformName;
+    anchor.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v10.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4 3.6 3.6V3h2ZM5 19h14v2H5v-2Z"/></svg>';
     action.replaceWith(anchor);
     card.querySelector('[data-version]').textContent='Version '+entry.version+(entry.size ? ' · '+entry.size : '');
     available++;
