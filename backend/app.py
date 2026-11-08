@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from backend import engines
+from backend import entitlements
 from backend.engine import export_mp3
 from backend import updater
 from backend.audio_edit import AudioEdit, render
@@ -74,6 +75,10 @@ class GenerateRequest(BaseModel):
 class RenameInput(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     category: str | None = Field(default=None, max_length=60)
+
+@app.get('/api/entitlements')
+def get_entitlements():
+    return entitlements.status()
 
 @app.get('/api/health')
 def health():
@@ -194,6 +199,7 @@ def voice_catalog():
 
 @app.post('/api/voice-catalog/{voice_id}/download')
 def download_catalog_voice(voice_id:str):
+    entitlements.require('voice.gallery_download')
     from backend import voice_catalog as gallery
     try:
         return gallery.download(DATA,voice_id)
@@ -232,6 +238,7 @@ def check_builtin_voices():
 
 @app.post('/api/starter-voices/{voice_id}/generate')
 def generate_starter_voice_sample(voice_id:str):
+    publisher_only()
     upload_path(voice_id)
     original=voice_meta().get(voice_id,{})
     if original.get('origin')=='starter-voice':
@@ -369,6 +376,7 @@ def restore_voice_refinement(voice_id: str,version:int):
 
 @app.post('/api/voices/{voice_id}/refinement-preview')
 def preview_voice_refinement(voice_id:str,request:VoiceRefinementPreviewInput):
+    require_voice_selection('upload:'+voice_id)
     upload_path(voice_id)
     try:
         refine=normalize_refinement(request.model_dump())
@@ -386,6 +394,7 @@ def delete_voice(voice_id: str):
 
 @app.post('/api/voices')
 async def upload_voice(file: UploadFile = File(...)):
+    entitlements.require('voice.personal_cloning')
     suffix = Path(file.filename or '').suffix.lower()
     # .webm/.ogg/.mp4 are what browsers produce when recording from the microphone.
     if suffix not in ('.wav','.mp3','.flac','.m4a','.webm','.ogg','.mp4'):
@@ -462,6 +471,7 @@ def designed_voices():
 
 @app.post('/api/designed-voices', status_code=201)
 def create_designed_voice(request: DesignedVoiceInput):
+    entitlements.require('voice.custom_qwen_save')
     check_characteristics(request.characteristics)
     return library.create(request.name.strip(),request.description.strip(),request.characteristics,settings.load()['design']['model'],request.category.strip(),request.method)
 
@@ -474,6 +484,7 @@ def _missing_voice():
 
 @app.post('/api/designed-voices/{voice_id}/versions', status_code=201)
 def create_designed_version(voice_id: str, request: DesignedVersionInput):
+    entitlements.require('voice.custom_qwen_save')
     check_characteristics(request.characteristics)
     return library.version(voice_id,request.description.strip(),request.characteristics,settings.load()['design']['model']) or _missing_voice()
 
@@ -505,6 +516,7 @@ def delete_designed_voice(voice_id: str):
 
 @app.post('/api/designed-voices/{voice_id}/duplicate', status_code=201)
 def duplicate_designed_voice(voice_id: str):
+    entitlements.require('voice.custom_qwen_save')
     voice = library.get(voice_id) or _missing_voice()
     version = next(v for v in voice['versions'] if v['version']==voice['active_version'])
     return library.create(voice['name']+' (copy)',version['description'],version['characteristics'],version['model_id'],voice.get('category',''))
@@ -512,6 +524,7 @@ def duplicate_designed_voice(voice_id: str):
 @app.post('/api/designed-voices/draft-preview')
 def draft_preview(request: DraftPreviewInput):
     """Preview a voice recipe without creating a saved voice."""
+    entitlements.require('voice.custom_qwen_design')
     check_characteristics(request.characteristics)
     instruction = build_instruction(request.description, request.characteristics)
     if len(instruction) > 1200:
@@ -528,6 +541,7 @@ def draft_preview(request: DraftPreviewInput):
 @app.post('/api/designed-voices/{voice_id}/versions/{version}/attach-preview')
 def attach_draft_preview(voice_id: str, version: int, request: AttachPreviewInput):
     """Copy a completed draft preview into the voice library, optionally approving it."""
+    entitlements.require('voice.custom_qwen_save')
     voice = library.get(voice_id) or _missing_voice()
     if not any(v['version'] == version for v in voice['versions']):
         raise HTTPException(404, 'Voice version not found')
@@ -547,6 +561,7 @@ def attach_draft_preview(voice_id: str, version: int, request: AttachPreviewInpu
 
 @app.post('/api/designed-voices/{voice_id}/preview')
 def preview_designed_voice(voice_id: str, request: PreviewInput):
+    entitlements.require('voice.custom_qwen_design')
     voice = library.get(voice_id) or _missing_voice()
     version_number = request.version or voice['active_version']
     if not any(v['version']==version_number for v in voice['versions']):
@@ -628,6 +643,13 @@ def run_generation(job_id, request):
 
 @app.post('/api/generate')
 def generate(request: GenerateRequest):
+    # Authorize by the *voice source*, not engine: curated Free voices use Qwen.
+    if request.engine == 'qwen-design':
+        entitlements.require('voice.custom_qwen_design')
+    elif request.engine == 'designed-reference' or request.designed_voice_id:
+        entitlements.require('voice.personal_cloning')
+    elif request.engine == 'qwen-clone':
+        require_voice_selection('upload:'+request.voice_id)
     if request.format not in ('wav','mp3'):
         raise HTTPException(400, 'Format must be wav or mp3')
     if request.engine not in ('qwen-clone', 'qwen-design', 'designed-reference'):
@@ -945,6 +967,9 @@ def character_options():
 
 @app.post('/api/characters/takes')
 def create_character_takes(request: CharacterTakesInput):
+    require_voice_selection(request.source_key)
+    if not character_performer(request.accent, request.direction, request.gender, 0):
+        entitlements.require('voice.custom_qwen_design')
     require_converter()
     if request.source_key.startswith('character:'):
         raise HTTPException(422, 'Make characters from the original voice')
@@ -1124,6 +1149,7 @@ def generate_library_preview(job_id, mode, choice, reference, ref_text, digest, 
 
 @app.post('/api/voice-previews')
 def create_library_preview(request: LibraryPreviewRequest):
+    require_voice_selection(request.voice_key)
     mode, choice, reference, ref_text, digest = preview_recipe(request.voice_key)
     destination = PREVIEW_DIR / (digest + '.wav')
     if destination.is_file() and destination.stat().st_size:
@@ -1151,6 +1177,42 @@ def library_preview_audio(filename: str):
     if not path.is_file():
         raise HTTPException(404, 'Preview not found')
     return FileResponse(path, media_type='audio/wav')
+
+
+def require_voice_selection(key: str) -> None:
+    """Only the curated built-in *reference* path is free inside Qwen cloning."""
+    if key.startswith('preset:'):
+        return
+    if key.startswith('upload:'):
+        uid = key[7:]
+        meta = voice_meta().get(uid, {})
+        # A display name/category alone never grants Free access. The pack
+        # installer registers origin, fixed transcript, approved bytes and ID.
+        if (meta.get('origin') == 'builtin-humperdinck'
+                and meta.get('reference_text') == STARTER_VOICE_TEXT
+                and uid.isalnum()
+                and (DATA/'voices'/f'{uid}.wav').is_file()):
+            from hashlib import sha256
+            digest = meta.get('builtin_sha256')
+            if digest:
+                if sha256((DATA/'voices'/f'{uid}.wav').read_bytes()).hexdigest() == digest:
+                    return
+            else:
+                # Legacy packs predate per-voice hashes; preserve their Free
+                # access. Signed allowlists are required before paid launch.
+                seen_file = DATA/'voices'/'.builtin_humperdinck_seen.json'
+                try:
+                    seen = json.loads(seen_file.read_text())
+                except (OSError, ValueError):
+                    seen = []
+                if isinstance(seen, list) and uid in seen:
+                    return
+    if key.startswith('character:'):
+        character = characters.get(key[10:])
+        # A Kokoro/OpenVoice performance from a Free voice is basic editing.
+        if character and character.get('performer') and character.get('source_key', '').startswith('preset:'):
+            return
+    entitlements.require('voice.personal_cloning')
 
 
 def resolve_voice_key(key):
@@ -1290,6 +1352,8 @@ def run_multi(job_id, request, references):
 
 @app.post('/api/narrations')
 def create_narration(request: MultiNarrationRequest):
+    for block in request.blocks:
+        require_voice_selection(block.voice_key)
     if request.format not in ('wav','mp3'): raise HTTPException(400,'Unsupported format')
     if request.format=='mp3' and not shutil.which('ffmpeg'): raise HTTPException(503,'FFmpeg is required')
     for block in request.blocks:
