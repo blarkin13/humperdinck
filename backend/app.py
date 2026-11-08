@@ -124,8 +124,8 @@ def require_local_account_origin(request: Request):
 
 
 @app.get('/api/account')
-def local_account_status():
-    return account_client.status(DATA)
+def local_account_status(verify: bool = False):
+    return account_client.verify(DATA) if verify else account_client.status(DATA)
 
 
 @app.post('/api/account/connect')

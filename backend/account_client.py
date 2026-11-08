@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import ssl
 import time
 import urllib.error
 import urllib.request
@@ -20,6 +21,17 @@ from fastapi import HTTPException
 from backend import pro_license
 
 DEFAULT_ORIGIN = 'https://humperdinck.studio'
+# The site's bot protection rejects Python's default user agent with 403.
+USER_AGENT = 'Humperdinck-Desktop/1.0 (+https://humperdinck.studio)'
+
+
+def _ssl_context():
+    # Packaged apps may not see the system CA store; use certifi when bundled.
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
 _pending: dict | None = None
 
 
@@ -31,7 +43,7 @@ def _origin() -> str:
 
 
 def _call(path: str, payload: dict | None = None, token: str | None = None) -> dict:
-    headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+    headers = {'Accept': 'application/json', 'Content-Type': 'application/json', 'User-Agent': USER_AGENT}
     if token:
         headers['Authorization'] = 'Bearer ' + token
     request = urllib.request.Request(
@@ -41,7 +53,7 @@ def _call(path: str, payload: dict | None = None, token: str | None = None) -> d
         method='POST' if payload is not None else 'GET',
     )
     try:
-        with urllib.request.urlopen(request, timeout=12) as response:
+        with urllib.request.urlopen(request, timeout=12, context=_ssl_context()) as response:
             return json.loads(response.read(64 * 1024))
     except urllib.error.HTTPError as exc:
         try:
@@ -70,6 +82,32 @@ def status(data: Path) -> dict:
         return {'connected': False}
 
 
+def verify(data: Path) -> dict:
+    """Ask the account service whether this device's session is still valid.
+
+    A session revoked from the dashboard (or expired server-side) is removed
+    locally. Network problems keep the local session: sign-in is optional and
+    the offline Pro license never depends on it.
+    """
+    current = status(data)
+    if not current.get('connected'):
+        return current
+    try:
+        token = json.loads(_account_file(data).read_text(encoding='utf-8'))['token']
+        me = _call('me', token=token)
+    except HTTPException as exc:
+        if exc.status_code == 401:
+            _account_file(data).unlink(missing_ok=True)
+            return {'connected': False, 'revoked': True}
+        return {**current, 'offline': True}
+    except (OSError, ValueError, KeyError, TypeError):
+        return current
+    if me.get('authenticated') is False:
+        _account_file(data).unlink(missing_ok=True)
+        return {'connected': False, 'revoked': True}
+    return current
+
+
 def _save(data: Path, state: dict) -> None:
     folder = Path(data)
     folder.mkdir(parents=True, exist_ok=True)
@@ -94,7 +132,8 @@ def begin() -> dict:
     verification_url = result.get('verification_url', '')
     if not isinstance(request_id, str) or len(request_id) != 43 or not verification_url.startswith(_origin() + '/account/?device='):
         raise HTTPException(503, 'Invalid account-service pairing response')
-    _pending = {'request_id': request_id, 'verifier': verifier, 'expires_at': time.time()+min(result.get('expires_in', 600), 600)}
+    _pending = {'request_id': request_id, 'verifier': verifier, 'verification_url': verification_url,
+                'expires_at': time.time()+min(result.get('expires_in', 600), 600)}
     # Use the system's external browser, not an embedded webview.
     browser_opened = webbrowser.open(verification_url)
     return {'pending': True, 'verification_url': verification_url, 'browser_opened': bool(browser_opened)}
@@ -108,9 +147,15 @@ def poll(data: Path) -> dict:
     if time.time() >= pending['expires_at']:
         _pending = None
         return {'pending': False, 'expired': True, **status(data)}
-    result = _call('device/poll', {'request_id': pending['request_id'], 'verifier': pending['verifier']})
+    try:
+        result = _call('device/poll', {'request_id': pending['request_id'], 'verifier': pending['verifier']})
+    except HTTPException as exc:
+        if exc.status_code >= 500 or exc.status_code == 429:
+            return {'pending': True, 'retrying': True}  # brief outage: keep waiting
+        _pending = None
+        raise
     if result.get('status') != 'complete':
-        return {'pending': True}
+        return {'pending': True, 'verification_url': pending.get('verification_url')}
     token, user, expiry = result.get('access_token'), result.get('user'), result.get('expires_at')
     if not isinstance(token, str) or len(token) != 43 or not isinstance(user, dict) or not isinstance(expiry, int):
         raise HTTPException(503, 'Invalid completed account pairing')
