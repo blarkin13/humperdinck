@@ -409,3 +409,6 @@
 @media(max-width:640px){:root[data-theme="vintage"][data-mode="light"] .brand .brand-mark-vintage-light{width:44px;height:44px}}
 :root[data-mode="light"] .narrator-chip.on,:root[data-mode="light"] .narrator-icon:hover{background:var(--light-panel);color:var(--ink,inherit)}
 :root[data-mode="light"] .character-voice{background:var(--light-surface,#fff)}
+:root[data-mode="light"] .vs-track{background:var(--light-panel)}
+:root[data-mode="light"] .vs-cue{background:#ece6f8;color:#3a2d5c;border-color:#b6a6dc}
+:root[data-mode="light"] .vs-cue.draft{background:transparent}
