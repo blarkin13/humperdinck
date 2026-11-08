@@ -16,3 +16,19 @@
 
 /studio/wasm/*
   Cache-Control: no-store, max-age=0
+
+# Keep public search pages fresh after repository deployments.
+/ai-voice-generator/*
+  Cache-Control: no-store, max-age=0
+/text-to-speech/*
+  Cache-Control: no-store, max-age=0
+/voice-cloning/*
+  Cache-Control: no-store, max-age=0
+/offline-ai-voice/*
+  Cache-Control: no-store, max-age=0
+/ai-narration/*
+  Cache-Control: no-store, max-age=0
+/video-voiceover/*
+  Cache-Control: no-store, max-age=0
+/seo-pages.css
+  Cache-Control: public, max-age=3600
