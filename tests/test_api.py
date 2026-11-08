@@ -113,7 +113,7 @@ def test_multi_voice_narration_uses_each_reference(client, tmp_path):
     references = [c['reference'] for c in fake_synthesize.calls if c['mode'] == 'clone']
     assert references[1] == upload and references[0] != upload
     audio, rate = sf.read(tmp_path / 'outputs' / f"{job['job_id']}.wav")
-    assert rate == 24000 and len(audio) == 24000 * 2 + int(24000 * .3)
+    assert rate == 24000 and len(audio) == 24000 * 2  # default section delay is 0
 
 
 def test_jobs_survive_restart_and_unfinished_jobs_are_marked_failed(client, tmp_path):
