@@ -143,29 +143,45 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  }
 
  // ---- playback --------------------------------------------------------------
+ // The clock follows whatever is actually playing (the video, else a narration
+ // cue), so media is never re-seeked mid-play; seeking makes sound repeat.
+ const live=useRef({});live.current={layout,cues,length};
+ const ready=m=>m&&!m.paused&&!m.seeking&&m.readyState>=3;
  useEffect(()=>{
   if(!playing)return;
   let frame;clock.current.last=performance.now();
-  const tick=now=>{const t=clock.current.t+(now-clock.current.last)/1000;clock.current.last=now;
+  const tick=now=>{
+   const {layout,cues,length}=live.current,wall=(now-clock.current.last)/1000;clock.current.last=now;
+   let t=clock.current.t;
+   const here=layout.find(l=>t>=l.start&&t<l.end),v=videoEl.current;
+   const cue=cues.find(c=>c.audio&&t>=c.start&&t<cueEnd(c)),a=cue&&cueAudio.current[cue.id];
+   if(here?.clip.type==='video'&&v&&ready(v))t=here.start+v.currentTime-(here.clip.trim_start||0);
+   else if(here?.clip.type==='video'&&v&&!v.paused&&v.readyState<3){/* buffering: hold */}
+   else if(a&&ready(a))t=cue.start+a.currentTime;
+   else t+=wall;
+   if(here&&t>=here.end-.02&&here.clip.type==='video')t=Math.max(t,here.end); // step into the next clip
    if(t>=length){clock.current.t=length;setTime(length);setPlaying(false);return}
    clock.current.t=t;setTime(t);frame=requestAnimationFrame(tick)};
   frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);
- },[playing,length]);
+ },[playing]);
  useEffect(()=>{clock.current.t=time},[playing]);
  function seek(t){t=Math.max(0,Math.min(length,t));clock.current.t=t;setTime(t)}
- // Keep the visible video and the cue audio in step with the clock.
+ // Keep the visible video and the cue audio in step: line them up when they
+ // start or after a seek, then let them play untouched.
  useEffect(()=>{
   const v=videoEl.current;
   if(v&&current?.clip.type==='video'){
    const want=(current.clip.trim_start||0)+(time-current.start);
-   if(Math.abs(v.currentTime-want)>(playing?.35:.05))v.currentTime=want;
+   if(!playing||v.paused?Math.abs(v.currentTime-want)>.05:Math.abs(v.currentTime-want)>1)v.currentTime=want;
    const keep=project.sound.keep_original&&current.clip.has_audio;
    v.volume=keep?Math.min(1,(current.clip.volume??1)*project.sound.original_volume*(speaking?project.sound.duck_volume:1)):0;
    if(playing&&v.paused)v.play().catch(()=>{});if(!playing&&!v.paused)v.pause();
   }
   for(const cue of cues){const a=cueAudio.current[cue.id];if(!a)continue;
    const inside=cue.audio&&time>=cue.start&&time<cueEnd(cue);
-   if(playing&&inside){connectDesk(a,cue.gain||0);const want=time-cue.start;if(Math.abs(a.currentTime-want)>.3)a.currentTime=want;if(a.paused)a.play().catch(()=>{})}
+   if(playing&&inside){connectDesk(a,cue.gain||0);const want=time-cue.start;
+    if(a.paused){if(Math.abs(a.currentTime-want)>.05)a.currentTime=want;a.play().catch(()=>{})}
+    else if(Math.abs(a.currentTime-want)>.75)a.currentTime=want}
    else if(!a.paused)a.pause();
   }
  });
