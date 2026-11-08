@@ -260,6 +260,8 @@ async function pollDevice(request,env){
   return json({status:'complete',access_token:token.token,expires_at:token.expires_at,
     user:await profile(env,account)});
 }
+export {session as accountSession};
+
 export async function handleAccount(request,env){
   const url=new URL(request.url),path=url.pathname;
   // Always start OAuth on the callback's canonical host: __Host- cookies are

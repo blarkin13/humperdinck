@@ -33,6 +33,9 @@ jobs:
           node --check src/public-releases.js
           node --check src/model-proxy-worker.js
           node --check src/account-auth.js
+          node --check src/lemon-test-commerce.js
+          node --test tests/lemon-test-commerce.test.mjs
+          node --test tests/legal-signed-consent.test.mjs
           node --check website/account/account.js
           node --test tests/account-auth.test.mjs
           node --check src/account-dashboard.js
