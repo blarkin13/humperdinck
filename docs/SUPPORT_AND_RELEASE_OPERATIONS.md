@@ -13,11 +13,11 @@
 
 **Verified by read-only Cloudflare API, November 9:** domain active; all four routing rules enabled and forwarding to one verified Gmail destination; Cloudflare Email Routing MX, DKIM and SPF DNS values returned; catch-all disabled; suppression list count zero. This is *configuration evidence*, not an email-delivery guarantee.
 
-**End-to-end delivery NOT VERIFIED:** A single test mail sent from that same destination Gmail account to `support@` was found in Gmail SENT but not as a distinct received/forwarded item at audit time. A self-sender test is inconclusive, because mail providers can deduplicate or suppress loops. No live receipt was observed for the other three aliases. **Do not mark email-delivery acceptance complete.**
+**End-to-end delivery PARTIALLY VERIFIED:** A preliminary test sent from the destination Gmail account to `support@` appeared only in SENT and was inconclusive. A later, separate `Test` email addressed to `support@humperdinck.studio` appeared in the connected Gmail **INBOX** on November 9, 2026 (recipient preserved; no sensitive sender details retained here). Owner confirmed receipt. **Support forwarding PASS.** There is no equivalent received evidence yet for `billing@`, `privacy@`, or `legal@`. Do not mark all four aliases accepted.
 
 ### Final delivery test (independent sender)
 
-1. Using a mailbox **not** equal to the Gmail forwarding destination, send one harmless, unique-subject message to **each** of the four alias addresses. Include no customer PII or secret.
+1. Using a mailbox **not** equal to the Gmail forwarding destination, send one harmless, unique-subject message to **each remaining unverified** alias address (billing, privacy, legal). Support already has incoming acceptance evidence. Include no customer PII or secret.
 2. Inspect the recipient Gmail *Inbox* and *All Mail*, then Spam; confirm one incoming message for each alias, original `To:` alias, the independent `From:`, and approximate transit time. Do not confuse a SENT copy with receipt.
 3. Reply only after determining whether the `From:` address can legitimately be the brand alias (Gmail “Send mail as” requires separate authenticated sender configuration); otherwise use the existing verified sending identity without misrepresenting it as an alias.
 4. Save redacted evidence: alias, message subject marker, sent time, received time, disposition (inbox/spam), and verified response identity. Avoid full headers or source email addresses in the repository.
@@ -81,6 +81,6 @@ Escalate suspected voice-consent misuse or privacy exposure to the owner; for le
 
 ## Remaining acceptance for the P1 task
 
-**Done:** documented intake routing, categories, priority scheme, incident containment and recovery paths, publishing preflight, production security interlocks and operator handoff; read-only DNS/routing check. **Open:** independent sender → all four aliases → verified receipt in Gmail; owner-defined actual mailbox-checking routine; safe customer reply identity verified; owner signoff for support coverage. Keep P1 open until those operational tests are documented.
+**Done:** documented intake routing, categories, priority scheme, incident containment and recovery paths, publishing preflight, production security interlocks and operator handoff; read-only DNS/routing check. **Support alias receipt PASS:** incoming mail received in Gmail inbox Nov 9 and owner confirmed. **Open:** independent sender → billing, privacy and legal aliases → verified receipt in Gmail; owner-defined mailbox-checking routine; safe customer reply identity verified; owner signoff for support coverage. Keep P1 open until those operational tests are documented.
 
 No production changes, public emails to customers or live payment activation are performed by this document.
