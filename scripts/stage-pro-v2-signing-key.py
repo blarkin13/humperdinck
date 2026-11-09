@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 KEY_ID = "humperdinck-pro-ed25519-v2"
 PINNED_PUBLIC = "LJ0GvDnAUCXlSGtJrAYs8L6yFZvAbcpuvLNBQHNH4MM="
 SECRET_NAME = "PRO_LICENSE_V2_ED25519_PRIVATE"
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path.cwd()  # Allows safe standalone script outside a locally diverged repository
 
 
 def extract_key(record: dict, password: str) -> bytes:
@@ -75,6 +75,8 @@ def main() -> int:
     path = args.backup.expanduser()
     if not path.is_file() or path.stat().st_size > 65536:
         parser.error("Encrypted signing backup not found or unexpectedly large")
+    if not (ROOT / "wrangler.jsonc").is_file():
+        parser.error("Run this tool from the Humperdinck repository root (wrangler.jsonc)")
     if not shutil.which(args.wrangler):
         parser.error("npx not found; install Node.js and log into Cloudflare with Wrangler")
     print(f"This will stage {SECRET_NAME} on the existing Cloudflare Worker {args.worker}.")
