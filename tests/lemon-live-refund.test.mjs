@@ -9,7 +9,7 @@ const user='63a4cf69-678f-4788-a61d-8401cc309b72';
 const intent='b64bfb57-8b55-46a4-a6e6-d26c9c9781cc';
 const purchase={provider:'lemonsqueezy',event:'order_created',status:'paid',
  orderId:'12345',accountId:user,intentId:intent,storeId:'45',variantId:'789',
- amountCents:4900,currency:'USD',requiresPurchaseIntentVerification:true,
+ amountCents:4900,currency:'USD',paidAtSecs:150,requiresPurchaseIntentVerification:true,
  entitlementMutationAllowed:false};
 const refund={...purchase,event:'order_refunded',status:'refunded'};
 const opts={bodySha256:'b'.repeat(64),now:250};
