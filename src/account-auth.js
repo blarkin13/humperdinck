@@ -3,6 +3,7 @@
  * OAuth code flow + PKCE + cryptographically validated OIDC ID tokens.
  */
 import {handleProLicense} from './pro-license.js';
+import {limitedJson} from './limited-json.js';
 import {handleAccountDashboard,createLinkIntent,readLinkIntent} from './account-dashboard.js';
 const ORIGIN = 'https://humperdinck.studio';
 const COOKIE = '__Host-humperdinck_session';
@@ -50,11 +51,7 @@ function safeReturn(value){
   if(/^\/account\/\?device=[A-Z2-7]{10}$/.test(value))return value;
   return '/account/';
 }
-async function body(request){
-  if(Number(request.headers.get('Content-Length')||0)>4096)return {};
-  if(!request.headers.get('Content-Type')?.toLowerCase().startsWith('application/json'))return {};
-  try{return await request.json()}catch{return {}}
-}
+const body=request=>limitedJson(request,4096);
 function problem(status,message){return json({error:message},status)}
 async function rateLimit(request,env,kind,limit=12){
   const ip=request.headers.get('CF-Connecting-IP')||'unknown';
