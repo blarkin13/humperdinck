@@ -53,13 +53,38 @@ def _download(url, headers, partial):
             raise RuntimeError(partial.name + " download is incomplete")
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _has_capacity(directory: Path, required: int) -> None:
+    # Allow 20 percent temporary headroom to avoid filling the customer's disk.
+    free = shutil.disk_usage(directory).free
+    if free < int(required * 1.2):
+        required_mb = (required * 1.2 + (1024 * 1024 - 1)) // (1024 * 1024)
+        available_mb = free // (1024 * 1024)
+        raise RuntimeError(
+            f"Not enough free disk space to install the voice model "
+            f"(need about {int(required_mb)} MB; {available_mb} MB available). "
+            "Free up space in the model storage location and retry."
+        )
+
+
 def download_kokoro(progress=lambda _: None, attempts=4) -> Path:
     directory = preset_path("kokoro", "")
     directory.mkdir(parents=True, exist_ok=True)
     for name, minimum in FILES:
         path = directory / name
         if path.is_file() and path.stat().st_size >= minimum:
-            continue
+            if _sha256(path) == SHA256[name]:
+                progress("Verified existing " + name)
+                continue
+            progress("Existing " + name + " is incomplete or corrupted; downloading a verified replacement")
+        _has_capacity(directory, minimum)
         progress("Downloading " + name + " to shared model storage")
         partial = directory / (name + "." + uuid4().hex + ".partial")
         try:
@@ -81,14 +106,10 @@ def download_kokoro(progress=lambda _: None, attempts=4) -> Path:
                     time.sleep(min(30, 5 * 2 ** attempt))
             if partial.stat().st_size < minimum:
                 raise RuntimeError(name + " is smaller than expected")
-            digest = hashlib.sha256()
-            with partial.open("rb") as model_file:
-                for chunk in iter(lambda: model_file.read(1024 * 1024), b""):
-                    digest.update(chunk)
-            if digest.hexdigest() != SHA256[name]:
+            if _sha256(partial) != SHA256[name]:
                 raise RuntimeError(name + " SHA-256 does not match the pinned upstream release")
-            if not path.is_file() or path.stat().st_size < minimum:
-                partial.replace(path)
+            # Atomic replacement also repairs a corrupt file of the correct size.
+            partial.replace(path)
             progress("Downloaded " + name)
         finally:
             partial.unlink(missing_ok=True)
