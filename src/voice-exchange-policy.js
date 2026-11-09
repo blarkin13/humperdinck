@@ -19,7 +19,7 @@ export function validateUploadManifest(data){
   if(data.voice_package!=='voice-package.json'||data.preview_file!=='preview.wav')
     return {ok:false,error:'Only the reusable voice package and generated preview may be submitted'};
   if(typeof data.display_name!=='string'||data.display_name.trim().length<2||
-    data.display_name.length>80||/[<>\\x00-\\x1f]/.test(data.display_name))
+    data.display_name.length>80||/[<>\u0000-\u001f]/.test(data.display_name))
     return {ok:false,error:'Invalid public voice name'};
   if(typeof data.category!=='string'||data.category.length>40||
     !/^[a-z0-9 -]+$/i.test(data.category))
