@@ -76,6 +76,6 @@ def test_tampered_ciphertext_is_rejected():
 
 def test_mismatched_public_key_is_rejected():
     record, passphrase = fixture()
-    record["public_key_base64"] = b64(b"\\0" * 32)
+    record["public_key_base64"] = b64(bytes(32))
     with pytest.raises(module.InvalidBackup):
         module.verify_backup(record, passphrase)
