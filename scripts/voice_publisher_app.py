@@ -41,6 +41,23 @@ ALLOWED = [
     ('PATCH', rf'/api/starter-voices/{HEX}'),                  # rename in the pack
     ('DELETE', rf'/api/starter-voices/{HEX}'),                 # take out of the pack
     ('POST', r'/api/starter-voices/publish'),
+    ('POST', rf'/api/starter-voices/from-design/{HEX}'),       # designed voice -> source voice
+    # Voice design: written description + sliders, previews, saving.
+    ('GET', r'/api/designed-voices'),
+    ('POST', r'/api/designed-voices'),
+    ('POST', r'/api/designed-voices/draft-preview'),
+    ('GET', rf'/api/designed-voices/{HEX}'),
+    ('PATCH', rf'/api/designed-voices/{HEX}'),
+    ('DELETE', rf'/api/designed-voices/{HEX}'),
+    ('POST', rf'/api/designed-voices/{HEX}/versions'),
+    ('POST', rf'/api/designed-voices/{HEX}/versions/\d+/attach-preview'),
+    ('POST', rf'/api/designed-voices/{HEX}/preview'),
+    ('GET', rf'/api/designed-samples/{HEX}'),
+    ('POST', r'/api/voice-refinement/suggest'),               # sliders from a description
+    # Sliders on uploaded recordings.
+    ('GET', rf'/api/voices/{HEX}/refinement'),
+    ('PUT', rf'/api/voices/{HEX}/refinement'),
+    ('POST', rf'/api/voices/{HEX}/refinement-preview'),
     ('GET', rf'/api/jobs/{JOB}'),                              # sample progress
     ('GET', rf'/api/outputs/{JOB}\.wav'),                      # listen to a new sample
 ]
@@ -104,7 +121,9 @@ def make_handler(backend_port: int, origin: str):
 def main() -> int:
     python = sys.executable  # voice-publisher.sh starts this with the project's .venv
     backend_port, port = free_port(), int(os.environ.get('VOICE_PUBLISHER_PORT') or 8765)
-    env = dict(os.environ, HUMPERDINCK_SKIP_PRESET_BOOTSTRAP='1')
+    # The publisher is the owner's own tool: every voice feature is unlocked here.
+    env = dict(os.environ, HUMPERDINCK_SKIP_PRESET_BOOTSTRAP='1',
+               HUMPERDINCK_ENABLE_DEV_ENTITLEMENTS='1', HUMPERDINCK_DEV_PRO='1')
     env.pop('HUMPERDINCK_NATIVE_PACKAGE', None)  # publishing is developer-copy only
     backend = subprocess.Popen([str(python), '-m', 'uvicorn', 'backend.app:app', '--host', '127.0.0.1',
                                 '--port', str(backend_port), '--log-level', 'warning'], cwd=ROOT, env=env)

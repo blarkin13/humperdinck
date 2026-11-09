@@ -18,6 +18,10 @@ JOB = 'a' * 32
     ('PATCH', '/api/starter-voices/abc'), ('DELETE', '/api/starter-voices/abc'),
     ('POST', '/api/starter-voices/publish'), ('GET', f'/api/jobs/{JOB}'),
     ('GET', f'/api/outputs/{JOB}.wav'), ('GET', '/api/starter-voices/abc/sample.wav'),
+    ('POST', '/api/designed-voices/draft-preview'), ('POST', '/api/designed-voices'),
+    ('POST', '/api/designed-voices/abc/versions/2/attach-preview'), ('POST', '/api/voice-refinement/suggest'),
+    ('PUT', '/api/voices/abc/refinement'), ('POST', '/api/voices/abc/refinement-preview'),
+    ('POST', '/api/starter-voices/from-design/abc'),
 ])
 def test_voice_publishing_is_allowed(method, path):
     assert app.allowed(method, path)
@@ -33,3 +37,8 @@ def test_voice_publishing_is_allowed(method, path):
 ])
 def test_everything_else_is_refused(method, path):
     assert not app.allowed(method, path)
+
+
+def test_publisher_unlocks_every_voice_feature():
+    source = (Path(__file__).resolve().parents[1] / 'scripts' / 'voice_publisher_app.py').read_text()
+    assert "HUMPERDINCK_DEV_PRO='1'" in source and "HUMPERDINCK_ENABLE_DEV_ENTITLEMENTS='1'" in source

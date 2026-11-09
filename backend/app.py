@@ -291,6 +291,22 @@ def update_starter_voice(voice_id:str,request:RenameInput):
     except ValueError as exc:
         raise HTTPException(404 if 'not in' in str(exc) else 400,str(exc))
 
+@app.post('/api/starter-voices/from-design/{designed_id}')
+def starter_source_from_design(designed_id:str):
+    """Publisher: turn a designed voice's approved sample into a source voice for the pack."""
+    publisher_only()
+    voice=library.get(designed_id) or _missing_voice()
+    usable=library.latest_approved(designed_id)
+    if not usable:
+        raise HTTPException(409,'Preview the designed voice and keep a sample first')
+    key=uuid4().hex
+    shutil.copyfile(usable['path'],DATA/'voices'/f'{key}.wav')
+    meta=voice_meta()
+    meta[key]={'name':voice['name'],'category':voice.get('category',''),'origin':'designed',
+               'designed_from':designed_id}
+    save_voice_meta(meta)
+    return {'voice_id':key,'filename':voice['name'],'category':voice.get('category','')}
+
 @app.get('/api/voice-catalog')
 def voice_catalog():
     from backend import voice_catalog as gallery
