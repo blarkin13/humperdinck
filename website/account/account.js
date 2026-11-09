@@ -331,13 +331,20 @@ q('submit-privacy-request').addEventListener('click',async()=>{
  const kind=q('privacy-request-kind').value;
  if(!['access','correction','deletion'].includes(kind))return;
  const description=kind==='deletion'?
-  'Submit a deletion REVIEW request? No account data, lifetime license, or purchased entitlement will be deleted automatically.':
+  'Submit an account deletion REVIEW request? If actual deletion is later approved, you may permanently lose online Pro access, device activation, and account-based license recovery. Previously exported offline certificates may continue to work and cannot necessarily be revoked. No data or license will be deleted by this request.':
   'Submit your '+kind+' request for manual review?';
  if(!confirm(description))return;
+ if(kind==='deletion'&&!confirm(
+  'Acknowledge potential permanent forfeiture of online Pro activation and recovery if you later complete deletion. This is only a review request; no deletion occurs now.'
+ ))return;
  const button=q('submit-privacy-request');button.disabled=true;
  try{
   const record=await request('/privacy/requests',{
-   method:'POST',data:{kind,confirmation:'REQUEST PRIVACY REVIEW'}
+   method:'POST',data:{kind,confirmation:'REQUEST PRIVACY REVIEW',
+    ...(kind==='deletion'?{
+     forfeitureAcknowledgment:'I UNDERSTAND ACCOUNT DELETION MAY FORFEIT PRO',
+     offlineCertificateAcknowledged:true
+    }:{})}
   });
   if(record.status!=='pending'||!record.request_id)throw Error('Privacy request was not recorded.');
   q('privacy-request-status').textContent=
