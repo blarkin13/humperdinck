@@ -17,3 +17,9 @@ desktop/src-tauri/gen/
 desktop/src-tauri/icons/
 desktop/src-tauri/binaries/
 desktop/.build-sidecar/
+
+# Never commit encrypted license signing-key backups or private key exports.
+*.encrypted.json
+*.private.pem
+*.private.pkcs8
+humperdinck-pro-signing*.json
