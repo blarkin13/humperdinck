@@ -60,7 +60,7 @@ test('wrong amount, store, variant or currency cannot create a paid grant',async
  assert.equal(f.count('pro_licenses'),0);
  f.sqlite.close();
 });
-test('inactive checkout intent and preexisting complimentary license fail closed',async()=>{
+test('inactive checkout fails closed; valid purchase preserves complimentary Pro',async()=>{
  const f=fixture();
  f.sqlite.exec("UPDATE commerce_live_intents SET status='cancelled'");
  assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'manual-review');
@@ -68,9 +68,10 @@ test('inactive checkout intent and preexisting complimentary license fail closed
  f.sqlite.prepare(`INSERT INTO pro_licenses
  (id,user_id,status,issued_at,max_devices,provider,purchase_ref)
  VALUES (?,?,'active',?,10,?,?)`).run('complimentary-1',user,99,'complimentary','gift-1');
- assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'manual-review');
- assert.equal(f.count('commerce_live_orders'),0);
+ assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'settled-existing-license');
+ assert.equal(f.count('commerce_live_orders'),1);
  assert.equal(f.count('pro_licenses'),1);
+ assert.equal(f.sqlite.prepare('SELECT provider FROM pro_licenses').get().provider,null);
  f.sqlite.close();
 });
 test('transaction rolls back when webhook event hash collides',async()=>{
