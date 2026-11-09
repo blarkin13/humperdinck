@@ -1,0 +1,34 @@
+name: Launch readiness evidence (no production mutations)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/launch-readiness.yml'
+      - 'scripts/report-launch-readiness.py'
+      - 'docs/RELEASE_RIGHTS_APPROVAL.json'
+      - 'docs/THIRD_PARTY_RELEASE_AUDIT.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate read-only evidence (not a release approval)
+        run: |
+          python scripts/report-launch-readiness.py \
+            --commit "$GITHUB_SHA" --output reports/launch-readiness.json
+          python -m json.tool reports/launch-readiness.json > /dev/null
+      - name: Upload human-readable launch gates
+        uses: actions/upload-artifact@v4
+        with:
+          name: humperdinck-launch-readiness
+          path: reports/launch-readiness.json
+          if-no-files-found: error
