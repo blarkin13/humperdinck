@@ -2,6 +2,7 @@ import {recordAnalyticsEvent, handleAnalyticsEvent} from './site-analytics.js';
 import {handleAccount,accountSession} from './account-auth.js';
 import {handleLemonTest} from './lemon-test-commerce.js';
 import {publicRelease} from './public-releases.js';
+import {handleNativeModel,ROUTE as NATIVE_MODEL_ROUTE} from './native-model-mirror.js';
 // Model files only: browser synthesis remains local; this Worker performs no inference.
 // Restrict paths to the single public model to prevent an arbitrary URL proxy.
 const PREFIX='/model/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/';
@@ -13,6 +14,7 @@ export default {
   if(url.pathname.startsWith('/api/account/'))return handleAccount(request,env);
   if(url.pathname.startsWith('/api/commerce/test/'))return handleLemonTest(request,env,{session:accountSession});
   if(url.pathname==='/analytics/event')return handleAnalyticsEvent(request,env);
+  if(url.pathname.startsWith(NATIVE_MODEL_ROUTE))return handleNativeModel(request,env,ctx);
   if(url.pathname==='/downloads.json'||url.pathname==='/updates/latest.json'){
     return publicRelease(request,env);
   }
