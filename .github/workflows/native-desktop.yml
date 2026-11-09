@@ -380,6 +380,24 @@ jobs:
               test "$(find desktop/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app.tar.gz.sig' | wc -l | tr -d ' ')" -eq 1 ;;
             Linux) : ;;
           esac
+      - name: Inspect built OS installer containers
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in
+            Windows)
+              FILE="$(find desktop/src-tauri/target/release/bundle/nsis -maxdepth 1 -name '*.exe' -print -quit)"
+              python scripts/check_native_installer_artifact.py --platform windows --file "$FILE"
+              ;;
+            macOS)
+              FILE="$(find desktop/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+              python scripts/check_native_installer_artifact.py --platform macos --file "$FILE"
+              ;;
+            Linux)
+              FILE="$(find desktop/src-tauri/target/release/bundle/deb -maxdepth 1 -name '*.deb' -print -quit)"
+              python scripts/check_native_installer_artifact.py --platform linux --file "$FILE"
+              ;;
+          esac
       - name: Capture exact installer digests and dependency snapshot for rights audit
         if: success()
         shell: bash
