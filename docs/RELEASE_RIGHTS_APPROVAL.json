@@ -1,0 +1,15 @@
+{
+  "format": "humperdinck-release-rights-v1",
+  "status": "BLOCKED",
+  "version": null,
+  "reviewed_commit": null,
+  "reviewer": null,
+  "reviewed_utc": null,
+  "bundled_voices_pack_sha256": "15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49",
+  "voice_permissions": [],
+  "sound_sources_archived_and_verified": false,
+  "all_frozen_dependencies_and_notices_verified": false,
+  "ffmpeg_bundled": false,
+  "ffmpeg_exact_build_reviewed": false,
+  "notes": "Engineering review incomplete. Never mark CLEARED without independently stored signed voice releases, copyright grants, and exact native binary and sound evidence."
+}
