@@ -58,7 +58,9 @@ const traitLabels={pitch:['Pitch','Low','High'],rasp:['Rasp','Smooth','Gravelly'
 const sameTraits=(a,b)=>Object.keys(defaults).every(k=>(a?.[k]??50)===(b?.[k]??50));
 const starter='Good evening. I have been waiting a long time to tell you this story.';
 // An empty or non-JSON reply means the backend is not running (it crashed or is still starting).
-async function api(path,options){if(PUBLIC_STUDIO)throw Error('This feature requires the desktop application.');const r=await fetch('/api/'+path,options);let j;try{j=await r.json()}catch{throw Error('Humperdinck\'s backend is not responding. Check the start.cmd / start.sh window for an error, then restart it.')}if(!r.ok){if(j.detail?.code==='PRO_REQUIRED')throw Error('Humperdinck Pro is required for this feature. Checkout is not available yet.');throw Error(typeof j.detail==='string'?j.detail:JSON.stringify(j.detail||j))}return j}
+async function api(path,options){if(PUBLIC_STUDIO)throw Error('This feature requires the desktop application.');const r=await fetch('/api/'+path,options);let j;try{j=await r.json()}catch{throw Error('Humperdinck\'s backend is not responding. Check the start.cmd / start.sh window for an error, then restart it.')}if(!r.ok){if(j.detail?.code==='PRO_REQUIRED')throw Error('Humperdinck Pro is required for this feature. Checkout is not available yet.');throw Error(errorText(j))}return j}
+// FastAPI validation errors arrive as a list; show them as plain sentences.
+function errorText(j){const d=j?.detail;if(typeof d==='string')return d;if(Array.isArray(d))return d.map(e=>{const where=(e.loc||[]).filter(p=>p!=='body').join(' ');return (where?where+': ':'')+(e.msg||'Invalid value')}).join('; ');return JSON.stringify(d||j)}
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function App(){
  const {notify,confirm:askConfirm,input:askInput}=useNotifications();
