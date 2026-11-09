@@ -280,6 +280,9 @@ def test_voice_upload_requires_explicit_signed_consent_acknowledgement(client, t
     voice_id = third_party.json()['voice_id']
     private_evidence = tmp_path / 'consent-evidence' / (voice_id + '.pdf')
     assert private_evidence.read_bytes() == signed_mock
+    assert client.get('/api/voices/' + voice_id + '/consent-status').json()['integrity'] == 'intact'
+    private_evidence.write_bytes(b'%PDF-1.4\\n%Tampered')
+    assert client.get('/api/voices/' + voice_id + '/consent-status').json()['integrity'] == 'tampered'
     assert client.delete('/api/voices/' + voice_id).status_code == 200
     assert not private_evidence.exists()
 
