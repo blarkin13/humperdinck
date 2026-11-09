@@ -14,6 +14,9 @@ const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers
 const fail=(status,error)=>reply({error},status);
 const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 const digits=s=>/^[1-9][0-9]{0,14}$/.test(String(s||''));
+// Owner-selected planned one-time Pro price. Sandbox paid events may not grant
+// a test license at a different product base price. Tax is independent.
+export const SANDBOX_PRO_PRICE_CENTS=4900;
 export const configured=env=>Boolean(env.AUTH_DB&&env.LS_TEST_API_KEY&&
  env.LS_TEST_WEBHOOK_SECRET&&digits(env.LS_TEST_STORE_ID)&&digits(env.LS_TEST_VARIANT_ID));
 
@@ -50,7 +53,14 @@ export function checkedOrder(data,env){
     ||!uuid(custom.intent_id)||!uuid(custom.account_id)
     ||typeof a.currency!=='string'||!/^[A-Z]{3}$/.test(a.currency)
     ||!Number.isSafeInteger(a.total)||a.total<0)return null;
- if(kind==='order_created'&&(a.status!=='paid'||a.refunded===true))return null;
+ if(kind==='order_created'){
+  if(a.status!=='paid'||a.refunded===true||a.currency!=='USD')return null;
+  // Lemon Squeezy's total includes tax, so compare pre-tax subtotal when
+  // available. Synthetic/minimal legacy webhook fixtures use total instead.
+  // Refunds must remain processable even if their original price later changes.
+  const baseAmount=a.subtotal==null?a.total:a.subtotal;
+  if(!Number.isSafeInteger(baseAmount)||baseAmount!==SANDBOX_PRO_PRICE_CENTS)return null;
+ }
  const refund=kind==='order_refunded';
  return {kind,orderId:String(data.data.id),intentId:custom.intent_id,accountId:custom.account_id,
   orderNumber:a.order_number==null?null:String(a.order_number).slice(0,80),
