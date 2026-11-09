@@ -96,6 +96,29 @@ def check_page(slug):
         issues.append("missing Twitter card")
     if not parser.schemas:
         issues.append("missing structured data")
+    if not slug:
+        # Only the publicly downloadable Free edition is available now.
+        # A planned paid upgrade must not be marked up as a live offer.
+        schema_nodes = []
+        for schema in parser.schemas:
+            if isinstance(schema, list):
+                schema_nodes.extend(node for node in schema if isinstance(node, dict))
+            elif isinstance(schema, dict):
+                schema_nodes.append(schema)
+        apps = [node for node in schema_nodes if node.get("@type") == "SoftwareApplication"]
+        if len(apps) != 1:
+            issues.append("homepage needs exactly one SoftwareApplication schema")
+        else:
+            app = apps[0]
+            offer = app.get("offers")
+            if not isinstance(offer, dict) or offer.get("@type") != "Offer":
+                issues.append("missing Free desktop Offer in SoftwareApplication")
+            elif (offer.get("price") != 0
+                  or offer.get("priceCurrency") != "USD"
+                  or offer.get("url") != DOMAIN + "/#download"):
+                issues.append("Free edition offer must be USD 0 with correct download URL")
+            if "review" in app or "aggregateRating" in app:
+                issues.append("do not publish unverified software reviews or ratings")
     if parser.heading_count != 1:
         issues.append("expected exactly one h1")
     if parser.heading_open:
