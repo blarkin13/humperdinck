@@ -30,6 +30,12 @@ export function planLiveFulfillment(order,{intent,existingOrder,existingLicense}
    if(existingOrder.status==='paid')return {decision:'idempotent-paid-replay',mutateEntitlement:false};
    return blocked('Previously refunded or disputed order cannot silently regrant Pro');
  }
+ // A newly paid order may only advance an active checkout intent. Closed,
+ // expired, refunded or otherwise unknown intent states require review.
+ // Expiry is intentionally not evaluated against webhook arrival time:
+ // a valid provider webhook may be delayed after a timely checkout.
+ if(intent.status!=='started')
+   return blocked('Checkout intent is not in an issuable state');
  if(existingLicense){
    if(existingLicense.user_id!==order.accountId)return blocked('Existing license ownership conflict');
    if(existingLicense.status==='active'){
