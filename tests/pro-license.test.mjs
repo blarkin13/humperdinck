@@ -202,7 +202,7 @@ test('another account cannot retrieve, deactivate or export an owner license',as
  assert.equal((await (await send('/api/account/license',{},env)).json()).active_devices,1);
 });
 
-test('versioned signing defaults to v1 and refuses v2 without pinned public key',async()=>{
+test('versioned signing defaults to v1 and refuses v2 without a matching configured private key',async()=>{
  const {env}=await setup();
  const issued=await send('/api/account/license/backup',{},env);
  assert.equal(issued.status,200);
