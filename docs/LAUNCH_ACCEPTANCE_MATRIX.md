@@ -100,3 +100,47 @@ The Community Voice Exchange and downloadable user-submitted cloned-voice librar
   OS code-signing/notarization, live merchant approval, real account deletion
   and retention procedures, and independent legal review.
 
+
+## Independent build batch — November 8–9, 2026 (PR #31/#77 excluded)
+
+**Completed in source and covered by automated checks:**
+
+- Account privacy export and authenticated manual access/correction/deletion
+  request intake (`src/account-privacy.js`), with idempotent pending requests
+  and schema migration `0005_account_privacy.sql`. Individual requests do
+  **not** erase Pro entitlements, and no destructive deletion route exists.
+  `tests/account-privacy.test.mjs` validates redaction, owner isolation, CSRF
+  and safe replay. `tests/test_privacy_schema.py` demonstrates explicitly
+  that deleting `auth_users` would cascade-delete perpetual Pro records;
+  a legally reviewed minimal purchaser-retention migration is required
+  before implementing destructive deletion.
+- Separate production Lemon Squeezy preflight and decision planner
+  (`src/lemon-live-preflight.js`,
+  `src/lemon-live-fulfillment-plan.js`). These modules are **not wired into
+  a live endpoint** and do not grant/revoke Pro. Tests cover live/test
+  separation, HMAC, store/variant, paid status, account/intent binding,
+  duplicate orders, refunds and existing complimentary licenses. See
+  `docs/LEMON_LIVE_FULFILLMENT_GATES.md`.
+- Offline simulated v1/v2 license restoration and issuer rollback tests;
+  source v1 remains production default and no owner private signing key
+  entered GitHub.
+- Signed third-party voice-document checksum checks and a local
+  `/api/voices/{voice_id}/consent-status` status-only endpoint. It does
+  **not** validate the speaker's identity or legal consent signature.
+- Native OS container inspection added to unsigned CI (MZ EXE, Apple DMG
+  and Debian package metadata/file listing). Success on the **previous**
+  all-three-platform run is verified; the latest changed workflow must be
+  checked separately. This is not GUI installation or OS notarization.
+- Customer support FAQ expanded for privacy access, withdrawal and the
+  non-live status of new account features; existing SEO checks still run.
+- Public installer workflow now requires Windows publisher signing,
+  macOS Developer ID/notarization, private explicit rights signoff and
+  a production approval environment. **No public release was published.**
+
+**Still NOT independently complete:** live privacy D1 migration,
+actual self-service dashboard and verified deletion, payment provider
+approval and atomic paid fulfillment, valid seven-voice speaker rights,
+exact third-party redistribution clearance, real Windows/macOS/Linux
+hardware acceptance, Cloudflare private v2 signing-key activation, Apple
+and Microsoft publisher credentials, and independent counsel review.
+
