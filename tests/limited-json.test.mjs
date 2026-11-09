@@ -29,7 +29,7 @@ test('invalid UTF8 is rejected and exactly 4 KB is accepted',async()=>{
  const payload=new TextEncoder().encode(JSON.stringify({v:'x'.repeat(4088)}));
  assert.equal(payload.length,4096);
  assert.deepEqual(await limitedJson(new Request(url,{method:'POST',
-  headers:{'Content-Type':'application/json'},body:payload})),{v:'x'.repeat(4092)});
+  headers:{'Content-Type':'application/json'},body:payload})),{v:'x'.repeat(4088)});
  const invalid=new Uint8Array([123,34,120,34,58,34,255,34,125]);
  assert.deepEqual(await limitedJson(new Request(url,{method:'POST',
   headers:{'Content-Type':'application/json'},body:invalid})),{});
