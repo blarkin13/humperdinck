@@ -481,7 +481,8 @@ def preview_voice_refinement(voice_id:str,request:VoiceRefinementPreviewInput):
 @app.delete('/api/voices/{voice_id}')
 def delete_voice(voice_id: str):
     upload_path(voice_id).unlink()
-    voice_consent.delete_document(DATA, voice_id)
+    if re.fullmatch(r'[0-9a-f]{32}', voice_id):
+        voice_consent.delete_document(DATA, voice_id)
     meta = voice_meta(); meta.pop(voice_id, None); save_voice_meta(meta)
     return {'deleted':True}
 
