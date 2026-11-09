@@ -137,3 +137,48 @@ def test_model_download_emits_percentage_and_rejects_oversized_response(tmp_path
                         lambda *args, **kwargs: Fake(1024 * 1024 * 1024, 10))
     with pytest.raises(RuntimeError, match="exceeds"):
         native_models._download("test://download", {}, tmp_path / "oversize.onnx.partial")
+
+
+def test_bad_checksum_on_primary_source_recovers_from_good_fallback(tmp_path,monkeypatch):
+    monkeypatch.setenv("HF_HOME",str(tmp_path/"hf"))
+    monkeypatch.delenv("HUMPERDINCK_MODEL_HOME",raising=False)
+    expected=b"correct binary file"
+    name="kokoro-v1.0.onnx"
+    monkeypatch.setattr(native_models,"FILES",((name,len(expected)),))
+    monkeypatch.setattr(native_models,"SHA256",{name:hashlib.sha256(expected).hexdigest()})
+    monkeypatch.setattr(native_models,"_sources",lambda n:iter([
+        ("mock://primary",{}),("mock://fallback",{})]))
+    accessed=[]
+    def write_fake(url,headers,partial,progress):
+        accessed.append(url)
+        partial.write_bytes(b"X"*len(expected) if url.endswith("primary") else expected)
+    monkeypatch.setattr(native_models,"_download",write_fake)
+    output=native_models.download_kokoro(attempts=1)
+    assert (output/name).read_bytes()==expected
+    assert accessed==["mock://primary","mock://fallback"]
+    assert not list(output.glob("*.partial"))
+
+
+def test_invalid_checksum_retries_then_preserves_previous_file(tmp_path,monkeypatch):
+    monkeypatch.setenv("HF_HOME",str(tmp_path/"hf"))
+    monkeypatch.delenv("HUMPERDINCK_MODEL_HOME",raising=False)
+    name="kokoro-v1.0.onnx"
+    expected=b"genuine!"
+    monkeypatch.setattr(native_models,"FILES",((name,len(expected)),))
+    monkeypatch.setattr(native_models,"SHA256",{name:hashlib.sha256(expected).hexdigest()})
+    directory=tmp_path/"hf"/"humperdinck"/"presets"/"kokoro"
+    directory.mkdir(parents=True)
+    target=directory/name
+    target.write_bytes(b"badbytes")
+    monkeypatch.setattr(native_models,"_sources",lambda n:iter([("mock://primary",{})]))
+    calls=[]
+    def wrong(url,headers,partial,progress):
+        calls.append(url)
+        partial.write_bytes(b"invalid!")
+    monkeypatch.setattr(native_models,"_download",wrong)
+    monkeypatch.setattr(native_models.time,"sleep",lambda *a:None)
+    with pytest.raises(RuntimeError,match="SHA-256"):
+        native_models.download_kokoro(attempts=3)
+    assert len(calls)==3
+    assert target.read_bytes()==b"badbytes"
+    assert not list(directory.glob("*.partial"))
