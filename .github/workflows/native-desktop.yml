@@ -1,6 +1,11 @@
 name: Native desktop builds and signed updater packages
 
+# Preview verification builds only. Push builds never sign or publish installers.
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/native-desktop.yml'
   workflow_dispatch:
   workflow_call:
     inputs:
