@@ -182,3 +182,22 @@ def test_invalid_checksum_retries_then_preserves_previous_file(tmp_path,monkeypa
     assert len(calls)==3
     assert target.read_bytes()==b"badbytes"
     assert not list(directory.glob("*.partial"))
+
+
+def test_size_cap_admits_real_voices_file(tmp_path, monkeypatch):
+    # voices-v1.0.bin upstream is 28,214,398 bytes; a 20 MB cap rejected it.
+    from backend import native_models
+
+    class Response:
+        headers = {"Content-Length": "28214398"}
+        def __init__(self): self.left = 28214398
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self, n):
+            n = min(n, self.left); self.left -= n
+            return b"\0" * n
+
+    monkeypatch.setattr(native_models.urllib.request, "urlopen", lambda *a, **k: Response())
+    partial = tmp_path / "voices-v1.0.bin.x.partial"
+    native_models._download("https://example.invalid", {}, partial)
+    assert partial.stat().st_size == 28214398
