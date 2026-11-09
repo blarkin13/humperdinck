@@ -14,6 +14,7 @@ export async function settleLivePaidOrder(env,order,{bodySha256,now=Math.floor(D
     ||order.provider!=='lemonsqueezy'||order.entitlementMutationAllowed!==false
     ||order.requiresPurchaseIntentVerification!==true||!digits(order.orderId)
     ||!digits(order.storeId)||!digits(order.variantId)||!hash(bodySha256)
+    ||!Number.isSafeInteger(order.paidAtSecs)||order.paidAtSecs<=0
     ||!Number.isSafeInteger(order.amountCents)||order.amountCents<0
     ||typeof order.currency!=='string'||!/^[A-Z]{3}$/.test(order.currency))
    return fail('Unverified or incomplete production order');
@@ -35,7 +36,8 @@ export async function settleLivePaidOrder(env,order,{bodySha256,now=Math.floor(D
  if(String(intent.store_id)!==String(order.storeId)
     ||String(intent.variant_id)!==String(order.variantId)
     ||intent.amount_cents!==order.amountCents||intent.currency!==order.currency
-    ||!Number.isSafeInteger(intent.expires_at)||intent.expires_at<=intent.created_at)
+    ||!Number.isSafeInteger(intent.expires_at)||intent.expires_at<=intent.created_at
+    ||order.paidAtSecs<intent.created_at||order.paidAtSecs>intent.expires_at)
    return fail('Order does not match owner-created checkout price, currency or variant');
  if(!Number.isSafeInteger(now)||now<=0)return fail('Invalid settlement timestamp');
  // The guarded scalar subquery returns NULL if the intent was concurrently
@@ -46,10 +48,11 @@ export async function settleLivePaidOrder(env,order,{bodySha256,now=Math.floor(D
      (provider_order_id,intent_id,user_id,amount_cents,currency,status,created_at,updated_at)
      VALUES (?,?,?,(SELECT amount_cents FROM commerce_live_intents
        WHERE id=? AND user_id=? AND status='started' AND store_id=? AND variant_id=?
-         AND amount_cents=? AND currency=?),?,'paid',?,?)`)
+         AND amount_cents=? AND currency=? AND created_at<=?
+         AND expires_at>=?),?,'paid',?,?)`)
     .bind(order.orderId,order.intentId,order.accountId,order.intentId,order.accountId,
       String(order.storeId),String(order.variantId),order.amountCents,order.currency,
-      order.currency,now,now),
+      order.paidAtSecs,order.paidAtSecs,order.currency,now,now),
    db.prepare(`INSERT INTO pro_licenses
      (id,user_id,status,issued_at,max_devices,provider,purchase_ref)
      VALUES (?,?,'active',?,10,'lemonsqueezy',?)`)
