@@ -151,3 +151,11 @@ def test_sign_out_and_back_in_reuses_the_same_installation(tmp_path, monkeypatch
     assert not account_client.status(tmp_path)['connected']
     assert pro_license.installation(tmp_path) == first
     assert license_file.read_text() == '{"keep": true}'
+
+
+def test_open_purchase_page_uses_fixed_dashboard_anchor(monkeypatch):
+    from backend import account_client
+    opened = []
+    monkeypatch.setattr(account_client.webbrowser, 'open', lambda url: opened.append(url) or True)
+    assert account_client.open_page('purchase') == {'opened': True}
+    assert opened == [account_client._origin() + '/account/#purchase']

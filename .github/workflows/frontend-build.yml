@@ -35,6 +35,7 @@ jobs:
           node --check src/account-auth.js
           node --check src/lemon-test-commerce.js
           node --test tests/lemon-test-commerce.test.mjs
+          node --test tests/lemon-test-grants.test.mjs
           node --test tests/lemon-live-preflight.test.mjs
           node --test tests/lemon-live-fulfillment-plan.test.mjs
           node --test tests/legal-signed-consent.test.mjs

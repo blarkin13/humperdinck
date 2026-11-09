@@ -48,7 +48,7 @@ def _download(url, headers, partial, progress=lambda _: None):
     context = ssl.create_default_context(cafile=certifi.where())
     name = next((asset for asset, _ in FILES if partial.name.startswith(asset + ".")), partial.name)
     # Bound a faulty upstream response before it can fill the user's disk.
-    max_bytes = 512 * 1024 * 1024 if name.endswith(".onnx") else 20 * 1024 * 1024
+    max_bytes = 512 * 1024 * 1024 if name.endswith(".onnx") else 64 * 1024 * 1024  # voices-v1.0.bin is ~27 MB
     with urllib.request.urlopen(request, timeout=120, context=context) as response, partial.open("wb") as output:
         raw_size = response.headers.get("Content-Length")
         expected = int(raw_size) if raw_size else 0

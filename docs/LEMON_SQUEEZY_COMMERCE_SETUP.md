@@ -133,3 +133,27 @@ review, permanent-key recovery, checkout and refund webhook validation, true
 purchase-to-account issuance, 10-device registration and offline reinstall tests
 are all complete. Automated and test-mode results are not a substitute for
 end-to-end validation on signed installer artifacts.
+
+## Owner QA: test purchases that grant Pro (allowlist only)
+
+Test orders still never grant Pro, except for accounts listed in the
+`LS_TEST_GRANT_EMAILS` Worker secret (comma-separated emails, default empty).
+For those accounts a paid test order inserts one `pro_licenses` row with
+`provider='lemonsqueezy-test'` and `purchase_ref='lstest:<order id>'`:
+
+- an existing license on the account (complimentary or earlier) is kept as is;
+- a full test refund marks only that test license `refunded` (exported
+  offline backups stay valid, as with any lifetime license);
+- partial refunds change nothing, and a paid event after a refund never regrants.
+
+Use a second Google account that has no Pro yet, so the grant is visible.
+
+1. In Lemon Squeezy (Test mode on): create the product/variant, an API key and
+   a webhook to `https://humperdinck.studio/api/commerce/test/webhook` with
+   events `order_created` and `order_refunded`.
+2. `npx wrangler secret put` each of `LS_TEST_API_KEY`, `LS_TEST_WEBHOOK_SECRET`,
+   `LS_TEST_STORE_ID`, `LS_TEST_VARIANT_ID`, `LS_TEST_GRANT_EMAILS`.
+3. Sign in at /account/ with the allowlisted account, press **Buy Pro (test
+   mode)**, pay with a Lemon Squeezy test card. The dashboard polls until Pro
+   shows, then in the desktop app choose **Activate an existing Pro purchase**.
+4. To clean up later: `UPDATE pro_licenses SET status='void' WHERE provider='lemonsqueezy-test'`.

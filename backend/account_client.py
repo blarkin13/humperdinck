@@ -142,7 +142,7 @@ def begin() -> dict:
 def open_page(page: str) -> dict:
     """Open the pending sign-in page or the account dashboard in the system browser.
 
-    The desktop webview ignores target=_blank links. Only these two fixed
+    The desktop webview ignores target=_blank links. Only these fixed
     destinations are allowed, never a URL supplied by the page.
     """
     if page == 'signin':
@@ -151,6 +151,8 @@ def open_page(page: str) -> dict:
         url = _pending['verification_url']
     elif page == 'dashboard':
         url = _origin() + '/account/'
+    elif page == 'purchase':
+        url = _origin() + '/account/#purchase'
     else:
         raise HTTPException(400, 'Unknown account page')
     return {'opened': bool(webbrowser.open(url))}
