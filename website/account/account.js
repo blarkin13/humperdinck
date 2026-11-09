@@ -274,6 +274,37 @@ q('disconnect-all').addEventListener('click',async()=>{
   await refresh();
  }catch(error){notice(error.message,true)}finally{button.disabled=false}
 });
+q('download-account-data').addEventListener('click',async()=>{
+ const button=q('download-account-data');button.disabled=true;
+ try{
+  const exported=await request('/privacy/export');
+  if(exported.format!=='humperdinck-account-data-export-v1')throw Error('Account export is unavailable.');
+  downloadJson('humperdinck-account-export.json',exported);
+  notice('Account information exported. Keep the file private.');
+ }catch(error){notice('Export unavailable: '+error.message+' You may contact privacy@humperdinck.studio.',true)}
+ finally{button.disabled=false}
+});
+q('submit-privacy-request').addEventListener('click',async()=>{
+ const kind=q('privacy-request-kind').value;
+ if(!['access','correction','deletion'].includes(kind))return;
+ const description=kind==='deletion'?
+  'Submit a deletion REVIEW request? No account data, lifetime license, or purchased entitlement will be deleted automatically.':
+  'Submit your '+kind+' request for manual review?';
+ if(!confirm(description))return;
+ const button=q('submit-privacy-request');button.disabled=true;
+ try{
+  const record=await request('/privacy/requests',{
+   method:'POST',data:{kind,confirmation:'REQUEST PRIVACY REVIEW'}
+  });
+  if(record.status!=='pending'||!record.request_id)throw Error('Privacy request was not recorded.');
+  q('privacy-request-status').textContent=
+   'Request '+record.request_id+' is pending review.'+(record.duplicate?' An existing request was found.':'');
+  notice('Privacy request recorded for manual review. Your Pro license has not changed.');
+ }catch(error){
+  q('privacy-request-status').textContent='Request unavailable. Contact privacy@humperdinck.studio.';
+  notice(error.message,true);
+ }finally{button.disabled=false}
+});
 q('download-license').addEventListener('click',async()=>{
  const button=q('download-license');button.disabled=true;
  try{
