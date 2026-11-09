@@ -157,3 +157,11 @@
  .account-device-main small{font-size:11px;line-height:1.65}
  .dashboard-jump a{gap:7px}
 }
+
+/* Privacy requests — same monochrome cards and accessible mobile controls. */
+#account-privacy .account-privacy-label{display:block;color:#bcbcbc;font-size:12px;margin:20px 0 9px}
+#account-privacy .account-privacy-select{display:block;width:100%;min-height:44px;border:1px solid #555;border-radius:7px;background:#121212;color:#f4f4f4;padding:11px 12px;font:inherit;font-size:13px;appearance:auto}
+#account-privacy .account-privacy-select:focus-visible,#account-privacy .account-action:focus-visible{outline:2px solid #fafafa;outline-offset:3px}
+#account-privacy #submit-privacy-request{margin-top:15px}
+#account-privacy #download-account-data{margin-top:20px}
+#account-privacy #privacy-request-status{overflow-wrap:anywhere}
