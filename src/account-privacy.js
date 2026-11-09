@@ -1,5 +1,6 @@
 /* Data portability and privacy-request intake. No automatic deletion of
- * permanent Pro purchases: fulfillment and legal retention need review.
+ * accounts or Pro purchases: owner-approved forfeiture and retention policy
+ * are required before any destructive workflow is separately enabled.
  * No identity tokens, recovery code hashes, secrets or card data in exports.
  */
 import {limitedJson} from './limited-json.js';
@@ -35,6 +36,13 @@ export async function handleAccountPrivacy(request,env,{user,sameOrigin}){
   if(!['access','deletion','correction'].includes(data.kind)
       ||data.confirmation!=='REQUEST PRIVACY REVIEW')
    return error(422,'Confirm the kind of privacy request explicitly');
+  // A deletion REVIEW is not deletion consent. Still explicitly disclose
+  // the potential consequence before even accepting the request; automated
+  // user/license removal remains disabled pending owner/legal sign-off.
+  if(data.kind==='deletion'&&(
+    data.forfeitureAcknowledgment!=='I UNDERSTAND ACCOUNT DELETION MAY FORFEIT PRO'
+    ||data.offlineCertificateAcknowledged!==true))
+   return error(422,'Acknowledge possible loss of online Pro access, recovery and the limitations of offline certificates');
   // Do NOT delete the user, pro_licenses, purchase refs or payment data here.
   // Store a support queue item; user identity is verified by the web session.
   const existing=await env.AUTH_DB.prepare(
@@ -52,7 +60,7 @@ export async function handleAccountPrivacy(request,env,{user,sameOrigin}){
    return another?response({request_id:another.id,status:'pending',duplicate:true}):
       error(503,'Privacy request could not be queued');
   }
-  return response({request_id:id,status:'pending',message:'Request recorded for verified manual review. Existing lifetime offline certificates are not invalidated.'},202);
+  return response({request_id:id,status:'pending',message:'Request recorded for verified manual review only. No deletion or license change has occurred. If deletion is later approved, online Pro activation and account recovery may be forfeited; previously exported offline certificates may continue to work.'},202);
  }
  return error(404,'Unknown account privacy route');
 }
