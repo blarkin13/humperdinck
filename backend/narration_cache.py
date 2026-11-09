@@ -126,7 +126,9 @@ class PresetSectionCache:
                 temp_path.unlink(missing_ok=True)
 
     def _prune(self):
-        files = sorted(self.root.glob("*.wav"), key=lambda p: p.stat().st_mtime_ns)
+        files = sorted((p for p in self.root.glob("*.wav")
+                        if len(p.stem) == 64 and all(c in "0123456789abcdef" for c in p.stem)),
+                       key=lambda p: p.stat().st_mtime_ns)
         total = sum(p.stat().st_size for p in files)
         for path in files:
             if total <= self.max_bytes:
