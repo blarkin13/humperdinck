@@ -80,7 +80,17 @@ in CI (PR #136); no customer entitlement is revoked automatically.
 This settlement primitive currently serves **new accounts without an
 existing Pro grant**. Additional purchases by existing Pro customers
 require a separate reviewed reconciliation path, not silent overwrite.
-`src/lemon-live-disputes.js` and `migrations/0007_live_disputes.sql` add a\nnon-routed, unapplied operator-reviewed dispute case ledger. As of Nov 9,\n2026, Lemon Squeezy documents no dedicated chargeback webhook; provider\ndashboard/support evidence must be verified by an authorized operator.\n`tests/lemon-live-disputes.test.mjs` covers case replay, stale/terminal\ntransitions, cross-order conflicts and rollback; CI passed in PR #137.\nThis code records case evidence, but does not independently verify the\nmerchant evidence, automate merchant dispute polling or revoke Pro access.\n\nCheckout intent event-time expiry, refund and chargeback policy,\nmerchant-account verification and production routes remain gated.
+`src/lemon-live-disputes.js` and `migrations/0007_live_disputes.sql` add a
+non-routed, unapplied operator-reviewed dispute case ledger. As of Nov 9,
+2026, Lemon Squeezy documents no dedicated chargeback webhook; provider
+dashboard/support evidence must be verified by an authorized operator.
+`tests/lemon-live-disputes.test.mjs` covers case replay, stale/terminal
+transitions, cross-order conflicts and rollback; CI passed in PR #137.
+This code records case evidence, but does not independently verify the
+merchant evidence, automate merchant dispute polling or revoke Pro access.
+
+Checkout intent event-time expiry, refund and chargeback policy,
+merchant-account verification and production routes remain gated.
 
 **None** of these tests proves merchant approval, live checkout,
 production D1 migration and routing, refund treatment
