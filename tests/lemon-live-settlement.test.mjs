@@ -9,7 +9,7 @@ const user='63a4cf69-678f-4788-a61d-8401cc309b72';
 const intent='b64bfb57-8b55-46a4-a6e6-d26c9c9781cc';
 const order={provider:'lemonsqueezy',event:'order_created',status:'paid',orderId:'12345',
  accountId:user,intentId:intent,storeId:'45',variantId:'789',amountCents:4900,
- currency:'USD',requiresPurchaseIntentVerification:true,entitlementMutationAllowed:false};
+ currency:'USD',paidAtSecs:150,requiresPurchaseIntentVerification:true,entitlementMutationAllowed:false};
 const opts={bodySha256:'a'.repeat(64),now:200,licenseId:'license-1'};
 const base=new URL('../',import.meta.url);
 function fixture(){
@@ -100,6 +100,18 @@ test('transaction failure after a grant rolls everything back and retry succeeds
  assert.equal(f.count('commerce_live_orders'),0);
  f.env.AUTH_DB.batch=actual;
  assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'settled');
+ assert.equal(f.count('pro_licenses'),1);
+ f.sqlite.close();
+});
+
+test('provider purchase time, not webhook arrival, determines checkout expiry',async()=>{
+ const f=fixture();
+ assert.equal((await settleLivePaidOrder(f.env,{...order,paidAtSecs:301},opts)).decision,'manual-review');
+ assert.equal((await settleLivePaidOrder(f.env,{...order,paidAtSecs:99},opts)).decision,'manual-review');
+ assert.equal((await settleLivePaidOrder(f.env,{...order,paidAtSecs:null},opts)).decision,'manual-review');
+ assert.equal(f.count('commerce_live_orders'),0);
+ assert.equal(f.count('pro_licenses'),0);
+ assert.equal((await settleLivePaidOrder(f.env,{...order,paidAtSecs:300},{...opts,now:9999})).decision,'settled');
  assert.equal(f.count('pro_licenses'),1);
  f.sqlite.close();
 });
