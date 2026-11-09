@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1] / "website"
 DOMAIN = "https://humperdinck.studio"
 LANDING = [
     "", "gallery", "help", "ai-voice-generator", "text-to-speech",
-    "voice-cloning", "offline-ai-voice", "ai-narration", "video-voiceover",
+    "voice-cloning", "offline-ai-voice", "ai-narration", "video-voiceover", "help/install",
 ]
 
 class HeadParser(HTMLParser):
