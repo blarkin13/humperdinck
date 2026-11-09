@@ -380,6 +380,35 @@ jobs:
               test "$(find desktop/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app.tar.gz.sig' | wc -l | tr -d ' ')" -eq 1 ;;
             Linux) : ;;
           esac
+      - name: Capture exact installer digests and dependency snapshot for rights audit
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p rights-evidence
+          case "$RUNNER_OS" in
+            Windows) bundle_dir=desktop/src-tauri/target/release/bundle/nsis ;;
+            macOS) bundle_dir=desktop/src-tauri/target/release/bundle/dmg ;;
+            Linux) bundle_dir=desktop/src-tauri/target/release/bundle/deb ;;
+            *) echo "Unsupported runner for release evidence"; exit 1 ;;
+          esac
+          python scripts/inventory-release-artifacts.py \
+            --root "$bundle_dir" --commit "$GITHUB_SHA" \
+            --output "rights-evidence/installer-inventory-${{ matrix.target }}.json"
+          python -m pip freeze > "rights-evidence/python-freeze-${{ matrix.target }}.txt"
+          cp frontend/package-lock.json rights-evidence/frontend-package-lock.json
+          if test -f desktop/src-tauri/Cargo.lock; then
+            cp desktop/src-tauri/Cargo.lock rights-evidence/native-Cargo.lock
+          fi
+          # CI snapshots provide actual identities and hashes; they do NOT certify license compliance.
+      - name: Upload third-party release evidence for human license review
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: humperdinck-${{ matrix.target }}-license-audit
+          path: rights-evidence/
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload native installer and signed updater
         uses: actions/upload-artifact@v4
         with:
