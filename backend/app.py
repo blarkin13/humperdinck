@@ -399,6 +399,16 @@ def list_voices():
 def voice_audio(voice_id: str):
     return FileResponse(upload_path(voice_id), media_type='audio/wav')
 
+@app.get('/api/voices/{voice_id}/consent-status')
+def get_voice_consent_status(voice_id: str):
+    """Only document checksum health; never expose identity or signed PDF content."""
+    upload_path(voice_id)
+    if not re.fullmatch(r'[0-9a-f]{32}', voice_id):
+        return {'integrity':'unknown','reason':'legacy-voice-id'}
+    record = voice_meta().get(voice_id,{}).get('consent_acceptance',{})
+    return voice_consent.check_stored_document(DATA, voice_id, record)
+
+
 @app.patch('/api/voices/{voice_id}')
 def update_voice(voice_id: str, request: RenameInput):
     upload_path(voice_id)
