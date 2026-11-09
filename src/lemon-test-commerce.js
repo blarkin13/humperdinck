@@ -1,5 +1,8 @@
 /* Lemon Squeezy TEST-MODE integration only.
- * Deliberately cannot create or modify pro_licenses or production purchases.
+ * Never touches production purchases. By default test orders never grant Pro.
+ * Owner QA exception: accounts whose email is listed in LS_TEST_GRANT_EMAILS
+ * (comma-separated, default empty) receive a pro_licenses row marked
+ * provider='lemonsqueezy-test' so the full buy -> activate flow can be tested.
  * Config is disabled unless every LS_TEST_* secret/ID is provided.
  * Test webhooks must verify HMAC-SHA256, store, variant and test_mode=true.
  */
@@ -14,6 +17,12 @@ const digits=s=>/^[1-9][0-9]{0,14}$/.test(String(s||''));
 export const configured=env=>Boolean(env.AUTH_DB&&env.LS_TEST_API_KEY&&
  env.LS_TEST_WEBHOOK_SECRET&&digits(env.LS_TEST_STORE_ID)&&digits(env.LS_TEST_VARIANT_ID));
 
+export const TEST_PROVIDER='lemonsqueezy-test';
+export function grantAllowed(env,email){
+ if(typeof email!=='string'||!email.includes('@'))return false;
+ const list=String(env.LS_TEST_GRANT_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+ return list.includes(email.trim().toLowerCase());
+}
 function bytesFromHex(hex){
  if(typeof hex!=='string'||!/^[a-f0-9]{64}$/i.test(hex))return null;
  return Uint8Array.from(hex.match(/../g),x=>parseInt(x,16));
@@ -61,7 +70,8 @@ export async function handleLemonTest(request,env,{session}){
     'SELECT id,created_at,status FROM commerce_test_intents WHERE user_id=? ORDER BY created_at DESC LIMIT 10'
   ).bind(user.id).all();
   return reply({mode:'test',checkout_available:true,production_checkout_available:false,
-    checkout_intents:rows.results||[],production_entitlement_changes:false});
+    checkout_intents:rows.results||[],production_entitlement_changes:false,
+    test_grants_pro:grantAllowed(env,user.email)});
  }
  if(path==='/api/commerce/test/checkout'&&request.method==='POST'){
   if(!originMatches(request))return fail(403,'Invalid request origin');
@@ -76,7 +86,7 @@ export async function handleLemonTest(request,env,{session}){
    test_mode:true,
    checkout_options:{embed:false},
    product_options:{enabled_variants:[Number(env.LS_TEST_VARIANT_ID)],
-    redirect_url:'https://humperdinck.studio/account/'},
+    redirect_url:'https://humperdinck.studio/account/?purchase=test#purchase'},
    checkout_data:{email:user.email||undefined,
     custom:{account_id:user.id,intent_id:intentId}}
   },relationships:{
@@ -119,8 +129,25 @@ export async function handleLemonTest(request,env,{session}){
   ).bind(order.intentId,order.accountId).first();
   if(!intent)return fail(409,'Unknown sandbox checkout intent');
   const checksum=await shaHex(raw);
+  const buyer=await env.AUTH_DB.prepare('SELECT email FROM auth_users WHERE id=?').bind(order.accountId).first();
+  const grants=grantAllowed(env,buyer?.email);
+  const ref='lstest:'+order.orderId;
+  const licenseSteps=!grants?[]:order.kind==='order_created'?[
+   // At most one license per account (user_id UNIQUE): an existing license,
+   // complimentary or earlier, is preserved. A refunded intent never regrants.
+   env.AUTH_DB.prepare(
+    `INSERT OR IGNORE INTO pro_licenses(id,user_id,status,issued_at,max_devices,provider,purchase_ref)
+     SELECT ?,?,'active',?,10,?,? WHERE NOT EXISTS
+      (SELECT 1 FROM commerce_test_intents WHERE id=? AND status='refunded')`
+   ).bind(crypto.randomUUID(),order.accountId,now(),TEST_PROVIDER,ref,order.intentId)
+  ]:order.status==='refunded'?[
+   // Only the license this test order created; offline backups stay valid.
+   env.AUTH_DB.prepare(
+    "UPDATE pro_licenses SET status='refunded' WHERE purchase_ref=? AND provider=? AND user_id=? AND status='active'"
+   ).bind(ref,TEST_PROVIDER,order.accountId)
+  ]:[];
   // D1 batch executes atomically. Failures trigger provider retry.
-  await env.AUTH_DB.batch([
+  const results=await env.AUTH_DB.batch([...licenseSteps,
    env.AUTH_DB.prepare(
     'INSERT OR IGNORE INTO commerce_test_webhook_events(body_sha256,provider_order_id,event_name,processed_at) VALUES (?,?,?,?)'
    ).bind(checksum,order.orderId,order.kind,now()),
@@ -137,7 +164,8 @@ export async function handleLemonTest(request,env,{session}){
     "UPDATE commerce_test_intents SET status=CASE WHEN status='refunded' THEN 'refunded' ELSE ? END WHERE id=? AND user_id=?"
    ).bind(order.kind==='order_refunded'?'refunded':'paid',order.intentId,order.accountId)
   ]);
-  return reply({ok:true,mode:'test',pro_license_granted:false});
+  const granted=grants&&order.kind==='order_created'&&results?.[0]?.meta?.changes===1;
+  return reply({ok:true,mode:'test',pro_license_granted:Boolean(granted)});
  }
  return fail(404,'Unknown sandbox commerce endpoint');
 }

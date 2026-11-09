@@ -108,8 +108,9 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{},onAccountCh
     <div className="account-panel-feature"><span>Installed edition</span><b>{pro?'Pro · Lifetime':'Free'}</b></div>
     {pro?<><p><i className="fa-solid fa-shield-halved"/> Pro verified with an offline digital signature. Your features remain available without signing in.</p>
       <button type="button" disabled={working} onClick={exportLicense}><i className="fa-solid fa-download"/> Export permanent license backup</button>
-     </>:<><p>All Free studios and exports remain available. One-time Pro checkout is being developed; no recurring subscription is required.</p>
-      {connected&&<button type="button" disabled={working} onClick={activate}>Activate an existing Pro purchase</button>}
+     </>:<><p>All Free studios and exports remain available. Pro is a one-time lifetime purchase; no subscription.</p>
+      <button type="button" disabled={working} onClick={e=>openPage(e,'purchase')}><i className="fa-solid fa-arrow-up-right-from-square"/> Get Pro on humperdinck.studio</button>
+      {connected&&<button type="button" className="account-panel-secondary" disabled={working} onClick={activate}>Activate an existing Pro purchase</button>}
      </>}
     <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={e=>importLicense(e.target.files?.[0])}/>
     <button type="button" className="account-panel-secondary" disabled={working} onClick={()=>fileRef.current?.click()}>
