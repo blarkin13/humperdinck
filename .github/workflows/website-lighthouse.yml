@@ -1,0 +1,55 @@
+name: Public website Lighthouse audit
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/website-lighthouse.yml
+      - scripts/report-website-lighthouse.py
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        viewport: [mobile, desktop]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Lighthouse CI
+        run: npm install --global @lhci/cli@0.16.x
+      - name: Measure deployed marketing pages
+        env:
+          VIEWPORT: ${{ matrix.viewport }}
+        run: |
+          if [ "$VIEWPORT" = desktop ]; then
+            lhci collect --numberOfRuns=2 \
+              --settings.preset=desktop \
+              --url=https://humperdinck.studio/ \
+              --url=https://humperdinck.studio/help/ \
+              --url=https://humperdinck.studio/ai-voice-generator/
+          else
+            lhci collect --numberOfRuns=2 \
+              --url=https://humperdinck.studio/ \
+              --url=https://humperdinck.studio/help/ \
+              --url=https://humperdinck.studio/ai-voice-generator/
+          fi
+      - name: Summarize Lighthouse lab measurements
+        if: always()
+        env:
+          VIEWPORT: ${{ matrix.viewport }}
+        run: python3 scripts/report-website-lighthouse.py --directory .lighthouseci --viewport "$VIEWPORT"
+      - name: Preserve Lighthouse HTML and JSON reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: humperdinck-lighthouse-${{ matrix.viewport }}
+          path: .lighthouseci/
+          if-no-files-found: warn
+          retention-days: 30
