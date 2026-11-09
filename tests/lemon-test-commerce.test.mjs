@@ -61,6 +61,17 @@ test('only matching store, variant, paid one-time test-mode orders are accepted'
  assert.equal(checkedOrder(refund,config).status,'refunded');
 });
 
+test('signed underpriced sandbox payment cannot write an order or issue Pro',async()=>{
+ const cfg=env();let touched=false;
+ cfg.AUTH_DB={prepare(){touched=true;throw Error('No database access expected')}};
+ const low=sampleOrder({subtotal:1,total:1}),{raw,signature}=signed(low);
+ const result=await handleLemonTest(new Request(base+'/api/commerce/test/webhook',{
+  method:'POST',headers:{'X-Signature':signature,'X-Event-Name':'order_created'},body:raw
+ }),cfg,{session:async()=>null});
+ assert.equal(result.status,400);
+ assert.equal(touched,false);
+});
+
 test('test webhook never issues a Pro license, and unsigned requests are refused',async()=>{
  const cfg=env(),statements=[],runs=[];
  cfg.AUTH_DB={
