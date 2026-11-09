@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import base64
 import getpass
+import hmac
 import json
 from pathlib import Path
 
@@ -31,7 +32,7 @@ def _decode(value: str) -> bytes:
         raise InvalidBackup("Malformed backup encoding") from exc
 
 
-def verify_backup(record: dict, passphrase: str) -> dict:
+def verify_backup(record: dict, passphrase: str, expected_public_key: str | None = None) -> dict:
     """Decrypt in memory and prove that keypair matches the recorded public key."""
     if not isinstance(record, dict) or record.get("format") != "humperdinck-pro-signing-key-backup-v1":
         raise InvalidBackup("Unrecognized backup format")
@@ -48,6 +49,13 @@ def verify_backup(record: dict, passphrase: str) -> dict:
     expected_public = _decode(record.get("public_key_base64"))
     if len(salt) != 32 or len(nonce) != 12 or len(expected_public) != 32:
         raise InvalidBackup("Invalid backup parameters")
+    # A self-consistent backup might contain a DIFFERENT keypair. For an
+    # actual deployed signer, compare against the public key pinned in every
+    # client, not only against the value inside the encrypted file.
+    if expected_public_key is not None:
+        pinned = _decode(expected_public_key)
+        if len(pinned) != 32 or not hmac.compare_digest(expected_public, pinned):
+            raise InvalidBackup("Backup does not match the expected deployed public key")
     if not isinstance(passphrase, str) or not passphrase:
         raise InvalidBackup("Passphrase required")
     try:
@@ -76,16 +84,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, type=Path,
                         help="Path to your encrypted backup file; NEVER upload it")
+    parser.add_argument("--expected-public-key",
+                        help="Safe base64 public key pinned in the deployed app; required for production recovery sign-off")
     args = parser.parse_args()
     file = args.input.expanduser()
     if not file.is_file() or file.stat().st_size > 64 * 1024:
         parser.error("Backup is missing or unexpectedly large")
     password = getpass.getpass("Backup passphrase (not logged): ")
     try:
-        result = verify_backup(json.loads(file.read_text(encoding="utf-8")), password)
+        result = verify_backup(json.loads(file.read_text(encoding="utf-8")), password,
+                               expected_public_key=args.expected_public_key)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         parser.error(str(exc))
     print("LOCAL BACKUP RECOVERY VERIFIED:", result["key_id"])
+    print("Pinned deployed public key matched:", bool(args.expected_public_key))
     print("Public key:", result["public_key_base64"])
     print("Private key remains in memory only; Cloudflare configuration was not changed.")
     print("Keep v1 license verification active during any future versioned migration.")
