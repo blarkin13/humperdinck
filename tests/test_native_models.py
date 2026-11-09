@@ -76,7 +76,7 @@ def test_cached_corrupt_model_is_replaced_only_after_verified_download(tmp_path,
     target.write_bytes(b"X" * len(correct))
     messages = []
     monkeypatch.setattr(native_models, "_sources", lambda asset: iter([("test://asset",{})]))
-    monkeypatch.setattr(native_models, "_download", lambda url, headers, partial: partial.write_bytes(correct))
+    monkeypatch.setattr(native_models, "_download", lambda url, headers, partial, progress: partial.write_bytes(correct))
     assert native_models.download_kokoro(progress=messages.append) == directory
     assert target.read_bytes() == correct
     assert any("corrupted" in message for message in messages)
@@ -94,7 +94,7 @@ def test_corrupt_cached_model_survives_failed_redownload(tmp_path, monkeypatch):
     target = directory / name
     target.write_bytes(b"invalid!")
     monkeypatch.setattr(native_models, "_sources", lambda asset: iter([("test://asset",{})]))
-    monkeypatch.setattr(native_models, "_download", lambda url, headers, partial: partial.write_bytes(b"wrongbad"))
+    monkeypatch.setattr(native_models, "_download", lambda url, headers, partial, progress: partial.write_bytes(b"wrongbad"))
     with pytest.raises(RuntimeError, match="SHA-256"):
         native_models.download_kokoro(attempts=1)
     assert target.read_bytes() == b"invalid!"
@@ -110,3 +110,30 @@ def test_low_storage_blocks_model_download_before_network(tmp_path, monkeypatch)
                         lambda *args, **kw: (_ for _ in ()).throw(AssertionError("Network should not be used")))
     with pytest.raises(RuntimeError, match="free disk space"):
         native_models.download_kokoro(attempts=1)
+
+
+def test_model_download_emits_percentage_and_rejects_oversized_response(tmp_path, monkeypatch):
+    class Fake:
+        def __init__(self, total, size):
+            self.headers = {"Content-Length": str(total)}
+            self.remaining = size
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self, size=-1):
+            count = min(self.remaining, min(size, 1024 * 1024))
+            self.remaining -= count
+            return b"x" * count
+
+    messages = []
+    monkeypatch.setattr(native_models.urllib.request, "urlopen",
+                        lambda *args, **kwargs: Fake(10, 10))
+    target = tmp_path / "model.onnx.partial"
+    native_models._download("test://download", {}, target, messages.append)
+    assert target.read_bytes() == b"x" * 10
+    assert any("100%" in m for m in messages)
+
+    # A fake server must not reserve/write more than a reasonable model size.
+    monkeypatch.setattr(native_models.urllib.request, "urlopen",
+                        lambda *args, **kwargs: Fake(1024 * 1024 * 1024, 10))
+    with pytest.raises(RuntimeError, match="exceeds"):
+        native_models._download("test://download", {}, tmp_path / "oversize.onnx.partial")
