@@ -60,6 +60,28 @@ This guard is source-level assurance. It does not substitute for production
 Cloudflare deployment verification, provider approval or an independent
 penetration test.
 
+## November 9 — staged webhook and refund operations adapters
+
+`src/lemon-live-webhook-adapter.js` adds a **non-routed** integration seam:
+raw-body HMAC and exact event/store/variant inspection run before calling
+the existing atomic paid/refund functions. It requires both
+`LS_LIVE_STAGING_PROCESSOR_ENABLED === true` and
+`LS_LIVE_SETTLEMENT_ENABLED === true`, plus a separate trusted caller's
+`operatorReleaseApproved: true`. Setting these values alone does not
+open an HTTP endpoint: the public Worker still returns 503 to every live
+commerce route. This is an internal staging adapter, **not a live checkout
+API or completed merchant acceptance**.
+
+`src/lemon-live-operator-summary.js` gives authorized operators aggregate
+paid/refunded/partially-refunded/disputed and webhook receipt counts,
+without purchaser PII, only under an additional default-off review flag.
+It does not initiate refunds, make policy decisions, poll merchant disputes,
+or revoke a perpetual license. Missing ledger tables return unavailable.
+
+Synthetic tests in CI cover both modules. Real Lemon Squeezy checkout API
+creation, actual merchant webhooks, policy reconciliation, credentials and
+explicit final launch activation remain separately blocked.
+
 ## Required sequence before payment issuance is activated
 
 1. Merchant of record formally approves Humperdinck; operator creates
