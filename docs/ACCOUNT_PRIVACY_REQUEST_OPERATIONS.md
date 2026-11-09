@@ -1,61 +1,61 @@
-# Humperdinck account privacy and deletion — pre-production operations
+# Humperdinck account privacy and deletion — operator prelaunch runbook
 
-**Status: code prepared; migration and real-world acceptance pending.**
-This checklist is not a representation that online account erasure is already
-available or that any offline customer certificate can be remotely revoked.
+**Status:** Privacy request intake and data export exist. Actual account
+deletion remains disabled. A request for review is **not authorization** to
+delete an account, revoke a Pro entitlement, or remove merchant records.
 
-## Data export and request entrypoints
+## Request intake and informed consequences
 
-New web-session authenticated routes, with no exposure of tokens or recovery
-hashes:
+- `GET /api/account/privacy/export` returns owner account metadata and
+  online Pro/device metadata, but not bearer tokens, recovery hashes or
+  private signing keys.
+- `POST /api/account/privacy/requests` requires an authenticated web
+  session, same-origin request, and `REQUEST PRIVACY REVIEW`.
+- A deletion *review* also requires explicit acknowledgement of potential
+  loss of future online Pro activation, account-based recovery, and the fact
+  that previously downloaded perpetual offline certificates may keep working.
+- No automatic account deletion endpoint is implemented.
+- The retained offline signed certificate cannot necessarily be revoked;
+  do not promise remote erasure of files stored on the customer's computer.
 
-- `GET /api/account/privacy/export` — user profile, linked providers,
-  lifetime Pro license metadata, random registered installation IDs and the
-  user's privacy request status. No bearer tokens, recovery code hashes,
-  OAuth secrets or signed speaker documents.
-- `POST /api/account/privacy/requests` — explicit
-  `{"kind":"access|correction|deletion","confirmation":"REQUEST PRIVACY REVIEW"}`
-  with same-origin validation; returns a pending request ID.
-- `migrations/0005_account_privacy.sql` — private operator review queue with
-  a partial unique index preventing two pending requests of the same kind
-  for an account.
+## Operator-only review and retention
 
-**Operator check:** verify migration applied before linking the controls to
-customer UI or claiming self-service is available. Do not auto-delete on the
-basis of one browser POST. A valid web session verifies authentication but
-cannot establish all applicable legal identity and retention requirements.
+1. Independently verify identity, account ownership and exact request scope.
+   Check pending deletion request and any disputes before proceeding.
+2. Document a lawyer/accountant-approved retention policy with **specific**
+   periods for merchant orders, refunds, chargebacks, invoices, tax evidence,
+   access logs and user account data. Do not invent these periods.
+3. Export the account and identify processors handling data; give the
+   customer the current policy and request a final informed deletion choice.
+4. Separately preserve legally necessary commerce order, refund, webhook and
+   dispute records. Their staged schema is intentionally not a cascading
+   child of the deletable auth user.
+5. A customer who knowingly requests deletion **may forfeit the online Pro
+   record, device activation and account-based recovery** subject to the
+   final disclosed policy. The owner has not mandated preservation of a
+   perpetual purchaser account for voluntary deletion.
+6. Build a separate auditable, retry-safe, verified and explicitly approved
+   operator workflow. Use a transaction or a compensating recovery plan,
+   and verify how D1 foreign keys affect auth sessions, devices and grants.
+   Do not use an ad hoc `DELETE FROM auth_users` in production.
+7. Never delete based only on one privacy-request POST, a support email, a
+   staging preflight, or a GitHub pull-request merge.
+8. Maintain support/case records only as allowed by the final retention
+   policy; avoid putting personal data or voice consent documents in logs.
 
-## Deletion handling and retention
+`src/account-deletion-preflight.js` is an **internal read-only operator
+review**: it requires an explicit operator flag, a retention approval
+attestation, a pending deletion request, and no unresolved merchant dispute.
+Its result always has `mayDelete: false`; it can never authorize deletion.
 
-1. Verify requester controls the account; confirm the exact scope.
-2. Produce an account export and list processors holding additional data
-   (Lemon Squeezy, Cloudflare and any configured sign-in providers).
-3. Preserve the minimum purchased license entitlement and legally required
-   transaction records necessary for accounting, fraud, tax, chargebacks and
-   lifetime Pro fulfillment/recovery. Specify concrete retention periods with
-   counsel/accountant and disclose them in the public privacy policy.
-4. Delete eligible optional profile information, login/recovery codes and
-   connected-device session records; review links and database foreign-key
-   cascades before issuing any SQL. The existing schema has a
-   `pro_licenses.user_id -> auth_users.id ON DELETE CASCADE` relationship.
-   **Never simply `DELETE FROM auth_users`**, because that would cascade and
-   remove purchased lifetime entitlements. Design a retained minimal
-   purchaser record or other non-identifying fulfillment mapping first.
-5. Treat customer-owned local recordings, voice consent documents and
-   installed offline certificates as files on their devices. The website
-   cannot remotely delete or revoke them. Clearly instruct customers on
-   local removal and exports.
-6. When approved, document action and completion time, disclose preserved
-   categories and reason, and mark request status `completed`. Do not
-   publicly log the customer's full data export or signed voice document.
+## Remaining P0 acceptance
 
-## Rollout gates
+- [ ] Owner and counsel approve publication-ready policy and retention periods.
+- [ ] Production D1 staged commerce migration and backup/restore are approved.
+- [ ] Independently verify ownership and a final informed action per customer.
+- [ ] Design and test separate destructive workflow, authorization, replay
+      protection, audit, error handling and rollback.
+- [ ] Test with customer-visible consequences and successful support workflow.
+- [ ] Obtain explicit release approval before making deletion available.
 
-- [ ] Apply privacy request migration in a controlled environment.
-- [ ] Test export on account with no license, Pro license and multiple devices.
-- [ ] Verify signed-in web session, Origin/CSRF and isolation on real D1.
-- [ ] Build real customer dashboard buttons and support monitoring.
-- [ ] Agree retention schedule, verification procedures and processor inventory.
-- [ ] Implement reviewed minimal-purchaser retention before enabling
-      destructive deletion.
-- [ ] Verify implementation and public privacy statements with counsel.
+Nothing in this runbook enables destructive requests.
