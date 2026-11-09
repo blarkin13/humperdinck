@@ -967,7 +967,7 @@ class NarrationBlock(BaseModel):
     speed: float = Field(default=1, ge=0.5, le=2)
 
 class MultiNarrationRequest(BaseModel):
-    blocks: list[NarrationBlock] = Field(min_length=1, max_length=80)
+    blocks: list[NarrationBlock] = Field(min_length=1, max_length=500)
     format: str = 'mp3'
     name: str = Field(default='Narration', max_length=120)
     ambience: NarrationAmbience | None = None
