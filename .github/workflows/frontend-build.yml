@@ -56,6 +56,7 @@ jobs:
           node --test tests/lemon-live-operator-summary.test.mjs
           node --test tests/account-deletion-preflight.test.mjs
           node --test tests/legal-signed-consent.test.mjs
+          node --test tests/legal-retention-contract.test.mjs
           node --check website/account/account.js
           node --test tests/account-auth.test.mjs
           node --check src/account-dashboard.js
