@@ -37,3 +37,24 @@ Cloudflare retains version 304, but **it is only a candidate, not an approved re
 - **Live checkout release:** **DISABLED**, and must remain so until separate explicit merchant, legal and owner approvals. No part of this runbook approves payments.
 
 Official references: https://developers.cloudflare.com/workers/configuration/versions-and-deployments/ and https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/
+
+
+## Source-level provenance implementation — November 9, 2026
+
+PR #152 introduces an executable commit-provenance mechanism (not a production deployment):
+
+- `scripts/build-public-studio.sh` refuses to build without a valid **full 40-character Git HEAD SHA**, writes the full SHA into `src/deployment-provenance.js` before Worker packaging, and adds the same source SHA to the generated Studio `website/build.json`. It no longer uses a timestamp fallback that could masquerade as source identity.
+- `GET /.well-known/humperdinck-deployment.json` is routed to the **Worker** ahead of static assets. The immutable bundled constant is returned as `source_git_sha`, with `provenance_verified: true` and `Cache-Control: no-store`; the `UNBUILT` placeholder fails closed with 503 and `provenance_verified: false`. No database, login, secrets or payment credentials are needed. POST/OPTIONS cannot serve it.
+- `tests/worker-deployment-provenance.test.mjs` checks route priority, metadata, no-store behavior and absent static/database dependency. CI runs it.
+
+**Operational acceptance is still OPEN:** this mechanism becomes proof for a specific Cloudflare Worker *only after* a future authorized deployment built from a verified source checkout and a read-only check of the live endpoint **paired with** the current Cloudflare version ID and deployment timestamp. Current version 305 predates this implementation; its Git SHA remains unknown. Do not use the endpoint on a newly deployed version to assert provenance for version 304/305, or claim rollback tested.
+
+Suggested deployment evidence procedure, after independent authorization:
+
+1. In the exact deploy checkout run `git rev-parse HEAD` and record the full SHA, workflow run and source archive identity.
+2. Run `bash scripts/build-public-studio.sh` and confirm that its generated `src/deployment-provenance.js` and `website/build.json` agree with that SHA. Do not create a dirty post-build source change and claim it is a new commit; record all generated-output changes as build artifacts.
+3. After Wrangler finishes, read the Cloudflare deployment and version IDs from the API, then fetch `https://humperdinck.studio/.well-known/humperdinck-deployment.json` with cache bypass. Compare its `source_git_sha` against the **actual deploy checkout** SHA, not merely latest GitHub `main`.
+4. Capture the exact 100%-traffic Worker version, deploy time, SHA and endpoint response in a release record. Optionally verify `/build.json` for corresponding Studio asset revision. A mismatch blocks promotion or rollback designation.
+5. Before rollback, independently validate the candidate version's embedded identity and its exact D1 schema/security compatibility. Merely observing a previously deployed version is not sufficient.
+
+**Important limitation:** the endpoint reports the build-time source label embedded in the Worker, not a cryptographic attestation of a GitHub workflow or an immutable Cloudflare release annotation. A privileged deployer could supply modified artifacts; provenance is evidence to be cross-checked, not proof of build integrity. Existing ad hoc Wrangler deploy commands can bypass this build script; if so they expose an unbuilt sentinel and are **not provenance accepted**. A dedicated gated deploy workflow and owner acceptance are separate open work items.

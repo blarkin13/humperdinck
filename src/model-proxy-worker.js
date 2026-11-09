@@ -3,6 +3,7 @@ import {handleAccount,accountSession} from './account-auth.js';
 import {handleLemonTest} from './lemon-test-commerce.js';
 import {isReservedProductionCommercePath,handleUnreleasedProductionCommerce} from './live-commerce-release-gate.js';
 import {publicRelease} from './public-releases.js';
+import {WORKER_SOURCE_GIT_SHA} from './deployment-provenance.js';
 import {handleNativeModel,ROUTE as NATIVE_MODEL_ROUTE} from './native-model-mirror.js';
 // Model files only: browser synthesis remains local; this Worker performs no inference.
 // Restrict paths to the single public model to prevent an arbitrary URL proxy.
@@ -12,6 +13,18 @@ const safeFile=(path)=>path.length>0&&path.length<240&&path.split('/').every(par
 export default {
  async fetch(request,env,ctx){
   const url=new URL(request.url);
+  if(url.pathname==='/.well-known/humperdinck-deployment.json'){
+   if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405,headers:{Allow:'GET, HEAD','Cache-Control':'no-store'}});
+   const verified=/^[0-9a-f]{40}$/.test(WORKER_SOURCE_GIT_SHA);
+   return new Response(request.method==='HEAD'?null:JSON.stringify({
+    source_git_sha:verified?WORKER_SOURCE_GIT_SHA:null,
+    provenance_verified:verified,
+    build_provenance_version:1
+   }),{status:verified?200:503,headers:{
+    'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',
+    'X-Content-Type-Options':'nosniff'
+   }});
+  }
   // Deny-first: no environment flag, secret, checkout callback or static fallback
   // can accidentally expose a live production-commerce endpoint.
   if(isReservedProductionCommercePath(url.pathname))return handleUnreleasedProductionCommerce(request);

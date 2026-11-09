@@ -8,13 +8,21 @@ cd "$(dirname "$0")/.."
 # studio. Skip that download to avoid failures from GitHub release 504s.
 export npm_config_onnxruntime_node_install_cuda=skip
 npm install --prefix frontend --no-audit --no-fund --onnxruntime-node-install-cuda=skip
-BUILD_ID="$(git rev-parse --short=12 HEAD 2>/dev/null || date -u +%Y%m%d%H%M%S)"
+# A timestamp or guessed revision is unsafe for rollback identification.
+# This script must run in a real Git checkout, before Wrangler bundles the Worker.
+SOURCE_SHA="$(git rev-parse --verify HEAD 2>/dev/null || true)"
+[[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'Cannot prove exact Git SHA; refusing provenance build' >&2; exit 1; }
+BUILD_ID="${SOURCE_SHA:0:12}"
+# Embed the source revision in the Worker JS bundle, not solely in static assets.
+# The generated file is not itself authoritative until the deployed endpoint is
+# observed after a specific Cloudflare deployment and matched to its version ID.
+printf "export const WORKER_SOURCE_GIT_SHA='%s';\\n" "$SOURCE_SHA" > src/deployment-provenance.js
 VITE_PUBLIC_STUDIO=1 VITE_BUILD_ID="$BUILD_ID" npm run build --prefix frontend -- --base=/studio/
 mkdir -p website/studio
 # The static homepage links to a version-specific Studio URL for immediate refresh.
 # Fingerprinted Vite JS/CSS are already automatically cache-busted.
 sed -i "s|href=\"/studio/\"|href=\"/studio/?v=$BUILD_ID\"|g" website/index.html
-printf '{\"revision\":\"%s\",\"studio\":\"/studio/?v=%s\"}\\n' "$BUILD_ID" "$BUILD_ID" > website/build.json
+printf '{\"revision\":\"%s\",\"source_git_sha\":\"%s\",\"studio\":\"/studio/?v=%s\"}\\n' "$BUILD_ID" "$SOURCE_SHA" "$BUILD_ID" > website/build.json
 cp -R frontend/dist/. website/studio/
 # Copy the runtime-matched ONNX WASM binary to our own static origin. The
 # browser worker sets env.wasmPaths to this file instead of relying on a CDN.
