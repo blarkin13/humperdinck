@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 
@@ -47,7 +48,20 @@ def preset_render_key(*, model_root: Path, voice_key: str, text: str,
         source_dir = Path(__file__).resolve().parent
         for filename in CODE_FILES:
             code_stamp.update(filename.encode())
-            code_stamp.update((source_dir / filename).read_bytes())
+            source = source_dir / filename
+            if source.is_file():
+                code_stamp.update(source.read_bytes())
+            elif getattr(sys, "frozen", False) or os.getenv("HUMPERDINCK_NATIVE_PACKAGE") == "1":
+                # Packaged Python helpers generally contain bytecode, not .py
+                # source files. Use the exact installed helper binary identity
+                # so a native update invalidates old rendered preset speech.
+                executable = Path(sys.executable)
+                stamp = executable.stat()
+                code_stamp.update(json.dumps(
+                    [str(executable), stamp.st_size, stamp.st_mtime_ns]).encode())
+                break
+            else:
+                return None
         payload = json.dumps({
             "schema": CACHE_VERSION, "model_files": model_stamp,
             "render_code": code_stamp.hexdigest(), "voice": voice_key,
