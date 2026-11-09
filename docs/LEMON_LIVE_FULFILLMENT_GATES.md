@@ -77,9 +77,14 @@ partial/full ordering, account/order mismatches and rollback. Full refund
 status cannot be downgraded by a delayed partial refund. These tests pass
 in CI (PR #136); no customer entitlement is revoked automatically.
 
-This settlement primitive currently serves **new accounts without an
-existing Pro grant**. Additional purchases by existing Pro customers
-require a separate reviewed reconciliation path, not silent overwrite.
+The non-routed settlement primitive also reconciles a valid additional
+purchase by an account with an existing active Pro grant. The new purchase
+is retained in the live order and event ledger while the original license,
+provider, purchase reference and device registrations remain untouched.
+The active license is rechecked atomically before settlement. Tests for
+replays, mismatch, concurrent deactivation and rollback passed in PR #140.
+Refund handling, merchant approval, final policy and actual live endpoint
+activation remain independent release gates.
 `src/lemon-live-disputes.js` and `migrations/0007_live_disputes.sql` add a
 non-routed, unapplied operator-reviewed dispute case ledger. As of Nov 9,
 2026, Lemon Squeezy documents no dedicated chargeback webhook; provider
