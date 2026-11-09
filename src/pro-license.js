@@ -7,9 +7,8 @@
 const V1_KEY_ID='humperdinck-pro-ed25519-v1';
 const V2_KEY_ID='humperdinck-pro-ed25519-v2';
 export const PRO_PUBLIC_KEY_BASE64='YIYroSRZsiMKFXj7PL3i/YX847sGx9muPqIY0r15JTQ=';
-// Safe staging: no v2 activation until the owner creates, backs up and
-// supplies the PUBLIC v2 key. This file must never contain private key bytes.
-export const PRO_V2_PUBLIC_KEY_BASE64=null;
+// Owner-generated v2 PUBLIC verification key; never embed private signing keys.
+export const PRO_V2_PUBLIC_KEY_BASE64='LJ0GvDnAUCXlSGtJrAYs8L6yFZvAbcpuvLNBQHNH4MM=';
 const encoder=new TextEncoder();
 const b64url=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const b64bytes=text=>Uint8Array.from(atob(text),c=>c.charCodeAt(0));
