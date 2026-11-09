@@ -26,7 +26,7 @@ import NarratorPicker from './NarratorPicker.jsx';
 import CharactersPanel from './CharactersPanel.jsx';
 import VideoStudio from './VideoStudio.jsx';
 import SoundDesk,{DEFAULT_DESK,useDeskPreview} from './SoundDesk.jsx';
-import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,audioResultIsCurrent,suggestSpeechDirections} from './narrationSections.js';
+import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,audioResultIsCurrent,wholeNarrationSignature,suggestSpeechDirections} from './narrationSections.js';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 const PUBLIC_STUDIO=import.meta.env.VITE_PUBLIC_STUDIO==='1';
 const PUBLIC_VOICES=[['af_heart','Heart','American English · female'],['af_bella','Bella','American English · female'],['af_nicole','Nicole','American English · female'],['am_michael','Michael','American English · male'],['bf_emma','Emma','British English · female'],['bm_daniel','Daniel','British English · male']].map(([key,name,accent])=>({key,name,accent}));
@@ -338,7 +338,7 @@ function App(){
   document.addEventListener('keydown',onKey);
   return()=>{document.removeEventListener('pointerdown',dismiss);document.removeEventListener('keydown',onKey)};
  },[downloadOpen,wholeMenuOpen]);
- const fullNarrationSignature=JSON.stringify([format,blocks.map(b=>[b.text,b.voice_key,sectionDelay(b.delay_after),(b.effects||[]).map(e=>[e.sound_id,e.position,e.volume,e.fade_in,e.fade_out,e.loop,e.ending,e.ducking]),sectionSpeed[b.id]||1]),ambience,desk]);
+ const fullNarrationSignature=wholeNarrationSignature(format,blocks,sectionSpeed,ambience,desk);
  function stopWholeNarration(){
   const player=wholeAudioRef.current;
   if(player){player.pause();player.currentTime=0}
