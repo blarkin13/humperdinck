@@ -102,3 +102,48 @@ test('test checkout requires same-origin authenticated website session and force
   assert.equal(saved,true);
  }finally{globalThis.fetch=prior}
 });
+
+test('sandbox signed refund and duplicate/reordered events never touch paid grants',async()=>{
+ const cfg=env();
+ const statements=[];
+ let current='started';
+ const seen=new Set();
+ cfg.AUTH_DB={
+  prepare(sql){
+   statements.push(sql);
+   return {bind(...args){return {
+    async first(){return {id:intent,user_id:owner.id,status:current}},
+    async run(){
+     if(sql.includes('INSERT OR IGNORE INTO commerce_test_webhook_events'))seen.add(args[0]);
+     if(sql.startsWith('UPDATE commerce_test_intents'))current=current==='refunded'?'refunded':args[0];
+     return {meta:{changes:1}};
+    }
+   }}};
+  },
+  async batch(tasks){for(const task of tasks)await task.run();return []}
+ };
+ const request=(event,kind)=>{
+  const {raw,signature}=signed(event);
+  return new Request(base+'/api/commerce/test/webhook',{method:'POST',
+   headers:{'X-Signature':signature,'X-Event-Name':kind,'Content-Type':'application/json'},body:raw});
+ };
+ const order=sampleOrder();
+ const paid=()=>handleLemonTest(request(order,'order_created'),cfg,{session:async()=>null});
+ assert.equal((await paid()).status,200);
+ assert.equal((await paid()).status,200);
+ assert.equal(current,'paid');
+ assert.equal(seen.size,1);
+ const refund=sampleOrder({refunded:true,status:'refunded'});
+ refund.meta.event_name='order_refunded';
+ const refunded=()=>handleLemonTest(request(refund,'order_refunded'),cfg,{session:async()=>null});
+ assert.equal((await refunded()).status,200);
+ assert.equal((await refunded()).status,200);
+ assert.equal(current,'refunded');
+ assert.equal(seen.size,2);
+ // A delayed or replayed paid webhook must not resurrect a refunded checkout intent.
+ assert.equal((await paid()).status,200);
+ assert.equal(current,'refunded');
+ assert.equal(statements.some(sql=>/\\b(?:pro_licenses|pro_devices)\\b/i.test(sql)),false);
+ const forged=request(order,'order_refunded');
+ assert.equal((await handleLemonTest(forged,cfg,{session:async()=>null})).status,400);
+});
