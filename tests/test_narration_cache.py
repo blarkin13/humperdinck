@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
-
 from backend.narration_cache import PresetSectionCache, preset_render_key
 
 
@@ -62,8 +60,7 @@ def test_invalid_or_corrupted_cache_misses_safely(tmp_path):
     root = model(tmp_path)
     token = key(root)
     cache = PresetSectionCache(tmp_path / "cache")
-    with pytest.raises(ValueError):
-        cache.load("../../unexpected")
+    assert cache.load("../../unexpected") is None
     cache.store(token, np.array([np.nan], dtype=np.float32))
     assert cache.load(token) is None
     cache.root.mkdir(parents=True)
