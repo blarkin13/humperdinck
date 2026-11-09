@@ -1,3 +1,4 @@
+import {limitedJson} from './limited-json.js';
 /* Authenticated account dashboard, connected desktops and offline account recovery.
  * Free has no cloud requirement. No payment provider, receipt generation or license
  * issuance is exposed by these routes.
@@ -17,11 +18,7 @@ const digest=async text=>{
  const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',enc.encode(text)));
  return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 };
-async function body(req){
- if(Number(req.headers.get('Content-Length')||0)>4096
-   ||!req.headers.get('Content-Type')?.toLowerCase().startsWith('application/json'))return {};
- try{return await req.json()}catch{return {}}
-}
+const body=req=>limitedJson(req,4096);
 async function overview(env,user){
  const [identities,purchase,desktops,legacy,codes,account]=await Promise.all([
   env.AUTH_DB.prepare('SELECT provider FROM auth_identities WHERE user_id=? ORDER BY provider').bind(user.id).all(),
