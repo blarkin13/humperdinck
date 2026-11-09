@@ -36,6 +36,8 @@ jobs:
           node --check src/lemon-test-commerce.js
           node --test tests/lemon-test-commerce.test.mjs
           node --test tests/legal-signed-consent.test.mjs
+          node --check src/voice-exchange-policy.js
+          node --test tests/voice-exchange-policy.test.mjs
           node --check website/account/account.js
           node --test tests/account-auth.test.mjs
           node --check src/account-dashboard.js
