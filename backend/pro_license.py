@@ -21,10 +21,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 PRO_KEY_ID = 'humperdinck-pro-ed25519-v1'
 PRO_PUBLIC_KEY_BASE64 = 'YIYroSRZsiMKFXj7PL3i/YX847sGx9muPqIY0r15JTQ='
 # Trusted offline verification key ring. V1 must remain pinned forever.
-# After the owner's local v2 key generation and recovery test, replace ONLY
-# None with the public v2 Ed25519 key from the local script's output. NEVER
-# place the private key in app source, shipped packages or GitHub.
-PRO_V2_PUBLIC_KEY_BASE64 = None
+# Owner-generated v2 PUBLIC key (safe to ship). Private signing key is never embedded.
+PRO_V2_PUBLIC_KEY_BASE64 = 'LJ0GvDnAUCXlSGtJrAYs8L6yFZvAbcpuvLNBQHNH4MM='
 PRO_V2_KEY_ID = 'humperdinck-pro-ed25519-v2'
 LICENSE_FILE = 'pro-license.json'
 INSTALLATION_FILE = 'installation.json'
