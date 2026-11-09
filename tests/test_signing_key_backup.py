@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import base64
 import importlib.util
+import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -79,3 +81,43 @@ def test_mismatched_public_key_is_rejected():
     record["public_key_base64"] = b64(bytes(32))
     with pytest.raises(module.InvalidBackup):
         module.verify_backup(record, passphrase)
+
+
+def test_recovery_requires_matching_independent_pinned_public_key():
+    record, passphrase = fixture()
+    expected = record["public_key_base64"]
+    assert module.verify_backup(record, passphrase, expected_public_key=expected)["verified"]
+    with pytest.raises(module.InvalidBackup, match="expected deployed public"):
+        module.verify_backup(record, passphrase, expected_public_key=b64(bytes([7]) * 32))
+    with pytest.raises(module.InvalidBackup):
+        module.verify_backup(record, passphrase, expected_public_key="not valid base64!")
+    # A self-consistent backup with the wrong signer must never pass pinned validation.
+    another, another_passphrase = fixture()
+    with pytest.raises(module.InvalidBackup):
+        module.verify_backup(another, another_passphrase, expected_public_key=expected)
+
+
+def test_two_separate_encrypted_copies_survive_corruption_of_one_copy(tmp_path):
+    record, passphrase = fixture()
+    source=tmp_path/"primary"/"encrypted-backup.json"
+    second=tmp_path/"separate-copy"/"encrypted-backup.json"
+    source.parent.mkdir()
+    second.parent.mkdir()
+    source.write_text(json.dumps(record), encoding="utf-8")
+    shutil.copyfile(source, second)
+    expected=record["public_key_base64"]
+    assert module.verify_backup(json.loads(source.read_text()), passphrase,
+                                expected_public_key=expected)["verified"]
+    assert module.verify_backup(json.loads(second.read_text()), passphrase,
+                                expected_public_key=expected)["verified"]
+    damaged=json.loads(second.read_text())
+    damaged["nonce_base64"]=b64(bytes([9]) * 12)
+    second.write_text(json.dumps(damaged), encoding="utf-8")
+    with pytest.raises(module.InvalidBackup):
+        module.verify_backup(json.loads(second.read_text()), passphrase,
+                             expected_public_key=expected)
+    assert module.verify_backup(json.loads(source.read_text()), passphrase,
+                                expected_public_key=expected)["verified"]
+    with pytest.raises(module.InvalidBackup):
+        module.verify_backup(json.loads(source.read_text()), "wrong-passphrase",
+                             expected_public_key=expected)
