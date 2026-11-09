@@ -1,6 +1,7 @@
 import {recordAnalyticsEvent, handleAnalyticsEvent} from './site-analytics.js';
 import {handleAccount,accountSession} from './account-auth.js';
 import {handleLemonTest} from './lemon-test-commerce.js';
+import {isReservedProductionCommercePath,handleUnreleasedProductionCommerce} from './live-commerce-release-gate.js';
 import {publicRelease} from './public-releases.js';
 import {handleNativeModel,ROUTE as NATIVE_MODEL_ROUTE} from './native-model-mirror.js';
 // Model files only: browser synthesis remains local; this Worker performs no inference.
@@ -11,6 +12,9 @@ const safeFile=(path)=>path.length>0&&path.length<240&&path.split('/').every(par
 export default {
  async fetch(request,env,ctx){
   const url=new URL(request.url);
+  // Deny-first: no environment flag, secret, checkout callback or static fallback
+  // can accidentally expose a live production-commerce endpoint.
+  if(isReservedProductionCommercePath(url.pathname))return handleUnreleasedProductionCommerce(request);
   if(url.pathname.startsWith('/api/account/'))return handleAccount(request,env);
   if(url.pathname.startsWith('/api/commerce/test/'))return handleLemonTest(request,env,{session:accountSession});
   if(url.pathname==='/analytics/event')return handleAnalyticsEvent(request,env);

@@ -17,7 +17,11 @@
       "/updates/latest.json",
       "/voices/*",
       "/api/account/*",
-      "/api/commerce/test/*"
+      "/api/commerce/test/*",
+      "/api/commerce/live*",
+      "/api/commerce/production*",
+      "/api/commerce/checkout",
+      "/api/commerce/webhook"
     ]
   }
 }
