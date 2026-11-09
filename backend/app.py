@@ -19,6 +19,7 @@ from backend import engines
 from backend import entitlements
 from backend import account_client
 from backend import pro_license
+from backend import voice_consent
 from backend.engine import export_mp3
 from backend import updater
 from backend.audio_edit import AudioEdit, render
@@ -480,11 +481,15 @@ def preview_voice_refinement(voice_id:str,request:VoiceRefinementPreviewInput):
 @app.delete('/api/voices/{voice_id}')
 def delete_voice(voice_id: str):
     upload_path(voice_id).unlink()
+    voice_consent.delete_document(DATA, voice_id)
     meta = voice_meta(); meta.pop(voice_id, None); save_voice_meta(meta)
     return {'deleted':True}
 
 @app.post('/api/voices')
-async def upload_voice(file: UploadFile = File(...), consent_attestation: str = Form(''), consent_subject: str = Form('')):
+async def upload_voice(file: UploadFile = File(...), consent_attestation: str = Form(''),
+                       consent_subject: str = Form(''), consent_signer_name: str = Form(''),
+                       consent_speaker_name: str = Form(''),
+                       signed_authorization: UploadFile | None = File(None)):
     suffix = Path(file.filename or '').suffix.lower()
     # Recording your own voice with the microphone is Free; cloning from an
     # uploaded audio file is Pro. Browser recordings arrive as .webm/.ogg/.mp4.
@@ -492,8 +497,17 @@ async def upload_voice(file: UploadFile = File(...), consent_attestation: str = 
     entitlements.require('voice.mic_cloning' if recorded else 'voice.personal_cloning')
     # This records a user acknowledgement, NOT independent proof of a signature.
     # Reject the reference before accepting any audio without a fresh rights assertion.
-    if consent_attestation != 'humperdinck-voice-consent-v1' or consent_subject not in ('self','authorized'):
-        raise HTTPException(422, 'Confirm you are the speaker or possess the speaker\'s prior signed written consent')
+    if consent_attestation != voice_consent.POLICY:
+        raise HTTPException(422, 'Accept the current Humperdinck speaker authorization policy')
+    evidence = None
+    if signed_authorization is not None:
+        evidence = await signed_authorization.read(voice_consent.MAX_DOCUMENT_BYTES + 1)
+    try:
+        authorization = voice_consent.validate(
+            consent_subject, consent_signer_name, consent_speaker_name, evidence,
+            signed_authorization.filename if signed_authorization else '')
+    except voice_consent.ConsentError as exc:
+        raise HTTPException(422, str(exc)) from exc
     # .webm/.ogg/.mp4 are what browsers produce when recording from the microphone.
     if suffix not in ('.wav','.mp3','.flac','.m4a','.webm','.ogg','.mp4'):
         raise HTTPException(400, 'Supported formats: WAV, MP3, FLAC, M4A, OGG (or a browser recording)')
@@ -509,16 +523,21 @@ async def upload_voice(file: UploadFile = File(...), consent_attestation: str = 
     try:
         subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(source),'-ac','1','-ar','24000',str(destination)], check=True, capture_output=True, timeout=90)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        destination.unlink(missing_ok=True)
         raise HTTPException(400, 'Could not decode voice recording')
     finally:
         source.unlink(missing_ok=True)
-    meta = voice_meta()
-    meta[key] = {'name':Path(file.filename or 'Imported voice').stem, 'category':'',
-                 'origin':'recorded' if recorded else 'uploaded',
-                 'consent_acceptance':{'policy':'humperdinck-voice-consent-v1',
-                    'speaker':'self' if consent_subject=='self' else 'authorized-third-party',
-                    'accepted_at':datetime.now(timezone.utc).isoformat(),
-                    'evidence':'local-user-attestation-not-independent-verification'}}
+    try:
+        if evidence and authorization['signed_document_extension']:
+            voice_consent.store_document(DATA, key, evidence, authorization['signed_document_extension'])
+        meta = voice_meta()
+        meta[key] = {'name':Path(file.filename or 'Imported voice').stem, 'category':'',
+                     'origin':'recorded' if recorded else 'uploaded',
+                     'consent_acceptance':authorization}
+    except Exception:
+        destination.unlink(missing_ok=True)
+        voice_consent.delete_document(DATA, key)
+        raise
     save_voice_meta(meta)
     return {'voice_id':key, 'filename':meta[key]['name'], 'category':''}
 
