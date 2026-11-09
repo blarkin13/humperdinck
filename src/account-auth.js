@@ -58,10 +58,12 @@ async function rateLimit(request,env,kind,limit=12){
   const key=await hash(env.AUTH_RATE_SECRET+'|'+kind+'|'+ip);
   const cutoff=now()-600;
   await env.AUTH_DB.prepare('DELETE FROM auth_rate WHERE created_at < ?').bind(cutoff).run();
-  const count=await env.AUTH_DB.prepare('SELECT COUNT(*) AS count FROM auth_rate WHERE bucket = ?').bind(key).first();
-  if(Number(count?.count||0)>=limit)return false;
-  await env.AUTH_DB.prepare('INSERT INTO auth_rate (bucket, created_at) VALUES (?, ?)').bind(key,now()).run();
-  return true;
+  // A single conditional SQLite statement avoids a SELECT/INSERT race when
+  // multiple OAuth or recovery attempts arrive simultaneously.
+  const inserted=await env.AUTH_DB.prepare(
+    'INSERT INTO auth_rate (bucket, created_at) SELECT ?,? WHERE (SELECT COUNT(*) FROM auth_rate WHERE bucket=?) < ?'
+  ).bind(key,now(),key,limit).run();
+  return inserted.meta?.changes===1;
 }
 async function session(request,env){
   const raw=request.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1]
