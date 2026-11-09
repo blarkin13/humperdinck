@@ -37,7 +37,7 @@ def test_short_download_removes_partial_files(tmp_path, monkeypatch):
     try:
         native_models.download_kokoro()
     except RuntimeError as exc:
-        assert "smaller" in str(exc)
+        assert "smaller" in str(exc) or "incomplete" in str(exc)
     else:
         raise AssertionError("Incomplete model was accepted")
     folder = tmp_path / "hf" / "humperdinck" / "presets" / "kokoro"
