@@ -283,6 +283,14 @@ def set_starter_voice_channel(voice_id:str,request:StarterChannel):
     except ValueError as exc:
         raise HTTPException(404,str(exc))
 
+@app.patch('/api/starter-voices/{voice_id}')
+def update_starter_voice(voice_id:str,request:RenameInput):
+    publisher_only()
+    try:
+        return starter_voices.set_details(voice_id,request.name,request.category)
+    except ValueError as exc:
+        raise HTTPException(404 if 'not in' in str(exc) else 400,str(exc))
+
 @app.get('/api/voice-catalog')
 def voice_catalog():
     from backend import voice_catalog as gallery

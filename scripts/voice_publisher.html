@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Publisher</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1d1b18;--muted:#6b665d;--line:#e2ddd2;--accent:#7a3e1d;--bad:#a8261b;--good:#2f6b3a}
+@media (prefers-color-scheme:dark){:root{--bg:#191714;--card:#24211d;--ink:#eee8de;--muted:#a59e92;--line:#3a352e;--accent:#e09a6b;--bad:#ef7b6f;--good:#7fc48b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:920px;margin:0 auto;padding:24px 16px 80px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 8px}
+p.lead,small,.hint{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.who{min-width:200px;flex:1}.who input{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;width:100%;max-width:260px;margin:2px 0}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,select{font:inherit;padding:6px 10px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:disabled{opacity:.5;cursor:default}
+audio{height:32px;max-width:260px}
+.badge{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
+.err{color:var(--bad)}.ok{color:var(--good)}
+form.card{display:grid;gap:8px;justify-content:stretch}
+form label{display:grid;gap:3px}
+form input[type=text],form input[type=file]{font:inherit;padding:6px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit}
+footer{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:12px 0;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+#status{min-height:1.4em}
+</style>
+</head>
+<body>
+<main>
+<h1>Humperdinck Voice Publisher</h1>
+<p class="lead">This helper only creates and edits the <strong>Built-in</strong> voices (every install gets them) and the <strong>Gallery</strong> voices (people choose to download them). Only the generated sample is shared, never the original recording.</p>
+<p id="status" role="status"></p>
+
+<h2>In the pack</h2>
+<div id="pack"></div>
+
+<h2>Make a voice for the pack</h2>
+<p class="hint">Generate a sample from one of your source recordings, listen to it, then add it as Built-in or Gallery. Generating again for a voice that's already in the pack replaces its sample.</p>
+<div id="sources"></div>
+
+<h2>Add a source recording</h2>
+<form id="upload" class="card">
+ <label>Recording (WAV, MP3 or M4A) <input type="file" name="file" accept="audio/*" required></label>
+ <label>Voice name <input type="text" name="name" maxlength="120" required></label>
+ <label>Category (optional) <input type="text" name="category" maxlength="60"></label>
+ <label>Your full name (as the speaker or the person with signed permission) <input type="text" name="signer" maxlength="120" required></label>
+ <label><span><input type="checkbox" name="self"> This is my own voice</span></label>
+ <label>If not your voice: speaker's full name <input type="text" name="speaker" maxlength="120"></label>
+ <label>If not your voice: signed authorization (PDF, PNG or JPEG) <input type="file" name="auth" accept=".pdf,.png,.jpg,.jpeg"></label>
+ <label><span><input type="checkbox" name="agree" required> I confirm I have the rights to use this voice under the Humperdinck voice consent policy.</span></label>
+ <div><button class="primary" type="submit">Add recording</button></div>
+</form>
+
+<footer>
+ <small id="published"></small>
+ <button id="publish" class="primary" type="button">Publish to everyone</button>
+</footer>
+</main>
+<script>
+const SENTENCE_NOTE='Sample sentence: "The old lighthouse stood quietly above the waves, waiting for the next storm."';
+const state={pack:[],sources:[],jobs:{},changed:false,busy:false};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function say(text,kind=''){const el=$('#status');el.textContent=text;el.className=kind}
+async function api(path,options={}){
+ const r=await fetch('/api/'+path,options);
+ const type=r.headers.get('Content-Type')||'';
+ const body=type.includes('json')?await r.json():await r.text();
+ if(!r.ok){const d=body&&body.detail;throw Error(Array.isArray(d)?d.map(x=>x.msg).join('; '):(d&&d.message)||(typeof d==='string'&&d)||(typeof body==='string'&&body)||('Error '+r.status))}
+ return body;
+}
+const json=(method,data)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+async function work(label,fn){if(state.busy)return;state.busy=true;render();say(label+'…');
+ try{const msg=await fn();say(msg||'Done.','ok')}catch(e){say(e.message,'err')}finally{state.busy=false;render()}}
+
+async function load(){
+ const [starter,sources]=await Promise.all([api('starter-voices'),api('voices')]);
+ state.pack=starter.approved;state.published=starter.published;
+ state.sources=sources.filter(v=>v.origin!=='builtin-humperdinck'&&v.origin!=='starter-voice'&&v.origin!=='catalog');
+ render();
+}
+function render(){
+ const dis=state.busy?'disabled':'';
+ const inPack=new Set(state.pack.map(v=>v.source_voice_id));
+ $('#pack').innerHTML=state.pack.length?state.pack.map(v=>`<div class="card" data-id="${esc(v.source_voice_id)}">
+  <div class="who"><input aria-label="Name" data-f="name" value="${esc(v.name)}"><input aria-label="Category" data-f="category" placeholder="Category" value="${esc(v.category)}"></div>
+  <div class="actions">
+   <audio controls preload="none" src="/api/starter-voices/${esc(v.source_voice_id)}/sample.wav"></audio>
+   <select data-act="channel" ${dis} aria-label="Who gets it"><option value="builtin" ${v.channel!=='catalog'?'selected':''}>Built-in · everyone</option><option value="catalog" ${v.channel==='catalog'?'selected':''}>Gallery · people choose</option></select>
+   <button data-act="save" ${dis}>Save name</button>
+   <button data-act="remove" ${dis}>Remove</button>
+  </div></div>`).join(''):'<p class="hint">No voices in the pack yet.</p>';
+ $('#sources').innerHTML=state.sources.length?`<p class="hint">${SENTENCE_NOTE}</p>`+state.sources.map(v=>{
+  const j=state.jobs[v.voice_id],running=j&&(j.status==='queued'||j.status==='running'),ready=j&&j.status==='complete';
+  return `<div class="card" data-id="${esc(v.voice_id)}">
+   <div class="who"><strong>${esc(v.filename)}</strong> ${inPack.has(v.voice_id)?'<span class="badge">in pack</span>':''}<br><small>${esc(v.category||'Source recording')}</small></div>
+   <div class="actions">
+    <audio controls preload="none" src="/api/voices/${esc(v.voice_id)}/audio" aria-label="Original recording"></audio>
+    <button data-act="generate" ${dis} ${running?'disabled':''}>${running?'Generating… '+(j.progress||0)+'%':ready?'Generate again':'Generate sample'}</button>
+    ${ready?`<audio controls src="/api/outputs/${j.job_id}.wav" aria-label="New sample"></audio>
+     <button data-act="add" data-ch="builtin" ${dis}>${inPack.has(v.voice_id)?'Replace sample':'Add as Built-in'}</button>
+     ${inPack.has(v.voice_id)?'':`<button data-act="add" data-ch="catalog" ${dis}>Add to Gallery</button>`}`:''}
+    ${j&&j.status==='failed'?`<small class="err">${esc(j.message)}</small>`:''}
+   </div></div>`}).join(''):'<p class="hint">No source recordings yet. Add one below.</p>';
+ const p=state.published;
+ $('#published').textContent=state.changed?'You have changes that are not published yet.':p?`Last published ${p.published_at} · ${p.voices} built-in, ${p.gallery||0} gallery`:'Not published yet.';
+ $('#publish').disabled=state.busy||!state.pack.some(v=>v.channel!=='catalog');
+}
+async function poll(){
+ const active=Object.entries(state.jobs).filter(([,j])=>j.status==='queued'||j.status==='running');
+ for(const [id,j] of active){try{state.jobs[id]=await api('jobs/'+j.job_id)}catch(e){state.jobs[id]={...j,status:'failed',message:e.message}}}
+ if(active.length)render();
+}
+setInterval(poll,1200);
+
+$('#pack').addEventListener('click',e=>{const b=e.target.closest('button[data-act]');if(!b)return;
+ const card=b.closest('.card'),id=card.dataset.id,v=state.pack.find(x=>x.source_voice_id===id);
+ if(b.dataset.act==='save')work('Saving',async()=>{await api('starter-voices/'+id,json('PATCH',{name:card.querySelector('[data-f=name]').value,category:card.querySelector('[data-f=category]').value}));state.changed=true;await load();return 'Saved. Publish to send the change out.'});
+ if(b.dataset.act==='remove'){if(!confirm(`Remove "${v.name}"? After you publish, it disappears from every install (Gallery voices people already downloaded stay on their computer).`))return;
+  work('Removing',async()=>{await api('starter-voices/'+id,{method:'DELETE'});state.changed=true;await load();return 'Removed. Publish to send the change out.'})}
+});
+$('#pack').addEventListener('change',e=>{const s=e.target.closest('select[data-act=channel]');if(!s)return;const id=s.closest('.card').dataset.id;
+ work('Moving',async()=>{await api('starter-voices/'+id+'/channel',json('PUT',{channel:s.value}));state.changed=true;await load();return 'Moved. Publish to send the change out.'})});
+$('#sources').addEventListener('click',e=>{const b=e.target.closest('button[data-act]');if(!b)return;const id=b.closest('.card').dataset.id;
+ if(b.dataset.act==='generate')work('Starting',async()=>{state.jobs[id]=await api('starter-voices/'+id+'/generate',{method:'POST'});return 'Generating the sample. Listen to it before adding.'});
+ if(b.dataset.act==='add')work('Adding',async()=>{await api('starter-voices/'+id+'/approve',json('POST',{job_id:state.jobs[id].job_id}));
+  if(b.dataset.ch==='catalog')await api('starter-voices/'+id+'/channel',json('PUT',{channel:'catalog'}));
+  delete state.jobs[id];state.changed=true;await load();return 'Added. Publish to send it out.'});
+});
+$('#upload').addEventListener('submit',e=>{e.preventDefault();const f=e.currentTarget;
+ work('Uploading',async()=>{const d=new FormData(),self=f.self.checked;
+  d.append('file',f.file.files[0]);d.append('consent_attestation','humperdinck-voice-consent-v2');
+  d.append('consent_subject',self?'self':'authorized');d.append('consent_signer_name',f.signer.value);
+  if(!self){d.append('consent_speaker_name',f.speaker.value);if(f.auth.files[0])d.append('signed_authorization',f.auth.files[0])}
+  const made=await api('voices',{method:'POST',body:d});
+  await api('voices/'+made.voice_id,json('PATCH',{name:f.name.value,category:f.category.value}));
+  f.reset();await load();return 'Recording added. Generate its sample above.'})});
+$('#publish').addEventListener('click',()=>{if(!confirm('Publish the pack? Every Humperdinck install picks up the change the next time it opens.'))return;
+ work('Publishing',async()=>{const r=await api('starter-voices/publish',{method:'POST'});state.changed=false;state.published=r;return `Published ${r.voices} built-in and ${r.gallery||0} gallery voices. Apps pick them up within about 5 minutes of opening.`})});
+load().catch(e=>say(e.message,'err'));
+</script>
+</body>
+</html>
