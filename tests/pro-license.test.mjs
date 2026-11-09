@@ -131,3 +131,73 @@ test('only desktop session can activate; ten slots enforced atomically and can b
   data:{installation_id:createId(11),label:'Extra'},bearer:true},env,desktop)).status,200);
  assert.equal((await send(path,{method:'POST',origin:base},env)).status,404);
 });
+
+test('Pro activation rejects malformed identifiers, labels and unauthorized clients',async()=>{
+ const {env}=await setup();
+ for(const data of [
+   {installation_id:'not-a-uuid',label:'Desktop'},
+   {installation_id:createId(41),label:''},
+   {installation_id:createId(41),label:' '.repeat(10)},
+   {installation_id:createId(41),label:'X'.repeat(81)},
+   {installation_id:createId(41)},
+ ]){
+   const denied=await send('/api/account/license/activate',{method:'POST',data,bearer:true},env,desktop);
+   assert.equal(denied.status,400);
+ }
+ assert.equal((await send('/api/account/license/activate',{method:'POST',
+   data:{installation_id:createId(1),label:'PC'}},env,desktop)).status,403);
+ assert.equal(env.AUTH_DB.devices.length,0);
+});
+
+test('missing signing key cannot create an online registration',async()=>{
+ const {env}=await setup();
+ delete env.PRO_LICENSE_ED25519_PRIVATE;
+ const data={installation_id:createId(90),label:'PC'};
+ assert.equal((await send('/api/account/license/activate',{method:'POST',
+   data,bearer:true},env,desktop)).status,503);
+ assert.equal(env.AUTH_DB.devices.length,0);
+ const overview=await (await send('/api/account/license',{},env)).json();
+ assert.equal(overview.license.backup_available,false);
+ assert.equal((await send('/api/account/license/backup',{},env)).status,503);
+});
+
+test('parallel online registrations never create an eleventh slot and a released slot can be reused',async()=>{
+ const {env}=await setup();
+ for(let i=1;i<=9;i++){
+   const res=await send('/api/account/license/activate',{method:'POST',
+     bearer:true,data:{installation_id:createId(i),label:'PC '+i}},env,desktop);
+   assert.equal(res.status,200);
+ }
+ const attempts=await Promise.all(Array.from({length:10},(_,j)=>
+   send('/api/account/license/activate',{method:'POST',
+     bearer:true,data:{installation_id:createId(100+j),label:'Parallel '+j}},env,desktop)));
+ assert.equal(attempts.filter(x=>x.status===200).length,1);
+ assert.equal(attempts.filter(x=>x.status===409).length,9);
+ const current=await (await send('/api/account/license',{},env)).json();
+ assert.equal(current.active_devices,10);
+ assert.equal((await send('/api/account/license/activate',{method:'POST',bearer:true,
+   data:{installation_id:createId(1),label:'Renamed PC'}},env,desktop)).status,200);
+ const first=current.devices.find(x=>x.label==='PC 1');
+ const path='/api/account/license/devices/'+first.id+'/deactivate';
+ assert.equal((await send(path,{method:'POST',origin:base},env)).status,200);
+ // A previously registered but deactivated device can reclaim a free slot.
+ assert.equal((await send('/api/account/license/activate',{method:'POST',bearer:true,
+   data:{installation_id:createId(1),label:'Restored PC'}},env,desktop)).status,200);
+ const after=await (await send('/api/account/license',{},env)).json();
+ assert.equal(after.active_devices,10);
+});
+
+test('another account cannot retrieve, deactivate or export an owner license',async()=>{
+ const {env}=await setup();
+ const other={id:'0c1eef0e-a68d-4a7d-924d-5d14792f4615',kind:'web'};
+ const active=await send('/api/account/license/activate',{method:'POST',bearer:true,
+   data:{installation_id:createId(1),label:'Owner PC'}},env,desktop);
+ assert.equal(active.status,200);
+ const ownerView=await (await send('/api/account/license',{},env)).json();
+ const target=ownerView.devices[0].id;
+ assert.equal((await send('/api/account/license/backup',{},env,other)).status,404);
+ assert.equal((await send('/api/account/license/devices/'+target+'/deactivate',{
+   method:'POST',origin:base},env,other)).status,404);
+ assert.equal((await (await send('/api/account/license',{},env,other)).json()).plan,'free');
+ assert.equal((await (await send('/api/account/license',{},env)).json()).active_devices,1);
+});
