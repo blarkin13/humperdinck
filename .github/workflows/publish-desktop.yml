@@ -44,6 +44,8 @@ jobs:
       TARGET_REPOSITORY: blarkin13/humperdinck-downloads
     steps:
       - uses: actions/checkout@v4
+      - name: Require exact-build commercial redistribution and speaker-rights signoff
+        run: python scripts/check-release-rights.py --version "$VERSION" --commit "${{ github.sha }}"
       - name: Validate release target, version and credentials
         shell: bash
         run: |
