@@ -274,7 +274,7 @@ export async function handleAccount(request,env){
   try{
     if(path==='/api/account/license'||path.startsWith('/api/account/license/'))
       return handleProLicense(request,env,{session,sameOrigin});
-    if(path==='/api/account/dashboard'||path.startsWith('/api/account/dashboard/')||
+    if(path.startsWith('/api/account/privacy/')||path==='/api/account/dashboard'||path.startsWith('/api/account/dashboard/')||
        path==='/api/account/recovery/redeem')
       return handleAccountDashboard(request,env,{
         session,sameOrigin,saveSession,cookie,cookieName:COOKIE,rateLimit
