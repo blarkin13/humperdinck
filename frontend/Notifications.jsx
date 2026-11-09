@@ -38,6 +38,16 @@ export function NotificationProvider({children}){
   request.current=null;
   setDialog(null);
  },[]);
+ // The desktop app reports finished downloads (it has no download bar).
+ useEffect(()=>{
+  const done=event=>{
+   const {success,name,folder}=event.detail||{};
+   if(success)notify('Saved '+(name||'file')+(folder?' to '+folder:''),'success');
+   else notify('Download failed'+(name?': '+name:''),'error');
+  };
+  window.addEventListener('humperdinck-download',done);
+  return ()=>window.removeEventListener('humperdinck-download',done);
+ },[notify]);
  useEffect(()=>()=>{
   for(const timer of timers.current.values())clearTimeout(timer);
   timers.current.clear();

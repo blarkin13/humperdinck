@@ -3,13 +3,16 @@
 
 use std::fs::OpenOptions;
 use std::io::{self, Write};
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::webview::DownloadEvent;
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
@@ -166,7 +169,43 @@ fn main() {
             let browser_url = format!("http://127.0.0.1:{port}/");
             let window_url = browser_url.parse()?;
             let load_log = log_path.clone();
+            // Save downloads to the Downloads folder and tell the page where each
+            // file went: the webview shows no download UI of its own.
+            let downloads: Arc<Mutex<HashMap<String, PathBuf>>> = Arc::default();
+            let download_log = log_path.clone();
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(window_url))
+                .on_download(move |webview, event| {
+                    match event {
+                        DownloadEvent::Requested { url, destination } => {
+                            if let Ok(folder) = webview.app_handle().path().download_dir() {
+                                let name = destination
+                                    .file_name()
+                                    .map(|n| n.to_os_string())
+                                    .unwrap_or_else(|| "humperdinck-download".into());
+                                *destination = unique_path(&folder.join(name));
+                            }
+                            if let Ok(mut map) = downloads.lock() {
+                                map.insert(url.to_string(), destination.clone());
+                            }
+                        }
+                        DownloadEvent::Finished { url, path, success } => {
+                            let remembered = downloads.lock().ok().and_then(|mut m| m.remove(url.as_str()));
+                            let saved = path.or(remembered);
+                            log_event(&download_log, &format!("Download finished ({success}): {saved:?}"));
+                            let detail = serde_json::json!({
+                                "success": success,
+                                "path": saved.as_ref().map(|p| p.display().to_string()),
+                                "name": saved.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().to_string()),
+                                "folder": saved.as_ref().and_then(|p| p.parent()).map(|p| p.display().to_string()),
+                            });
+                            let _ = webview.eval(format!(
+                                "window.dispatchEvent(new CustomEvent('humperdinck-download',{{detail:{detail}}}))"
+                            ));
+                        }
+                        _ => {}
+                    }
+                    true
+                })
                 .on_page_load(move |_window, payload| {
                     log_event(&load_log, &format!("Webview page {:?}: {}", payload.event(), payload.url()));
                 })
@@ -250,4 +289,18 @@ fn main() {
                 }
             }
         });
+}
+
+/// `name.ext`, or `name (2).ext` and so on if that file already exists.
+fn unique_path(candidate: &Path) -> PathBuf {
+    if !candidate.exists() {
+        return candidate.to_path_buf();
+    }
+    let stem = candidate.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let ext = candidate.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+    let parent = candidate.parent().map(Path::to_path_buf).unwrap_or_default();
+    (2..10_000)
+        .map(|n| parent.join(format!("{stem} ({n}){ext}")))
+        .find(|p| !p.exists())
+        .unwrap_or_else(|| candidate.to_path_buf())
 }
