@@ -94,6 +94,29 @@ penetration test.
    an explicit default-off launch flag. Production issuance and downloadable
    releases remain separate approvals.
 
+## Synthetic end-to-end payment acceptance — November 9, 2026
+
+PR #143 adds `tests/lemon-live-acceptance.test.mjs` and includes it in
+frontend CI. The suite uses **in-memory SQLite** with the real staged schema,
+a synthetic signed Lemon Squeezy-shaped webhook body, and the isolated
+production-plan functions. Frontend and Python CI passed.
+
+It covers a signed-in checkout intent, HMAC-validated paid order, atomic Pro
+issuance, duplicate replay, partial timing safeguards, refund-after-paid,
+refund-before-paid, delayed webhook versus order time, cross-account/order
+forgery, existing-license preservation, simulated D1 transaction rollback
+and retry, merchant-verified dispute evidence, and the public HTTP gate
+remaining at 503 even with live-looking credentials.
+
+**This is simulated acceptance, NOT a merchant-provider checkout.** No real
+Lemon Squeezy checkout was created, no external provider API was called,
+and no production Cloudflare D1 database was modified or migrated. Physical
+merchant sandbox acceptance (including successful refund and receipt
+reconciliation), operating-system license activation, final refund policy,
+merchant approval, signer/key-recovery proof, and final launch sign-off remain
+open. Do not enable live checkout or paid license issuance based on this
+test result alone.
+
 ## Current test coverage and limitations
 
 `tests/lemon-test-commerce.test.mjs` verifies sandbox HMAC, store/variant
