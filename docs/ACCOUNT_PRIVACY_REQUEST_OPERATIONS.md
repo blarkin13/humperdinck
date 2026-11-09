@@ -48,6 +48,8 @@ review**: it requires an explicit operator flag, a retention approval
 attestation, a pending deletion request, and no unresolved merchant dispute.
 Its result always has `mayDelete: false`; it can never authorize deletion.
 
+See [DATA_RETENTION_REGISTER.md](DATA_RETENTION_REGISTER.md) for the verified source-level record-class inventory and fields requiring owner/counsel-approved periods. Authentication expiration is not evidence that old database rows, merchant records or Cloudflare logs are automatically erased. Do not run ad hoc retention purges before reviewing dependencies, backups, holds and entitlement-recovery obligations.
+
 ## Remaining P0 acceptance
 
 - [ ] Owner and counsel approve publication-ready policy and retention periods.
