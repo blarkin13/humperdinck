@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {splitNarration,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,spokenText,audioSignature,audioResultIsCurrent,suggestSpeechDirections,directionSegments} from '../frontend/narrationSections.js';
+import {splitNarration,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,spokenText,audioSignature,audioResultIsCurrent,wholeNarrationSignature,suggestSpeechDirections,directionSegments} from '../frontend/narrationSections.js';
 
 test('splits long prose at sentence boundaries, each section under 500 characters',()=>{
  const script=('The moon rose over the old recording studio. ').repeat(42);
@@ -110,4 +110,17 @@ test('finished section audio is discarded if narrator or text changes during gen
  assert.equal(audioResultIsCurrent([],42,signature),false);
  // Timing-only settings do not require model regeneration.
  assert.equal(audioResultIsCurrent([{...initial,delay_after:2}],42,signature),true);
+});
+
+test('full export cache invalidates on narrator order speed effects or output format',()=>{
+ const sections=[{id:1,text:'The moon was bright.',voice_key:'af_heart',delay_after:0},
+                 {id:2,text:'The tide was high.',voice_key:'bm_george',delay_after:1}];
+ const key=wholeNarrationSignature('mp3',sections,{1:1,2:1},null,{volume:1});
+ assert.equal(wholeNarrationSignature('mp3',sections,{1:1,2:1},null,{volume:1}),key);
+ assert.notEqual(wholeNarrationSignature('wav',sections,{1:1,2:1},null,{volume:1}),key);
+ assert.notEqual(wholeNarrationSignature('mp3',[...sections].reverse(),{1:1,2:1},null,{volume:1}),key);
+ assert.notEqual(wholeNarrationSignature('mp3',[{...sections[0],voice_key:'am_michael'},sections[1]],{1:1,2:1},null,{volume:1}),key);
+ assert.notEqual(wholeNarrationSignature('mp3',sections,{1:1.25,2:1},null,{volume:1}),key);
+ assert.notEqual(wholeNarrationSignature('mp3',[{...sections[0],delay_after:2},sections[1]],{1:1,2:1},null,{volume:1}),key);
+ assert.notEqual(wholeNarrationSignature('mp3',[{...sections[0],effects:[{sound_id:'rain',position:'start',volume:.3}]},sections[1]],{1:1,2:1},null,{volume:1}),key);
 });
