@@ -29,7 +29,7 @@ export function inspectLiveOrder(payload,{storeId,variantId}={}){
  return {
   provider:'lemonsqueezy',orderId:String(payload.data.id),event,
   accountId:custom.account_id,intentId:custom.intent_id,
-  currency:a.currency,amountCents:a.total,
+  currency:a.currency,amountCents:a.total,storeId:String(a.store_id),variantId:String(item.variant_id),
   status:event==='order_created'?'paid':a.refunded===true?'refunded':'partially_refunded',
   requiresPurchaseIntentVerification:true,
   entitlementMutationAllowed:false,
