@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {splitNarration,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,spokenText,audioSignature,suggestSpeechDirections,directionSegments} from '../frontend/narrationSections.js';
+import {splitNarration,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,spokenText,audioSignature,audioResultIsCurrent,suggestSpeechDirections,directionSegments} from '../frontend/narrationSections.js';
 
 test('splits long prose at sentence boundaries, each section under 500 characters',()=>{
  const script=('The moon rose over the old recording studio. ').repeat(42);
@@ -99,4 +99,15 @@ test('changing a section speaker or text invalidates generated audio',()=>{
  assert.equal(audioSignature(original),audioSignature({...original,delay_after:1}));
  assert.notEqual(audioSignature(original),audioSignature({...original,text:'Hello!'}));
  assert.notEqual(audioSignature(original),audioSignature({...original,voice_key:'af_bella'}));
+});
+
+test('finished section audio is discarded if narrator or text changes during generation',()=>{
+ const initial={id:42,voice_key:'af_heart',text:'The first recording.'};
+ const signature=audioSignature(initial);
+ assert.equal(audioResultIsCurrent([initial],42,signature),true);
+ assert.equal(audioResultIsCurrent([{...initial,text:'The new recording.'}],42,signature),false);
+ assert.equal(audioResultIsCurrent([{...initial,voice_key:'am_michael'}],42,signature),false);
+ assert.equal(audioResultIsCurrent([],42,signature),false);
+ // Timing-only settings do not require model regeneration.
+ assert.equal(audioResultIsCurrent([{...initial,delay_after:2}],42,signature),true);
 });
