@@ -26,7 +26,7 @@ import NarratorPicker from './NarratorPicker.jsx';
 import CharactersPanel from './CharactersPanel.jsx';
 import VideoStudio from './VideoStudio.jsx';
 import SoundDesk,{DEFAULT_DESK,useDeskPreview} from './SoundDesk.jsx';
-import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,suggestSpeechDirections} from './narrationSections.js';
+import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,audioResultIsCurrent,suggestSpeechDirections} from './narrationSections.js';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 const PUBLIC_STUDIO=import.meta.env.VITE_PUBLIC_STUDIO==='1';
 const PUBLIC_VOICES=[['af_heart','Heart','American English · female'],['af_bella','Bella','American English · female'],['af_nicole','Nicole','American English · female'],['am_michael','Michael','American English · male'],['bf_emma','Emma','British English · female'],['bm_daniel','Daniel','British English · male']].map(([key,name,accent])=>({key,name,accent}));
@@ -296,8 +296,7 @@ function App(){
     setSectionJob({...next,sectionId:sectionJob.sectionId,signature:sectionJob.signature});
     if(next.status==='complete'){
      const {sectionId,signature}=sectionJob;
-     const current=blocksRef.current.find(item=>item.id===sectionId);
-     if(!current||audioSignature(current)!==signature){
+     if(!audioResultIsCurrent(blocksRef.current,sectionId,signature)){
        setSectionPlayingId(null);
        setSectionPlayError({id:sectionId,message:'Section text or narrator changed while generating. Generate it again to hear the updated voice.'});
        return;
