@@ -20,6 +20,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 PRO_KEY_ID = 'humperdinck-pro-ed25519-v1'
 PRO_PUBLIC_KEY_BASE64 = 'YIYroSRZsiMKFXj7PL3i/YX847sGx9muPqIY0r15JTQ='
+# Trusted offline verification key ring. V1 must remain pinned forever.
+# After the owner's local v2 key generation and recovery test, replace ONLY
+# None with the public v2 Ed25519 key from the local script's output. NEVER
+# place the private key in app source, shipped packages or GitHub.
+PRO_V2_PUBLIC_KEY_BASE64 = None
+PRO_V2_KEY_ID = 'humperdinck-pro-ed25519-v2'
 LICENSE_FILE = 'pro-license.json'
 INSTALLATION_FILE = 'installation.json'
 LICENSE_TYPE = 'humperdinck.pro.perpetual'
@@ -45,12 +51,26 @@ def verify(token: str) -> dict:
         signature = _unbase64url(sig)
         if len(signature) != 64:
             raise InvalidLicense('Invalid license signature length')
-        Ed25519PublicKey.from_public_bytes(base64.b64decode(PRO_PUBLIC_KEY_BASE64)).verify(signature, encoded)
+        # Parse the untrusted key ID only to choose from a strictly pinned
+        # allowlist. Never use a key embedded in the token or from the network.
         info = json.loads(encoded)
+        if not isinstance(info, dict):
+            raise InvalidLicense('Malformed license payload')
+        key_id = info.get('key_id')
+        trusted_keys = {PRO_KEY_ID: PRO_PUBLIC_KEY_BASE64}
+        if PRO_V2_PUBLIC_KEY_BASE64:
+            trusted_keys[PRO_V2_KEY_ID] = PRO_V2_PUBLIC_KEY_BASE64
+        pinned = trusted_keys.get(key_id) if isinstance(key_id, str) else None
+        if pinned is None:
+            raise InvalidLicense('Unknown or unconfigured signing key')
+        public_bytes = base64.b64decode(pinned, validate=True)
+        if len(public_bytes) != 32:
+            raise InvalidLicense('Invalid pinned signing key')
+        Ed25519PublicKey.from_public_bytes(public_bytes).verify(signature, encoded)
     except (InvalidSignature, ValueError, TypeError, KeyError, UnicodeError, binascii.Error) as exc:
         raise InvalidLicense('License signature is invalid') from exc
-    if (not isinstance(info, dict) or info.get('version') != 1 or
-        info.get('type') != LICENSE_TYPE or info.get('key_id') != PRO_KEY_ID or
+    if (info.get('version') != 1 or
+        info.get('type') != LICENSE_TYPE or info.get('key_id') not in trusted_keys or
         info.get('expires_at', 'missing') is not None or
         info.get('features') != ['pro'] or
         not isinstance(info.get('issued_at'), int) or

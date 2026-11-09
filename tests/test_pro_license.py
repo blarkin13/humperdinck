@@ -80,3 +80,41 @@ def test_installation_id_random_and_stable(tmp_path):
     assert third['installation_id']!=one['installation_id']
     if os.name=='posix':
         assert (tmp_path/'installation.json').stat().st_mode & 0o077 == 0
+
+def test_future_v2_key_validates_offline_without_invalidating_v1(tmp_path,monkeypatch):
+    """No v2 private key or public key is shipped before the owner's migration."""
+    v1=make_grant(monkeypatch)
+    v1_public=pro_license.PRO_PUBLIC_KEY_BASE64
+    old_id=pro_license.PRO_KEY_ID
+    v2_private=Ed25519PrivateKey.generate()
+    v2_public=base64.b64encode(v2_private.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )).decode()
+    grant={'version':1,'type':pro_license.LICENSE_TYPE,
+           'key_id':pro_license.PRO_V2_KEY_ID,
+           'license_id':str(uuid4()),'subject':str(uuid4()),
+           'issued_at':int(time.time()),'features':['pro'],
+           'transfer':'portable-offline-backup','expires_at':None}
+    payload=json.dumps(grant,separators=(',',':')).encode()
+    encode=lambda data:base64.urlsafe_b64encode(data).decode().rstrip('=')
+    token=encode(payload)+'.'+encode(v2_private.sign(payload))
+    with pytest.raises(pro_license.InvalidLicense):
+        pro_license.verify(token)
+    monkeypatch.setattr(pro_license,'PRO_V2_PUBLIC_KEY_BASE64',v2_public)
+    assert pro_license.verify(token)['key_id']==pro_license.PRO_V2_KEY_ID
+    assert pro_license.verify(v1)['key_id']==old_id
+    assert pro_license.save(tmp_path,token)['plan']=='pro'
+    assert pro_license.backup(tmp_path)['license']==token
+    assert pro_license.status(tmp_path)['active']
+    assert pro_license.PRO_PUBLIC_KEY_BASE64==v1_public
+
+
+def test_unrecognized_key_id_and_modified_payload_are_rejected(monkeypatch):
+    token=make_grant(monkeypatch)
+    body,signature=token.split('.')
+    payload=json.loads(base64.urlsafe_b64decode(body+'='*(-len(body)%4)))
+    payload['key_id']='humperdinck-pro-ed25519-v999'
+    altered=base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
+    with pytest.raises(pro_license.InvalidLicense):
+        pro_license.verify(altered+'.'+signature)

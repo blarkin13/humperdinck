@@ -4,8 +4,12 @@
  * Portable grants are intentionally NOT machine-locked: offline forever wins
  * over strict remote enforcement of a ten-device cap.
  */
-const KEY_ID='humperdinck-pro-ed25519-v1';
+const V1_KEY_ID='humperdinck-pro-ed25519-v1';
+const V2_KEY_ID='humperdinck-pro-ed25519-v2';
 export const PRO_PUBLIC_KEY_BASE64='YIYroSRZsiMKFXj7PL3i/YX847sGx9muPqIY0r15JTQ=';
+// Safe staging: no v2 activation until the owner creates, backs up and
+// supplies the PUBLIC v2 key. This file must never contain private key bytes.
+export const PRO_V2_PUBLIC_KEY_BASE64=null;
 const encoder=new TextEncoder();
 const b64url=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const b64bytes=text=>Uint8Array.from(atob(text),c=>c.charCodeAt(0));
@@ -33,19 +37,33 @@ async function devicesFor(env,licenseId){
   return (r.results||[]).map(d=>({id:d.id,label:d.label,activated_at:d.activated_at,
     last_seen_at:d.last_seen_at,active:d.deactivated_at===null}));
 }
-function grantPayload(license){
-  return {version:1,type:'humperdinck.pro.perpetual',key_id:KEY_ID,
+function grantPayload(license,keyId=V1_KEY_ID){
+  return {version:1,type:'humperdinck.pro.perpetual',key_id:keyId,
     license_id:license.id,subject:license.user_id,issued_at:license.issued_at,features:['pro'],
     transfer:'portable-offline-backup',expires_at:null};
 }
 async function signer(env){
-  if(!env.PRO_LICENSE_ED25519_PRIVATE)throw Error('Pro license signing key not configured');
-  const key=b64bytes(env.PRO_LICENSE_ED25519_PRIVATE);
-  return crypto.subtle.importKey('pkcs8',key,{name:'Ed25519'},false,['sign']);
+  const version=env.PRO_LICENSE_ACTIVE_KEY_ID||V1_KEY_ID;
+  if(version!==V1_KEY_ID&&version!==V2_KEY_ID)
+    throw Error('Unsupported Pro signing key configuration');
+  const isV2=version===V2_KEY_ID;
+  const pinned=isV2?PRO_V2_PUBLIC_KEY_BASE64:PRO_PUBLIC_KEY_BASE64;
+  const encoded=isV2?env.PRO_LICENSE_V2_ED25519_PRIVATE:env.PRO_LICENSE_ED25519_PRIVATE;
+  if(!pinned||!encoded)throw Error('Selected signing key is not configured');
+  const bytes=b64bytes(encoded);
+  const privateKey=await crypto.subtle.importKey('pkcs8',bytes,{name:'Ed25519'},false,['sign']);
+  // Fail closed when a mismatched private key is deployed, BEFORE device
+  // registration or certificate issuance. PKCS#8 keys are nonextractable.
+  const expected=await crypto.subtle.importKey('raw',b64bytes(pinned),{name:'Ed25519'},false,['verify']);
+  const challenge=encoder.encode('humperdinck-license-signing-key-self-test-v1');
+  const signature=await crypto.subtle.sign('Ed25519',privateKey,challenge);
+  if(!await crypto.subtle.verify('Ed25519',expected,signature,challenge))
+    throw Error('Configured signing key does not match the pinned public key');
+  return {key:privateKey,keyId:version};
 }
-async function signLicense(license,key){
-  const data=encoder.encode(JSON.stringify(grantPayload(license)));
-  const signature=await crypto.subtle.sign('Ed25519',key,data);
+async function signLicense(license,signerInfo){
+  const data=encoder.encode(JSON.stringify(grantPayload(license,signerInfo.keyId)));
+  const signature=await crypto.subtle.sign('Ed25519',signerInfo.key,data);
   return b64url(data)+'.'+b64url(signature);
 }
 async function licenseOverview(env,user){
@@ -54,7 +72,7 @@ async function licenseOverview(env,user){
     device_limit:10,checkout_available:false};
   const devices=await devicesFor(env,license.id);
   return {plan:'pro',license:{id:license.id,lifetime:true,issued_at:license.issued_at,
-      backup_available:!!env.PRO_LICENSE_ED25519_PRIVATE},devices,
+      backup_available:!!(env.PRO_LICENSE_ACTIVE_KEY_ID===V2_KEY_ID?PRO_V2_PUBLIC_KEY_BASE64&&env.PRO_LICENSE_V2_ED25519_PRIVATE:env.PRO_LICENSE_ED25519_PRIVATE)},devices,
     active_devices:devices.filter(d=>d.active).length,device_limit:license.max_devices,
     checkout_available:false,
     warning:devices.filter(d=>d.active).length>=10?'All ten device slots are in use. Deactivate an unused device before registering another.':(devices.filter(d=>d.active).length>=8?'You are nearing your ten-device limit.':null)};
@@ -69,8 +87,8 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
   if(path==='/api/account/license/backup'&&request.method==='GET'){
     const license=await licenseForUser(env,user.id);
     if(!license)return err(404,'No purchased Pro license is associated with this account');
-    if(!env.PRO_LICENSE_ED25519_PRIVATE)return err(503,'License backup service is not ready');
-    const key=await signer(env);
+    let key;
+    try{key=await signer(env)}catch{return err(503,'License backup service is not ready')}
     return response({license:await signLicense(license,key),filename:'humperdinck-pro-license.json',
       format:'humperdinck-offline-v1',portable:true});
   }
@@ -83,8 +101,9 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
       return err(400,'Invalid installation identifier or device label');
     const license=await licenseForUser(env,user.id);
     if(!license)return err(403,'A verified Pro purchase is required before activation');
-    if(!env.PRO_LICENSE_ED25519_PRIVATE)return err(503,'License signing is not configured');
-    const key=await signer(env); // check key before writing registration
+    let key;
+    try{key=await signer(env)}catch{return err(503,'License signing is not configured')}
+    // Verify selected key before writing online device registration.
     const existing=await env.AUTH_DB.prepare(
       'SELECT id,deactivated_at FROM pro_devices WHERE license_id=? AND installation_id=?')
       .bind(license.id,data.installation_id).first();

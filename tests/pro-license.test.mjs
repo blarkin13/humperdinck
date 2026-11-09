@@ -201,3 +201,31 @@ test('another account cannot retrieve, deactivate or export an owner license',as
  assert.equal((await (await send('/api/account/license',{},env,other)).json()).plan,'free');
  assert.equal((await (await send('/api/account/license',{},env)).json()).active_devices,1);
 });
+
+test('versioned signing defaults to v1 and refuses v2 without pinned public key',async()=>{
+ const {env}=await setup();
+ const issued=await send('/api/account/license/backup',{},env);
+ assert.equal(issued.status,200);
+ const token=(await issued.json()).license;
+ const payload=JSON.parse(new TextDecoder().decode(decoded(token.split('.')[0])));
+ assert.equal(payload.key_id,'humperdinck-pro-ed25519-v1');
+ env.PRO_LICENSE_ACTIVE_KEY_ID='humperdinck-pro-ed25519-v2';
+ assert.equal((await send('/api/account/license/backup',{},env)).status,503);
+ assert.equal((await send('/api/account/license/activate',{method:'POST',bearer:true,
+   data:{installation_id:createId(554),label:'New Desktop'}},env,desktop)).status,503);
+ assert.equal(env.AUTH_DB.devices.length,0);
+ env.PRO_LICENSE_ACTIVE_KEY_ID='unknown-key-id';
+ assert.equal((await send('/api/account/license/backup',{},env)).status,503);
+ env.PRO_LICENSE_ACTIVE_KEY_ID='humperdinck-pro-ed25519-v1';
+ assert.equal((await send('/api/account/license/backup',{},env)).status,200);
+});
+
+test('mismatched private key rejects issuance BEFORE registering a device',async()=>{
+ const {env}=await setup();
+ const other=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
+ env.PRO_LICENSE_ED25519_PRIVATE=Buffer.from(await crypto.subtle.exportKey('pkcs8',other.privateKey)).toString('base64');
+ assert.equal((await send('/api/account/license/backup',{},env)).status,503);
+ assert.equal((await send('/api/account/license/activate',{method:'POST',bearer:true,
+   data:{installation_id:createId(555),label:'Wrong key'}},env,desktop)).status,503);
+ assert.equal(env.AUTH_DB.devices.length,0);
+});
