@@ -11,7 +11,7 @@ export const FILES={
 };
 export const ROUTE='/native-models/kokoro/';
 
-export async function handleNativeModel(request,env){
+export async function handleNativeModel(request,env,ctx){
  if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405});
  const name=new URL(request.url).pathname.slice(ROUTE.length);
  const entry=Object.hasOwn(FILES,name)?FILES[name]:null;
@@ -30,12 +30,15 @@ export async function handleNativeModel(request,env){
  if(objects.reduce((n,o)=>n+o.size,0)!==entry.size)
   return new Response('Model mirror size mismatch',{status:503,headers:{'Cache-Control':'no-store'}});
  if(objects.length===1)return new Response(objects[0].body,{status:200,headers});
- const {readable,writable}=new TransformStream();
- (async()=>{
+ // FixedLengthStream keeps Content-Length; waitUntil keeps the copy running
+ // after the response is returned (without it the stream was cut at ~128 MB).
+ const {readable,writable}=typeof FixedLengthStream==='function'?new FixedLengthStream(entry.size):new TransformStream();
+ const pump=(async()=>{
   try{
    for(const object of objects)await object.body.pipeTo(writable,{preventClose:true});
    await writable.close();
   }catch(error){await writable.abort(error).catch(()=>{})}
  })();
+ ctx?.waitUntil?.(pump);
  return new Response(readable,{status:200,headers});
 }

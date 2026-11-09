@@ -14,7 +14,7 @@ export default {
   if(url.pathname.startsWith('/api/account/'))return handleAccount(request,env);
   if(url.pathname.startsWith('/api/commerce/test/'))return handleLemonTest(request,env,{session:accountSession});
   if(url.pathname==='/analytics/event')return handleAnalyticsEvent(request,env);
-  if(url.pathname.startsWith(NATIVE_MODEL_ROUTE))return handleNativeModel(request,env);
+  if(url.pathname.startsWith(NATIVE_MODEL_ROUTE))return handleNativeModel(request,env,ctx);
   if(url.pathname==='/downloads.json'||url.pathname==='/updates/latest.json'){
     return publicRelease(request,env);
   }
