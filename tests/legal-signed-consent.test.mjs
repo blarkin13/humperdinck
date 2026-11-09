@@ -34,3 +34,13 @@ test('voice consent, site terms and mobile legal warning are consistent',()=>{
  assert.match(css,/\.legal-consent-warning\{/);
  assert.match(css,/@media\(max-width:720px\)/);
 });
+
+test('published prelaunch privacy and refund notices reflect account deletion and roadmap decisions',()=>{
+ const privacy=load('privacy'),refund=load('refunds'),terms=load('terms');
+ assert.match(privacy,/may lose online Pro device activation and account-based license recovery/);
+ assert.match(privacy,/previously downloaded perpetual offline certificate may continue to function/);
+ assert.match(privacy,/minimum purchase, refund, dispute and tax records may still be retained/i);
+ assert.match(refund,/Lemon Squeezy is under merchant review/);
+ assert.doesNotMatch(refund,/Certain commercial, account and community features/);
+ assert.match(terms,/no live checkout is approved or enabled/);
+});
