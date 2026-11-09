@@ -319,3 +319,34 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
   assert.equal(rejected.headers.get('location'),base+'/account/?error=login_failed');
  }finally{globalThis.fetch=originalFetch}
 });
+
+test('device pairing rate limit atomically caps burst requests at ten per IP',async()=>{
+ class CountingRateDB extends MockDB {
+  prepare(sql){
+   if(sql.startsWith('DELETE FROM auth_rate')){
+    return {bind(){return {async run(){return {meta:{changes:0}}}}}};
+   }
+   if(sql.startsWith('INSERT INTO auth_rate')){
+    const db=this;
+    return {bind(...args){return {async run(){
+     const [bucket,created_at,match,limit]=args;
+     assert.equal(bucket,match);
+     const used=db.rate.filter(x=>x[0]===bucket).length;
+     if(used>=limit)return {meta:{changes:0}};
+     db.rate.push([bucket,created_at]);
+     return {meta:{changes:1}};
+    }}}};
+   }
+   return super.prepare(sql);
+  }
+ }
+ const db=new CountingRateDB(),env={AUTH_DB:db,
+  AUTH_RATE_SECRET:'test-only-pepper',
+  GOOGLE_CLIENT_ID:'test-client',GOOGLE_CLIENT_SECRET:'test-secret'};
+ const make=()=>call('/api/account/device/begin',{method:'POST',
+   data:{challenge:'z'.repeat(43)}},env);
+ const results=await Promise.all(Array.from({length:20},make));
+ assert.equal(results.filter(x=>x.status===200).length,10);
+ assert.equal(results.filter(x=>x.status===429).length,10);
+ assert.equal(db.rate.length,10);
+});
