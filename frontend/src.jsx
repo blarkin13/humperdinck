@@ -91,7 +91,9 @@ function App(){
  const connectDesk=useDeskPreview(desk);
  function setDesk(next){setDeskState(next);try{localStorage.setItem('humperdinck-narration-desk',JSON.stringify(next))}catch{}}
  function toggleDesk(){setDeskOpen(o=>{try{localStorage.setItem('humperdinck-narration-desk-open',o?'closed':'open')}catch{};return !o})}
- const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null),wholeAudioRef=useRef(null),wholeCompletedRef=useRef(null),downloadWrapRef=useRef(null),narrationBusyRef=useRef(false);
+ const playSequence=useRef(0),hiddenAudio=useRef(null),pendingSignature=useRef(null),wholeAudioRef=useRef(null),wholeCompletedRef=useRef(null),downloadWrapRef=useRef(null),narrationBusyRef=useRef(false),blocksRef=useRef(blocks);
+ // Polling callbacks must compare with the current script, not the render that started generation.
+ blocksRef.current=blocks;
  const [savedReference,setSavedReference]=useState(false),[category,setCategory]=useState(''),[uploadSel,setUploadSel]=useState(''),[savedJobs,setSavedJobs]=useState([]);
  const [consentSubject,setConsentSubject]=useState(''),[consentAccepted,setConsentAccepted]=useState(false);
  const [consentSigner,setConsentSigner]=useState(''),[consentSpeaker,setConsentSpeaker]=useState(''),[consentDocument,setConsentDocument]=useState(null);
@@ -294,6 +296,12 @@ function App(){
     setSectionJob({...next,sectionId:sectionJob.sectionId,signature:sectionJob.signature});
     if(next.status==='complete'){
      const {sectionId,signature}=sectionJob;
+     const current=blocksRef.current.find(item=>item.id===sectionId);
+     if(!current||audioSignature(current)!==signature){
+       setSectionPlayingId(null);
+       setSectionPlayError({id:sectionId,message:'Section text or narrator changed while generating. Generate it again to hear the updated voice.'});
+       return;
+     }
      setSectionAudio(old=>({...old,[sectionId]:{signature,url:next.download_url}}));
      setSectionPlayingId(null);replaySection(next.download_url,sectionId);
     }else if(next.status==='failed'){
