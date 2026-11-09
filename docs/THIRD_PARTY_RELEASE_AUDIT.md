@@ -3,6 +3,39 @@
 Status: **IN PROGRESS — NOT A LEGAL CLEARANCE OR RELEASE APPROVAL** (November 8, 2026).
 Source catalog: `backend/catalog.py`, `backend/native_models.py`, `scripts/build_native_sidecar.py`, `website/THIRD_PARTY_NOTICES.txt`.
 
+## Updated review and enforced distribution gate
+
+Detailed source-by-source model, sound and bundled-asset evidence:
+[`REDISTRIBUTION_EVIDENCE_2026-11-08.md`](REDISTRIBUTION_EVIDENCE_2026-11-08.md).
+The current unsigned native builder packages **seven SHA-pinned Humperdinck
+reference voices** and nine SHA-pinned CC0 nature sounds, but does **not**
+bundle Qwen checkpoint weights or explicitly bundle FFmpeg as a runtime tool.
+Kokoro ONNX runtime code is included; its model weights are downloaded by
+the user. Piper voice weights are not bundled in the default native workflow.
+
+Original Qwen3-TTS and Kokoro models identify their licenses as Apache-2.0;
+the archived Piper runtime is MIT but newer Piper implementations and voice
+dataset licenses must be checked separately, as not all Piper voices have
+unrestricted commercial rights. Freesound's exact nine source pages and the
+Wikimedia Commons CC0 description were reviewed. The source references and
+asset archive hashes are in the detailed evidence report.
+
+**Public publishing is now blocked by default** using
+`scripts/check-release-rights.py` and a privately controlled
+`RELEASE_RIGHTS_APPROVAL_JSON` GitHub Actions secret. An exact-commit
+approval must include documentary hashes for all seven signed performer
+releases and original recording rights, sound page archives, and final
+platform dependency/notice review. The tracked
+`docs/RELEASE_RIGHTS_APPROVAL.json` intentionally remains `BLOCKED`;
+its purpose is a public description of what is not approved, not permission
+to ship. The operator retains original signed documents in restricted
+storage, never in GitHub.
+
+The native preview CI now attaches a per-platform installer SHA256 inventory,
+`pip freeze`, frontend npm lock and generated Cargo lock when present.
+Those files aid human license review; an automated passing test is **not**
+legal approval.
+
 ## Preliminary upstream findings
 
 | Component | Evidence found | Distribution status and next proof |
