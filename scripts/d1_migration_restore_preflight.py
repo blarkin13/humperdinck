@@ -63,8 +63,18 @@ def isolated_migration_restore_drill(db: sqlite3.Connection) -> dict:
     original.backup(rollback_copy)
     before_tables = table_names(original)
     restored_tables = table_names(rollback_copy)
-    if before_tables != restored_tables or LIVE_TABLES.intersection(restored_tables):
-        raise RuntimeError("Isolated restore failed to preserve pre-migration schema")
+    if before_tables != restored_tables:
+        raise RuntimeError("Isolated restore failed to preserve source schema")
+    # Compare every table's rows in-memory without displaying or exporting
+    # private user data; this works for both pre-live and fully migrated input.
+    for table in sorted(before_tables):
+        columns = original.execute(f'PRAGMA table_info("{table}")').fetchall()
+        if not columns:
+            raise RuntimeError("Restored table has no schema")
+        actual = list(original.execute(f'SELECT * FROM "{table}"'))
+        recovered = list(rollback_copy.execute(f'SELECT * FROM "{table}"'))
+        if actual != recovered:
+            raise RuntimeError("Isolated restore failed to preserve source records")
     return {
         "preflight": preflight, "isolated_migration_schema_valid": True,
         "isolated_restore_schema_valid": True,
