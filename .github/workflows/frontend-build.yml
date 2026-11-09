@@ -45,6 +45,8 @@ jobs:
           node --check website/script.js
           node --test tests/public-releases.test.mjs
           node --test tests/download-mobile-layout.test.mjs
+      - name: Validate public website SEO metadata and sitemap
+        run: python3 scripts/check-website-seo.py
       - name: Check browser Kokoro worker syntax
         run: node --check frontend/KokoroWorker.js
       - name: Check staged studio assets
