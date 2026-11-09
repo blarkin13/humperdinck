@@ -51,14 +51,28 @@ test('exports only authenticated owner account/license metadata, not secrets',as
 });
 test('deletion request is owner-authenticated, CSRF protected and non-destructive',async()=>{
  const db=new DB();
- const body={kind:'deletion',confirmation:'REQUEST PRIVACY REVIEW'};
+ const body={kind:'deletion',confirmation:'REQUEST PRIVACY REVIEW',
+  forfeitureAcknowledgment:'I UNDERSTAND ACCOUNT DELETION MAY FORFEIT PRO',
+  offlineCertificateAcknowledged:true};
  assert.equal((await invoke(db,'/api/account/privacy/requests',{method:'POST',data:body,origin:'https://evil.invalid'})).status,403);
  assert.equal((await invoke(db,'/api/account/privacy/requests',{method:'POST',data:{kind:'deletion'}})).status,422);
+ assert.equal((await invoke(db,'/api/account/privacy/requests',{method:'POST',data:{kind:'deletion',confirmation:'REQUEST PRIVACY REVIEW'}})).status,422);
+ assert.equal((await invoke(db,'/api/account/privacy/requests',{method:'POST',data:{...body,offlineCertificateAcknowledged:false}})).status,422);
+ assert.equal((await invoke(db,'/api/account/privacy/requests',{method:'POST',data:{...body,forfeitureAcknowledgment:'no'}})).status,422);
  assert.equal((await invoke(db,'/api/account/privacy/requests',{method:'POST',data:body,user:desktop})).status,403);
  const first=await invoke(db,'/api/account/privacy/requests',{method:'POST',data:body});
  assert.equal(first.status,202);
  assert.equal((await first.json()).status,'pending');
  assert.equal((await invoke(db,'/api/account/privacy/requests',{method:'POST',data:body})).status,200);
+ assert.equal(db.requests.length,1);
+ assert.equal(db.calls.some(sql=>/DELETE FROM auth_users|UPDATE pro_licenses/.test(sql)),false);
+});
+
+test('non-deletion privacy reviews do not demand Pro forfeiture',async()=>{
+ const db=new DB();
+ const r=await invoke(db,'/api/account/privacy/requests',{method:'POST',
+  data:{kind:'access',confirmation:'REQUEST PRIVACY REVIEW'}});
+ assert.equal(r.status,202);
  assert.equal(db.requests.length,1);
  assert.equal(db.calls.some(sql=>/DELETE FROM auth_users|UPDATE pro_licenses/.test(sql)),false);
 });
