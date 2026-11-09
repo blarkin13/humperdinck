@@ -119,7 +119,7 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
  });
  const publisherGroup=names.includes('Built-In Humperdinck Voices')?'Built-In Humperdinck Voices':names.find(name=>name==='My Voices'||name.startsWith('My Voices · '))||names[0];
  return <div className="library">
-  {items.length>6&&<div className="search-wrap"><i className="fa-solid fa-magnifying-glass"/><input className="search" placeholder="Search voices, categories or descriptions" value={query} onChange={e=>setQuery(e.target.value)}/></div>}
+  {items.length>6&&<div className="search-wrap"><i className="fa-solid fa-magnifying-glass"/><input className="search" type="search" aria-label="Search voices" placeholder="Search voices, categories or descriptions" value={query} onChange={e=>setQuery(e.target.value)}/></div>}
   {!items.length&&<div className="notice"><i className="fa-solid fa-record-vinyl"/> No voices yet. <button className="link" onClick={onCreate}>Create one in Voice Creator.</button></div>}
   {names.map(name=>{const list=groups[name];
    return <div className="voice-group" key={name}>

@@ -39,8 +39,8 @@ export default function Recorder({onSave}){
  async function save(){setBusy(true);try{await onSave(new File([clip.blob],`${name.trim()||'My voice'}.${clip.ext}`,{type:clip.blob.type}));setClip(null);setState('idle')}finally{setBusy(false)}}
  const warn=state==='review'?(seconds<MIN?`That was only ${Math.round(seconds)} seconds. Aim for ${IDEAL}–30 seconds for a reliable clone.`:peak<0.08?'The recording is very quiet. Move closer to the microphone or raise its input level.':peak>0.98?'The recording clipped (too loud). Move back a little or lower the input level.':''):'';
  return <div className="recorder">
-  <div className="field-row"><div className="field"><label>Voice name</label><input value={name} onChange={e=>setName(e.target.value)}/></div>
-   <div className="field"><label>Microphone</label><select value={device} onChange={e=>setDevice(e.target.value)} disabled={state==='recording'}><option value="">System default</option>{devices.map((d,i)=><option key={d.deviceId||i} value={d.deviceId}>{d.label||'Microphone '+(i+1)}</option>)}</select></div></div>
+  <div className="field-row"><div className="field"><label>Voice name</label><input aria-label="Voice name" value={name} onChange={e=>setName(e.target.value)}/></div>
+   <div className="field"><label>Microphone</label><select aria-label="Microphone" value={device} onChange={e=>setDevice(e.target.value)} disabled={state==='recording'}><option value="">System default</option>{devices.map((d,i)=><option key={d.deviceId||i} value={d.deviceId}>{d.label||'Microphone '+(i+1)}</option>)}</select></div></div>
   <label>Read this aloud <button className="link" onClick={()=>setScript((script+1)%scripts.length)} disabled={state==='recording'}>Different text</button></label>
   <div className="script-card">{scripts[script]}</div>
   <p className="hint">Use a quiet room, speak naturally at your normal distance from the mic, and record {IDEAL}–30 seconds. Only record voices you have permission to clone.</p>
