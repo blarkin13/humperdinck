@@ -53,7 +53,7 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
  const [time,setTime]=useState(0),[playing,setPlaying]=useState(false),[zoom,setZoom]=useState(40);
  const [busy,setBusy]=useState(''),[render,setRender]=useState(null),[cueJobs,setCueJobs]=useState({}),[pickerFor,setPickerFor]=useState(null);
  const [music,setMusic]=useState([]);
- const videoEl=useRef(null),cueAudio=useRef({}),clock=useRef({t:0,last:0}),saveTimer=useRef(null),fileInput=useRef(null),pendingKind=useRef('');
+ const videoEl=useRef(null),cueAudio=useRef({}),clock=useRef({t:0,last:0}),starting=useRef(new Set()),saveTimer=useRef(null),fileInput=useRef(null),pendingKind=useRef('');
  const timelineRef=useRef(null);
  const [soundTab,setSoundTab]=useState(()=>{try{return localStorage.getItem('humperdinck-video-sound-tab')==='eq'?'eq':'mix'}catch{return 'mix'}});
  const captionsOn=project?.burn_captions!==false;
@@ -162,7 +162,10 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
    else if(a&&ready(a))t=cue.start+a.currentTime;
    else t+=wall;
    if(here&&t>=here.end-.02&&here.clip.type==='video')t=Math.max(t,here.end); // step into the next clip
-   if(t>=length){clock.current.t=length;setTime(length);setPlaying(false);return}
+   // Let a cue that is still speaking finish before the timeline stops.
+   const sounding=Object.values(cueAudio.current).some(x=>x&&!x.paused&&!x.ended);
+   if(t>=length&&!sounding){clock.current.t=length;setTime(length);setPlaying(false);return}
+   if(t>=length)t=length;
    clock.current.t=t;setTime(t);frame=requestAnimationFrame(tick)};
   frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);
  },[playing]);
@@ -181,10 +184,15 @@ export default function VideoStudio({api,voiceOptions,narrationJob,narrationText
   }
   for(const cue of cues){const a=cueAudio.current[cue.id];if(!a)continue;
    const inside=cue.audio&&time>=cue.start&&time<cueEnd(cue);
+   // A cue past its marked end that is still sounding is allowed to finish.
+   const finishing=playing&&!a.paused&&!a.ended&&time>=cue.start&&time<cueEnd(cue)+1;
    if(playing&&inside){connectDesk(a,cue.gain||0);const want=time-cue.start;
-    if(a.paused){if(Math.abs(a.currentTime-want)>.05)a.currentTime=want;a.play().catch(()=>{})}
-    else if(Math.abs(a.currentTime-want)>.75)a.currentTime=want}
-   else if(!a.paused)a.pause();
+    // play() takes a moment to start; while it does, the audio still reads as
+    // paused. Don't rewind or restart it then, or the first sound stutters.
+    if(a.paused&&!starting.current.has(a)){if(Math.abs(a.currentTime-want)>.05)a.currentTime=want;
+     starting.current.add(a);a.play().catch(()=>{}).finally(()=>starting.current.delete(a))}
+    else if(!a.paused&&Math.abs(a.currentTime-want)>.75)a.currentTime=want}
+   else if(!a.paused&&!finishing)a.pause();
   }
  });
  useEffect(()=>{const onKey=e=>{if(e.target.closest('input,textarea,select,[contenteditable]'))return;
