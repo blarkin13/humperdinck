@@ -1,6 +1,6 @@
-# Free/Pro entitlement foundation (pre-commerce)
+# Free/Pro access — implemented entitlement layer, pre-commercial QA
 
-Business plan source: "Humperdinck — Business Plan and Product Decisions", revised November 5, 2026, sections 3, 4 and 21.
+Status reconciled November 8, 2026. Existing accounts, signed lifetime Pro licenses and 10-slot online device controls are implemented in source; this document is not proof of real-device testing or live purchases. Business Plan section 22 and Development Status are the current work register.
 
 ## Current policy
 
@@ -37,10 +37,10 @@ The preview is automatically disabled in native desktop packages (`HUMPERDINCK_N
 
 ## Before commercial launch
 
-1. Integrate cryptographically signed, exportable and restorable perpetual offline licenses. Verify them locally with a pinned public key, not a user-editable flag.
+1. COMPLETED IN CODE: signed exportable and restorable Ed25519 perpetual offline licenses; verify tamper rejection and restoration again on each native packaged operating system. Versioned key backup/rotation still needs real disaster recovery tests.
 2. Establish trusted, signed curated-voice manifests and signed updates. Existing `names.json`, checksums and delivery-history metadata are all locally editable, and thus cannot enforce commercial restrictions against tampering.
-3. Add optional authenticated purchase/device management (ten active installations; unlimited transfers), no login required for Free.
-4. Implement payment-provider webhook verification, refund handling, recovery and entitlement issuance.
+3. COMPLETED IN CODE / DEPLOYED ACCOUNT ROUTES: optional Google sign-in, account dashboard, online ten-device registration and self-service deactivation; run fresh-install, 8/10/11-slot, reuse, race, logout and permanent-offline restoration acceptance tests.
+4. TEST-ONLY: Lemon Squeezy sandbox webhook signature checks and isolated transaction ledger exist, but require test credentials. Live paid-order verification, production entitlement issuance, receipts, refund/chargeback handling and product eligibility are NOT complete.
 5. Test Free, Pro, and offline shutdown restoration in Windows, macOS and Linux release packages.
 
-This branch deliberately **does not** implement accounts, payment, license activation or checkout.
+The repository DOES implement accounts and license activation, plus a DISABLED-BY-DEFAULT test-only checkout route. It does NOT implement approved production checkout or payment-to-license issuance. Do not describe these separate statuses as equivalent.
