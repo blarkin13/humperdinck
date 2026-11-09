@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import os
 import sys
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -484,12 +484,16 @@ def delete_voice(voice_id: str):
     return {'deleted':True}
 
 @app.post('/api/voices')
-async def upload_voice(file: UploadFile = File(...)):
+async def upload_voice(file: UploadFile = File(...), consent_attestation: str = Form(''), consent_subject: str = Form('')):
     suffix = Path(file.filename or '').suffix.lower()
     # Recording your own voice with the microphone is Free; cloning from an
     # uploaded audio file is Pro. Browser recordings arrive as .webm/.ogg/.mp4.
     recorded = suffix in ('.webm','.ogg','.mp4')
     entitlements.require('voice.mic_cloning' if recorded else 'voice.personal_cloning')
+    # This records a user acknowledgement, NOT independent proof of a signature.
+    # Reject the reference before accepting any audio without a fresh rights assertion.
+    if consent_attestation != 'humperdinck-voice-consent-v1' or consent_subject not in ('self','authorized'):
+        raise HTTPException(422, 'Confirm you are the speaker or possess the speaker\'s prior signed written consent')
     # .webm/.ogg/.mp4 are what browsers produce when recording from the microphone.
     if suffix not in ('.wav','.mp3','.flac','.m4a','.webm','.ogg','.mp4'):
         raise HTTPException(400, 'Supported formats: WAV, MP3, FLAC, M4A, OGG (or a browser recording)')
@@ -510,7 +514,11 @@ async def upload_voice(file: UploadFile = File(...)):
         source.unlink(missing_ok=True)
     meta = voice_meta()
     meta[key] = {'name':Path(file.filename or 'Imported voice').stem, 'category':'',
-                 'origin':'recorded' if recorded else 'uploaded'}
+                 'origin':'recorded' if recorded else 'uploaded',
+                 'consent_acceptance':{'policy':'humperdinck-voice-consent-v1',
+                    'speaker':'self' if consent_subject=='self' else 'authorized-third-party',
+                    'accepted_at':datetime.now(timezone.utc).isoformat(),
+                    'evidence':'local-user-attestation-not-independent-verification'}}
     save_voice_meta(meta)
     return {'voice_id':key, 'filename':meta[key]['name'], 'category':''}
 
