@@ -21,7 +21,7 @@ def emit(**message):
 class FakeEngine:
     """Test stand-in, enabled with HUMPERDINCK_FAKE_ENGINE=1; text 'sleep:N' stalls N seconds."""
 
-    def synthesize(self, text, voice, output, on_progress=None):
+    def synthesize(self, text, voice, output, on_progress=None, **_):
         import numpy as np
         import soundfile as sf
         if text.startswith('sleep:'):
@@ -32,11 +32,19 @@ class FakeEngine:
         if on_progress:
             on_progress(1, 1)
 
+    def design(self, text, description, output, on_progress=None):
+        self.synthesize(text, description, output, on_progress)
+
+    def clone(self, text, reference, output, ref_text=None, on_progress=None):
+        self.synthesize(text, reference, output, on_progress)
+
 
 current = {}  # the one loaded engine: {'key': (engine, model), 'engine': adapter}
 
 
 def engine_for(name, model):
+    if name == 'kokoro':
+        model = None  # one Kokoro model serves every preset voice
     if current.get('key') != (name, model):
         current.clear()  # keep a single model in memory
         if os.environ.get('HUMPERDINCK_FAKE_ENGINE') == '1':
