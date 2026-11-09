@@ -112,12 +112,21 @@ def download_kokoro(progress=lambda _: None, attempts=4) -> Path:
         try:
             for attempt in range(attempts):
                 try:
+                    failure = RuntimeError(name + " has no available download source")
                     for url, headers in _sources(name):
                         try:
                             _download(url, headers, partial, progress)
+                            # Validate *each* source before accepting it. A
+                            # successful HTTP response can still be a truncated
+                            # or corrupted model; try the fallback/mirror.
+                            if partial.stat().st_size < minimum:
+                                raise RuntimeError(name + " is smaller than expected")
+                            if _sha256(partial) != SHA256[name]:
+                                raise RuntimeError(name + " SHA-256 does not match the pinned upstream release")
                             break
                         except (OSError, RuntimeError) as exc:
                             failure = exc
+                            partial.unlink(missing_ok=True)
                     else:
                         raise failure
                     break
