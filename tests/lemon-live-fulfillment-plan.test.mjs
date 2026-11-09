@@ -32,3 +32,15 @@ test('unverified event or untrusted intent is never eligible',()=>{
  assert.equal(x({},{intent:{...intent,mode:'test'}}).decision,'manual-review');
  assert.equal(x({},{intent:{...intent,status:'cancelled'}}).decision,'manual-review');
 });
+
+test('closed or unknown checkout intents never become eligible for a new grant',()=>{
+ for(const status of ['fulfilled','refunded','expired','completed','unknown','pending',null]){
+   assert.equal(x({}, {intent:{...intent,status}}).decision,'manual-review',
+     'Unexpected grant-eligible intent state: '+String(status));
+ }
+ // A legitimately recorded order remains idempotent even if its checkout
+ // intent has subsequently completed or expired.
+ const prior={order_id:'12345',user_id:user,intent_id:checkout,status:'paid'};
+ assert.equal(x({}, {intent:{...intent,status:'completed'},existingOrder:prior}).decision,
+   'idempotent-paid-replay');
+});
