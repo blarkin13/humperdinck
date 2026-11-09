@@ -59,9 +59,11 @@ backup file, and prints **only its public key**.
 
 ```sh
 .venv-signing/bin/python scripts/verify-pro-license-signing-backup.py \
-  --input ~/Documents/humperdinck-pro-signing-v2.encrypted.json
+  --input ~/Documents/humperdinck-pro-signing-v2.encrypted.json \\
+  --expected-public-key 'LJ0GvDnAUCXlSGtJrAYs8L6yFZvAbcpuvLNBQHNH4MM='
 ```
 
+- The output must explicitly report `Pinned deployed public key matched: True`. A merely self-consistent backup from the wrong signer must fail. The command never displays the private key or passphrase.
 - Repeat recovery on a second trusted machine or secure offline environment,
   using a separately held copy, so you do not merely verify the same disk.
 - Compare the safely printed public key and key ID to the original generation.
@@ -71,6 +73,8 @@ backup file, and prints **only its public key**.
   designated recovery operator.
 - Record only completion dates, verifier output status, key ID, safe public key
   and storage custodian; never record the private key or its passphrase.
+
+Automated CI in `tests/test_signing_key_backup.py` simulates recovery from two independently stored copies, rejects a mismatched pinned public key, rejects a bad passphrase, and verifies the intact copy after corrupting the second. **This is not evidence that the owner's actual v2 backup has been replicated or restored on separate hardware.**
 
 ## 2A. Safely stage private v2 signer in Cloudflare (owner's Mac only)
 
