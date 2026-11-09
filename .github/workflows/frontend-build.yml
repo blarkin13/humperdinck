@@ -38,6 +38,7 @@ jobs:
           node --test tests/lemon-test-grants.test.mjs
           node --test tests/native-model-mirror.test.mjs
           node --test tests/cross-origin-sweep.test.mjs
+          node --test tests/session-expiry.test.mjs
           node --test tests/expired-session-security.test.mjs
           node --test tests/d1-ledger-integrity.test.mjs
           node --test tests/lemon-live-preflight.test.mjs
