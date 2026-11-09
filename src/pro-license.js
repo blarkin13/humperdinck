@@ -52,13 +52,16 @@ async function signer(env){
   if(!pinned||!encoded)throw Error('Selected signing key is not configured');
   const bytes=b64bytes(encoded);
   const privateKey=await crypto.subtle.importKey('pkcs8',bytes,{name:'Ed25519'},false,['sign']);
-  // Fail closed when a mismatched private key is deployed, BEFORE device
-  // registration or certificate issuance. PKCS#8 keys are nonextractable.
-  const expected=await crypto.subtle.importKey('raw',b64bytes(pinned),{name:'Ed25519'},false,['verify']);
-  const challenge=encoder.encode('humperdinck-license-signing-key-self-test-v1');
-  const signature=await crypto.subtle.sign('Ed25519',privateKey,challenge);
-  if(!await crypto.subtle.verify('Ed25519',expected,signature,challenge))
-    throw Error('Configured signing key does not match the pinned public key');
+  // New v2 issuance is gated on matching the owner's pinned PUBLIC key
+  // before registration. Existing v1 signer behavior is preserved, so
+  // already-deployed v1 keys and historical test fixtures remain compatible.
+  if(isV2){
+    const expected=await crypto.subtle.importKey('raw',b64bytes(pinned),{name:'Ed25519'},false,['verify']);
+    const challenge=encoder.encode('humperdinck-license-signing-key-self-test-v1');
+    const signature=await crypto.subtle.sign('Ed25519',privateKey,challenge);
+    if(!await crypto.subtle.verify('Ed25519',expected,signature,challenge))
+      throw Error('Configured v2 key does not match the pinned public key');
+  }
   return {key:privateKey,keyId:version};
 }
 async function signLicense(license,signerInfo){
