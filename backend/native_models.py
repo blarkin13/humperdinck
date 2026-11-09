@@ -41,15 +41,37 @@ def _sources(name):
         return
 
 
-def _download(url, headers, partial):
+def _download(url, headers, partial, progress=lambda _: None):
     request = urllib.request.Request(url, headers={"User-Agent": "Humperdinck-Desktop/0.1", **headers})
     # PyInstaller on macOS has no reliable system CA bundle path.
-    # Supply an explicitly packaged, current trusted CA store; never disable TLS checks.
+    # Supply a trusted CA store; do not disable TLS validation.
     context = ssl.create_default_context(cafile=certifi.where())
+    name = next((asset for asset, _ in FILES if partial.name.startswith(asset + ".")), partial.name)
+    # Bound a faulty upstream response before it can fill the user's disk.
+    max_bytes = 512 * 1024 * 1024 if name.endswith(".onnx") else 20 * 1024 * 1024
     with urllib.request.urlopen(request, timeout=120, context=context) as response, partial.open("wb") as output:
-        shutil.copyfileobj(response, output)
-        length = response.headers.get("Content-Length")
-        if length and partial.stat().st_size != int(length):
+        raw_size = response.headers.get("Content-Length")
+        expected = int(raw_size) if raw_size else 0
+        if expected > max_bytes:
+            raise RuntimeError(name + " download exceeds the expected model size")
+        downloaded, next_percent, next_mb = 0, 10, 32
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            downloaded += len(chunk)
+            if downloaded > max_bytes:
+                raise RuntimeError(name + " download exceeds the expected model size")
+            output.write(chunk)
+            if expected:
+                percent = int(downloaded * 100 / expected)
+                if percent >= next_percent:
+                    progress(f"Downloading {name}: {min(100, percent)}%")
+                    next_percent = (percent // 10 + 1) * 10
+            elif downloaded >= next_mb * 1024 * 1024:
+                progress(f"Downloading {name}: {downloaded // (1024 * 1024)} MB")
+                next_mb += 32
+        if expected and downloaded != expected:
             raise RuntimeError(partial.name + " download is incomplete")
 
 
@@ -92,7 +114,7 @@ def download_kokoro(progress=lambda _: None, attempts=4) -> Path:
                 try:
                     for url, headers in _sources(name):
                         try:
-                            _download(url, headers, partial)
+                            _download(url, headers, partial, progress)
                             break
                         except (OSError, RuntimeError) as exc:
                             failure = exc
