@@ -19,9 +19,11 @@ first order item/variant fields. Official references:
 - https://docs.lemonsqueezy.com/api/orders/the-order-object
 
 The source has a **non-routed** production message validator
-`src/lemon-live-preflight.js` and a conservative decision-only
-`src/lemon-live-fulfillment-plan.js`; no public endpoint or database
-entitlement mutation is exposed by either.
+`src/lemon-live-preflight.js`, a conservative decision planner
+`src/lemon-live-fulfillment-plan.js`, and an atomic settlement primitive
+`src/lemon-live-settlement.js` with unapplied `0006_lemon_live_ledger.sql`.
+None is wired to a live HTTP endpoint; live migration, merchant approval,
+real-payment credentials, refund policy and operator launch gating remain pending.
 
 ## Required sequence before payment issuance is activated
 
@@ -65,7 +67,17 @@ isolation and duplicate/refund event behavior without granting Pro.
 while rejecting test-mode contamination.
 `tests/lemon-live-fulfillment-plan.test.mjs` covers replay/refunds,
 conflicting existing certificates and bad account-intent bindings.
+`tests/lemon-live-settlement.test.mjs` executes the staged ledger and
+settlement SQL against in-memory SQLite, including duplicate paid events,
+exact price/store/variant matching, webhook hash collision and rollback
+of a simulated mid-transaction failure. It runs in frontend CI.
+
+This settlement primitive currently serves **new accounts without an
+existing Pro grant**. Additional purchases by existing Pro customers
+require a separate reviewed reconciliation path, not silent overwrite.
+Checkout intent event-time expiry, refund and chargeback decisions are
+not finalized and live routes remain disabled.
 
 **None** of these tests proves merchant approval, live checkout,
-automatic paid issuance, production D1 schema migration, refund treatment
+production D1 migration and routing, refund treatment
 or sales tax compliance. Public purchase controls remain disabled.
