@@ -123,7 +123,10 @@ class PresetSectionCache:
             pass  # Rendering may proceed with no cache.
         finally:
             if temp_path is not None:
-                temp_path.unlink(missing_ok=True)
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass  # An unwritable cache must never abort narration.
 
     def _prune(self):
         files = sorted((p for p in self.root.glob("*.wav")
