@@ -14,8 +14,8 @@
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 <link rel="stylesheet" href="/footer-unified.css?v=20261108">
-<link rel="stylesheet" href="/account/account.css?v=20261108-account-icons-v2">
-<script src="/account/account.js?v=20261108-account-icons-v2" defer></script>
+<link rel="stylesheet" href="/account/account.css?v=20261109-privacy-v1">
+<script src="/account/account.js?v=20261109-privacy-v1" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -95,6 +95,7 @@
       <a href="#computers"><i class="fa-solid fa-desktop" aria-hidden="true"></i>Computers</a>
       <a href="#license-downloads"><i class="fa-solid fa-download" aria-hidden="true"></i>Downloads</a>
       <a href="#account-recovery"><i class="fa-solid fa-key" aria-hidden="true"></i>Recovery</a>
+      <a href="#account-privacy"><i class="fa-solid fa-shield-heart" aria-hidden="true"></i>Privacy</a>
     </nav>
 
     <section id="purchase" class="dashboard-section">
@@ -138,6 +139,33 @@
       <div class="dashboard-two-column">
         <div class="account-featured-card"><span class="account-card-label">ONE-TIME RECOVERY CODES</span><h3>Your backup way in.</h3><p>Generate eight single-use codes that let you return to this dashboard if your Google or Apple login becomes unavailable. Save them somewhere secure.</p><p id="recovery-status" class="account-recovery-status" role="status">Checking codes…</p><button id="generate-recovery" type="button" class="account-action account-action-solid"><i class="fa-solid fa-key" aria-hidden="true"></i>Generate recovery kit</button><div id="recovery-kit" class="recovery-kit" hidden><p>These codes are shown only once. Generating new codes invalidates the old ones.</p><code id="recovery-codes" class="recovery-code-grid"></code><button id="download-recovery" type="button" class="account-action account-action-outline"><i class="fa-solid fa-download" aria-hidden="true"></i>Download recovery kit</button></div><p class="account-fine-print">Anyone with your account ID and an unused code can sign into your account. A code is consumed immediately when used.</p></div>
         <div class="account-detail-card"><span class="account-card-label">SIGN-IN RECOVERY</span><h3>Keep another way back.</h3><p id="identity-summary">Your linked sign-in methods are displayed below.</p><div class="identity-links" id="identity-links"><a id="link-google" href="/api/account/link/start/google" hidden><span><i class="fa-brands fa-google" aria-hidden="true"></i>Link another Google account</span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a><a id="link-apple" href="/api/account/link/start/apple" hidden><span><i class="fa-brands fa-apple" aria-hidden="true"></i>Link an Apple account</span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a><a href="https://accounts.google.com/signin/recovery" target="_blank" rel="noopener noreferrer"><span><i class="fa-brands fa-google" aria-hidden="true"></i>Recover your Google account</span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a></div><p class="account-fine-print">If you lose your original provider, use a saved one-time code to sign in here, then link a new provider. Without a linked login or saved code, automatic account recovery is not available. Offline Pro license backups remain usable without sign-in.</p></div>
+      </div>
+    </section>
+
+    <section id="account-privacy" class="dashboard-section">
+      <div class="dashboard-section-title"><div><span class="account-kicker">05 / PRIVACY</span><h2>Your information<span>.</span></h2><p>Export account information or request an access, correction, or deletion review.</p></div></div>
+      <div class="dashboard-two-column">
+        <div class="account-featured-card">
+          <span class="account-card-label">YOUR DATA</span>
+          <h3>Keep a copy.</h3>
+          <p>Download a JSON record of your Humperdinck account, linked sign-in providers, online license registration, and previous privacy requests. Voice recordings, signed speaker forms, and projects remain on your own computer.</p>
+          <button id="download-account-data" type="button" class="account-action account-action-solid"><i class="fa-solid fa-file-export" aria-hidden="true"></i>Export account data</button>
+          <p class="account-fine-print">The export may include your email and purchase reference. Store it privately. Payment processor invoices are not included.</p>
+        </div>
+        <div class="account-detail-card">
+          <span class="account-card-label">PRIVACY REQUESTS</span>
+          <h3>Request a review.</h3>
+          <p>Ask us to access, correct, or delete eligible account data. Your request will be queued for review, not automatically executed.</p>
+          <label class="account-privacy-label" for="privacy-request-kind">Request type</label>
+          <select id="privacy-request-kind" class="account-privacy-select">
+            <option value="access">Access to my information</option>
+            <option value="correction">Correction of my information</option>
+            <option value="deletion">Deletion review</option>
+          </select>
+          <button id="submit-privacy-request" type="button" class="account-action account-action-outline"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Submit privacy request</button>
+          <p id="privacy-request-status" class="account-fine-print" role="status" aria-live="polite">This requires a signed-in account. No files or entitlements are deleted automatically.</p>
+          <p class="account-fine-print">Lifetime Pro certificates already downloaded to a device cannot be remotely erased. Legally necessary purchase records may need to be retained. <a href="/privacy/">Privacy Policy</a>.</p>
+        </div>
       </div>
     </section>
 
