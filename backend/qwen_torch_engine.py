@@ -6,6 +6,8 @@ approved designed-voice previews. Uploads and recordings have none, so only the
 speaker embedding is used for them.
 """
 import gc
+import hashlib
+from pathlib import Path
 
 import numpy as np
 
@@ -25,6 +27,20 @@ def local_path(model_id):
         return snapshot_download(model_id, local_files_only=True)
     except Exception:
         return model_id  # not cached: let from_pretrained download it (online mode)
+
+
+def reference_identity(reference, transcript=None):
+    """Bind a reusable clone prompt to the actual local audio bytes.
+
+    Path-only caching can silently reuse an old speaker after someone replaces
+    a voice recording under the same filename. A checksum avoids stale identity.
+    """
+    path = Path(reference)
+    digest = hashlib.sha256()
+    with path.open("rb") as recording:
+        for chunk in iter(lambda: recording.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return (str(path.resolve()), digest.hexdigest(), transcript)
 
 
 def cpu_reason(torch):
@@ -85,9 +101,13 @@ class QwenTorchEngine:
         chunks = segments(text)
         if not chunks:
             raise ValueError('No narration text')
-        key = (str(reference), ref_text)
+        key = reference_identity(reference, ref_text)
         if key not in self.prompts:
-            # Build the reference prompt once and reuse it for every segment and job.
+            # A replaced recording must never inherit the previous speaker's
+            # prompt, even when the file path and transcript are unchanged.
+            for old in list(self.prompts):
+                if old[0] == key[0]:
+                    self.prompts.pop(old, None)
             self.prompts[key] = model.create_voice_clone_prompt(
                 ref_audio=str(reference), ref_text=ref_text, x_vector_only_mode=not ref_text)
         parts, rate = [], None
