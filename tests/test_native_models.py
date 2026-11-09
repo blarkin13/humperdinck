@@ -209,6 +209,8 @@ def test_voices_file_has_identical_mirror_after_primary(monkeypatch):
                         lambda *a, **k: (_ for _ in ()).throw(OSError("offline")))
     urls = [url for url, _ in native_models._sources("voices-v1.0.bin")]
     assert urls[0] == native_models.SOURCE + "voices-v1.0.bin"
-    assert urls[1].endswith("/model-files-v1.0/voices-v1.0.bin")
-    assert urls[2].startswith("https://huggingface.co/fastrtc/kokoro-onnx/")
-    assert [u for u, _ in native_models._sources("kokoro-v1.0.onnx")] == [native_models.SOURCE + "kokoro-v1.0.onnx"]
+    assert urls[1] == native_models.HOSTED + "voices-v1.0.bin"
+    assert urls[2].endswith("/model-files-v1.0/voices-v1.0.bin")
+    assert urls[3].startswith("https://huggingface.co/fastrtc/kokoro-onnx/")
+    assert [u for u, _ in native_models._sources("kokoro-v1.0.onnx")] == [
+        native_models.SOURCE + "kokoro-v1.0.onnx", native_models.HOSTED + "kokoro-v1.0.onnx"]

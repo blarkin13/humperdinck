@@ -22,6 +22,8 @@ SHA256 = {
 }
 
 
+HOSTED = "https://humperdinck.studio/native-models/kokoro/"
+
 # Older release tags holding a byte-identical copy (verified against SHA256).
 # GitHub's release host can 504 one tag while serving another.
 MIRRORS = {
@@ -39,6 +41,8 @@ def _sources(name):
     GitHub's release host sometimes returns 5xx for a while; the API is a
     separate path to the identical file (the SHA-256 is checked either way)."""
     yield SOURCE + name, {}
+    # Humperdinck's own copy (Cloudflare R2), independent of GitHub releases.
+    yield HOSTED + name, {}
     for mirror in MIRRORS.get(name, ()):
         yield mirror, {}
     try:
