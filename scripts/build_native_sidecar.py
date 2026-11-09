@@ -87,13 +87,13 @@ def main():
         parser.error("Built-In Humperdinck Voices are required: run python scripts/prepare_native_voice_pack.py")
     from prepare_native_voice_pack import validate as validate_builtin_voices
     builtin_count = validate_builtin_voices(args.builtin_voices_pack.read_bytes())
-    print(f"Bundling {builtin_count} approved Built-In Humperdinck Voices")
+    print(f"Bundling {builtin_count} checksum-pinned Built-In Humperdinck Voices (rights approval separate)")
 
     if not args.builtin_sounds_pack.is_file():
         parser.error("Approved Humperdinck Sound Effects are required: run python scripts/prepare_native_sound_pack.py")
     from prepare_native_sound_pack import validate_prepared as validate_builtin_sounds
     sound_count = validate_builtin_sounds(args.builtin_sounds_pack.read_bytes())
-    print(f"Bundling {sound_count} approved Humperdinck Sound Effects")
+    print(f"Bundling {sound_count} checksum-pinned Humperdinck Sound Effects (rights review separate)")
 
     TEMP.mkdir(parents=True, exist_ok=True)
     TAURI_BIN.mkdir(parents=True, exist_ok=True)
@@ -114,6 +114,7 @@ def main():
         "--add-data", f"{frontend}{os.pathsep}frontend/dist",
         "--add-data", f"{args.builtin_voices_pack.resolve()}{os.pathsep}voice-packs",
         "--add-data", f"{args.builtin_sounds_pack.resolve()}{os.pathsep}sound-packs",
+        "--add-data", f"{ROOT / 'website' / 'THIRD_PARTY_NOTICES.txt'}{os.pathsep}third-party-notices",
         "--collect-submodules", "uvicorn",
         str(ROOT / "desktop" / "server.py"),
     ]
