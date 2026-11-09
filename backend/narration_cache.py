@@ -18,7 +18,8 @@ import soundfile as sf
 CACHE_VERSION = "preset-render-v1"
 SAMPLE_RATE = 24_000
 MAX_CACHE_BYTES = 256 * 1024 * 1024
-CODE_FILES = ("engines.py", "engine.py", "worker.py", "audio_fx.py", "native_models.py")
+CODE_FILES = ("app.py", "catalog.py", "engines.py", "engine.py", "worker.py", "kokoro_engine.py",
+              "shared_models.py", "audio_fx.py", "native_models.py")
 
 
 def preset_render_key(*, model_root: Path, voice_key: str, text: str,
