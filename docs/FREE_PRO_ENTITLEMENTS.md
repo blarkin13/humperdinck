@@ -6,7 +6,7 @@ Status reconciled November 8, 2026. Existing accounts, signed lifetime Pro licen
 
 - **Free by default; no account or internet sign-in required for local use.**
 - Narration Studio, Video Studio, the sound library, Kokoro, the official bundled Humperdinck reference voices, playback, ordinary audio editing, exports and the model manager remain Free.
-- **Pro** will unlock personal Qwen VoiceDesign, uploading and cloning a person's reference recording, saving new custom Qwen voice identities, and using those identities in narration. Optional gallery voice downloads are Pro pending Voice Exchange planning.
+- **Pro** will unlock personal Qwen VoiceDesign, uploading and cloning a person's reference recording, saving new custom Qwen voice identities, and using those identities in narration. The existing official publisher-curated gallery is separate from any user-submitted community voice library. No Community Voice Exchange or downloadable user-submitted cloned voices are planned.
 - Do **not** gate the Qwen model globally. The seven curated Built-In Humperdinck Voices run through the restricted Free Qwen Base reference path.
 
 ## What is implemented in this branch

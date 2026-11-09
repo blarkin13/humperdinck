@@ -25,7 +25,7 @@ product-age verification, or payment-provider approval is complete.
 ## Commercial decisions to make
 
 1. Obtain Lemon Squeezy's **written** eligibility decision on local AI voice design,
-   consent-based voice cloning and future community voice uploads.
+   consent-based personal voice cloning only. No user-submitted community cloned-voice downloads are planned.
 2. Choose lifetime Pro price and clarify what is included; avoid claims of
    unspecified hosted features being permanent. No subscription or recurring bill.
 3. Verify legal entity status, tax and payout credentials directly with Lemon Squeezy;

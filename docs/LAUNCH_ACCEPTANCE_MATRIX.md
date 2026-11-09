@@ -9,7 +9,7 @@ CI PASS must never be substituted for HUMAN VERIFIED on named physical hardware.
 | --- | --- | --- | --- |
 | ENT-01 | Fresh offline install, no account | Free Narration, Video, Sounds, Voice Library and supported exports available | OS/version, screen recording, saved audio file |
 | ENT-02 | Free user tries personal Qwen VoiceDesign, custom reference clone or saved Qwen identity via UI and direct API | Denied server-side; curated approved built-in references not blocked | HTTP responses + UI |
-| ENT-03 | Free user previews gallery then tries downloading community package | Preview permitted; community download denied | HTTP + UI |
+| ENT-03 | Free user tries unauthorized personal Qwen cloning via direct API | Pro required; no unlicensed reference cloning | HTTP + UI |
 | ENT-04 | Valid paid Pro owner's desktop activates on account | Signed portable certificate issued only to paid account | Provider reference (redacted), signed certificate verification |
 | ENT-05 | 8, 10 and 11 distinct online installations | Warnings at 8/10; 11th denied; same UUID reactivation not double counted | D1 counts + client statuses |
 | ENT-06 | Parallel activation from two new devices at 9 slots | Cannot register more than 10 devices; verify D1 concurrent behavior | 20+ repeat runs; D1 count |
@@ -51,20 +51,11 @@ Automated baseline: `scripts/check-website-seo.py` and frontend CI. Mobile page-
 - [ ] See `docs/THIRD_PARTY_RELEASE_AUDIT.md` for upstream and build-artifact audit.
 - [ ] Capture separate acceptance/version logs for software license and platform terms without exposing secrets or scripts.
 - [ ] Validate signed speaker permission before any upload; preserve minimum evidence only and map deletion/withdrawal needs.
-- [ ] Finalize account deletion, age gating, refund policy, community usage rights and retention schedule with counsel.
+- [ ] Finalize account deletion, age gating, refund policy, personal voice cloning consent and retention schedule with counsel.
 
-## P2 — Community Voice Exchange
+## Removed feature — downloadable cloned-voice community
 
-- [ ] Create protected voice-submission queue and controlled object storage; default visibility private.
-- [ ] Add explicit payload preview (voice package, generated sample, minimal metadata only).
-- [ ] Generate unpredictable fresh consent text; verify a live statement, transcript, speaker similarity and possession/rights, with anti-replay limitations.
-- [ ] Reject self-reported verification booleans from client requests; only accept trusted persisted service decisions.
-- [ ] Add risk classification, quarantine, auditable automated approvals for low-risk submissions, escalation for suspicious cases, owner reports and appeals.
-- [ ] Immediately block fresh downloads for reports/withdrawals; do not promise remote recall of offline voice copies.
-- [ ] Protect public browsing/free previews versus Pro-only verified voice downloads; enforce at server as well as UI.
-- [ ] Conduct adversarial QA, privacy and legal review before enabling public clone submission.
-
-Prelaunch unit-policy guards: `src/voice-exchange-policy.js` and `tests/voice-exchange-policy.test.mjs`. This is not yet an integrated submission service.
+The Community Voice Exchange and downloadable user-submitted cloned-voice library were cancelled before implementation. Do not build consent-recording upload pipelines, publication queues, user-to-user downloads, moderation or appeal workflows. Personal consent-based cloning and the official Humperdinck publisher-managed gallery are different features and remain in scope.
 
 ## Gates that cannot be completed by repository edits alone
 

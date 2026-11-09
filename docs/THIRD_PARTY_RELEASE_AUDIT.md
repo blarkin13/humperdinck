@@ -31,8 +31,8 @@ For **each Windows .exe, macOS .dmg, Linux .deb and downloadable voice/model pac
 
 - Public policies requiring prior express signed speaker permission are published, but their enforceability is not certified. Record meaningful acceptance of final software license and voice policy versions at the correct flows; distinguish checkboxes from speaker's actual signed authorization.
 - A live randomly generated microphone statement, ASR transcription and similarity screening are *evidence*, not a legal identity guarantee. Limit retention and access, support withdrawal/reporting and jurisdictional rights.
-- Provide counsel the actual data flow, screenshots, publishing payload, logs/retention schedule, refund terms, age gate, account deletion, offline perpetual entitlement and community licensing rules.
-- Never promise remotely deleting an already downloaded offline voice package.
+- Provide counsel the actual data flow, screenshots, personal cloning workflow, logs/retention schedule, refund terms, age gate, account deletion and offline perpetual entitlement.
+- Keep local personal voice files under the user's control; no community downloadable cloned-voice exchange is planned.
 - Red-team the consent-verification flow against prerecorded speech, voice conversion, TTS replay, mismatched speaker, unauthorized guardian/third party and withdrawal after distribution.
 
 **Decision:** No final commercial redistribution/voice-cloning approval is recorded by this checklist. Obtain the actual third-party terms, complete the artifact inventory and undertake the required legal review before monetized public release.
