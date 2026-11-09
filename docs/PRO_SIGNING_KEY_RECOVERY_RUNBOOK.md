@@ -6,6 +6,28 @@ v1 value cannot be retrieved through its secret-reading API. Do not delete or
 overwrite it. The current public v1 verifier must continue working indefinitely
 for already-issued complimentary/offline certificates.
 
+## Implementation checkpoint — November 8, 2026
+
+The repository now includes version-aware offline verification in
+`backend/pro_license.py` and version-selectable issuance in
+`src/pro-license.js`. **Both remain v1 by default.** The v2 public key
+constants are deliberately `None` / `null`, and attempting to activate v2
+without a pinned key and matching private signing secret returns HTTP 503.
+Automated tests verify that v1 certificates remain usable, a synthetic v2
+grant becomes valid only when its public key is pinned, unrecognized key IDs
+fail, and an unset v2 configuration cannot mint a certificate or register a
+device. Existing signing secret values are NOT modified by these commits.
+
+**Next owner action:** generate and verify the encrypted v2 key locally. You may
+share the printed `Public key, safe to copy into source:` value with the
+developer, but **NEVER** send the JSON backup, raw private key, encryption
+passphrase, vault credentials, or `wrangler secret` command stdin. After
+public-key pinning, release the updated desktop verifiers first; only then
+deploy the owner-held v2 private key and change
+`PRO_LICENSE_ACTIVE_KEY_ID` to `humperdinck-pro-ed25519-v2` through a
+separately reviewed Cloudflare release. A v2 key deployed without client
+support would strand newly issued Pro licenses on older installers.
+
 ## 0. Block real-money sales until a recoverable signing key is active
 
 - Do not allow live purchases or customer issuance without an operator-controlled
