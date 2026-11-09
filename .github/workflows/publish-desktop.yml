@@ -28,6 +28,7 @@ jobs:
     uses: ./.github/workflows/native-desktop.yml
     with:
       signed_updates: true
+      production_signing: true
     secrets: inherit
 
   publish:
@@ -112,8 +113,10 @@ jobs:
           Windows x64, macOS Apple Silicon and Ubuntu/Debian x64 desktop installers.
 
           Windows and macOS automatic update files have independent cryptographic Tauri signatures.
-          Installers are not OS publisher-signed; Windows Smart App Control and macOS Gatekeeper
-          may still warn or block first installations. Linux DEB updates are manual.
+          Windows installers are subject to mandatory publisher-signature checks.
+          macOS disk images require Developer ID signing, notarization and stapling.
+          Linux DEB updates are manual; package trust and distribution review
+          must be completed separately before public release.
           EOF
           gh release create "v$VERSION" publish/* \
             --repo "$TARGET_REPOSITORY" \
