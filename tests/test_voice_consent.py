@@ -61,3 +61,18 @@ def test_document_cannot_be_overwritten_by_repeat_submission(tmp_path):
     with pytest.raises(FileExistsError):
         consent.store_document(tmp_path,key,b"%PDF-1.4\nChanged", ".pdf")
     assert (tmp_path/"consent-evidence"/(key+".pdf")).read_bytes().endswith(b"Original")
+
+def test_signed_evidence_integrity_detects_deletion_and_tampering(tmp_path):
+    document=b"%PDF-1.4\\n%Author signature test document\\n"
+    key="c"*32
+    record=consent.validate("authorized","John Uploader","Jane Speaker",document,"release.pdf")
+    consent.store_document(tmp_path,key,document,record["signed_document_extension"])
+    assert consent.check_stored_document(tmp_path,key,record)["integrity"]=="intact"
+    evidence=tmp_path/"consent-evidence"/(key+".pdf")
+    evidence.write_bytes(b"%PDF-1.4\\n%Changed")
+    assert consent.check_stored_document(tmp_path,key,record)["integrity"]=="tampered"
+    evidence.unlink()
+    assert consent.check_stored_document(tmp_path,key,record)["integrity"]=="missing"
+    assert consent.check_stored_document(tmp_path,key,{"policy":"humperdinck-voice-consent-v1"})["integrity"]=="unknown"
+    own=consent.validate("self","Jane Speaker","",None)
+    assert consent.check_stored_document(tmp_path,key,own)["integrity"]=="not-applicable"
