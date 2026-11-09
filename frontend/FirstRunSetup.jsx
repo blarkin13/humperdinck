@@ -1,3 +1,4 @@
+import {useDialogFocus} from './useDialogFocus.js';
 import React,{useEffect,useState} from 'react';
 import {useNotifications} from './Notifications.jsx';
 
@@ -43,6 +44,7 @@ export default function FirstRunSetup({onClose,onComplete}){
   catch(e){setError(e.message)}
  }
  useEffect(()=>{refresh()},[]);
+ const dialogRef=useDialogFocus({open:Boolean(models&&hw),onEscape:()=>{if(!busy)onClose()}});
  if(!models||!hw)return <div className="setup-overlay"><div className="setup-modal"><p className="setup-loading">{error||'Checking your computer…'}</p></div></div>;
 
  const engine=id=>models.engines.find(e=>e.id===id);
@@ -112,7 +114,7 @@ export default function FirstRunSetup({onClose,onComplete}){
  const busy=!!running;
  const remaining=todo.filter(s=>s.id!=='ffmpeg'||hw.ffmpeg_installable);
  return <div className="setup-overlay">
-  <div className="setup-modal" role="dialog" aria-modal="true" aria-labelledby="setup-heading">
+  <div className="setup-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="setup-heading">
    <header className="setup-header"><div><span className="setup-eyebrow"><i className="fa-solid fa-headphones"/> SETUP</span><h2 id="setup-heading">Let's get Humperdinck ready</h2>
     <p>We checked your computer and picked what works best on it. Click <strong>Set up everything</strong> and we'll do the rest.</p></div>
     <button aria-label="Close setup" type="button" disabled={busy} onClick={onClose}><i className="fa-solid fa-xmark"/></button></header>
