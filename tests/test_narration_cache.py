@@ -74,13 +74,17 @@ def test_cache_does_not_store_oversize_and_evicts_oldest(tmp_path):
     root = model(tmp_path)
     first_key, second_key = key(root, text="first"), key(root, text="second")
     cache = PresetSectionCache(tmp_path / "cache", max_bytes=1500)
+    cache.root.mkdir(parents=True)
+    unrelated = cache.root / "customer-recording.wav"
+    unrelated.write_bytes(b"never delete unrelated local files")
     cache.store(first_key, np.ones(250, dtype=np.float32))
     assert cache.load(first_key) is not None
     cache.store(second_key, np.ones(250, dtype=np.float32) * -0.5)
     assert cache.load(first_key) is None
     assert cache.load(second_key) is not None
     cache.store(key(root, text="huge"), np.ones(10000, dtype=np.float32))
-    assert len(list(cache.root.glob("*.wav"))) == 1
+    assert unrelated.read_bytes() == b"never delete unrelated local files"
+    assert len([p for p in cache.root.glob("*.wav") if len(p.stem) == 64]) == 1
 
 
 
