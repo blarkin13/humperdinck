@@ -1,3 +1,4 @@
+import {useDialogFocus} from './useDialogFocus.js';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import CharacterVoice from './CharacterVoice.jsx';
 
@@ -134,8 +135,9 @@ export default function NarratorPicker({api,options,currentKey,sectionNumber,use
    </div>}</React.Fragment>)}
  </div>;
 
+ const dialogRef=useDialogFocus();
  return <div className="narrator-modal-backdrop" onKeyDown={onModalKey} onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
-  <div className="narrator-modal narrator-picker" role="dialog" aria-modal="true" aria-label={'Choose narrator for section '+sectionNumber}>
+  <div className="narrator-modal narrator-picker" ref={dialogRef} role="dialog" aria-modal="true" aria-label={'Choose narrator for section '+sectionNumber}>
    <div className="narrator-modal-head"><div><h3>Section {sectionNumber} narrator</h3><p>Choose a voice for this section. Unassigned following sections will inherit it.</p></div><button type="button" className="narrator-close" onClick={onClose} aria-label="Close narrator selector"><i className="fa-solid fa-xmark"/></button></div>
    <div className="narrator-current"><span className="narrator-avatar"><i className={'fa-solid '+(selected?ICONS[selected.kind]:'fa-microphone-lines')}/></span><div><strong>{selected?.label||'No narrator selected'}</strong><small>{selected?.accent||'Select a voice from the library below.'}</small></div></div>
    <label className="narrator-search"><i className="fa-solid fa-magnifying-glass" aria-hidden="true"/><input ref={searchBox} autoFocus value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={onSearchKey} placeholder="Search voices" aria-label="Search narrator voices"/></label>

@@ -1,3 +1,4 @@
+import {useDialogFocus} from './useDialogFocus.js';
 import React,{useEffect,useRef,useState} from 'react';
 import './AccountPanel.css';
 
@@ -89,8 +90,9 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{},onAccountCh
   if(fileRef.current)fileRef.current.value='';
  }
  const connected=Boolean(account?.connected),pro=license?.plan==='pro';
+ const dialogRef=useDialogFocus({onEscape:onClose});
  return <div className="account-panel-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
-  <section className="account-panel" role="dialog" aria-modal="true" aria-label="Humperdinck account and license">
+  <section className="account-panel" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Humperdinck account and license">
    <div className="account-panel-title"><div><small>HUMPERDINCK</small><h2>My account</h2></div>
    <button className="account-panel-close" type="button" onClick={onClose} aria-label="Close account"><i className="fa-solid fa-xmark"/></button></div>
    <div className="account-panel-body">

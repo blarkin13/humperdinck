@@ -1,3 +1,4 @@
+import {useDialogFocus} from './useDialogFocus.js';
 import React,{useEffect,useRef,useState} from 'react';
 
 // A character is the original voice with an accent and/or a way of talking.
@@ -45,8 +46,9 @@ export default function CharacterVoice({api,source,onClose,onCreated,onOpenModel
  }
 
  const designed=options?.accents.filter(a=>a.kind==='designed')||[],real=options?.accents.filter(a=>a.kind!=='designed')||[];
+ const dialogRef=useDialogFocus();
  return <div className="narrator-modal-backdrop character-backdrop" onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();onClose()}}} onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
-  <div className="narrator-modal character-voice" role="dialog" aria-modal="true" aria-label={'New character for '+source.label}>
+  <div className="narrator-modal character-voice" ref={dialogRef} role="dialog" aria-modal="true" aria-label={'New character for '+source.label}>
    <div className="narrator-modal-head"><div><h3><i className="fa-solid fa-masks-theater" aria-hidden="true"/> New character</h3><p><strong>{source.label}</strong>'s voice with an accent or a way of talking, the way a narrator does different characters.</p></div><button type="button" className="narrator-close" onClick={onClose} aria-label="Close"><i className="fa-solid fa-xmark"/></button></div>
    <div className="character-body">
     {options&&!options.converter_ready&&<div className="notice">Characters need the <strong>Character voices</strong> converter (about 130 MB plus PyTorch). {onOpenModels&&<button type="button" className="link" onClick={onOpenModels}>Install it in Models</button>}</div>}

@@ -1,3 +1,4 @@
+import {useDialogFocus} from './useDialogFocus.js';
 import React,{useEffect,useState} from 'react';
 
 export default function ServerSettings({onClose}){
@@ -26,8 +27,9 @@ export default function ServerSettings({onClose}){
   }catch(e){setError(e.message)}finally{setBusy(false)}
  }
 
+ const dialogRef=useDialogFocus();
  return <div className="server-settings-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
-  <div className="server-settings-modal" role="dialog" aria-modal="true" aria-label="Server settings">
+  <div className="server-settings-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Server settings">
    <header><h2><i className="fa-solid fa-server" aria-hidden="true"/> Server settings</h2><button type="button" onClick={onClose} aria-label="Close server settings"><i className="fa-solid fa-xmark"/></button></header>
    <p>Humperdinck runs a private local server on this computer. The desktop app and the Open in Browser option use the same voices, models and projects.</p>
    <div className="server-mode-options">

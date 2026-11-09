@@ -1,3 +1,4 @@
+import {useDialogFocus} from './useDialogFocus.js';
 import React,{useEffect,useRef,useState} from 'react';
 import CharacterVoice from './CharacterVoice.jsx';
 
@@ -22,8 +23,9 @@ export default function CharactersPanel({api,source,characters,onChanged,onUse,o
   if(askConfirm&&!await askConfirm(`Delete the character "${c.name}"?`,{title:'Delete character',confirmLabel:'Delete',danger:true}))return;
   try{await api('characters/'+c.id,{method:'DELETE'});await onChanged()}catch(e){setError(e.message)}
  }
+ const dialogRef=useDialogFocus();
  return <div className="narrator-modal-backdrop" onKeyDown={e=>{if(e.key==='Escape'&&!creating){e.stopPropagation();onClose()}}} onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
-  <div className="narrator-modal characters-panel" role="dialog" aria-modal="true" aria-label={source.label+' characters'}>
+  <div className="narrator-modal characters-panel" ref={dialogRef} role="dialog" aria-modal="true" aria-label={source.label+' characters'}>
    <div className="narrator-modal-head"><div><h3><i className="fa-solid fa-masks-theater" aria-hidden="true"/> {source.label} · characters</h3><p>The same voice with different accents and ways of talking.</p></div><button type="button" className="narrator-close" onClick={onClose} aria-label="Close"><i className="fa-solid fa-xmark"/></button></div>
    <div className="narrator-options">
     {mine.length?mine.map(c=><div className="narrator-option" key={c.id}>

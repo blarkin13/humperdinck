@@ -1,3 +1,4 @@
+import {useDialogFocus} from './useDialogFocus.js';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {useNotifications} from './Notifications.jsx';
 import {suggestSoundEffects} from './soundSuggestions.js';
@@ -161,6 +162,7 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
   return true;
  }),sort),[items,query,category,favoritesOnly,duration,sort]);
 
+ const dialogRef=useDialogFocus({open:Boolean(editing)});
  return <div className={'sound-library sound-library-pixabay '+(compact?'sound-library-compact':'')}>
   <div className="sound-library-head">
    <div>{!compact&&<><h2>Sound Effects</h2>
@@ -275,7 +277,7 @@ export default function SoundEffects({api,onInsert=null,onAmbience=null,suggestT
    </div>
    {editing!==null&&<div className="sound-edit-modal-backdrop"
        onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null)}}>
-    <form className="sound-edit-modal" role="dialog" aria-modal="true"
+    <form className="sound-edit-modal" ref={dialogRef} role="dialog" aria-modal="true"
       aria-label="Edit sound details" onSubmit={e=>{e.preventDefault();saveEdit()}}>
      <h3>Edit sound effect</h3>
      <label>Sound name<input maxLength="120" required value={editName} onChange={e=>setEditName(e.target.value)}/></label>
