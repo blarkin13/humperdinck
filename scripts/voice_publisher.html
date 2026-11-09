@@ -26,6 +26,11 @@ form label{display:grid;gap:3px}
 form input[type=text],form input[type=file]{font:inherit;padding:6px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit}
 footer{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:12px 0;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 #status{min-height:1.4em}
+.sliders{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px 16px}
+.sliders label{display:grid;grid-template-columns:92px 1fr 30px;align-items:center;gap:6px;font-size:13px}
+.sliders input[type=range]{width:100%}
+textarea{font:inherit;padding:6px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;width:100%;min-height:70px}
+details.tune{width:100%}details.tune summary{cursor:pointer;color:var(--accent)}
 </style>
 </head>
 <body>
@@ -40,6 +45,17 @@ footer{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--
 <h2>Make a voice for the pack</h2>
 <p class="hint">Generate a sample from one of your source recordings, listen to it, then add it as Built-in or Gallery. Generating again for a voice that's already in the pack replaces its sample.</p>
 <div id="sources"></div>
+
+<h2>Design a voice</h2>
+<form id="design" class="card">
+ <label>Voice name <input type="text" name="name" maxlength="120" required></label>
+ <label>Category (optional) <input type="text" name="category" maxlength="60"></label>
+ <label>Describe the voice (accent, age, character, delivery)<textarea name="description" maxlength="1000" required placeholder="A warm Scottish storyteller in his sixties, unhurried, with a gentle rasp"></textarea></label>
+ <div><button type="button" id="suggest">Set sliders from description</button></div>
+ <div class="sliders" id="designSliders"></div>
+ <label>Preview line <input type="text" name="text" maxlength="600" value="The old lighthouse stood quietly above the waves, waiting for the next storm."></label>
+ <div class="actions"><button type="button" id="designPreview">Preview</button><span id="designResult"></span></div>
+</form>
 
 <h2>Add a source recording</h2>
 <form id="upload" class="card">
@@ -79,7 +95,7 @@ async function work(label,fn){if(state.busy)return;state.busy=true;render();say(
 async function load(){
  const [starter,sources]=await Promise.all([api('starter-voices'),api('voices')]);
  state.pack=starter.approved;state.published=starter.published;
- state.sources=sources.filter(v=>v.origin!=='builtin-humperdinck'&&v.origin!=='starter-voice'&&v.origin!=='catalog');
+ state.sources=sources.filter(v=>!['builtin-humperdinck','starter-voice','catalog'].includes(v.origin));
  render();
 }
 function render(){
@@ -93,6 +109,7 @@ function render(){
    <button data-act="save" ${dis}>Save name</button>
    <button data-act="remove" ${dis}>Remove</button>
   </div></div>`).join(''):'<p class="hint">No voices in the pack yet.</p>';
+ const keep={};document.querySelectorAll('#sources details.tune[open]').forEach(d=>keep[d.closest('.card').dataset.id]=d);
  $('#sources').innerHTML=state.sources.length?`<p class="hint">${SENTENCE_NOTE}</p>`+state.sources.map(v=>{
   const j=state.jobs[v.voice_id],running=j&&(j.status==='queued'||j.status==='running'),ready=j&&j.status==='complete';
   return `<div class="card" data-id="${esc(v.voice_id)}">
@@ -104,7 +121,14 @@ function render(){
      <button data-act="add" data-ch="builtin" ${dis}>${inPack.has(v.voice_id)?'Replace sample':'Add as Built-in'}</button>
      ${inPack.has(v.voice_id)?'':`<button data-act="add" data-ch="catalog" ${dis}>Add to Gallery</button>`}`:''}
     ${j&&j.status==='failed'?`<small class="err">${esc(j.message)}</small>`:''}
-   </div></div>`}).join(''):'<p class="hint">No source recordings yet. Add one below.</p>';
+   </div>
+   <details class="tune"><summary>Adjust with sliders</summary>
+    <div class="sliders"></div>
+    <label>Direction (optional)<textarea maxlength="1200" placeholder="e.g. a little slower, warmer, softer accent"></textarea></label>
+    <div class="actions"><button type="button" data-tune="preview">Preview</button><button type="button" data-tune="save">Save settings</button><span class="tune-out"></span></div>
+   </details></div>`}).join(''):'<p class="hint">No source recordings yet. Add one below.</p>';
+ // Put open slider panels back exactly as they were (settings and preview kept).
+ for(const [id,d] of Object.entries(keep)){const card=document.querySelector(`#sources .card[data-id="${CSS.escape(id)}"]`);const fresh=card&&card.querySelector('details.tune');if(fresh)fresh.replaceWith(d)}
  const p=state.published;
  $('#published').textContent=state.changed?'You have changes that are not published yet.':p?`Last published ${p.published_at} · ${p.voices} built-in, ${p.gallery||0} gallery`:'Not published yet.';
  $('#publish').disabled=state.busy||!state.pack.some(v=>v.channel!=='catalog');
@@ -140,6 +164,48 @@ $('#upload').addEventListener('submit',e=>{e.preventDefault();const f=e.currentT
   f.reset();await load();return 'Recording added. Generate its sample above.'})});
 $('#publish').addEventListener('click',()=>{if(!confirm('Publish the pack? Every Humperdinck install picks up the change the next time it opens.'))return;
  work('Publishing',async()=>{const r=await api('starter-voices/publish',{method:'POST'});state.changed=false;state.published=r;return `Published ${r.voices} built-in and ${r.gallery||0} gallery voices. Apps pick them up within about 5 minutes of opening.`})});
+// ---- design: description + sliders --------------------------------------------
+const TRAITS=[['pitch','Pitch'],['rasp','Rasp'],['pace','Pace'],['warmth','Warmth'],['age','Age'],['breathiness','Breathiness'],['depth','Depth'],['energy','Energy'],['clarity','Clarity'],['expressiveness','Expressiveness']];
+function sliderHTML(prefix,keys,values){return keys.map(([k,l])=>`<label>${l}<input type="range" min="0" max="100" data-${prefix}="${k}" value="${values[k]??50}" oninput="this.nextElementSibling.textContent=this.value"><span>${values[k]??50}</span></label>`).join('')}
+function readSliders(root,prefix){const o={};root.querySelectorAll(`[data-${prefix}]`).forEach(i=>o[i.dataset[prefix]]=Number(i.value));return o}
+function setSliders(root,prefix,values){root.querySelectorAll(`[data-${prefix}]`).forEach(i=>{if(values[i.dataset[prefix]]!=null){i.value=values[i.dataset[prefix]];i.nextElementSibling.textContent=i.value}})}
+$('#designSliders').innerHTML=sliderHTML('t',TRAITS,{});
+const design={job:null};
+$('#suggest').addEventListener('click',()=>{const f=$('#design');work('Reading the description',async()=>{
+ const r=await api('voice-refinement/suggest',json('POST',{description:f.description.value||' ',sliders:readSliders(f,'t')}));
+ setSliders(f,'t',r.sliders);return 'Sliders set from the description. Adjust them, then Preview.'})});
+function designResult(){const el=$('#designResult'),j=design.job;
+ if(!j){el.innerHTML='';return}
+ if(j.status==='failed'){el.innerHTML=`<small class="err">${esc(j.message)}</small>`;return}
+ if(j.status!=='complete'){el.innerHTML=`<small>Generating… ${j.progress||0}%</small>`;return}
+ el.innerHTML=`<audio controls src="/api/outputs/${j.job_id}.wav"></audio> <button type="button" class="primary" id="designKeep">Keep as a source voice</button>`;
+ $('#designKeep').onclick=keepDesign}
+$('#designPreview').addEventListener('click',()=>{const f=$('#design');if(!f.reportValidity())return;work('Starting preview',async()=>{
+ design.job=await api('designed-voices/draft-preview',json('POST',{text:f.text.value,description:f.description.value,characteristics:readSliders(f,'t')}));
+ designResult();return 'Designing the voice. Listen, adjust, preview again, or keep it.'})});
+function keepDesign(){const f=$('#design');work('Saving the designed voice',async()=>{
+ const sliders=readSliders(f,'t'),moved=Object.entries(sliders).some(([,v])=>v!==50);
+ const made=await api('designed-voices',json('POST',{name:f.name.value,category:f.category.value,description:f.description.value,characteristics:sliders,method:moved?'sliders':'prompt'}));
+ await api(`designed-voices/${made.id}/versions/${made.active_version||1}/attach-preview`,json('POST',{job_id:design.job.job_id,approve:true}));
+ await api('starter-voices/from-design/'+made.id,{method:'POST'});
+ design.job=null;designResult();f.reset();setSliders(f,'t',Object.fromEntries(TRAITS.map(([k])=>[k,50])));
+ await load();return 'Saved. It is now a source voice above: generate its pack sample and add it.'})}
+setInterval(async()=>{const j=design.job;if(j&&(j.status==='queued'||j.status==='running')){try{design.job=await api('jobs/'+j.job_id)}catch(e){design.job={...j,status:'failed',message:e.message}}designResult()}},1200);
+
+// ---- sliders on source recordings ----------------------------------------------
+const tune={};
+$('#sources').addEventListener('toggle',async e=>{const d=e.target;if(!d.matches('details.tune')||!d.open||d.dataset.loaded)return;
+ const id=d.closest('.card').dataset.id;try{const r=await api('voices/'+id+'/refinement');d.dataset.loaded=1;
+ d.querySelector('.sliders').innerHTML=sliderHTML('r',TRAITS.slice(0,4),r.refinement.sliders);d.querySelector('textarea').value=r.refinement.description||''}catch(err){say(err.message,'err')}},true);
+$('#sources').addEventListener('click',e=>{const b=e.target.closest('button[data-tune]');if(!b)return;const d=b.closest('details'),id=b.closest('.card').dataset.id;
+ const body={sliders:readSliders(d,'r'),description:d.querySelector('textarea').value};
+ if(b.dataset.tune==='preview')work('Starting preview',async()=>{tune[id]=await api('voices/'+id+'/refinement-preview',json('POST',{...body,text:'The old lighthouse stood quietly above the waves, waiting for the next storm.'}));pollTune(id,d);return 'Previewing with these settings.'});
+ if(b.dataset.tune==='save')work('Saving',async()=>{await api('voices/'+id+'/refinement',json('PUT',body));return 'Saved. Generate the pack sample again to use the new settings.'})});
+async function pollTune(id,d){const out=d.querySelector('.tune-out');for(;;){const j=tune[id];
+ if(j.status==='complete'){out.innerHTML=`<audio controls src="/api/outputs/${j.job_id}.wav"></audio>`;return}
+ if(j.status==='failed'){out.innerHTML=`<small class="err">${esc(j.message)}</small>`;return}
+ out.innerHTML=`<small>Generating… ${j.progress||0}%</small>`;await new Promise(r=>setTimeout(r,1200));
+ try{tune[id]=await api('jobs/'+j.job_id)}catch(e){tune[id]={...j,status:'failed',message:e.message}}}}
 load().catch(e=>say(e.message,'err'));
 </script>
 </body>
