@@ -86,6 +86,35 @@ def store_document(root: Path, voice_id: str, evidence: bytes, extension: str) -
         raise
 
 
+
+def check_stored_document(root: Path, voice_id: str, record: dict) -> dict:
+    """Check the privately stored authorization still matches recorded SHA-256.
+
+    Does not authenticate the speaker's signature or authorization scope.
+    Returns only integrity status; never exports signed documents.
+    """
+    if not ID_PATTERN.fullmatch(voice_id):
+        raise ConsentError("Invalid voice ID")
+    if not isinstance(record, dict) or record.get("policy") != POLICY:
+        return {"integrity": "unknown", "reason": "legacy-or-missing-consent"}
+    if record.get("speaker") == "self":
+        return {"integrity": "not-applicable", "reason": "self-electronic-declaration"}
+    if record.get("speaker") != "authorized":
+        return {"integrity": "invalid", "reason": "unknown-consent-subject"}
+    ext = record.get("signed_document_extension")
+    expected = record.get("signed_document_sha256")
+    if ext not in {".pdf", ".png", ".jpg"} or not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
+        return {"integrity": "invalid", "reason": "missing-signed-evidence-hash"}
+    file = Path(root) / "consent-evidence" / (voice_id + ext)
+    if file.is_symlink() or not file.is_file():
+        return {"integrity": "missing", "reason": "signed-evidence-unavailable"}
+    if file.stat().st_size > MAX_DOCUMENT_BYTES:
+        return {"integrity": "invalid", "reason": "oversized-evidence"}
+    actual = hashlib.sha256(file.read_bytes()).hexdigest()
+    if not secrets.compare_digest(actual, expected):
+        return {"integrity": "tampered", "reason": "signed-evidence-mismatch"}
+    return {"integrity": "intact", "reason": "sha256-match-not-signature-verification"}
+
 def delete_document(root: Path, voice_id: str) -> None:
     if not ID_PATTERN.fullmatch(voice_id):
         raise ConsentError("Invalid voice ID")
