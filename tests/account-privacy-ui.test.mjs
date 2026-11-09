@@ -25,3 +25,11 @@ test('account export never writes private data to browser storage',()=>{
  assert.doesNotMatch(js,/localStorage\.setItem|sessionStorage\.setItem/);
  assert.match(js,/downloadJson\('humperdinck-account-export.json',exported\)/);
 });
+
+test('deletion review UI discloses online Pro forfeiture and requires separate acknowledgment',()=>{
+ assert.match(js,/online Pro access, device activation/);
+ assert.match(js,/offline certificates may continue to work/);
+ assert.match(js,/forfeitureAcknowledgment:'I UNDERSTAND ACCOUNT DELETION MAY FORFEIT PRO'/);
+ assert.match(js,/offlineCertificateAcknowledged:true/);
+ assert.doesNotMatch(js,/\/privacy\/delete/);
+});
