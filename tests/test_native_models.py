@@ -1,5 +1,8 @@
 """Native Kokoro downloader must safely reuse shared existing model weights."""
 from backend import native_models
+import hashlib
+from types import SimpleNamespace
+import pytest
 
 
 def test_complete_model_is_reused(tmp_path, monkeypatch):
@@ -7,9 +10,11 @@ def test_complete_model_is_reused(tmp_path, monkeypatch):
     monkeypatch.delenv("HUMPERDINCK_MODEL_HOME", raising=False)
     directory = tmp_path / "hf" / "humperdinck" / "presets" / "kokoro"
     directory.mkdir(parents=True)
-    for name, minimum in native_models.FILES:
-        with (directory / name).open("wb") as file:
-            file.truncate(minimum)
+    assets = {name: b"verified-model-" + name.encode() for name, _ in native_models.FILES}
+    monkeypatch.setattr(native_models, "SHA256", {name: hashlib.sha256(content).hexdigest() for name, content in assets.items()})
+    monkeypatch.setattr(native_models, "FILES", tuple((name,len(content)) for name,content in assets.items()))
+    for name, content in assets.items():
+        (directory / name).write_bytes(content)
     monkeypatch.setattr(native_models.urllib.request, "urlopen",
                         lambda *args, **kw: (_ for _ in ()).throw(AssertionError("Unexpected download")))
     assert native_models.download_kokoro() == directory
@@ -56,3 +61,52 @@ def test_native_download_uses_verified_ca_bundle(tmp_path, monkeypatch):
         raise AssertionError("Missing mocked download")
     assert observed and observed[0] is not None
     assert observed[0].verify_mode.name == "CERT_REQUIRED"
+
+
+def test_cached_corrupt_model_is_replaced_only_after_verified_download(tmp_path, monkeypatch):
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    monkeypatch.delenv("HUMPERDINCK_MODEL_HOME", raising=False)
+    correct = b"authentic-test-model-data"
+    name = "kokoro-v1.0.onnx"
+    monkeypatch.setattr(native_models, "FILES", ((name,len(correct)),))
+    monkeypatch.setattr(native_models, "SHA256", {name: hashlib.sha256(correct).hexdigest()})
+    directory = tmp_path / "hf" / "humperdinck" / "presets" / "kokoro"
+    directory.mkdir(parents=True)
+    target = directory / name
+    target.write_bytes(b"X" * len(correct))
+    messages = []
+    monkeypatch.setattr(native_models, "_sources", lambda asset: iter([("test://asset",{})]))
+    monkeypatch.setattr(native_models, "_download", lambda url, headers, partial: partial.write_bytes(correct))
+    assert native_models.download_kokoro(progress=messages.append) == directory
+    assert target.read_bytes() == correct
+    assert any("corrupted" in message for message in messages)
+    assert not list(directory.glob("*.partial"))
+
+
+def test_corrupt_cached_model_survives_failed_redownload(tmp_path, monkeypatch):
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    monkeypatch.delenv("HUMPERDINCK_MODEL_HOME", raising=False)
+    name = "kokoro-v1.0.onnx"
+    monkeypatch.setattr(native_models, "FILES", ((name,8),))
+    monkeypatch.setattr(native_models, "SHA256", {name: hashlib.sha256(b"genuine!").hexdigest()})
+    directory = tmp_path / "hf" / "humperdinck" / "presets" / "kokoro"
+    directory.mkdir(parents=True)
+    target = directory / name
+    target.write_bytes(b"invalid!")
+    monkeypatch.setattr(native_models, "_sources", lambda asset: iter([("test://asset",{})]))
+    monkeypatch.setattr(native_models, "_download", lambda url, headers, partial: partial.write_bytes(b"wrongbad"))
+    with pytest.raises(RuntimeError, match="SHA-256"):
+        native_models.download_kokoro(attempts=1)
+    assert target.read_bytes() == b"invalid!"
+    assert not list(directory.glob("*.partial"))
+
+
+def test_low_storage_blocks_model_download_before_network(tmp_path, monkeypatch):
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    monkeypatch.delenv("HUMPERDINCK_MODEL_HOME", raising=False)
+    monkeypatch.setattr(native_models.shutil, "disk_usage",
+                        lambda path: SimpleNamespace(total=100, used=98, free=2))
+    monkeypatch.setattr(native_models.urllib.request, "urlopen",
+                        lambda *args, **kw: (_ for _ in ()).throw(AssertionError("Network should not be used")))
+    with pytest.raises(RuntimeError, match="free disk space"):
+        native_models.download_kokoro(attempts=1)
