@@ -118,3 +118,44 @@ def test_unrecognized_key_id_and_modified_payload_are_rejected(monkeypatch):
     altered=base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
     with pytest.raises(pro_license.InvalidLicense):
         pro_license.verify(altered+'.'+signature)
+
+def test_simulated_v2_activation_then_v1_rollback_keeps_both_offline(tmp_path,monkeypatch):
+    """Switching the server's issuer cannot invalidate either pinned public key."""
+    keys={}
+    for version in (1,2):
+        private=Ed25519PrivateKey.generate()
+        public=base64.b64encode(private.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw)).decode()
+        keys[version]=(private,public)
+    monkeypatch.setattr(pro_license,'PRO_PUBLIC_KEY_BASE64',keys[1][1])
+    monkeypatch.setattr(pro_license,'PRO_V2_PUBLIC_KEY_BASE64',keys[2][1])
+    encode=lambda b:base64.urlsafe_b64encode(b).decode().rstrip('=')
+
+    def issue(version):
+        grant={'version':1,'type':pro_license.LICENSE_TYPE,
+               'key_id':f'humperdinck-pro-ed25519-v{version}',
+               'license_id':str(uuid4()),'subject':str(uuid4()),
+               'issued_at':int(time.time()),'features':['pro'],
+               'transfer':'portable-offline-backup','expires_at':None}
+        payload=json.dumps(grant,separators=(',',':')).encode()
+        return encode(payload)+'.'+encode(keys[version][0].sign(payload))
+
+    earlier=issue(1)
+    after_activation=issue(2)
+    after_rollback=issue(1)
+    for folder,token in [('before',earlier),('v2',after_activation),('rollback',after_rollback)]:
+        directory=tmp_path/folder
+        assert pro_license.save(directory,token)['active'] is True
+        assert pro_license.backup(directory)['license']==token
+        assert pro_license.status(directory)['active']
+        assert pro_license.verify(token)['key_id'].startswith('humperdinck-pro-ed25519-v')
+    # The older client lacks v2: it still accepts v1 certificates, while a
+    # current dual-verifier accepts all three without needing the Worker.
+    monkeypatch.setattr(pro_license,'PRO_V2_PUBLIC_KEY_BASE64',None)
+    assert pro_license.verify(earlier)['key_id']==pro_license.PRO_KEY_ID
+    with pytest.raises(pro_license.InvalidLicense):
+        pro_license.verify(after_activation)
+    monkeypatch.setattr(pro_license,'PRO_V2_PUBLIC_KEY_BASE64',keys[2][1])
+    assert pro_license.verify(after_activation)['key_id']==pro_license.PRO_V2_KEY_ID
+    assert pro_license.verify(after_rollback)['key_id']==pro_license.PRO_KEY_ID
