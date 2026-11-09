@@ -71,7 +71,7 @@ test('inactive checkout fails closed; valid purchase preserves complimentary Pro
  assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'settled-existing-license');
  assert.equal(f.count('commerce_live_orders'),1);
  assert.equal(f.count('pro_licenses'),1);
- assert.equal(f.sqlite.prepare('SELECT provider FROM pro_licenses').get().provider,null);
+ assert.equal(f.sqlite.prepare('SELECT provider FROM pro_licenses').get().provider,'complimentary');
  f.sqlite.close();
 });
 test('transaction rolls back when webhook event hash collides',async()=>{
