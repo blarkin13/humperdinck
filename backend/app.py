@@ -57,6 +57,8 @@ library = VoiceLibrary(DATA)
 settings = catalog.Settings(DATA / 'settings.json')
 sound_effects = SoundEffects(DATA)
 starter_voices = StarterVoices(DATA)
+from backend.pronunciation import Pronunciations
+pronunciations = Pronunciations(DATA)
 starter_voice_jobs = {}
 preset_section_cache = narration_cache.PresetSectionCache(DATA / 'render-cache')
 
@@ -306,6 +308,24 @@ def starter_source_from_design(designed_id:str):
                'designed_from':designed_id}
     save_voice_meta(meta)
     return {'voice_id':key,'filename':voice['name'],'category':voice.get('category','')}
+
+class PronunciationEntry(BaseModel):
+    word: str = Field(min_length=1, max_length=60)
+    say: str = Field(min_length=1, max_length=120)
+
+class PronunciationList(BaseModel):
+    entries: list[PronunciationEntry] = Field(default_factory=list, max_length=500)
+
+@app.get('/api/pronunciations')
+def list_pronunciations():
+    return {'entries': pronunciations.list()}
+
+@app.put('/api/pronunciations')
+def save_pronunciations(request: PronunciationList):
+    try:
+        return {'entries': pronunciations.save([e.model_dump() for e in request.entries])}
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
 
 @app.get('/api/voice-catalog')
 def voice_catalog():
@@ -773,7 +793,7 @@ def run_generation(job_id, request):
             progress = lambda done,total: job.update(progress=round(done/total*100), message=f'Generated {done}/{total} segments{running_on()}')
             choice = settings.load()
             if request.engine == 'qwen-design':
-                engines.design(choice['design'], wav, request.text, request.voice_description, progress)
+                engines.design(choice['design'], wav, pronunciations.apply(request.text), request.voice_description, progress)
             else:
                 ref_text = None
                 if request.engine == 'designed-reference':
@@ -785,7 +805,7 @@ def run_generation(job_id, request):
                     ref_text=voice_meta().get(request.voice_id,{}).get('reference_text')
                 if not reference or not reference.is_file():
                     raise ValueError('Approved reference audio is missing')
-                engines.clone(choice['clone'], wav, request.text, reference, ref_text, progress)
+                engines.clone(choice['clone'], wav, pronunciations.apply(request.text), reference, ref_text, progress)
                 if request.engine=='qwen-clone':
                     entry=voice_meta().get(request.voice_id,{})
                     refine= request.refinement_override if request.refinement_override is not None else entry.get('refinement')
@@ -1097,9 +1117,9 @@ def run_character_takes(job_id, request, count=3):
                 source = characters.takes / f'{job_id}-{i}-source.wav'
                 voice = character_performer(request.accent, request.direction, request.gender, i)
                 if voice:
-                    engines.preset('kokoro', voice, source, request.text)
+                    engines.preset('kokoro', voice, source, pronunciations.apply(request.text))
                 else:
-                    engines.design(settings.load()['design'], source, request.text,
+                    engines.design(settings.load()['design'], source, pronunciations.apply(request.text),
                                    character_description(request.accent, request.direction, request.gender))
                 sources.append((source, voice))
             for i, (source, voice) in enumerate(sources):
@@ -1427,7 +1447,7 @@ def run_multi(job_id, request, references):
                     def progress(done, total):
                         job.update(progress=round((index + done / total) / len(references) * 95),
                                    message=f'Block {index+1}/{len(references)} · {done}/{total} segments{running_on()}')
-                    narration_text = remove_speech_direction_tags(block.text)
+                    narration_text = pronunciations.apply(remove_speech_direction_tags(block.text))
                     if not narration_text:
                         raise ValueError('A narration section needs words beyond speech direction tags')
                     # Reuse *preset* sections only. Uploaded/designed/character voices

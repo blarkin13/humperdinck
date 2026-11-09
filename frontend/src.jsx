@@ -21,6 +21,7 @@ import BrowserKokoro from './BrowserKokoro.jsx';
 import SoundEffects from './SoundEffects.jsx';
 import UploadedVoiceRefinement from './UploadedVoiceRefinement.jsx';
 import StarterVoicePack from './StarterVoicePack.jsx';
+import PronunciationPanel from './PronunciationPanel.jsx';
 import VoiceCatalog from './VoiceCatalog.jsx';
 import NarratorPicker from './NarratorPicker.jsx';
 import CharactersPanel from './CharactersPanel.jsx';
@@ -450,6 +451,7 @@ function App(){
  {candidates.some(c=>c.recipe===recipe())&&<button className="primary" disabled={busy(previewJob)||savedJobs.includes(chosen)} onClick={()=>saveVoice(true)}>{selected?'Approve Selected & Save as New Version':'Approve Selected & Save Voice'}</button>}
  {detail&&<div className="saved"><h3>Saved voice history</h3>{detail.versions.map(v=><div className="version" key={v.version}><strong>Version {v.version}{v.version===detail.active_version?' · Current':''}{v.approved_sample_id?' · Approved':''}</strong><div className="actions tight">{v.version!==detail.active_version&&<button onClick={()=>restoreVersion(v.version)}>Restore this version</button>}{detail.versions.length>1&&<button className="danger" onClick={()=>deleteVersion(v.version)}>Delete version</button>}</div>{v.samples.map(s=><div key={s.id}><audio controls src={'/api/designed-samples/'+s.id}/><button disabled={v.approved_sample_id===s.id} onClick={()=>approveExisting(s.id,v.version)}>{v.approved_sample_id===s.id?'Approved voice':'Approve this sample'}</button></div>)}</div>)}<button className="danger" onClick={deleteVoice}>Delete Voice</button></div>}</div>}</section>}
  {tab==='narration'&&<section><div className="heading"><div><h2>Narration Studio</h2></div><span className="tag">Single or multi-voice</span></div>
+ {!PUBLIC_STUDIO&&<PronunciationPanel api={api}/>}
  {voiceOptions.length===0&&<div className="notice">Install the Kokoro voices in Models for fast narration, or create and approve a custom voice in Voice Creator.</div>}
 
  <div className="narration-sections">

@@ -1222,3 +1222,10 @@ button.active small,.primary small{color:#3a3122}
 /* Header icon buttons: no inherited padding, so icons sit dead centre; one height for the row. */
 .header-server-icon{padding:0;height:40px}
 .header-actions .theme-trigger{min-height:40px}
+
+/* Pronunciation dictionary (Narration Studio) */
+.pronunciation-panel{margin:0 0 14px}
+.pronunciation-panel summary{cursor:pointer;font-weight:600}
+.pronunciation-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.4fr) auto;gap:8px;align-items:center;margin:6px 0}
+.pronunciation-row input{min-width:0}
+@media (max-width:560px){.pronunciation-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}.pronunciation-row>i{display:none}}
