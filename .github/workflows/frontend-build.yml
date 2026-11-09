@@ -45,6 +45,7 @@ jobs:
           node --test tests/live-commerce-release-gate.test.mjs
           node --test tests/lemon-live-refund.test.mjs
           node --test tests/lemon-live-disputes.test.mjs
+          node --test tests/lemon-live-acceptance.test.mjs
           node --test tests/legal-signed-consent.test.mjs
           node --check website/account/account.js
           node --test tests/account-auth.test.mjs
