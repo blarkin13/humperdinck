@@ -40,6 +40,7 @@ jobs:
           node --test tests/account-auth.test.mjs
           node --check src/account-dashboard.js
           node --test tests/account-dashboard.test.mjs
+          node --test tests/account-privacy.test.mjs
           node --check src/pro-license.js
           node --test tests/pro-license.test.mjs
           node --test tests/limited-json.test.mjs
