@@ -25,6 +25,41 @@ The source has a **non-routed** production message validator
 None is wired to a live HTTP endpoint; live migration, merchant approval,
 real-payment credentials, refund policy and operator launch gating remain pending.
 
+## Explicit production HTTP release interlock (source-only)
+
+The Worker reserves `/api/commerce/live/*`, `/api/commerce/production/*`,
+`/api/commerce/checkout` and `/api/commerce/webhook` and currently
+**always responds with HTTP 503, no-store** for each route. These paths are
+listed in `wrangler.jsonc` `assets.run_worker_first` so they cannot be
+silently served by static assets or a stale SPA fallback.
+
+`src/live-commerce-release-gate.js` declares
+`LIVE_COMMERCE_CODE_APPROVED=false`; unlike a Cloudflare variable, it
+cannot be changed by adding secrets, editing a checkout flag, or applying
+a D1 migration. The Worker does **not** import or invoke any live payment,
+issuance or refund module. The negative test suite
+`tests/live-commerce-release-gate.test.mjs` exercises GET/POST/OPTIONS and
+other methods under production-looking credentials and flags, verifies
+there are no database or asset calls, and checks routing configuration.
+
+**Turning on production commerce requires a new explicitly reviewed
+source-code change**, not a configuration-only switch. That change must:
+1. Verify merchant and product approval, purchase/refund policy, payment
+   credentials, and actual live D1 migration and rollback plan.
+2. Introduce authenticated checkout and signed, replay-safe webhook handlers
+   with tests for account, order, price, refund, expiry and failure cases.
+3. Include a separately controlled runtime kill switch (OFF by default)
+   for checkout and entitlement issuance; document the rollback route.
+4. Pass an explicit launch review and staged acceptance tests, then
+   intentionally change both this code interlock and the deployment route.
+5. Keep this deny-route regression test failing until the new policy and
+   matching tests are rewritten deliberately. No test should silently
+   start accepting a live payment based only on environment variables.
+
+This guard is source-level assurance. It does not substitute for production
+Cloudflare deployment verification, provider approval or an independent
+penetration test.
+
 ## Required sequence before payment issuance is activated
 
 1. Merchant of record formally approves Humperdinck; operator creates
