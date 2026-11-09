@@ -112,6 +112,17 @@ Verified on the currently deployed `humperdinck` Worker (binding names only; sec
 
 The SQL-backed regression `tests/lemon-test-refund-ordering-sqlite.test.mjs` ensures that a delayed partial or paid test webhook cannot downgrade a completed full test refund. It is a simulation, not evidence of a real provider refund.
 
+### November 9 — price acceptance and blocked refund
+
+The dashboard screenshots show Humperdinck Pro — Lifetime License listed at **$49.00**, and the merchant test webhook has both `order_created` and `order_refunded` selected. The previously completed test purchase was recorded as USD 4,900 cents. Product listing evidence does not establish independent merchant approval.
+
+An attempt to refund the test order from the Lemon Squeezy dashboard returned: “There was a problem refunding this order. Please contact support.” A subsequent read-only D1 inspection still showed one paid test order, one `order_created` webhook, one active test-only Pro license, and **no `order_refunded` event**. Thus the actual merchant refund acceptance test is **BLOCKED BY PROVIDER**, not completed. Do not retry repeatedly or infer a webhook failure.
+
+The sandbox paid-order validator now requires **USD $49.00 before tax** when `order_created` is received, rejecting signed wrong-price or wrong-currency payments before D1 writes. Lemon Squeezy can add tax to `total`, so when available compare `subtotal`; test fixtures without subtotal use `total`. Refund events retain independent validation to permit a later refund of a historical order if pricing changes. This test-only guard does not enable live checkout or replace production amount verification. The official Order object separates subtotal, tax and total: https://docs.lemonsqueezy.com/api/orders/the-order-object
+
+Next owner/provider action: ask Lemon Squeezy support why test-mode order refunding failed while the store awaits approval, and whether test-mode refunding is available during review. Provider's simulate-webhook action can test downstream delivery but is **not an actual refund**: https://docs.lemonsqueezy.com/help/webhooks/simulate-webhook-events
+
+
 ## Lifetime signing-key disaster recovery: NOT YET COMPLETE
 
 The live `PRO_LICENSE_ED25519_PRIVATE` Cloudflare secret was generated inside
