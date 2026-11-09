@@ -133,9 +133,13 @@ The Community Voice Exchange and downloadable user-submitted cloned-voice librar
   checked separately. This is not GUI installation or OS notarization.
 - Customer support FAQ expanded for privacy access, withdrawal and the
   non-live status of new account features; existing SEO checks still run.
-- Public installer workflow now requires Windows publisher signing,
-  macOS Developer ID/notarization, private explicit rights signoff and
-  a production approval environment. **No public release was published.**
+- Public installer workflow supports unsigned Windows/macOS/Linux
+  packages by default (`production_signing: false`) and can enable OS
+  publisher signing/notarization when owner credentials are available.
+  OS signing is **optional**, not a precondition imposed by the project.
+  Independent third-party rights signoff and an approval environment remain
+  separate controls. Tauri signed-updater credentials are separate from paid
+  Windows/Apple publisher certificates. **No public release was published.**
 
 **Still NOT independently complete:** live privacy D1 migration,
 actual self-service dashboard and verified deletion, payment provider
