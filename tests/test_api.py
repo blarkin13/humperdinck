@@ -261,6 +261,28 @@ def test_voice_upload_requires_explicit_signed_consent_acknowledgement(client, t
     # The acknowledgement must never be advertised as verified speaker identity.
     assert meta.get('origin') == 'recorded'
 
+    # A claim alone is not sufficient to import someone else's identifiable voice.
+    other = {'consent_attestation':'humperdinck-voice-consent-v2',
+             'consent_subject':'authorized','consent_signer_name':'Test Licensee',
+             'consent_speaker_name':'Jane Performer'}
+    with webm.open('rb') as f:
+        no_signed_file = client.post('/api/voices',
+            files={'file':('other.webm', f, 'audio/webm')}, data=other)
+    assert no_signed_file.status_code == 422
+    # File type is checked, but a forged signature cannot be authenticated here.
+    signed_mock = b'%PDF-1.4\\n%Test signed-document placeholder\\n'
+    with webm.open('rb') as f:
+        third_party = client.post('/api/voices',
+            files={'file':('other.webm',f,'audio/webm'),
+                   'signed_authorization':('speaker-release.pdf',signed_mock,'application/pdf')},
+            data=other)
+    assert third_party.status_code == 200, third_party.text
+    voice_id = third_party.json()['voice_id']
+    private_evidence = tmp_path / 'consent-evidence' / (voice_id + '.pdf')
+    assert private_evidence.read_bytes() == signed_mock
+    assert client.delete('/api/voices/' + voice_id).status_code == 200
+    assert not private_evidence.exists()
+
 @pytest.mark.skipif(not shutil.which('ffmpeg'), reason='ffmpeg not installed')
 def test_ogg_voice_upload_normalizes_to_wav(client, tmp_path):
     clip = tmp_path / 'British narrator.ogg'
