@@ -65,8 +65,12 @@ class QwenTorchEngine:
             import torch
             from qwen_tts import Qwen3TTSModel
             if torch.cuda.is_available():
-                device, dtype = 'cuda:0', torch.bfloat16
-                self.device = {'kind': 'gpu', 'name': torch.cuda.get_device_name(0)}
+                # Older NVIDIA GPUs support CUDA but not BF16. Avoid crashing
+                # when the engine selects BF16 on hardware without BF16 support.
+                bf16 = bool(getattr(torch.cuda, 'is_bf16_supported', lambda: False)())
+                device, dtype = 'cuda:0', torch.bfloat16 if bf16 else torch.float16
+                self.device = {'kind': 'gpu', 'name': torch.cuda.get_device_name(0),
+                               'precision': 'bf16' if bf16 else 'fp16'}
             else:
                 # bf16 on CPU is slow or unsupported on many machines; MPS support is unreliable.
                 device, dtype = 'cpu', torch.float32
