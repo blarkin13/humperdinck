@@ -1,3 +1,4 @@
+import {limitedJson} from './limited-json.js';
 /* Humperdinck one-time lifetime Pro license *infrastructure*.
  * A real purchase provider must insert grants through a separately verified,
  * private checkout webhook. NO customer/admin grant-issuance HTTP endpoint here.
@@ -17,11 +18,7 @@ const response=(value,status=200)=>new Response(JSON.stringify(value),{status,he
 const err=(status,message)=>response({error:message},status);
 const clock=()=>Math.floor(Date.now()/1000);
 const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(x);
-async function readJson(req){
-  if((Number(req.headers.get('Content-Length'))||0)>4096
-      ||!req.headers.get('Content-Type')?.startsWith('application/json'))return {};
-  try{return await req.json()}catch{return {}}
-}
+const readJson=req=>limitedJson(req,4096);
 const authorizedMutate=(request,webUser,sameOrigin)=>{
   const bearer=request.headers.get('Authorization')?.startsWith('Bearer ');
   return bearer?webUser?.kind==='desktop':webUser?.kind==='web'&&sameOrigin(request);
