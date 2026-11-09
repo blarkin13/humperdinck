@@ -226,12 +226,40 @@ def test_microphone_recording_upload(client, tmp_path):
     subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=220:duration=3', '-ac', '2',
                     '-c:a', 'libopus', str(clip)], check=True)
     with clip.open('rb') as f:
-        r = client.post('/api/voices', files={'file': ('My voice.webm', f, 'audio/webm')})
+        r = client.post('/api/voices', files={'file': ('My voice.webm', f, 'audio/webm')}, data={'consent_attestation':'humperdinck-voice-consent-v1','consent_subject':'self'})
     assert r.status_code == 200, r.text
     assert r.json()['filename'] == 'My voice'
+    assert client.get('/api/voices').json()[0]['origin'] == 'recorded'
     audio, rate = sf.read(tmp_path / 'voices' / f"{r.json()['voice_id']}.wav")
     assert rate == 24000 and audio.ndim == 1 and abs(len(audio) / rate - 3) < 0.1
 
+
+
+@pytest.mark.skipif(not shutil.which('ffmpeg'), reason='ffmpeg not installed')
+def test_voice_upload_requires_explicit_signed_consent_acknowledgement(client, tmp_path):
+    clip = tmp_path / 'own.wav'
+    sf.write(str(clip), np.zeros(24000, dtype='float32'), 24000)
+    # A Pro entitlement is required for uploaded files; use the Free microphone
+    # recording format here to verify consent checks without a paid grant.
+    webm = tmp_path / 'own.webm'
+    subprocess.run(['ffmpeg','-v','error','-i',str(clip),'-c:a','libopus',str(webm)],check=True)
+    with webm.open('rb') as f:
+        response = client.post('/api/voices', files={'file':('own.webm',f,'audio/webm')})
+    assert response.status_code == 422
+    assert list((tmp_path/'voices').glob('*.wav')) == []
+    with webm.open('rb') as f:
+        bad = client.post('/api/voices', files={'file':('own.webm',f,'audio/webm')},
+                          data={'consent_attestation':'humperdinck-voice-consent-v1',
+                                'consent_subject':'unknown'})
+    assert bad.status_code == 422
+    with webm.open('rb') as f:
+        ok = client.post('/api/voices', files={'file':('own.webm',f,'audio/webm')},
+                         data={'consent_attestation':'humperdinck-voice-consent-v1',
+                               'consent_subject':'self'})
+    assert ok.status_code == 200, ok.text
+    meta = client.get('/api/voices').json()[0]
+    # The acknowledgement must never be advertised as verified speaker identity.
+    assert meta.get('origin') == 'recorded'
 
 @pytest.mark.skipif(not shutil.which('ffmpeg'), reason='ffmpeg not installed')
 def test_ogg_voice_upload_normalizes_to_wav(client, tmp_path):
@@ -243,7 +271,7 @@ def test_ogg_voice_upload_normalizes_to_wav(client, tmp_path):
     with clip.open('rb') as source:
         result = client.post('/api/voices', files={
             'file': ('British narrator.ogg', source, 'audio/ogg')
-        })
+        }, data={'consent_attestation':'humperdinck-voice-consent-v1','consent_subject':'authorized'})
     assert result.status_code == 200, result.text
     assert result.json()['filename'] == 'British narrator'
     output = tmp_path / 'voices' / (result.json()['voice_id'] + '.wav')
