@@ -4,6 +4,8 @@ import os
 import re
 from pathlib import Path
 
+from backend.voice_seed import clone_identity, design_identity, seed_for
+
 # 8-bit quantization reduces weight memory, but generation can still exhaust an
 # 8 GB Mac's unified memory. Override HUMPERDINCK_QWEN_MODEL to try other variants.
 DEFAULT_MODEL = os.environ.get('HUMPERDINCK_QWEN_MODEL', 'mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit')
@@ -88,7 +90,9 @@ class QwenVoiceDesigner:
         samples = []
         sample_rate = None
         try:
+            identity = design_identity(description)
             for index, chunk in enumerate(chunks):
+                _seed_mlx(seed_for(identity, chunk))
                 # Current mlx-audio Qwen VoiceDesign exposes generate_voice_design,
                 # not the generic generate entrypoint used by Base voice clones.
                 if hasattr(model, 'generate_voice_design'):
@@ -161,9 +165,11 @@ class QwenBaseCloner:
         model = self.load()
         samples = []
         rate = None
+        identity = clone_identity(reference, ref_text)
         for index, chunk in enumerate(chunks):
             # MLX Base uses reference audio + transcript; do not pass a
             # CustomVoice speaker name or VoiceDesign instruction here.
+            _seed_mlx(seed_for(identity, chunk))
             generated = model.generate(text=chunk, ref_audio=str(reference), ref_text=ref_text)
             parts = []
             for result in generated:
@@ -185,3 +191,13 @@ class QwenBaseCloner:
             if on_progress:
                 on_progress(index + 1, len(chunks))
         sf.write(str(destination), np.concatenate(samples), rate, subtype='PCM_16')
+
+
+def _seed_mlx(seed):
+    """Seed MLX sampling so identical requests give identical audio."""
+    try:
+        import mlx.core as mx
+    except ImportError:  # test doubles run without MLX
+        return
+    mx.random.seed(seed)
+

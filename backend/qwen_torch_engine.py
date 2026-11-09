@@ -13,6 +13,7 @@ import numpy as np
 
 from backend.engine import segments
 from backend.qwen_engine import design_language
+from backend.voice_seed import clone_identity, design_identity, seed_for
 
 
 def local_path(model_id):
@@ -92,8 +93,10 @@ class QwenTorchEngine:
         chunks = segments(text, 600)
         if not chunks:
             raise ValueError('No text supplied')
+        identity = design_identity(description)
         parts, rate = [], None
         for i, chunk in enumerate(chunks):
+            _seed_torch(seed_for(identity, chunk))
             wavs, rate = model.generate_voice_design(text=chunk, language=design_language(description), instruct=description)
             parts.append(wavs[0])
             if on_progress:
@@ -114,8 +117,10 @@ class QwenTorchEngine:
                     self.prompts.pop(old, None)
             self.prompts[key] = model.create_voice_clone_prompt(
                 ref_audio=str(reference), ref_text=ref_text, x_vector_only_mode=not ref_text)
+        identity = clone_identity(reference, ref_text)
         parts, rate = [], None
         for i, chunk in enumerate(chunks):
+            _seed_torch(seed_for(identity, chunk))
             wavs, rate = model.generate_voice_clone(text=chunk, language='Auto', voice_clone_prompt=self.prompts[key])
             parts.append(wavs[0])
             if on_progress:
@@ -126,3 +131,12 @@ class QwenTorchEngine:
         self.model = None
         self.prompts.clear()
         gc.collect()
+
+
+def _seed_torch(seed):
+    """Seed PyTorch sampling (CPU and CUDA) so identical requests match."""
+    try:
+        import torch
+    except ImportError:  # test doubles run without torch
+        return
+    torch.manual_seed(seed)
