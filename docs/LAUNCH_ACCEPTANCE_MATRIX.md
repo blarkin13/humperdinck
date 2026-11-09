@@ -63,3 +63,40 @@ The Community Voice Exchange and downloadable user-submitted cloned-voice librar
 - Customer-owned Google Search Console domain verification and index status.
 - Production private key backup and rotation using locally controlled secure storage.
 - Real physical Windows/macOS/Linux end-to-end device tests and independent legal opinion.
+
+## Automated engineering progress — November 8, 2026 (no owner secrets)
+
+- **CI native build:** GitHub Actions run 42562083486 successfully packaged
+  Windows x64 EXE, Apple Silicon macOS DMG and Ubuntu x64 DEB, with native
+  smoke tests; all three individual license-audit bundles were uploaded.
+  These builds remain **unsigned previews**. No physical UI launch, OS vendor
+  signing, notarization or genuine v2 production-issued certificate acceptance
+  is claimed.
+- **Dependency evidence:** `scripts/collect-dependency-rights.py` records
+  installed Python distribution metadata and npm lockfile identities for
+  release review. A missing license field remains UNKNOWN. CI attaches this
+  evidence separately, not as legal approval.
+- **Account API security:** `src/limited-json.js` enforces a 4 KiB streaming
+  request-body cap even if a request omits `Content-Length`. OAuth/account
+  rate limiting now performs an atomic conditional D1 insertion rather than
+  a separate COUNT then INSERT. Regression tests cover malformed/oversized
+  JSON and parallel device-pairing attempts.
+- **Pro:** online activation cryptographically signs the perpetual certificate
+  **before** writing an online device registration, avoiding stranded slots
+  on signing failure. v1 issuance remains default; owner must personally stage
+  v2 before activating it. Existing offline v1 certificates remain valid.
+- **Sandbox commerce:** webhook regression tests include duplicate paid events,
+  refunded events, out-of-order webhook delivery and confirmation that test
+  orders never touch actual Pro-license or device tables. Real payment
+  fulfillment remains disabled.
+- **Fail-closed release report:** `.github/workflows/launch-readiness.yml`
+  produces a machine-readable report listing manual, legal, hardware and
+  ownership gates. The initial workflow and Python/frontend validation have
+  passed. The report does not self-declare commercial readiness or certify
+  signed speaker permission.
+- **Open:** commercial rights for seven built-in voice samples, transitive
+  frozen binary license audit, actual source-archived CC0 license evidence,
+  v2 key staging and rollback drill, installed Windows/Mac/Linux tests,
+  OS code-signing/notarization, live merchant approval, real account deletion
+  and retention procedures, and independent legal review.
+
