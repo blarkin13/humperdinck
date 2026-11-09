@@ -4,8 +4,8 @@ Each engine may have its own virtual environment (.venv-qwen, .venv-qwen-torch),
 so their ML dependencies never conflict. Older installs that put everything in
 .venv keep working because the main environment is used as a fallback.
 
-A worker stays running between jobs so the model is loaded once. Only one engine is
-resident at a time, and an idle worker exits after HUMPERDINCK_IDLE_TIMEOUT_S
+A worker stays running between jobs so the model is loaded once. At most one large
+model is resident (small engines like Kokoro may stay beside it), and an idle worker exits after HUMPERDINCK_IDLE_TIMEOUT_S
 seconds, which returns all of its memory to the OS.
 """
 import json
@@ -248,38 +248,72 @@ class Worker:
 devices = {}
 
 
+# Small CPU engines that may stay warm beside one large model (a few hundred MB each).
+LIGHT = {'kokoro', 'openvoice'}
+
+
+def model_key(engine, model):
+    """The model a worker must have loaded. Kokoro loads one model for all voices."""
+    return None if engine == 'kokoro' else model
+
+
 class Pool:
-    """Keeps at most one warm worker and stops it after a period of inactivity."""
+    """Keeps warm workers: at most one large model plus the small engines in LIGHT.
+
+    Character lines alternate Kokoro and OpenVoice, and narration alternates
+    Kokoro voices; neither should reload a model per line. Callers serialize
+    generation (app.engine_lock), so only one worker runs at a time.
+    """
 
     def __init__(self):
         self.lock = Lock()
-        self.worker = None
-        self.busy = False
+        self.workers = {}  # engine -> Worker
+        self.active = None  # the worker currently generating
+        self.recent = None  # the worker used most recently (for status)
         Thread(target=self._reap, daemon=True).start()
+
+    @property
+    def busy(self):
+        return self.active is not None
+
+    @property
+    def worker(self):
+        """The most recently used live worker (kept for callers and tests)."""
+        return self.recent if self.recent and self.recent.alive() else None
 
     def _reap(self):
         while True:
             time.sleep(min(5, max(0.05, setting('IDLE_TIMEOUT_S', 300) / 4)))
             with self.lock:
-                worker = self.worker
-                if worker and not self.busy and time.monotonic() - worker.last_used > setting('IDLE_TIMEOUT_S', 300):
-                    self.worker = None
-                    worker.stop()
+                for engine, worker in list(self.workers.items()):
+                    if worker is not self.active and time.monotonic() - worker.last_used > setting('IDLE_TIMEOUT_S', 300):
+                        self._drop(engine)
+
+    def _drop(self, engine):
+        worker = self.workers.pop(engine, None)
+        if worker:
+            if self.recent is worker:
+                self.recent = None
+            worker.stop()
 
     def _acquire(self, engine, model):
+        key = model_key(engine, model)
         with self.lock:
-            worker = self.worker
-            if worker and (worker.engine != engine or worker.model != model or not worker.alive()):
-                # Only one model in memory at a time: stop the other one first.
-                self.worker = None
-                worker.stop()
-            if self.worker is None:
+            worker = self.workers.get(engine)
+            if worker and (worker.model != key or not worker.alive()):
+                self._drop(engine)
+            if engine not in LIGHT:
+                # Only one large model in memory at a time: stop the other one first.
+                for other in [e for e in self.workers if e != engine and e not in LIGHT]:
+                    self._drop(other)
+            if engine not in self.workers:
                 python = python_for(engine)
                 if python is None:
                     raise RuntimeError(f'{engine} engine is not installed')
-                self.worker = Worker(engine, model, python)
-            self.busy = True
-            return self.worker
+                self.workers[engine] = Worker(engine, key, python)
+            worker = self.workers[engine]
+            self.active = self.recent = worker
+            return worker
 
     def synthesize(self, engine, request, on_progress=None):
         worker = self._acquire(engine, request.get('model'))
@@ -287,24 +321,27 @@ class Pool:
             worker.run(request, on_progress)
         finally:
             with self.lock:
-                self.busy = False
-                if self.worker is worker and not worker.alive():
-                    self.worker = None
+                self.active = None
+                if self.workers.get(engine) is worker and not worker.alive():
+                    self.workers.pop(engine, None)
+                    if self.recent is worker:
+                        self.recent = None
 
     def status(self):
         with self.lock:
             worker = self.worker
-            if not worker or not worker.alive():
+            if not worker:
                 return None
-            return {'engine': worker.engine, 'model': worker.model, 'loaded': worker.loaded, 'busy': self.busy,
+            busy = worker is self.active
+            return {'engine': worker.engine, 'model': worker.model, 'loaded': worker.loaded, 'busy': busy,
                     'device': worker.device,
-                    'idle_seconds': 0 if self.busy else round(time.monotonic() - worker.last_used)}
+                    'idle_seconds': 0 if busy else round(time.monotonic() - worker.last_used),
+                    'resident': sorted(e for e, w in self.workers.items() if w.alive())}
 
     def shutdown(self):
         with self.lock:
-            if self.worker:
-                self.worker.stop()
-                self.worker = None
+            for engine in list(self.workers):
+                self._drop(engine)
 
 
 pool = Pool()

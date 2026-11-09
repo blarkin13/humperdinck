@@ -22,12 +22,29 @@ SHA256 = {
 }
 
 
+HOSTED = "https://humperdinck.studio/native-models/kokoro/"
+
+# Older release tags holding a byte-identical copy (verified against SHA256).
+# GitHub's release host can 504 one tag while serving another.
+MIRRORS = {
+    "voices-v1.0.bin": (
+        "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin",
+        # Hugging Face hosts the same bytes (LFS sha256 matches SHA256 above).
+        "https://huggingface.co/fastrtc/kokoro-onnx/resolve/main/voices-v1.0.bin",
+    ),
+}
+
+
 def _sources(name):
     """The release download link, then the same asset through the GitHub API.
 
     GitHub's release host sometimes returns 5xx for a while; the API is a
     separate path to the identical file (the SHA-256 is checked either way)."""
     yield SOURCE + name, {}
+    # Humperdinck's own copy (Cloudflare R2), independent of GitHub releases.
+    yield HOSTED + name, {}
+    for mirror in MIRRORS.get(name, ()):
+        yield mirror, {}
     try:
         context = ssl.create_default_context(cafile=certifi.where())
         api = urllib.request.Request("https://api.github.com/repos/thewh1teagle/kokoro-onnx/releases/tags/model-files-v1.1",

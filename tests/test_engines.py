@@ -62,3 +62,36 @@ def test_crashed_worker_reports_and_restarts(pool, tmp_path):
     with pytest.raises(RuntimeError, match='exited unexpectedly'):
         run(pool, 'qwen-torch', tmp_path, 'crash')
     run(pool, 'qwen-torch', tmp_path)
+
+
+def kokoro(pool, voice, tmp_path):
+    output = tmp_path / f'k-{time.monotonic_ns()}.wav'
+    pool.synthesize('kokoro', {'engine': 'kokoro', 'model': voice, 'mode': 'preset', 'text': 'Hi.',
+                               'preset_voice': voice, 'output': str(output)})
+    assert output.is_file()
+
+
+def test_switching_kokoro_voices_keeps_one_warm_worker(pool, tmp_path):
+    kokoro(pool, 'af_heart', tmp_path)
+    pid = pool.worker.process.pid
+    kokoro(pool, 'am_michael', tmp_path)
+    kokoro(pool, 'bf_emma', tmp_path)
+    assert pool.worker.process.pid == pid
+
+
+def test_small_engine_stays_warm_beside_a_large_model(pool, tmp_path):
+    kokoro(pool, 'af_heart', tmp_path)
+    light = pool.worker
+    run(pool, 'qwen-torch', tmp_path)
+    kokoro(pool, 'am_michael', tmp_path)
+    assert pool.worker is light and light.alive()
+    assert pool.status()['resident'] == ['kokoro', 'qwen-torch']
+
+
+def test_only_one_large_model_is_resident(pool, tmp_path):
+    kokoro(pool, 'af_heart', tmp_path)
+    run(pool, 'qwen-torch', tmp_path)
+    large = pool.worker
+    run(pool, 'qwen-mlx', tmp_path)
+    assert not large.alive()
+    assert pool.status()['resident'] == ['kokoro', 'qwen-mlx']
