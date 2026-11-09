@@ -396,6 +396,9 @@ jobs:
             --root "$bundle_dir" --commit "$GITHUB_SHA" \
             --output "rights-evidence/installer-inventory-${{ matrix.target }}.json"
           python -m pip freeze > "rights-evidence/python-freeze-${{ matrix.target }}.txt"
+          python scripts/collect-dependency-rights.py \
+            --npm-lock frontend/package-lock.json --commit "$GITHUB_SHA" \
+            --output "rights-evidence/third-party-dependencies-${{ matrix.target }}.json"
           cp frontend/package-lock.json rights-evidence/frontend-package-lock.json
           if test -f desktop/src-tauri/Cargo.lock; then
             cp desktop/src-tauri/Cargo.lock rights-evidence/native-Cargo.lock
