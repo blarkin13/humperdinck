@@ -6,7 +6,7 @@ committed JSON file. This tool checks assertions, it cannot independently
 verify evidence or replace legal, merchant, security or physical QA review.
 """
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import re
 import sys
@@ -37,7 +37,7 @@ def validate(data, *, version, commit, now=None):
         return False, "Human owner approval is missing"
     try:
         expiry = datetime.fromisoformat(data["expires_utc"].replace("Z", "+00:00"))
-        if expiry.tzinfo is None or expiry <= now or expiry > now.replace(year=now.year + 1):
+        if expiry.tzinfo is None or expiry <= now or expiry - now > timedelta(days=90):
             return False, "Approval expired, unbounded or not UTC aware"
     except (KeyError, AttributeError, ValueError, TypeError):
         return False, "Approval expiry is invalid"
