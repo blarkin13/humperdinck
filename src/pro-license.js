@@ -105,7 +105,10 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
     if(!license)return err(403,'A verified Pro purchase is required before activation');
     let key;
     try{key=await signer(env)}catch{return err(503,'License signing is not configured')}
-    // Verify selected key before writing online device registration.
+    // Mint before any D1 mutation: even a late WebCrypto signing failure must
+    // never consume a device slot without a portable certificate.
+    let signedToken;
+    try{signedToken=await signLicense(license,key)}catch{return err(503,'License signing failed before device registration')}
     const existing=await env.AUTH_DB.prepare(
       'SELECT id,deactivated_at FROM pro_devices WHERE license_id=? AND installation_id=?')
       .bind(license.id,data.installation_id).first();
@@ -125,7 +128,7 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
       if(added.meta?.changes!==1)return err(409,'All ten Pro device slots are in use. Deactivate one in your account.');
     }
     const status=await licenseOverview(env,user);
-    return response({activated:true,license:await signLicense(license,key),
+    return response({activated:true,license:signedToken,
       plan:status.plan,active_devices:status.active_devices,device_limit:status.device_limit,
       warning:status.warning});
   }
