@@ -29,6 +29,7 @@ from backend import media_tools
 from backend import native_models
 from backend.voice_picker import VoicePicker
 from backend import video_projects, audio_fx
+from backend import narration_cache
 from backend.characters import (Characters, TARGET_TEXT, NAMES as CHARACTER_NAMES, accents as character_accents,
                                 performer as character_performer, description as character_description)
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
@@ -57,6 +58,7 @@ settings = catalog.Settings(DATA / 'settings.json')
 sound_effects = SoundEffects(DATA)
 starter_voices = StarterVoices(DATA)
 starter_voice_jobs = {}
+preset_section_cache = narration_cache.PresetSectionCache(DATA / 'render-cache')
 
 class Sentence(BaseModel):
     text: str
@@ -1404,44 +1406,63 @@ def run_multi(job_id, request, references):
                     narration_text = remove_speech_direction_tags(block.text)
                     if not narration_text:
                         raise ValueError('A narration section needs words beyond speech direction tags')
-                    # Pace: Kokoro voices (and Kokoro-performed characters) speak at the pace
-                    # natively; others are time-stretched afterwards, which can sound less clean.
-                    stretch=block.speed
-                    if block.voice_key.startswith('character:'):
-                        performed=bool((characters.get(block.voice_key[10:]) or {}).get('performer'))
-                        render_character(block.voice_key[10:], narration_text, temp, on_progress=progress,speed=block.speed if performed else 1.0)
-                        if performed: stretch=1.0
-                    elif reference is None:
+                    # Reuse *preset* sections only. Uploaded/designed/character voices
+                    # bypass the persistent cache so consent and identity changes cannot
+                    # leave a reusable copy behind after the source voice is deleted.
+                    cache_key = None
+                    cached_audio = None
+                    if block.voice_key.startswith('preset:'):
                         preset_engine, preset_voice = ref_text
-                        engines.preset(preset_engine, preset_voice, temp, narration_text, on_progress=progress, speed=block.speed)
-                        stretch=1.0
-                    else:
-                        engines.clone(choice, temp, narration_text, reference, ref_text, on_progress=progress)
-                    audio,rate=sf.read(temp,dtype='float32',always_2d=False)
-                    if audio.ndim==2: audio=audio.mean(axis=1)
-                    if rate!=target_rate:
-                        # ffmpeg resampling keeps the output uniform without scipy.
-                        resampled=DATA/'outputs'/f'{job_id}-{index}-resampled.wav'
-                        subprocess.run(['ffmpeg','-v','error','-y','-i',str(temp),'-ar',str(target_rate),'-ac','1',str(resampled)],check=True,timeout=120)
-                        audio,_=sf.read(resampled,dtype='float32')
-                        resampled.unlink(missing_ok=True)
-                    if block.voice_key.startswith('upload:'):
-                        current=voice_meta().get(block.voice_key[7:],{}).get('refinement')
-                        if current:
-                            refined=DATA/'outputs'/f'{job_id}-{index}-refined.wav'
-                            sf.write(refined,audio,target_rate)
+                        cache_key = narration_cache.preset_render_key(
+                            model_root=catalog.preset_path(preset_engine, preset_voice),
+                            voice_key=block.voice_key, text=narration_text,
+                            speed=block.speed, gain=block.gain,
+                            desk=request.desk)
+                        cached_audio = preset_section_cache.load(cache_key)
+                    if cached_audio is None:
+                        # Pace: Kokoro voices (and Kokoro-performed characters) speak at the pace
+                        # natively; others are time-stretched afterwards, which can sound less clean.
+                        stretch=block.speed
+                        if block.voice_key.startswith('character:'):
+                            performed=bool((characters.get(block.voice_key[10:]) or {}).get('performer'))
+                            render_character(block.voice_key[10:], narration_text, temp, on_progress=progress,speed=block.speed if performed else 1.0)
+                            if performed: stretch=1.0
+                        elif reference is None:
+                            preset_engine, preset_voice = ref_text
+                            engines.preset(preset_engine, preset_voice, temp, narration_text, on_progress=progress, speed=block.speed)
+                            stretch=1.0
+                        else:
+                            engines.clone(choice, temp, narration_text, reference, ref_text, on_progress=progress)
+                        audio,rate=sf.read(temp,dtype='float32',always_2d=False)
+                        if audio.ndim==2: audio=audio.mean(axis=1)
+                        if rate!=target_rate:
+                            # ffmpeg resampling keeps the output uniform without scipy.
+                            resampled=DATA/'outputs'/f'{job_id}-{index}-resampled.wav'
+                            subprocess.run(['ffmpeg','-v','error','-y','-i',str(temp),'-ar',str(target_rate),'-ac','1',str(resampled)],check=True,timeout=120)
+                            audio,_=sf.read(resampled,dtype='float32')
+                            resampled.unlink(missing_ok=True)
+                        if block.voice_key.startswith('upload:'):
+                            current=voice_meta().get(block.voice_key[7:],{}).get('refinement')
+                            if current:
+                                refined=DATA/'outputs'/f'{job_id}-{index}-refined.wav'
+                                sf.write(refined,audio,target_rate)
+                                try:
+                                    refine_wav(refined,current)
+                                    audio,_=sf.read(refined,dtype='float32')
+                                finally:refined.unlink(missing_ok=True)
+                        if request.desk is not None or block.gain or stretch!=1:
+                            desked=DATA/'outputs'/f'{job_id}-{index}-desk.wav'
+                            sf.write(desked,audio,target_rate)
                             try:
-                                refine_wav(refined,current)
-                                audio,_=sf.read(refined,dtype='float32')
-                            finally:refined.unlink(missing_ok=True)
-                    if request.desk is not None or block.gain or stretch!=1:
-                        desked=DATA/'outputs'/f'{job_id}-{index}-desk.wav'
-                        sf.write(desked,audio,target_rate)
-                        try:
-                            audio_fx.process(desked,target_rate,request.desk,block.gain,stretch)
-                            audio,_=sf.read(desked,dtype='float32')
-                            if audio.ndim==2: audio=audio.mean(axis=1)
-                        finally:desked.unlink(missing_ok=True)
+                                audio_fx.process(desked,target_rate,request.desk,block.gain,stretch)
+                                audio,_=sf.read(desked,dtype='float32')
+                                if audio.ndim==2: audio=audio.mean(axis=1)
+                            finally:desked.unlink(missing_ok=True)
+                        if cache_key is not None:
+                            preset_section_cache.store(cache_key, audio)
+                    else:
+                        audio = cached_audio
+                        job.update(message=f'Reusing unchanged preset block {index+1}/{len(references)}')
                     for effect in block.effects:
                         if effect.position not in ('before','after','mix'):
                             raise ValueError('Invalid sound effect position')
