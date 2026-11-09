@@ -155,8 +155,11 @@ export async function handleLemonTest(request,env,{session}){
     `INSERT INTO commerce_test_orders(provider_order_id,intent_id,user_id,order_number,amount_cents,currency,status,created_at,updated_at)
      VALUES (?,?,?,?,?,?,?,?,?)
      ON CONFLICT(provider_order_id) DO UPDATE SET
-       status=CASE WHEN commerce_test_orders.status IN ('refunded','partially_refunded')
-          AND excluded.status='paid' THEN commerce_test_orders.status ELSE excluded.status END,
+       status=CASE
+         WHEN commerce_test_orders.status='refunded' THEN 'refunded'
+         WHEN commerce_test_orders.status='partially_refunded'
+           AND excluded.status='paid' THEN 'partially_refunded'
+         ELSE excluded.status END,
        updated_at=excluded.updated_at`
    ).bind(order.orderId,order.intentId,order.accountId,order.orderNumber,order.total,
      order.currency,order.status,now(),now()),
