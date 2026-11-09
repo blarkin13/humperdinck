@@ -51,5 +51,6 @@ jobs:
         with:
           name: humperdinck-lighthouse-${{ matrix.viewport }}
           path: .lighthouseci/
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 30
