@@ -36,6 +36,7 @@ jobs:
           node --check src/lemon-test-commerce.js
           node --test tests/lemon-test-commerce.test.mjs
           node --test tests/lemon-test-grants.test.mjs
+          node --test tests/lemon-test-refund-ordering-sqlite.test.mjs
           node --test tests/native-model-mirror.test.mjs
           node --test tests/cross-origin-sweep.test.mjs
           node --test tests/session-expiry.test.mjs

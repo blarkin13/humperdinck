@@ -26,7 +26,7 @@ product-age verification, or payment-provider approval is complete.
 
 1. Obtain Lemon Squeezy's **written** eligibility decision on local AI voice design,
    consent-based personal voice cloning only. No user-submitted community cloned-voice downloads are planned.
-2. Choose lifetime Pro price and clarify what is included; avoid claims of
+2. Planned lifetime Pro price selected November 9, 2026: **$49.00 USD once**, not a subscription. Clarify what is included; avoid claims of
    unspecified hosted features being permanent. No subscription or recurring bill.
 3. Verify legal entity status, tax and payout credentials directly with Lemon Squeezy;
    never store SSNs, bank data or tax IDs in code or chats.
@@ -41,7 +41,7 @@ product-age verification, or payment-provider approval is complete.
 
 ## What the code currently supports
 
-`src/lemon-test-commerce.js` offers a **disabled-by-default test-only**
+`src/lemon-test-commerce.js` offers a **configuration-gated test-only**
 Lemon Squeezy API integration and webhook listener. No public upgrade, production
 checkout or license-issuance endpoint has been added.
 
@@ -54,10 +54,9 @@ checkout or license-issuance endpoint has been added.
 - `GET /api/commerce/test/status`: authenticated list of recent sandbox intents.
 - Data is isolated in `commerce_test_intents`, `commerce_test_orders` and
   `commerce_test_webhook_events` from `migrations/0004_lemon_squeezy_test.sql`.
-- **Absolutely no test event changes `pro_licenses` or grants real Pro.**
-- All three routes return HTTP 503 until the complete test configuration is set.
-- The dashboard does not expose a test checkout button to customers. Production
-  checkout remains disabled.
+- **Test orders may create an active `pro_licenses` row only for an explicitly allowlisted test account** through `LS_TEST_GRANT_EMAILS`; these grants have `provider='lemonsqueezy-test'`, are never commercial purchases, and need an isolated test account. Without the allowlist, test events do not change `pro_licenses`. Never interpret a test-issued Pro grant as a real purchase.
+- All three routes return HTTP 503 until the complete test configuration is set. The actual test configuration is presently installed; production purchase paths are separately blocked.
+- The account dashboard can expose **Buy Pro (test mode)** for an approved internal tester; it must remain visibly labeled as a sandbox flow. Production checkout remains disabled.
 
 ## To activate test mode AFTER a Lemon Squeezy store exists
 
@@ -93,6 +92,25 @@ In Lemon Squeezy's test environment:
 must include `custom_data.account_id` and `custom_data.intent_id` created
 server-side, not user supplied. No receipt or checkout should be considered paid
 based on a browser redirect.
+
+## Read-only Cloudflare test-mode audit — November 9, 2026
+
+Verified on the currently deployed `humperdinck` Worker (binding names only; secret values were never read):
+
+- All five required `LS_TEST_*` bindings exist: API key, signing secret, store ID, variant ID, and grant allowlist. Presence does not establish product price or confirm their current values.
+- D1 aggregate counts (no buyer records retrieved): 3 test intents (1 paid, 2 started), 1 paid test order, 1 signed `order_created` receipt, 1 active **test-issued** Pro license, and **zero recorded test refund receipts**.
+- This proves a test order reached D1 and a test license was granted; it does **not** verify the present product/variant is priced at $49.00 or that a provider refund was completed. The remaining two started intents may be abandoned or incomplete; do not infer failed payments.
+- Production live checkout routes remain deny-first (503). No live `LS_LIVE_*` secrets or production commerce migrations have been approved through this audit.
+
+### Remaining actual merchant sandbox acceptance
+
+1. Owner verifies inside Lemon Squeezy **Test Mode**, without sharing credentials, that the selected one-time Pro variant displays **$49.00 USD**, that its product has the correct delivery/type settings, and that the test webhook is enabled for both `order_created` and `order_refunded`. Merchant review can remain pending.
+2. Use a **dedicated allowlisted non-production test account**. Test-mode purchases may issue active internal Pro licenses; they must not be used to grant unpaid customer licenses. Never alter production purchase entitlements to simulate a sale.
+3. Complete a fresh test-mode checkout. Verify a matching intent/order/webhook, the account's grant (if allowlisted), and the test receipt from Lemon Squeezy. Do not paste private customer details or signing keys into GitHub.
+4. Run an actual provider-side **test-mode refund**, verify that `order_refunded` arrives and the paid order is marked refunded. Confirm no unrelated Pro license is revoked and no later partial/paid replay can downgrade the full refund.
+5. Record separately what was **provider-verified** versus simulated in CI; leave merchant eligibility, tax, consumer refund policy, commercial issuance, and live checkout P0 gates open.
+
+The SQL-backed regression `tests/lemon-test-refund-ordering-sqlite.test.mjs` ensures that a delayed partial or paid test webhook cannot downgrade a completed full test refund. It is a simulation, not evidence of a real provider refund.
 
 ## Lifetime signing-key disaster recovery: NOT YET COMPLETE
 
