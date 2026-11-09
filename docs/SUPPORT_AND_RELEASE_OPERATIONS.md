@@ -15,6 +15,17 @@
 
 **End-to-end delivery PARTIALLY VERIFIED:** A preliminary test sent from the destination Gmail account to `support@` appeared only in SENT and was inconclusive. A later, separate `Test` email addressed to `support@humperdinck.studio` appeared in the connected Gmail **INBOX** on November 9, 2026 (recipient preserved; no sensitive sender details retained here). Owner confirmed receipt. **Support forwarding PASS.** There is no equivalent received evidence yet for `billing@`, `privacy@`, or `legal@`. Do not mark all four aliases accepted.
 
+### Alias acceptance evidence — November 9, 2026
+
+| Alias | Routing configuration | Independent incoming message | Verified reply-from identity |
+| --- | --- | --- | --- |
+| support@humperdinck.studio | PASS | PASS — inbox message and owner confirmation | NOT TESTED |
+| billing@humperdinck.studio | PASS | NOT TESTED | NOT TESTED |
+| privacy@humperdinck.studio | PASS | NOT TESTED | NOT TESTED |
+| legal@humperdinck.studio | PASS | NOT TESTED | NOT TESTED |
+
+An enabled forwarding rule or a message in the **Sent** folder is not equivalent to a received-mail PASS. Do not publicly advertise a tested branded reply-from identity until that separate setup and test succeeds.
+
 ### Final delivery test (independent sender)
 
 1. Using a mailbox **not** equal to the Gmail forwarding destination, send one harmless, unique-subject message to **each remaining unverified** alias address (billing, privacy, legal). Support already has incoming acceptance evidence. Include no customer PII or secret.
