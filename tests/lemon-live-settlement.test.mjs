@@ -60,7 +60,7 @@ test('wrong amount, store, variant or currency cannot create a paid grant',async
  assert.equal(f.count('pro_licenses'),0);
  f.sqlite.close();
 });
-test('inactive checkout intent and preexisting complimentary license fail closed',async()=>{
+test('inactive checkout fails closed; valid purchase preserves complimentary Pro',async()=>{
  const f=fixture();
  f.sqlite.exec("UPDATE commerce_live_intents SET status='cancelled'");
  assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'manual-review');
@@ -68,9 +68,10 @@ test('inactive checkout intent and preexisting complimentary license fail closed
  f.sqlite.prepare(`INSERT INTO pro_licenses
  (id,user_id,status,issued_at,max_devices,provider,purchase_ref)
  VALUES (?,?,'active',?,10,?,?)`).run('complimentary-1',user,99,'complimentary','gift-1');
- assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'manual-review');
- assert.equal(f.count('commerce_live_orders'),0);
+ assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'settled-existing-license');
+ assert.equal(f.count('commerce_live_orders'),1);
  assert.equal(f.count('pro_licenses'),1);
+ assert.equal(f.sqlite.prepare('SELECT provider FROM pro_licenses').get().provider,'complimentary');
  f.sqlite.close();
 });
 test('transaction rolls back when webhook event hash collides',async()=>{
@@ -113,5 +114,82 @@ test('provider purchase time, not webhook arrival, determines checkout expiry',a
  assert.equal(f.count('pro_licenses'),0);
  assert.equal((await settleLivePaidOrder(f.env,{...order,paidAtSecs:300},{...opts,now:9999})).decision,'settled');
  assert.equal(f.count('pro_licenses'),1);
+ f.sqlite.close();
+});
+
+test('valid second purchase is retained without modifying a complimentary Pro license',async()=>{
+ const f=fixture();
+ f.sqlite.prepare(`INSERT INTO pro_licenses
+ (id,user_id,status,issued_at,max_devices,provider,purchase_ref)
+ VALUES (?,?, 'active',?,10,?,?)`).run('gift-1',user,9,'complimentary','gift-1');
+ const before=f.sqlite.prepare('SELECT * FROM pro_licenses').get();
+ const result=await settleLivePaidOrder(f.env,order,opts);
+ assert.deepEqual(result,{decision:'settled-existing-license',granted:false});
+ assert.deepEqual(f.sqlite.prepare('SELECT * FROM pro_licenses').get(),before);
+ assert.equal(f.count('commerce_live_orders'),1);
+ assert.equal(f.count('commerce_live_webhook_events'),1);
+ assert.equal(f.sqlite.prepare('SELECT status FROM commerce_live_intents').get().status,'paid');
+ assert.deepEqual(await settleLivePaidOrder(f.env,order,opts),{decision:'already-settled',granted:false});
+ assert.equal(f.count('commerce_live_orders'),1);
+ f.sqlite.close();
+});
+test('an existing paid license is not replaced by another purchase',async()=>{
+ const f=fixture();
+ f.sqlite.prepare(`INSERT INTO pro_licenses
+ (id,user_id,status,issued_at,max_devices,provider,purchase_ref)
+ VALUES (?,?, 'active',?,10,?,?)`).run('earlier-1',user,9,'lemonsqueezy','lslive:222');
+ assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'settled-existing-license');
+ assert.equal(f.sqlite.prepare('SELECT purchase_ref FROM pro_licenses').get().purchase_ref,'lslive:222');
+ assert.equal(f.sqlite.prepare('SELECT provider_order_id FROM commerce_live_orders').get().provider_order_id,'12345');
+ f.sqlite.close();
+});
+test('repeat payment fails closed for mismatched amount, expiry and inactive existing license',async()=>{
+ const f=fixture();
+ f.sqlite.prepare(`INSERT INTO pro_licenses
+ (id,user_id,status,issued_at,max_devices,provider,purchase_ref)
+ VALUES (?,?, 'active',?,10,?,?)`).run('gift-1',user,9,'complimentary','gift-1');
+ for(const patch of [{amountCents:1},{paidAtSecs:999},{storeId:'46'},{currency:'EUR'}]){
+   assert.equal((await settleLivePaidOrder(f.env,{...order,...patch},opts)).decision,'manual-review');
+ }
+ assert.equal(f.count('commerce_live_orders'),0);
+ f.sqlite.exec("UPDATE pro_licenses SET status='void'");
+ assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'manual-review');
+ assert.equal(f.count('commerce_live_orders'),0);
+ f.sqlite.close();
+});
+test('concurrent removal of existing license causes atomic repeat-order rollback',async()=>{
+ const f=fixture();
+ f.sqlite.prepare(`INSERT INTO pro_licenses
+ (id,user_id,status,issued_at,max_devices,provider,purchase_ref)
+ VALUES (?,?, 'active',?,10,?,?)`).run('gift-1',user,9,'complimentary','gift-1');
+ const original=f.env.AUTH_DB.batch;
+ f.env.AUTH_DB.batch=async statements=>{
+   f.sqlite.exec("UPDATE pro_licenses SET status='void'");
+   return original(statements);
+ };
+ assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'retryable-error');
+ assert.equal(f.count('commerce_live_orders'),0);
+ assert.equal(f.count('commerce_live_webhook_events'),0);
+ assert.equal(f.sqlite.prepare('SELECT status FROM commerce_live_intents').get().status,'started');
+ f.sqlite.close();
+});
+test('repeat purchase mid-batch failure rolls back order and event without changing license',async()=>{
+ const f=fixture();
+ f.sqlite.prepare(`INSERT INTO pro_licenses
+ (id,user_id,status,issued_at,max_devices,provider,purchase_ref)
+ VALUES (?,?, 'active',?,10,?,?)`).run('gift-1',user,9,'complimentary','gift-1');
+ const original=f.env.AUTH_DB.batch;
+ f.env.AUTH_DB.batch=async statements=>{
+   const perform=statements[2].perform;
+   statements[2].perform=()=>{throw Error('forced transaction rollback')};
+   try{return await original(statements)}finally{statements[2].perform=perform}
+ };
+ assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'retryable-error');
+ assert.equal(f.count('commerce_live_orders'),0);
+ assert.equal(f.count('commerce_live_webhook_events'),0);
+ assert.equal(f.count('pro_licenses'),1);
+ f.env.AUTH_DB.batch=original;
+ assert.equal((await settleLivePaidOrder(f.env,order,opts)).decision,'settled-existing-license');
+ assert.equal(f.count('commerce_live_orders'),1);
  f.sqlite.close();
 });

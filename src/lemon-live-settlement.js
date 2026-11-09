@@ -31,7 +31,8 @@ export async function settleLivePaidOrder(env,order,{bodySha256,now=Math.floor(D
  const plan=planLiveFulfillment(order,{intent,existingOrder,existingLicense});
  if(plan.decision==='idempotent-paid-replay')
    return {decision:'already-settled',granted:false};
- if(plan.decision!=='eligible-for-atomic-grant-review')
+ const preserveExisting=plan.decision==='preserve-existing-active-license';
+ if(!preserveExisting&&plan.decision!=='eligible-for-atomic-grant-review')
    return fail(plan.reason||plan.note||'Order requires manual reconciliation');
  if(String(intent.store_id)!==String(order.storeId)
     ||String(intent.variant_id)!==String(order.variantId)
@@ -49,14 +50,16 @@ export async function settleLivePaidOrder(env,order,{bodySha256,now=Math.floor(D
      VALUES (?,?,?,(SELECT amount_cents FROM commerce_live_intents
        WHERE id=? AND user_id=? AND status='started' AND store_id=? AND variant_id=?
          AND amount_cents=? AND currency=? AND created_at<=?
-         AND expires_at>=?),?,'paid',?,?)`)
+         AND expires_at>=?${preserveExisting
+           ?" AND EXISTS (SELECT 1 FROM pro_licenses WHERE id=? AND user_id=? AND status='active')":""}),?,'paid',?,?)`)
     .bind(order.orderId,order.intentId,order.accountId,order.intentId,order.accountId,
       String(order.storeId),String(order.variantId),order.amountCents,order.currency,
-      order.paidAtSecs,order.paidAtSecs,order.currency,now,now),
-   db.prepare(`INSERT INTO pro_licenses
+      order.paidAtSecs,order.paidAtSecs,
+      ...(preserveExisting?[existingLicense.id,order.accountId]:[]),order.currency,now,now),
+   ...(!preserveExisting?[db.prepare(`INSERT INTO pro_licenses
      (id,user_id,status,issued_at,max_devices,provider,purchase_ref)
      VALUES (?,?,'active',?,10,'lemonsqueezy',?)`)
-    .bind(licenseId,order.accountId,now,'lslive:'+order.orderId),
+    .bind(licenseId,order.accountId,now,'lslive:'+order.orderId)]:[]),
    db.prepare(`UPDATE commerce_live_intents SET status='paid'
      WHERE id=? AND user_id=? AND status='started'`)
     .bind(order.intentId,order.accountId),
@@ -67,10 +70,12 @@ export async function settleLivePaidOrder(env,order,{bodySha256,now=Math.floor(D
  ];
  try {
    const results=await db.batch(statements);
-   if(!Array.isArray(results)||results.length!==4
+   if(!Array.isArray(results)||results.length!==(preserveExisting?3:4)
       ||results.some(r=>r?.meta?.changes!==1))
      return fail('Settlement outcome requires reconciliation','retryable-error');
-   return {decision:'settled',granted:true};
+   return preserveExisting
+     ?{decision:'settled-existing-license',granted:false}
+     :{decision:'settled',granted:true};
  }catch{
    // May be a simultaneous identical webhook or a database fault. A retry
    // must re-read the durable order before deciding it was settled.
