@@ -26,7 +26,7 @@ export function inspectLiveOrder(payload,{storeId,variantId}={}){
  // Signed production events must expose an unambiguous UTC timestamp.
  const paidAtMs=Date.parse(a.created_at);
  if(event==='order_created'&&(typeof a.created_at!=='string'
-    ||!/^(?:\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2})(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(a.created_at)
+    ||!/^(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(a.created_at)
     ||!Number.isFinite(paidAtMs)||paidAtMs<0))return null;
   if(event==='order_created'&&(a.status!=='paid'||a.refunded===true))return null;
  // Distinguish partial and full refunds and leave final customer outcomes
