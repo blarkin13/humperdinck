@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
+import sys
 
 HASH = re.compile(r"^[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
@@ -60,12 +61,13 @@ def check(record: dict, version: str, commit: str) -> list[str]:
 
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--manifest",type=Path,default=Path("docs/RELEASE_RIGHTS_APPROVAL.json"))
+    p.add_argument("--manifest",type=Path,default=Path("docs/RELEASE_RIGHTS_APPROVAL.json"),
+                   help="Rights approval ledger file, or - for operator-controlled GitHub secret on stdin")
     p.add_argument("--version",required=True)
     p.add_argument("--commit",required=True)
     args=p.parse_args()
     try:
-        record=json.loads(args.manifest.read_text(encoding="utf8"))
+        record=json.loads(sys.stdin.read() if str(args.manifest)=="-" else args.manifest.read_text(encoding="utf8"))
     except (OSError,ValueError):
         print("BLOCKED: release-rights approval ledger missing or invalid")
         return 1
