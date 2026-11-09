@@ -81,3 +81,42 @@ def test_cache_does_not_store_oversize_and_evicts_oldest(tmp_path):
     assert cache.load(second_key) is not None
     cache.store(key(root, text="huge"), np.ones(10000, dtype=np.float32))
     assert len(list(cache.root.glob("*.wav"))) == 1
+
+
+def test_full_narration_reuses_unchanged_preset_sections_without_reinvoking_engine(tmp_path, monkeypatch):
+    """Exercise the real run_multi integration with a synthetic tiny audio engine."""
+    import soundfile as sf
+    from backend import app as api
+    from types import SimpleNamespace
+
+    root = model(tmp_path)
+    (tmp_path / "outputs").mkdir()
+    monkeypatch.setattr(api, "DATA", tmp_path)
+    monkeypatch.setattr(api, "preset_section_cache", PresetSectionCache(tmp_path / "render-cache"))
+    monkeypatch.setattr(api, "jobs", {})
+    monkeypatch.setattr(api, "settings", SimpleNamespace(load=lambda: {"clone": {"engine": "unused"}}))
+    monkeypatch.setattr(api.catalog, "preset_path", lambda _engine, _voice: root)
+    calls = []
+
+    def synth(engine, voice, output, text, *, on_progress=None, speed=1):
+        calls.append((engine, voice, text, speed))
+        sf.write(output, np.array([0.1, 0.2, -0.3], dtype=np.float32), 24_000)
+
+    monkeypatch.setattr(api.engines, "preset", synth)
+
+    def run(job_id, text="A new story.", speed=1):
+        api.jobs[job_id] = {"status": "queued", "progress": 0}
+        request = api.MultiNarrationRequest(
+            blocks=[{"text": text, "voice_key": "preset:kokoro:af_heart", "speed": speed}],
+            format="wav")
+        api.run_multi(job_id, request, [(None, ("kokoro", "af_heart"))])
+        assert api.jobs[job_id]["status"] == "complete", api.jobs[job_id]["message"]
+        return (tmp_path / "outputs" / f"{job_id}.wav").read_bytes()
+
+    first = run("a" * 32)
+    second = run("b" * 32)
+    assert first == second  # PCM output is reproducible with cache hit.
+    assert len(calls) == 1
+    run("c" * 32, text="Updated text.")
+    run("d" * 32, speed=1.1)
+    assert len(calls) == 3
