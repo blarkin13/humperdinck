@@ -45,6 +45,18 @@ test('only matching store, variant, paid one-time test-mode orders are accepted'
  assert.equal(checkedOrder(sampleOrder({first_order_item:{variant_id:788}}),config),null);
  assert.equal(checkedOrder(sampleOrder({status:'pending'}),config),null);
  assert.equal(checkedOrder(sampleOrder({refunded:true}),config),null);
+ // Price is the $49.00 pre-tax product price, not the final tax-inclusive
+ // amount. A $49.00 item with sales tax is accepted.
+ assert.equal(checkedOrder(sampleOrder({subtotal:4900,tax:400,total:5300}),config).status,'paid');
+ assert.equal(checkedOrder(sampleOrder({subtotal:4800,tax:0,total:4800}),config),null);
+ assert.equal(checkedOrder(sampleOrder({subtotal:5000,total:5000}),config),null);
+ assert.equal(checkedOrder(sampleOrder({total:4800}),config),null);
+ assert.equal(checkedOrder(sampleOrder({currency:'EUR',subtotal:4900,total:4900}),config),null);
+ // Historical refunds must still be processed even if their original
+ // variant price is no longer the currently selected planning price.
+ const oldRefund=sampleOrder({currency:'EUR',subtotal:3900,total:3900,refunded:true,status:'refunded'});
+ oldRefund.meta.event_name='order_refunded';
+ assert.equal(checkedOrder(oldRefund,config).status,'refunded');
  const refund=sampleOrder({refunded:true});refund.meta.event_name='order_refunded';
  assert.equal(checkedOrder(refund,config).status,'refunded');
 });
