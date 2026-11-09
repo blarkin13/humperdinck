@@ -83,6 +83,19 @@ def test_cache_does_not_store_oversize_and_evicts_oldest(tmp_path):
     assert len(list(cache.root.glob("*.wav"))) == 1
 
 
+
+def test_packaged_helper_can_key_cache_without_python_source_files(tmp_path, monkeypatch):
+    import sys
+    import backend.narration_cache as module
+    root = model(tmp_path)
+    monkeypatch.setattr(module, "__file__", str(tmp_path / "bundled" / "narration_cache.py"))
+    # In a source checkout missing renderer files, safely decline caching.
+    assert key(root) is None
+    # A bundled app uses the installed executable identity for invalidation.
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    assert len(key(root)) == 64
+
+
 def test_full_narration_reuses_unchanged_preset_sections_without_reinvoking_engine(tmp_path, monkeypatch):
     """Exercise the real run_multi integration with a synthetic tiny audio engine."""
     import soundfile as sf
