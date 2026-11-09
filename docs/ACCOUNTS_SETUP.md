@@ -1,4 +1,4 @@
-# Optional Humperdinck customer login (Step 2)
+# Optional Humperdinck customer login — setup history and current QA
 
 Free remains anonymous and works entirely offline. This change adds the **account layer** for later lifetime Pro purchase and device management, not a paid license, purchase page, or remote voice inference.
 
@@ -8,7 +8,7 @@ Free remains anonymous and works entirely offline. This change adds the **accoun
 - `src/account-auth.js`: the existing Cloudflare Worker handles OAuth **authorization code** (Google PKCE), OIDC signature/issuer/audience/expiry/nonce validation, secure HttpOnly cookies, hashed session tokens, CSRF checks, and short-lived desktop device authorization.
 - `migrations/0001_accounts.sql`: D1 users, provider identities, hashed sessions, one-use OAuth states, pairing approvals, and temporary rate limits.
 - `frontend/AccountPanel.jsx` and `backend/account_client.py`: optional system-browser sign-in from Windows, macOS, Linux, or source installs. The secret session token stays in Python's per-user data directory, never in web storage/React.
-- The accounts API returns **503 / not configured** until a database and OAuth credentials are supplied. No fake login is displayed.
+- HISTORICAL SETUP INSTRUCTION: the accounts API originally returned 503 until D1 and OAuth secrets were configured. As of November 8, the current Development Status confirms Google sign-in and the account dashboard are LIVE. Do not create a duplicate D1 binding or overwrite credentials.
 - Account `plan:free` is informational; actual local Free/Pro rights still use `backend/entitlements.py`. **Accounts do not activate Pro.**
 
 ## Cloudflare setup required before accounts can go live
@@ -79,7 +79,7 @@ These are one-time steps from the Humperdinck project root, using the Cloudflare
 - Only email, name, provider identity and opaque session/pairing state are stored in D1; no hardware fingerprinting.
 - Sessions expire (website: 30 days; desktop: 90 days). A later signed offline Pro license is **independent** of those sessions and must never expire because an account session expired.
 - Before inviting public sign-ups, complete an account-deletion and export workflow, including Apple's authorization-revocation obligations, verify moderation/retention/privacy terms, add abuse monitoring, and run real-provider end-to-end tests.
-- Commercial payments, ten-device Pro activation, portable signed offline licenses and Voice Exchange are **not** implemented in this step.
+- UPDATED STATUS: online ten-device activation and portable signed offline licenses now exist; live payments and public Voice Exchange do not. See docs/PRO_LIFETIME_LICENSING.md and docs/LEMON_SQUEEZY_COMMERCE_SETUP.md.
 
 ## Developer validation
 
