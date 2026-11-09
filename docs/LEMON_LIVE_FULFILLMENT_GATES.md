@@ -71,12 +71,17 @@ conflicting existing certificates and bad account-intent bindings.
 settlement SQL against in-memory SQLite, including duplicate paid events,
 exact price/store/variant matching, webhook hash collision and rollback
 of a simulated mid-transaction failure. It runs in frontend CI.
+`src/lemon-live-refund.js` is a non-routed, non-revoking refund reconciler.
+`tests/lemon-live-refund.test.mjs` covers duplicate refunds, refund-before-paid,
+partial/full ordering, account/order mismatches and rollback. Full refund
+status cannot be downgraded by a delayed partial refund. These tests pass
+in CI (PR #136); no customer entitlement is revoked automatically.
 
 This settlement primitive currently serves **new accounts without an
 existing Pro grant**. Additional purchases by existing Pro customers
 require a separate reviewed reconciliation path, not silent overwrite.
-Checkout intent event-time expiry, refund and chargeback decisions are
-not finalized and live routes remain disabled.
+Checkout intent event-time expiry, refund **policy** and chargeback decisions
+are not finalized, and live routes remain disabled.
 
 **None** of these tests proves merchant approval, live checkout,
 production D1 migration and routing, refund treatment
