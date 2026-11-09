@@ -27,8 +27,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/native-desktop.yml
     with:
+      # Publisher certificates are optional. Unsigned installers are supported
+      # until the owner sets up Microsoft/Apple signing credentials.
       signed_updates: true
-      production_signing: true
+      production_signing: false
     secrets: inherit
 
   publish:
@@ -113,10 +115,10 @@ jobs:
           Windows x64, macOS Apple Silicon and Ubuntu/Debian x64 desktop installers.
 
           Windows and macOS automatic update files have independent cryptographic Tauri signatures.
-          Windows installers are subject to mandatory publisher-signature checks.
-          macOS disk images require Developer ID signing, notarization and stapling.
-          Linux DEB updates are manual; package trust and distribution review
-          must be completed separately before public release.
+          These installers are not OS publisher-signed. Windows Smart App Control
+          and macOS Gatekeeper may warn or block unsigned apps. A future
+          publisher-signed release can be created after signing is configured.
+          Linux DEB updates are manual.
           EOF
           gh release create "v$VERSION" publish/* \
             --repo "$TARGET_REPOSITORY" \
