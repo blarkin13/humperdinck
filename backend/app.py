@@ -1417,7 +1417,7 @@ def run_multi(job_id, request, references):
                             model_root=catalog.preset_path(preset_engine, preset_voice),
                             voice_key=block.voice_key, text=narration_text,
                             speed=block.speed, gain=block.gain,
-                            desk=request.desk.model_dump(mode='json') if request.desk else None)
+                            desk=request.desk)
                         cached_audio = preset_section_cache.load(cache_key)
                     if cached_audio is None:
                         # Pace: Kokoro voices (and Kokoro-performed characters) speak at the pace
