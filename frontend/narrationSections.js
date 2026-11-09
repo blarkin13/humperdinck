@@ -76,6 +76,11 @@ export const DIRECTION_TAGS=['whispering','excited','curious','calm','sad','seri
 const DIRECTION_PATTERN=/\[(?:whispering|excited|curious|calm|sad|serious)\]\s*/gi;
 export const spokenText=text=>String(text||'').replace(DIRECTION_PATTERN,'').trim();
 export const audioSignature=section=>JSON.stringify([section.voice_key,section.text]);
+/** A finished background job is valid only for the unchanged narrator/text. */
+export const audioResultIsCurrent=(blocks,id,signature)=>{
+ const current=blocks.find(section=>section.id===id);
+ return Boolean(current&&audioSignature(current)===signature);
+};
 /** Rule-based, opt-in editorial suggestions. Does not claim model inference. */
 export function suggestSpeechDirections(text){
  const raw=String(text||'');
