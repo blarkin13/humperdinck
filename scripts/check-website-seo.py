@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1] / "website"
 DOMAIN = "https://humperdinck.studio"
 LANDING = [
-    "", "gallery", "ai-voice-generator", "text-to-speech",
+    "", "gallery", "help", "ai-voice-generator", "text-to-speech",
     "voice-cloning", "offline-ai-voice", "ai-narration", "video-voiceover",
 ]
 
@@ -21,6 +21,7 @@ class HeadParser(HTMLParser):
         self.titles = []
         self.in_title = False
         self.heading_open = False
+        self.heading_count = 0
         self.errors = []
         self.schemas = []
         self.in_schema = False
@@ -33,6 +34,7 @@ class HeadParser(HTMLParser):
         if tag == "title" and self.in_head:
             self.in_title = True
         if tag == "h1":
+            self.heading_count += 1
             if self.heading_open:
                 self.errors.append("nested h1")
             self.heading_open = True
@@ -94,6 +96,8 @@ def check_page(slug):
         issues.append("missing Twitter card")
     if not parser.schemas:
         issues.append("missing structured data")
+    if parser.heading_count != 1:
+        issues.append("expected exactly one h1")
     if parser.heading_open:
         issues.append("unclosed h1")
     issues.extend(parser.errors)
