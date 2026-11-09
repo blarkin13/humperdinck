@@ -60,6 +60,21 @@ class StarterVoices:
         self._write(stored)
         return stored[source_id]
 
+    def set_details(self,source_id:str,name:str|None=None,category:str|None=None):
+        """Rename or re-categorize a voice already in the pack; the sample stays the same."""
+        stored=self._read()
+        if source_id not in stored:
+            raise ValueError("That voice is not in the built-in pack")
+        if name is not None:
+            name=str(name).strip()[:120]
+            if not name:
+                raise ValueError("Give the voice a name")
+            stored[source_id]["name"]=name
+        if category is not None:
+            stored[source_id]["category"]=str(category).strip()[:60]
+        self._write(stored)
+        return stored[source_id]
+
     def catalog_files(self,selected:list[str]):
         """(public entry, sample bytes) for each gallery voice."""
         approvals=self._read()

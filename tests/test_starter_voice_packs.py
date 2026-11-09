@@ -211,3 +211,18 @@ def test_gallery_rejects_damaged_download(tmp_path:Path):
     fetch=lambda name,limit:json.dumps({"voices":[entry]}).encode() if name=="catalog.json" else b"RIFFbroken"
     with pytest.raises(ValueError,match="damaged"):
         voice_catalog.download(tmp_path/"user",entry["voice_id"],fetch)
+
+
+def test_set_details_renames_a_pack_voice_without_touching_the_sample(tmp_path):
+    import json
+    from backend.starter_voice_packs import StarterVoices
+    bank = StarterVoices(tmp_path)
+    bank.catalog.write_text(json.dumps({'v1': {'source_voice_id': 'v1', 'name': 'Old', 'category': 'A', 'channel': 'catalog'}}))
+    (bank.folder / 'v1.wav').write_bytes(b'RIFF')
+    entry = bank.set_details('v1', name='  New name ', category='Narrator')
+    assert (entry['name'], entry['category'], entry['channel']) == ('New name', 'Narrator', 'catalog')
+    assert (bank.folder / 'v1.wav').read_bytes() == b'RIFF'
+    with pytest.raises(ValueError):
+        bank.set_details('v1', name='   ')
+    with pytest.raises(ValueError):
+        bank.set_details('missing', name='x')
