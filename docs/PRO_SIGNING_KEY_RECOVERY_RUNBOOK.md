@@ -1,7 +1,6 @@
 # Pro lifetime signing-key backup and recovery — operator runbook
 
-**Status:** Prepared and automated-test covered. **NOT yet executed with your live
-production signing key.** The existing Cloudflare `PRO_LICENSE_ED25519_PRIVATE`
+**Status:** Owner-generated v2 encrypted backup has been locally decrypted and verified, and its public key is pinned. **Cloudflare v2 private-key staging, dual-version packaged-client test, separate offline backup copy, and production activation remain PENDING.** The existing Cloudflare `PRO_LICENSE_ED25519_PRIVATE`
 v1 value cannot be retrieved through its secret-reading API. Do not delete or
 overwrite it. The current public v1 verifier must continue working indefinitely
 for already-issued complimentary/offline certificates.
@@ -10,8 +9,7 @@ for already-issued complimentary/offline certificates.
 
 The repository now includes version-aware offline verification in
 `backend/pro_license.py` and version-selectable issuance in
-`src/pro-license.js`. **Both remain v1 by default.** The v2 public key
-public keys are now pinned in both locations. Attempting to activate v2
+`src/pro-license.js`. **Both remain v1 for issuance by default.** The v1 and v2 public verification keys are pinned in the desktop verifier. Attempting to activate v2
 without the corresponding private signing secret still returns HTTP 503.
 Automated tests verify that v1 certificates remain usable, a synthetic v2
 grant becomes valid only when its public key is pinned, unrecognized key IDs
@@ -73,6 +71,70 @@ backup file, and prints **only its public key**.
   designated recovery operator.
 - Record only completion dates, verifier output status, key ID, safe public key
   and storage custodian; never record the private key or its passphrase.
+
+## 2A. Safely stage private v2 signer in Cloudflare (owner's Mac only)
+
+**Prerequisites:** owner has verified the backup using the passphrase, created a
+second offline encrypted backup copy, and knows that the latest Windows,
+macOS and Linux *packaged* clients all verify pinned v2 licenses offline.
+Do not take this step just because a source-code test passes.
+
+Your existing local checkout contains unmerged modifications. Fetch only the
+staging script without resetting, deleting, or merging local changes:
+
+```sh
+cd ~/Projects/humperdinck
+git fetch origin main
+git show origin/main:scripts/stage-pro-v2-signing-key.py > "$HOME/.humperdinck-secure/stage-pro-v2-signing-key.py"
+chmod 600 "$HOME/.humperdinck-secure/stage-pro-v2-signing-key.py"
+
+.venv-signing/bin/python "$HOME/.humperdinck-secure/stage-pro-v2-signing-key.py" \\
+  --backup "$HOME/.humperdinck-secure/pro-v2.encrypted.json" \\
+  --worker humperdinck
+```
+
+The script verifies the decrypted Ed25519 key matches the **exact** pinned
+public v2 key. It asks for owner confirmation and a passphrase in the terminal.
+It streams base64 PKCS8 directly via stdin to Wrangler `secret put`,
+without writing an unencrypted copy or printing the secret. It intentionally
+**does not** write `PRO_LICENSE_ACTIVE_KEY_ID`, replace v1, issue licenses or
+enable checkout. Run only from the project directory with the intended
+Cloudflare Wrangler login.
+
+Once complete, check Cloudflare Workers secrets **names only**:
+`PRO_LICENSE_ED25519_PRIVATE` (v1) must still exist and
+`PRO_LICENSE_V2_ED25519_PRIVATE` (staged v2) must now appear.
+A secret's name being present does not by itself prove that its value works;
+the Worker checks the v2 private/public key pairing at issuance.
+
+## 2B. Activate v2 only after all three packaged-client tests are completed
+
+This is a *separate* operator-approved change. Keep v1 material and verifier
+for permanent offline customer compatibility. After staging, using Wrangler
+logged in to the correct account:
+
+```sh
+cd ~/Projects/humperdinck
+printf '%s' 'humperdinck-pro-ed25519-v2' | npx wrangler secret put PRO_LICENSE_ACTIVE_KEY_ID --name humperdinck
+```
+
+Then use an **existing owner-controlled complimentary test account** to request
+a fresh v2 license (the response must have
+`key_id=humperdinck-pro-ed25519-v2` and a verified Ed25519 signature), test
+online activation and offline import on all current packaged installers. The
+published v2 verifier does **not** require internet once a valid certificate
+is installed. Don't switch without real packaged tests.
+
+**Rollback for new issuance only:** If new v2 signing fails, restore the
+selector to v1 (do NOT delete v2, v1, or previously issued certificates):
+
+```sh
+printf '%s' 'humperdinck-pro-ed25519-v1' | npx wrangler secret put PRO_LICENSE_ACTIVE_KEY_ID --name humperdinck
+```
+
+Existing v2 owner certificates still verify on the new dual-key clients.
+Old clients recognize only v1, so don't issue new v2 certificates until
+you have a supported upgrade path for those old installations.
 
 ## 3. Stage versioned verification support before switching issuance
 
