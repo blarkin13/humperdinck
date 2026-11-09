@@ -77,6 +77,14 @@ const DIRECTION_PATTERN=/\[(?:whispering|excited|curious|calm|sad|serious)\]\s*/
 export const spokenText=text=>String(text||'').replace(DIRECTION_PATTERN,'').trim();
 export const audioSignature=section=>JSON.stringify([section.voice_key,section.text]);
 /** A finished background job is valid only for the unchanged narrator/text. */
+/** Identify the exact full narration export: voices, order, pauses, speed and mix. */
+export const wholeNarrationSignature=(format,blocks,speeds={},ambience=null,desk=null)=>
+ JSON.stringify([format,blocks.map(b=>[
+  b.text,b.voice_key,sectionDelay(b.delay_after),
+  (b.effects||[]).map(e=>[e.sound_id,e.position,e.volume,e.fade_in,e.fade_out,e.loop,e.ending,e.ducking]),
+  speeds[b.id]||1
+ ]),ambience,desk]);
+
 export const audioResultIsCurrent=(blocks,id,signature)=>{
  const current=blocks.find(section=>section.id===id);
  return Boolean(current&&audioSignature(current)===signature);
