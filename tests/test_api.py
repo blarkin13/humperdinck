@@ -514,3 +514,22 @@ def test_local_license_api_requires_signed_certificate(client, monkeypatch):
     assert response.status_code == 400, response.text
     assert client.get('/api/entitlements').json()['plan'] == 'free'
     assert client.get('/api/license/export').status_code == 404
+
+
+def test_pronunciation_dictionary_reaches_the_engine(client, tmp_path):
+    # Brian's Video Studio script: the engine must receive the taught spellings.
+    saved = client.put('/api/pronunciations', json={'entries': [
+        {'word': 'YOLO', 'say': 'yoh-loh'}, {'word': 'epocs', 'say': 'ep-ocks'}]})
+    assert saved.status_code == 200 and len(saved.json()['entries']) == 2
+    assert client.get('/api/pronunciations').json()['entries'][0] == {'word': 'YOLO', 'say': 'yoh-loh'}
+    key = 'e' * 32
+    sf.write(str(tmp_path / 'voices' / f'{key}.wav'), np.zeros(24000 * 3, dtype='float32'), 24000)
+    job = client.post('/api/narrations', json={'format': 'wav', 'blocks': [
+        {'text': 'The yolo model ran 120 epocs.', 'voice_key': 'upload:' + key}]}).json()
+    assert wait(client, job)['status'] == 'complete'
+    assert fake_synthesize.calls[-1]['text'] == 'The yoh-loh model ran 120 ep-ocks.'
+    preview(client, 'A calm narrator')  # single generations too
+    client.put('/api/pronunciations', json={'entries': [{'word': 'hello', 'say': 'hullo'}]})
+    preview(client, 'A calm narrator')
+    assert fake_synthesize.calls[-1]['text'] == 'hullo there.'
+    assert client.put('/api/pronunciations', json={'entries': [{'word': '', 'say': 'x'}]}).status_code == 422
