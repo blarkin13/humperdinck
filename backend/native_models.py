@@ -22,12 +22,21 @@ SHA256 = {
 }
 
 
+# Older release tags holding a byte-identical copy (verified against SHA256).
+# GitHub's release host can 504 one tag while serving another.
+MIRRORS = {
+    "voices-v1.0.bin": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin",
+}
+
+
 def _sources(name):
     """The release download link, then the same asset through the GitHub API.
 
     GitHub's release host sometimes returns 5xx for a while; the API is a
     separate path to the identical file (the SHA-256 is checked either way)."""
     yield SOURCE + name, {}
+    if name in MIRRORS:
+        yield MIRRORS[name], {}
     try:
         context = ssl.create_default_context(cafile=certifi.where())
         api = urllib.request.Request("https://api.github.com/repos/thewh1teagle/kokoro-onnx/releases/tags/model-files-v1.1",

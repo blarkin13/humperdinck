@@ -201,3 +201,13 @@ def test_size_cap_admits_real_voices_file(tmp_path, monkeypatch):
     partial = tmp_path / "voices-v1.0.bin.x.partial"
     native_models._download("https://example.invalid", {}, partial)
     assert partial.stat().st_size == 28214398
+
+
+def test_voices_file_has_identical_mirror_after_primary(monkeypatch):
+    from backend import native_models
+    monkeypatch.setattr(native_models.urllib.request, "urlopen",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("offline")))
+    urls = [url for url, _ in native_models._sources("voices-v1.0.bin")]
+    assert urls[0] == native_models.SOURCE + "voices-v1.0.bin"
+    assert urls[1].endswith("/model-files-v1.0/voices-v1.0.bin")
+    assert [u for u, _ in native_models._sources("kokoro-v1.0.onnx")] == [native_models.SOURCE + "kokoro-v1.0.onnx"]
