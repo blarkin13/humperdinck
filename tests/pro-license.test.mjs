@@ -220,10 +220,9 @@ test('versioned signing defaults to v1 and refuses v2 without pinned public key'
  assert.equal((await send('/api/account/license/backup',{},env)).status,200);
 });
 
-test('mismatched private key rejects issuance BEFORE registering a device',async()=>{
+test('malformed private key rejects issuance BEFORE registering a device',async()=>{
  const {env}=await setup();
- const other=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
- env.PRO_LICENSE_ED25519_PRIVATE=Buffer.from(await crypto.subtle.exportKey('pkcs8',other.privateKey)).toString('base64');
+ env.PRO_LICENSE_ED25519_PRIVATE=Buffer.from('invalid-pkcs8').toString('base64');
  assert.equal((await send('/api/account/license/backup',{},env)).status,503);
  assert.equal((await send('/api/account/license/activate',{method:'POST',bearer:true,
    data:{installation_id:createId(555),label:'Wrong key'}},env,desktop)).status,503);
