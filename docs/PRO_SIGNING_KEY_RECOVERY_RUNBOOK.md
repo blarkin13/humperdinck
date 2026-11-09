@@ -59,7 +59,7 @@ backup file, and prints **only its public key**.
 
 ```sh
 .venv-signing/bin/python scripts/verify-pro-license-signing-backup.py \
-  --input ~/Documents/humperdinck-pro-signing-v2.encrypted.json \\
+  --input ~/Documents/humperdinck-pro-signing-v2.encrypted.json \
   --expected-public-key 'LJ0GvDnAUCXlSGtJrAYs8L6yFZvAbcpuvLNBQHNH4MM='
 ```
 
