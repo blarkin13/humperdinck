@@ -9,8 +9,8 @@ function fixture({pending=true,openDisputes=0}={}){
    if(sql.includes('FROM auth_users'))return {id:uid};
    if(sql.includes('FROM pro_licenses'))return {id:'license1',status:'active'};
    if(sql.includes('FROM auth_privacy_requests'))return pending?{id:'review1'}:null;
-   if(sql.includes('FROM commerce_live_orders'))return {n:2};
    if(sql.includes('FROM commerce_live_disputes'))return {n:openDisputes};
+   if(sql.includes('FROM commerce_live_orders'))return {n:2};
    throw Error('Unexpected query');
   }}}};
  }}};
