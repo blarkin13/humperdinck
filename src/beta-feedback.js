@@ -271,3 +271,13 @@ export async function purgeOldBetaFeedback(env,{cutoff=now()-90*86400,limit=50}=
  }
  return {deleted,skipped:false};
 }
+
+// Unlike paid licenses, beta entitlements have no purchase/receipt record to retain.
+// Retain their minimal grant/revocation metadata for 90 days after expiration.
+export async function purgeOldBetaGrants(env,{cutoff=now()-90*86400}={}){
+ if(!env.AUTH_DB)return {deleted:0,skipped:true};
+ const result=await env.AUTH_DB.prepare(
+  'DELETE FROM beta_pro_grants WHERE expires_at<? AND (revoked_at IS NULL OR revoked_at<?)'
+ ).bind(cutoff,cutoff).run();
+ return {deleted:result.meta?.changes||0,skipped:false};
+}
