@@ -15,6 +15,8 @@ jobs:
           python-version: '3.11'
       - name: Compile all Python sources
         run: python -m compileall -q backend scripts tests
+      - name: Test read-only production monitor against synthetic fixtures
+        run: python -m unittest discover -s tests -p 'test_monitor_production.py' -v
       - name: Verify beta feedback D1 schema and deletion foreign keys
         run: python -m unittest discover -s tests -p 'test_beta_feedback_schema.py' -v
       - name: Install API test dependencies

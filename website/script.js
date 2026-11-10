@@ -246,6 +246,10 @@ fetch('/downloads.json', {cache:'no-store'}).then(r=>{
 // No identifiers, user text, or voice content are sent.
 (function trackSiteEvents(){
   function send(type,platform,source){
+    // Owner/browser opt-out for first-party aggregate Analytics Engine events.
+    // It never changes the public site, download URLs, or customers' analytics.
+    try { if(localStorage.getItem('humperdinck_analytics_exclude')==='1')return; }
+    catch { /* Storage blocked: continue anonymous aggregate tracking. */ }
     const payload=JSON.stringify({type,platform,source});
     try {
       if(navigator.sendBeacon){

@@ -95,3 +95,25 @@ Escalate suspected voice-consent misuse or privacy exposure to the owner; for le
 **Done:** documented intake routing, categories, priority scheme, incident containment and recovery paths, publishing preflight, production security interlocks and operator handoff; read-only DNS/routing check. **Support alias receipt PASS:** incoming mail received in Gmail inbox Nov 9 and owner confirmed. **Open:** independent sender → billing, privacy and legal aliases → verified receipt in Gmail; owner-defined mailbox-checking routine; safe customer reply identity verified; owner signoff for support coverage. Keep P1 open until those operational tests are documented.
 
 No production changes, public emails to customers or live payment activation are performed by this document.
+
+## November 10, 2026 — operations verification and monitoring handoff
+
+The connected Cloudflare configuration was checked read-only: all four published email-routing aliases remain enabled and route to a verified destination, while the catch-all is disabled. A Gmail search since November 1 found **no incoming test messages** for billing@, privacy@ or legal@. This does not establish failure or success for those three aliases. Support@ retains the verified incoming Inbox receipt from November 9. No unapproved outbound test messages were sent, so branded reply-from identity is also **unverified**.
+
+Cloudflare notification-policy inventory exposed **only the default billing-budget notification**. Login spikes, billing webhook failures, account/Pro activation failures, Worker exceptions and updater-download failures do **not** yet have individually verified alert coverage.
+
+The new `.github/workflows/production-monitor.yml` (when reviewed and merged) schedules synthetic-unit-tested, read-only site checks every six hours, with one repeat after failure and a GitHub issue assigned to the repository owner for confirmed failures. Its probes check public pages, SEO sitemap/robots, installer and updater catalogs, source-build provenance and denial of anonymous access to private analytics. **Do not mistake this for comprehensive Worker error monitoring:** issue notifications must be enabled and independently received, scheduled workflow runs must be observed, and provider-specific alerts should be set up with separate sensitive-data-safe instrumentation. A public HTTP check does not validate login success, webhook settlement, license activation or actual installer bytes.
+
+### Minimum handoff to accept support operations
+
+1. Send harmless unique test messages **from an independent sender** to billing@, privacy@ and legal@humperdinck.studio. Confirm original recipient and arrival folder, and record redacted pass/fail evidence.
+2. Verify one outbound brand-alias reply through a legitimate authenticated sender. Cloudflare routing only handles inbound forwarding.
+3. Select primary and backup operators to check the inbox at least twice per business day during beta, and document the recovery channel if Gmail fails. This is a proposed internal routine, not a customer response-time guarantee.
+4. Ensure assigned GitHub issue notifications arrive in the operator's inbox. Run a harmless synthetic failure of the monitor to verify incident creation, then close the test issue. Do not intentionally break production or run test purchases.
+5. Complete Cloudflare Worker exception/latency monitoring and live-merchant/webhook/entitlement alarm integration before declaring production alert acceptance.
+
+**Status:** Partially verified. Owner handoff and the three mailbox tests remain open. No live payment gates, DNS or forwarding destinations were changed.
+
+### Nov 10 Worker issue alert — new verified configuration
+
+A Cloudflare Notification policy **Humperdinck Worker real-time issues** was created with type `workers_observability_real_time_issue`, enabled for the owner Gmail recipient. Read-back from Cloudflare confirmed enabled and one email mechanism. Cloudflare's test-notification API returned `success:true` for an INFO-severity test. **End-to-end test notification delivery PASS:** Cloudflare test API returned success, and Gmail read-back verified an unread Inbox message from Cloudflare with subject `[Alert] Workers real-time issue detected` received November 10, 2026. The sample contained synthetic, historical-looking issue details and must not be classified as a live checkout-worker incident. The only other existing policy observed is Cloudflare's default billing-budget alert. Do not infer this new policy independently detects every login, checkout, license, or download error; monitor product-specific error telemetry separately.

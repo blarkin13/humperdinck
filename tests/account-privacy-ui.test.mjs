@@ -22,7 +22,11 @@ test('privacy UI keeps destructive action behind manual approval',()=>{
  assert.doesNotMatch(html,/Delete my account immediately/);
 });
 test('account export never writes private data to browser storage',()=>{
- assert.doesNotMatch(js,/localStorage\.setItem|sessionStorage\.setItem/);
+ assert.doesNotMatch(js,/sessionStorage\.setItem/);
+ // Only the non-sensitive owner analytics exclusion preference may be persisted.
+ const storedKeys=[...js.matchAll(/localStorage\.setItem\(\s*'([^']+)'/g)].map(m=>m[1]);
+ assert.deepEqual(storedKeys,['humperdinck_analytics_exclude']);
+ assert.doesNotMatch(js,/localStorage\.setItem\([^\n]*(?:exported|recoveryKit|backup|token|code)/i);
  assert.match(js,/downloadJson\('humperdinck-account-export.json',exported\)/);
 });
 

@@ -80,6 +80,7 @@ jobs:
           node --check website/script.js
           node --test tests/public-releases.test.mjs
           node --test tests/download-mobile-layout.test.mjs
+          node --test tests/site-analytics-optout.test.mjs
           node --test tests/support-contact-links.test.mjs
       - name: Validate public website SEO metadata and sitemap
         run: python3 scripts/check-website-seo.py

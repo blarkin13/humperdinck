@@ -240,6 +240,7 @@ async function refreshOwnerAnalytics(){
   const info=await request('/dashboard/analytics?days='+encodeURIComponent(days));
   q('owner-analytics').hidden=false;
   q('owner-analytics-link').hidden=false;
+  try { q('analytics-exclude-self').checked=localStorage.getItem('humperdinck_analytics_exclude')==='1'; } catch {}
   const display=x=>Number.isFinite(Number(x))?Number(x).toLocaleString():'—';
   const events=info.events||{},github=info.github||{};
   q('analytics-views').textContent=events.available?display(events.page_views):'—';
@@ -423,6 +424,15 @@ q('download-recovery').addEventListener('click',()=>{
  if(!state.recoveryKit){notice('Generate recovery codes first.',true);return}
  downloadJson('humperdinck-account-recovery.json',state.recoveryKit);
  notice('Recovery kit downloaded. Anyone holding this file can recover your account; protect it like a password.');
+});
+q('analytics-exclude-self').addEventListener('change',event=>{
+ try{
+  if(event.target.checked)localStorage.setItem('humperdinck_analytics_exclude','1');
+  else localStorage.removeItem('humperdinck_analytics_exclude');
+ }catch{
+  event.target.checked=false;
+  q('analytics-status').textContent='Browser storage is disabled; exclusion could not be saved.';
+ }
 });
 q('analytics-refresh').addEventListener('click',refreshOwnerAnalytics);
 q('analytics-range').addEventListener('change',refreshOwnerAnalytics);

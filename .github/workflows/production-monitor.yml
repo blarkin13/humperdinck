@@ -1,0 +1,68 @@
+name: Production website and release monitoring (read-only)
+
+on:
+  schedule:
+    - cron: '13 */6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/monitor-production.py'
+      - 'tests/test_monitor_production.py'
+      - '.github/workflows/production-monitor.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: humperdinck-production-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test the monitor using synthetic responses
+        run: python -m unittest discover -s tests -p 'test_monitor_production.py' -v
+      - name: Verify live public read-only endpoints (retry transient failure once)
+        id: smoke
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          if python scripts/monitor-production.py --json > reports/production-monitor.json; then
+            cat reports/production-monitor.json
+            exit 0
+          fi
+          echo 'First check failed; performing one confirmation check.'
+          sleep 45
+          python scripts/monitor-production.py --json > reports/production-monitor.json
+          cat reports/production-monitor.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-monitor-sanitized
+          path: reports/production-monitor.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Open or update an incident issue on confirmed failure
+        if: failure() && steps.smoke.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          title='Production monitor: failing public endpoint(s)'
+          existing="$(gh issue list --state open --search "$title in:title" --json number,title --jq '.[] | select(.title == "Production monitor: failing public endpoint(s)") | .number' | head -1)"
+          body="Read-only production monitor failed twice. Inspect the sanitized Actions artifact and rerun manually before changing live resources. Workflow: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. This automation never changes Worker deployments, D1 data or customer records."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body" --assignee blarkin13
+          fi
