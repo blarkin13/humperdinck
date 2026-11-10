@@ -90,7 +90,7 @@ test('private report details are never cached',async()=>{
 
 test('valid PNG screenshot is stored only in private R2 with a generated key',async()=>{
  const {env,session,bucket,calls}=setup();
- const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6u4AAAAASUVORK5CYII=','base64');
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==','base64');
  const response=await handleBetaFeedback(new Request(home+'/api/beta/reports/'+uuid+'/screenshots',{
    method:'POST',headers:{Origin:home,'Content-Type':'image/png'},body:png}),env,{session});
  assert.equal(response.status,201);
@@ -168,7 +168,7 @@ test('screenshot retrieval denies an unrelated web account while allowing submit
 });
 test('screenshot upload rejects spoofed CRC and unwanted metadata tampering',async()=>{
  const {env,session}=setup();
- const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6u4AAAAASUVORK5CYII=','base64');
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==','base64');
  const modified=Buffer.from(png);modified[29]^=1;
  const request=new Request(home+'/api/beta/reports/'+uuid+'/screenshots',{
   method:'POST',headers:{Origin:home,'Content-Type':'image/png'},body:modified});
