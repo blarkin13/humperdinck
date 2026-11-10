@@ -65,10 +65,33 @@ async function signLicense(license,signerInfo){
   const signature=await crypto.subtle.sign('Ed25519',signerInfo.key,data);
   return b64url(data)+'.'+b64url(signature);
 }
+
+// Temporary beta access is never a perpetual purchase. Grants are provisioned
+// only by an authorized operator in D1; the HTTP API cannot create or extend them.
+async function betaForUser(env,userId){
+ if(env.BETA_PRO_ENABLED!=='1')return null;
+ return env.AUTH_DB.prepare('SELECT id,user_id,issued_at,expires_at FROM beta_pro_grants WHERE user_id=? AND revoked_at IS NULL AND issued_at<=? AND expires_at>? ORDER BY expires_at DESC LIMIT 1')
+  .bind(userId,clock(),clock()).first();
+}
+async function signedBeta(grant,installationId,signerInfo){
+ const payload={version:1,type:'humperdinck.pro.beta',key_id:signerInfo.keyId,
+  license_id:grant.id,subject:grant.user_id,issued_at:grant.issued_at,
+  expires_at:grant.expires_at,installation_id:installationId,features:['pro'],
+  transfer:'single-installation-expiring',lifetime:false};
+ const data=encoder.encode(JSON.stringify(payload));
+ return b64url(data)+'.'+b64url(await crypto.subtle.sign('Ed25519',signerInfo.key,data));
+}
+
 async function licenseOverview(env,user){
   const license=await licenseForUser(env,user.id);
-  if(!license)return {plan:'free',license:null,devices:[],active_devices:0,
-    device_limit:10,checkout_available:false};
+  if(!license){
+    const beta=await betaForUser(env,user.id);
+    if(beta)return {plan:'pro',source:'beta',beta:true,lifetime:false,
+      expires_at:beta.expires_at,license:{id:beta.id,lifetime:false,backup_available:false},
+      devices:[],active_devices:0,device_limit:0,checkout_available:false};
+    return {plan:'free',license:null,devices:[],active_devices:0,
+      device_limit:10,checkout_available:false};
+  }
   const devices=await devicesFor(env,license.id);
   return {plan:'pro',license:{id:license.id,lifetime:true,issued_at:license.issued_at,
       backup_available:!!(env.PRO_LICENSE_ACTIVE_KEY_ID===V2_KEY_ID?PRO_V2_PUBLIC_KEY_BASE64&&env.PRO_LICENSE_V2_ED25519_PRIVATE:env.PRO_LICENSE_ED25519_PRIVATE)},devices,
@@ -99,7 +122,17 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
     if(!uuid(data.installation_id)||typeof data.label!=='string'||data.label.length>80||!data.label.trim())
       return err(400,'Invalid installation identifier or device label');
     const license=await licenseForUser(env,user.id);
-    if(!license)return err(403,'A verified Pro purchase is required before activation');
+    if(!license){
+      const beta=await betaForUser(env,user.id);
+      if(!beta)return err(403,'A verified Pro purchase or an active beta invitation is required');
+      let betaSigner;
+      try{betaSigner=await signer(env)}catch{return err(503,'Beta signing is not configured')}
+      let token;
+      try{token=await signedBeta(beta,data.installation_id,betaSigner)}
+      catch{return err(503,'Beta activation could not be signed')}
+      return response({activated:true,beta:true,lifetime:false,license:token,
+        plan:'pro',expires_at:beta.expires_at,active_devices:0,device_limit:0});
+    }
     let key;
     try{key=await signer(env)}catch{return err(503,'License signing is not configured')}
     // Mint before any D1 mutation: even a late WebCrypto signing failure must
