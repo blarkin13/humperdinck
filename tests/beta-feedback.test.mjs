@@ -115,11 +115,13 @@ test('self deletion erases D1 references and private R2 objects',async()=>{
  assert.deepEqual(deleted,['beta/'+uuid+'/s.png']);
  assert.ok(calls.some(x=>x.sql.startsWith('DELETE FROM beta_reports')));
 });
-test('ninety-day cleanup is disabled unless explicitly enabled',async()=>{
+test('ninety-day cleanup continues when intake disabled, and skips only missing bindings',async()=>{
  const {env,calls}=setup();delete env.BETA_FEEDBACK_ENABLED;
  const result=await purgeOldBetaFeedback(env,{cutoff:42});
- assert.deepEqual(result,{deleted:0,skipped:true});
- assert.equal(calls.length,0);
+ assert.deepEqual(result,{deleted:0,skipped:false});
+ assert.ok(calls.some(x=>x.sql.includes('SELECT id FROM beta_reports WHERE created_at<')));
+ delete env.BETA_SCREENSHOTS;
+ assert.deepEqual(await purgeOldBetaFeedback(env,{cutoff:42}),{deleted:0,skipped:true});
 });
 test('bounded retention purge removes R2 object before D1 record',async()=>{
  const {env,calls}=setup();const order=[];
@@ -138,4 +140,38 @@ test('bounded retention purge removes R2 object before D1 record',async()=>{
  const result=await purgeOldBetaFeedback(env,{cutoff:42,limit:1000});
  assert.deepEqual(result,{deleted:1,skipped:false});
  assert.deepEqual(order,['r2','database','database']);
+});
+
+test('screenshot retrieval denies an unrelated web account while allowing submitter and owner',async()=>{
+ const {env,session}=setup();
+ const imageId='472b57aa-409e-45e1-9d61-c0b060c96bf4';
+ const key='beta/'+uuid+'/'+imageId+'.png';
+ const previous=env.AUTH_DB.prepare.bind(env.AUTH_DB);
+ env.AUTH_DB.prepare=sql=>{
+  if(sql.includes('SELECT object_key FROM beta_screenshots WHERE id=?')){
+   return {bind:()=>({first:async()=>({object_key:key})})};
+  }
+  return previous(sql);
+ };
+ env.BETA_SCREENSHOTS.get=async candidate=>candidate===key?{body:new Uint8Array([137,80,78,71])}:null;
+ const path='/api/beta/reports/'+uuid+'/screenshots/'+imageId;
+ const stranger=async()=>({id:otherId,kind:'web'});
+ let response=await handleBetaFeedback(req(path),env,{session:stranger});
+ assert.equal(response.status,404);
+ response=await handleBetaFeedback(req(path),env,{session});
+ assert.equal(response.status,200);
+ assert.equal(response.headers.get('Cache-Control'),'no-store');
+ assert.match(response.headers.get('Content-Security-Policy'),/sandbox/);
+ const owner=async()=>({id:ownerId,kind:'web'});
+ response=await handleBetaFeedback(req(path),env,{session:owner});
+ assert.equal(response.status,200);
+});
+test('screenshot upload rejects spoofed CRC and unwanted metadata tampering',async()=>{
+ const {env,session}=setup();
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6u4AAAAASUVORK5CYII=','base64');
+ const modified=Buffer.from(png);modified[29]^=1;
+ const request=new Request(home+'/api/beta/reports/'+uuid+'/screenshots',{
+  method:'POST',headers:{Origin:home,'Content-Type':'image/png'},body:modified});
+ const response=await handleBetaFeedback(request,env,{session});
+ assert.equal(response.status,400);
 });
