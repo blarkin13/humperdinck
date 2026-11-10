@@ -1,7 +1,11 @@
-"""One switch for Built-In Humperdinck Voices and the Voice Gallery.
+"""Switches for Built-In Humperdinck Voices and the Voice Gallery.
 
-Off: the desktop build bundles no built-in voices, the app does not fetch
-built-in voice updates, and the Voice Gallery is hidden. Voices already on a
-computer are left alone. Turn it back on when the new voices are approved.
+ENABLED: the app shows the Voice Gallery and keeps built-in voices current
+from humperdinck.studio/voices/ (the Voice Publisher's Publish button).
+
+BUNDLED: the desktop installer also carries a built-in voice pack. Off: the
+pinned pack in the build is the old seven voices, so new installs get the
+current built-in voices from the website on first launch instead.
 """
-ENABLED = False
+ENABLED = True
+BUNDLED = False

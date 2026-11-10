@@ -20,7 +20,7 @@ def frontend_directory() -> Path:
 def install_builtin_voices(data_dir: Path) -> dict:
     """Import approved samples at startup without overwriting personal voices."""
     from backend import voice_packs
-    if not voice_packs.ENABLED:
+    if not voice_packs.BUNDLED:
         print("Built-In Humperdinck Voices: not included in this version", flush=True)
         return {"total_in_pack": 0, "installed": 0, "skipped": True}
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))

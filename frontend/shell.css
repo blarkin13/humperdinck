@@ -61,6 +61,6 @@
  :root .app-shell .workspace section{padding:20px 18px;border-radius:14px}
 }
 
-/* Voice avatars (DiceBear Notionists): soft rounded frame, no sleeve glare */
-.app-shell .voice-card .sleeve{border-radius:14px}
+/* Voice avatars (DiceBear Lorelei): transparent, no frame */
+:root .app-shell .voice-card .sleeve{background:none;border:0;border-radius:0;box-shadow:none;overflow:visible}
 .app-shell .voice-card .sleeve::after{display:none}

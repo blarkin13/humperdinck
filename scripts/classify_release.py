@@ -17,7 +17,7 @@ def classify(root: Path = ROOT) -> str:
     gate = (root / "src" / "live-commerce-release-gate.js").read_text()
     packs = (root / "backend" / "voice_packs.py").read_text()
     payments_off = re.search(r"^export const LIVE_COMMERCE_CODE_APPROVED\s*=\s*false\s*;", gate, re.M)
-    voices_off = re.search(r"^ENABLED\s*=\s*False\s*$", packs, re.M)
+    voices_off = re.search(r"^BUNDLED\s*=\s*False\s*$", packs, re.M)
     return "free" if payments_off and voices_off else "commercial"
 
 

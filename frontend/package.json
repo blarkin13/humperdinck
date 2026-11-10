@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@dicebear/core": "9.4.2",
-    "@dicebear/notionists": "9.4.2",
+    "@dicebear/lorelei": "9.4.2",
     "@fontsource/dm-serif-display": "^5.2.5",
     "@fontsource/inter": "^5.2.5",
     "@fontsource/josefin-sans": "^5.2.5",

@@ -8,7 +8,7 @@ mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
 def make(tmp, payments, voices):
     (tmp / "src").mkdir(parents=True); (tmp / "backend").mkdir()
     (tmp / "src" / "live-commerce-release-gate.js").write_text(f"export const LIVE_COMMERCE_CODE_APPROVED={payments};\n")
-    (tmp / "backend" / "voice_packs.py").write_text(f'"""doc"""\nENABLED = {voices}\n')
+    (tmp / "backend" / "voice_packs.py").write_text(f'"""doc"""\nENABLED = True\nBUNDLED = {voices}\n')
     return tmp
 
 
