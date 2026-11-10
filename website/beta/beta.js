@@ -22,6 +22,7 @@ async function load(){
   state.isOwner=data.isOwner===true;state.reports=data.reports||[];
   $('review').hidden=!state.isOwner;
   renderReports();
+  if(state.isOwner)await loadGrants();
  }catch(error){
   $('content').hidden=true;$('state').hidden=false;
   $('state').replaceChildren();
@@ -101,6 +102,42 @@ $('save-status').addEventListener('click',async()=>{
   await load();
  }catch(error){$('dialog-message').textContent=error.message;}
  finally{b.disabled=false;}
+});
+async function loadGrants(){
+ const panel=$('grant-panel'),list=$('grant-list');list.replaceChildren();
+ try{
+  const data=await api('/admin/grants');panel.hidden=false;
+  if(!data.grants.length)list.append(el('p','No beta invitations issued yet.','muted'));
+  for(const grant of data.grants){
+   const item=el('div',null,'grant-row');
+   const status=grant.revoked_at?'Revoked':grant.expires_at<=Date.now()/1000?'Expired':'Active';
+   item.append(el('strong',grant.email),el('span',status+' · Expires '+new Date(grant.expires_at*1000).toLocaleDateString(),'status'));
+   if(status==='Active'){
+    const revoke=el('button','Revoke future activation');revoke.type='button';
+    revoke.addEventListener('click',async()=>{
+     if(!confirm('Revoke future beta activations for this account? Already-issued offline trials remain usable until their signed expiry.'))return;
+     revoke.disabled=true;
+     try{await api('/admin/grants/'+grant.id+'/revoke',{method:'POST'});
+       await loadGrants();}
+     catch(error){$('grant-result').textContent=error.message;}
+     finally{revoke.disabled=false;}
+    });item.append(revoke);
+   }
+   list.append(item);
+  }
+ }catch(error){panel.hidden=true;}
+}
+$('grant-form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const button=event.currentTarget.querySelector('button');button.disabled=true;
+ $('grant-result').textContent='Checking tester account…';
+ try{
+  const result=await api('/admin/grants',{method:'POST',
+   headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('grant-email').value})});
+  $('grant-result').textContent='Temporary Pro access granted until '+new Date(result.expires_at*1000).toLocaleDateString()+'.';
+  $('grant-email').value='';await loadGrants();
+ }catch(error){$('grant-result').textContent=error.message;}
+ finally{button.disabled=false;}
 });
 $('delete-report').addEventListener('click',async()=>{
  if(!state.active||!confirm('Delete this report and every attached screenshot permanently?'))return;
