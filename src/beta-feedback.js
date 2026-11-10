@@ -120,6 +120,17 @@ export async function handleBetaFeedback(request,env,{session}={}){
  const isOwner=owner(user,env);
  if(!['GET','POST','PATCH','DELETE'].includes(request.method))return fail(405,'Method not allowed');
  if(request.method!=='GET'&&!sameOrigin(request))return fail(403,'Invalid request origin');
+ // A signed-in account alone is insufficient to submit beta data.
+ // Allow owner uploads and invited testers with a currently active 30-day grant.
+ // Expired testers can still read or delete their own prior reports.
+ if(request.method==='POST'&&!isOwner&&!path.startsWith('/api/beta/admin/')){
+  if(env.BETA_PRO_ENABLED!=='1')return fail(403,'An active beta invitation is required');
+  const timestamp=now();
+  const grant=await env.AUTH_DB.prepare(
+   'SELECT id FROM beta_pro_grants WHERE user_id=? AND revoked_at IS NULL AND issued_at<=? AND expires_at>? LIMIT 1'
+  ).bind(user.id,timestamp,timestamp).first();
+  if(!grant)return fail(403,'An active beta invitation is required');
+ }
  try{
   // Invitation-only beta license grants: only the verified owner, never an
   // anonymous signup or a GitHub issue, can approve a 30-day trial.
