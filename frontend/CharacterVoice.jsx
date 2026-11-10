@@ -1,8 +1,8 @@
 import {useDialogFocus} from './useDialogFocus.js';
 import React,{useEffect,useRef,useState} from 'react';
 
-// A character is the original voice doing an impression (built-in Kokoro voices:
-// its style blended toward another voice) or a described way of talking.
+// A character is the original voice doing an impression (Kokoro style blend, or a
+// Qwen speaker-embedding blend for recorded/designed voices) or a described way of talking.
 // Its name is only a label. Accents were removed: current models can't keep the
 // original voice while adding a real accent.
 const SAMPLE='Gather round, and I will tell you how it all began, on the old road north.';
@@ -23,7 +23,7 @@ export default function CharacterVoice({api,source,onClose,onCreated,onOpenModel
  const takes=job?.takes||[];
  const ready=job?.status==='complete'&&takes[pick]?.status==='complete'&&requested.current===recipe;
  const target=impressions.find(t=>t.voice===impression);
- // Kokoro voices do impressions; other voices need a described way of talking.
+ // Voices with impression targets do impressions; others need a described way of talking.
  const needsDesigner=!canImpress;
  const canMake=canImpress?!!impression:!!direction.trim()&&!!options?.converter_ready;
 
@@ -61,7 +61,7 @@ export default function CharacterVoice({api,source,onClose,onCreated,onOpenModel
     </label>
     {nameChoice===CUSTOM&&<input aria-label="Custom character name" autoFocus maxLength={80} value={customName} onChange={e=>setCustomName(e.target.value)} placeholder="e.g. Captain Mira"/>}
     {canImpress?<label>Impersonating<select value={impression} onChange={e=>setImpression(e.target.value)}>
-     {['female','male'].map(g=>{const list=impressions.filter(t=>t.gender===g);return list.length>0&&<optgroup key={g} label={g==='female'?'A woman':'A man'}>{list.map(t=><option key={t.voice} value={t.voice}>{t.name}</option>)}</optgroup>})}
+     {[...new Set(impressions.map(t=>t.group))].map(g=><optgroup key={g} label={g}>{impressions.filter(t=>t.group===g).map(t=><option key={t.voice} value={t.voice}>{t.name}</option>)}</optgroup>)}
     </select></label>
     :<label>How they talk<textarea rows={2} maxLength={400} value={direction} onChange={e=>setDirection(e.target.value)} placeholder="e.g. old and slow, gravelly, whispering, excited"/></label>}
     {!canImpress&&!source.gender&&<label>The original voice is<select value={gender} onChange={e=>setGender(e.target.value)}><option value="female">Female</option><option value="male">Male</option><option value="neutral">Neither / unsure</option></select></label>}

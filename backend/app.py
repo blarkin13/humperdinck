@@ -1159,10 +1159,46 @@ def kokoro_source(source_key):
 
 
 def source_impressions(source_key):
+    """Voices this voice can impersonate.
+
+    Kokoro voices blend style vectors with same-language Kokoro voices. Recorded
+    and designed voices blend Qwen speaker embeddings with any voice that has a
+    recording (Kokoro voices get a short generated clip).
+    """
     voice = kokoro_source(source_key)
-    if not voice:
+    if voice:
+        return impression_targets(voice, catalog.PRESET_VOICES['kokoro'], catalog.downloaded)
+    if not (source_key.startswith('upload:') or source_key.startswith('design:')):
         return []
-    return impression_targets(voice, catalog.PRESET_VOICES['kokoro'], catalog.downloaded)
+    found = []
+    meta = voice_meta()
+    for path in sorted((DATA / 'voices').glob('*.wav')):
+        key = 'upload:' + path.stem
+        if key != source_key:
+            found.append({'voice': key, 'name': meta.get(path.stem, {}).get('name', path.stem), 'group': 'Your voices'})
+    for designed in library.list():
+        key = 'design:' + designed['id']
+        if key != source_key and library.latest_approved(designed['id']):
+            found.append({'voice': key, 'name': designed['name'], 'group': 'Designed voices'})
+    for v, (label, accent) in catalog.PRESET_VOICES['kokoro'].items():
+        if v[0] in 'ab' and catalog.downloaded(v):
+            found.append({'voice': 'preset:kokoro:' + v, 'name': label, 'group': 'Built-in women' if v[1] == 'f' else 'Built-in men'})
+    return found
+
+
+def impression_reference(target_key):
+    """A recording of the impersonated voice, for Qwen speaker-embedding blends."""
+    voice = kokoro_source(target_key)
+    if voice:
+        clip = characters.targets / f'{voice}.wav'
+        if not clip.is_file():
+            engines.preset('kokoro', voice, clip, TARGET_TEXT_FOR_CHARACTERS)
+        return clip
+    try:
+        reference, _ = resolve_voice_key(target_key)
+    except HTTPException:
+        raise HTTPException(404, 'The voice this character impersonates was deleted')
+    return reference
 
 
 @app.get('/api/characters/options')
@@ -1175,17 +1211,26 @@ def character_options(source_key: str = ''):
 
 
 def run_impression_takes(job_id, request):
-    """One take per strength: the Kokoro voice blended toward the impersonated voice."""
+    """One take per strength: the voice blended toward the impersonated voice."""
     job = jobs[job_id]
     try:
         voice = kokoro_source(request.source_key)
+        names = {t['voice']: t['name'] for t in source_impressions(request.source_key)}
         with engine_lock:
             job.update(status='running', message='Performing the impression')
+            if not voice:
+                reference, _ = resolve_voice_key(request.source_key)
+                target = impression_reference(request.impression)
             for i, weight in enumerate(IMPRESSION_WEIGHTS):
                 job.update(message=f'{IMPRESSION_STRENGTHS[i]} take', progress=round(i / len(IMPRESSION_WEIGHTS) * 100))
                 blend = {'voice': request.impression, 'weight': weight}
-                engines.preset('kokoro', voice, characters.take_path(job_id, i), pronunciations.apply(request.text), blend=blend)
-                name = catalog.PRESET_VOICES['kokoro'][request.impression][0]
+                text = pronunciations.apply(request.text)
+                if voice:
+                    engines.preset('kokoro', voice, characters.take_path(job_id, i), text, blend=blend)
+                else:
+                    engines.clone(settings.load()['clone'], characters.take_path(job_id, i), text, reference, None,
+                                  blend={'reference': target, 'weight': weight})
+                name = names.get(request.impression, 'another voice')
                 job['takes'][i] = {'status': 'complete', 'url': f'/api/characters/takes/{job_id}-{i}.wav',
                                    'impression': blend, 'label': IMPRESSION_STRENGTHS[i],
                                    'summary': f'Impersonating {name} · {IMPRESSION_STRENGTHS[i].lower()}'}
@@ -1200,7 +1245,10 @@ def create_character_takes(request: CharacterTakesInput):
     if request.impression:
         # Impressions are Kokoro-only and need neither the converter nor Pro.
         if request.impression not in {t['voice'] for t in source_impressions(request.source_key)}:
-            raise HTTPException(422, 'Impressions work with built-in Kokoro voices of the same language')
+            raise HTTPException(422, 'That voice cannot be impersonated by this voice')
+        if not kokoro_source(request.source_key):
+            resolve_voice_key(request.source_key)
+            require_engine('clone')
         characters.prune_takes()
         job_id = uuid4().hex
         jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0, 'message': 'Waiting for the voice engine',
@@ -1283,10 +1331,15 @@ def _missing_character():
 def render_character(character_id, text, output, on_progress=None, speed=1.0):
     """Speak new text as a character: perform it, then convert into the original voice."""
     character = characters.get(character_id) or _missing_character()
-    if character.get('impression'):
+    if character.get('impression') and kokoro_source(character['source_key']):
         voice = kokoro_source(character['source_key'])
         engines.preset('kokoro', voice, output, text, on_progress=on_progress, speed=speed,
                        blend=character['impression'])
+    elif character.get('impression'):
+        reference, _ = resolve_voice_key(character['source_key'])
+        engines.clone(settings.load()['clone'], output, text, reference, None, on_progress=on_progress,
+                      blend={'reference': impression_reference(character['impression']['voice']),
+                             'weight': character['impression']['weight']})
     elif character.get('performer'):
         source = output.with_name(output.stem + '-performance.wav')
         try:
@@ -1345,7 +1398,8 @@ def preview_recipe(key):
             reference = None
             ref_text = build_instruction(active['description'], active['characteristics'])
         choice = settings.load()[mode]
-    elif key.startswith('character:') and (characters.get(key[10:]) or {}).get('impression'):
+    elif key.startswith('character:') and (characters.get(key[10:]) or {}).get('impression') \
+            and kokoro_source(characters.get(key[10:])['source_key']):
         # An impression is Kokoro alone: preview it the way narration renders it.
         record = characters.get(key[10:])
         mode, reference, ref_text = 'impression', None, None
@@ -1576,7 +1630,7 @@ def run_multi(job_id, request, references):
                         stretch=block.speed
                         if block.voice_key.startswith('character:'):
                             record=characters.get(block.voice_key[10:]) or {}
-                            performed=bool(record.get('performer') or record.get('impression'))
+                            performed=bool(record.get('performer') or (record.get('impression') and kokoro_source(record.get('source_key',''))))
                             render_character(block.voice_key[10:], narration_text, temp, on_progress=progress,speed=block.speed if performed else 1.0)
                             if performed: stretch=1.0
                         elif reference is None:
@@ -1720,7 +1774,8 @@ def create_narration(request: MultiNarrationRequest):
                and (characters.get(b.voice_key[10:]) or {}).get('performer')}
     # Impressions are Kokoro alone: no converter and no cloning engine.
     impressions={b.voice_key for b in request.blocks if b.voice_key.startswith('character:')
-                 and (characters.get(b.voice_key[10:]) or {}).get('impression')}
+                 and (characters.get(b.voice_key[10:]) or {}).get('impression')
+                 and kokoro_source((characters.get(b.voice_key[10:]) or {}).get('source_key', ''))}
     if performed:
         require_converter()
     if any(reference is not None and b.voice_key not in performed|impressions for b,(reference, _) in zip(request.blocks,references)):

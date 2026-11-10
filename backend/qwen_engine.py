@@ -158,11 +158,16 @@ class QwenBaseCloner:
         return self.model
 
     def synthesize(self, text: str, reference: Path, destination: Path,
-                   ref_text: str | None = None, on_progress=None):
+                   ref_text: str | None = None, on_progress=None, blend=None):
         import numpy as np
         import soundfile as sf
         if not Path(reference).is_file():
             raise ValueError('Reference recording is missing')
+        if blend:
+            # An impression: clone from the voice's sound alone (no transcript), so
+            # the speaker embedding steers identity, and move that embedding part of
+            # the way toward the impersonated voice.
+            ref_text = None
         # With a transcript, Base clones in its higher-quality "in-context" mode.
         # Uploaded and recorded voices usually have none; then it clones from the
         # sound of the recording alone (like the PyTorch engine's x-vector mode).
@@ -174,6 +179,20 @@ class QwenBaseCloner:
         samples = []
         rate = None
         identity = clone_identity(reference, ref_text)
+        if blend:
+            identity = identity + ':' + str(blend.get('reference')) + ':' + str(blend.get('weight'))
+        restore = _blend_speaker(model, blend) if blend else None
+        try:
+            self._render(model, chunks, reference, ref_text, identity, samples, on_progress)
+        finally:
+            if restore:
+                restore()
+        rate = self._rate
+        sf.write(str(destination), np.concatenate(samples), rate, subtype='PCM_16')
+
+    def _render(self, model, chunks, reference, ref_text, identity, samples, on_progress):
+        import numpy as np
+        rate = None
         for index, chunk in enumerate(chunks):
             # MLX Base uses reference audio + transcript; do not pass a
             # CustomVoice speaker name or VoiceDesign instruction here.
@@ -198,7 +217,34 @@ class QwenBaseCloner:
                 samples.append(np.zeros(int(rate * 0.15), dtype=np.float32))
             if on_progress:
                 on_progress(index + 1, len(chunks))
-        sf.write(str(destination), np.concatenate(samples), rate, subtype='PCM_16')
+        self._rate = rate
+
+
+def blend_weight(blend) -> float:
+    weight = float((blend or {}).get('weight', 0))
+    if not 0 < weight <= 0.6:
+        raise ValueError('Invalid impression blend')
+    other = Path(str((blend or {}).get('reference', '')))
+    if not other.is_file():
+        raise ValueError('The impersonated voice recording is missing')
+    return weight
+
+
+def _blend_speaker(model, blend):
+    """Temporarily make the model's speaker embedding a blend of two voices.
+
+    Returns a function that restores the original method.
+    """
+    from mlx_audio.utils import load_audio
+    weight = blend_weight(blend)
+    original = model.extract_speaker_embedding
+    other = original(load_audio(str(blend['reference']), sample_rate=model.sample_rate))
+
+    def blended(audio, *args, **kwargs):
+        return (1 - weight) * original(audio, *args, **kwargs) + weight * other
+
+    model.extract_speaker_embedding = blended
+    return lambda: setattr(model, 'extract_speaker_embedding', original)
 
 
 def _seed_mlx(seed):

@@ -360,10 +360,17 @@ def design(choice, output, text, description, on_progress=None):
     synthesize(choice['engine'], output, text, model=choice['model'], mode='design', description=description, on_progress=on_progress)
 
 
-def clone(choice, output, text, reference, ref_text=None, on_progress=None):
-    """Speak text in the voice of a reference clip with the chosen cloning model."""
+def clone(choice, output, text, reference, ref_text=None, on_progress=None, blend=None):
+    """Speak text in the voice of a reference clip with the chosen cloning model.
+
+    ``blend`` ({'reference', 'weight'}) makes an impression: the clone's speaker
+    embedding is moved part of the way toward the voice in another recording.
+    """
+    extra = {}
+    if blend is not None:
+        extra['blend'] = {'reference': str(blend['reference']), 'weight': float(blend['weight'])}
     synthesize(choice['engine'], output, text, model=choice['model'], mode='clone', reference=reference,
-               ref_text=ref_text, on_progress=on_progress)
+               ref_text=ref_text, on_progress=on_progress, **extra)
 
 
 def preset(engine, voice, output, text, on_progress=None, speed=1.0, blend=None):

@@ -30,7 +30,8 @@ def impression_targets(source_voice: str, preset_voices: dict, downloaded=lambda
         return []
     language = source_voice[0]
     gender = source_voice[1:2]
-    found = [{'voice': v, 'name': label, 'gender': 'female' if v[1] == 'f' else 'male'}
+    found = [{'voice': v, 'name': label, 'gender': 'female' if v[1] == 'f' else 'male',
+              'group': 'A woman' if v[1] == 'f' else 'A man'}
              for v, (label, _) in preset_voices.items()
              if v != source_voice and v[0] == language and downloaded(v)]
     return sorted(found, key=lambda t: (t['voice'][1] == gender, t['name']))
