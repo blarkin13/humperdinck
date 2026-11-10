@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check public Humperdinck search pages without third-party dependencies."""
+from collections import Counter
 from html.parser import HTMLParser
 from pathlib import Path
 import json
@@ -27,9 +28,24 @@ class HeadParser(HTMLParser):
         self.schemas = []
         self.in_schema = False
         self.schema_text = ""
+        self.html_lang = None
+        self.main_count = 0
+        self.ids = []
+        self.fragments = []
+        self.missing_image_alt = 0
 
     def handle_starttag(self, tag, attrs):
         d = dict(attrs)
+        if tag == "html":
+            self.html_lang = d.get("lang")
+        if tag == "main":
+            self.main_count += 1
+        if d.get("id"):
+            self.ids.append(d["id"])
+        if tag == "a" and (d.get("href") or "").startswith("#"):
+            self.fragments.append(d["href"][1:])
+        if tag == "img" and "alt" not in d:
+            self.missing_image_alt += 1
         if tag == "head":
             self.in_head = True
         if tag == "title" and self.in_head:
@@ -83,6 +99,23 @@ def check_page(slug):
         return [attrs.get("content") for name, attrs in tags if name == "meta" and attrs.get(key) == value]
     if len(links("canonical")) != 1 or links("canonical")[0] != url:
         issues.append("missing or incorrect canonical")
+    # Static checks cannot replace real keyboard and mobile accessibility QA.
+    if not parser.html_lang:
+        issues.append("html lang attribute missing")
+    if not metas("name", "viewport"):
+        issues.append("viewport metadata missing")
+    if parser.main_count != 1:
+        issues.append("expected exactly one main landmark")
+    if "main" not in parser.fragments or "main" not in parser.ids:
+        issues.append("skip-to-main link or its destination missing")
+    if parser.missing_image_alt:
+        issues.append(f"{parser.missing_image_alt} image(s) missing alt attributes")
+    repeated_ids = [key for key, count in Counter(parser.ids).items() if count > 1]
+    if repeated_ids:
+        issues.append(f"duplicate HTML id(s): {', '.join(repeated_ids[:8])}")
+    missing_fragments = sorted(set(parser.fragments) - set(parser.ids) - {""})
+    if missing_fragments:
+        issues.append(f"broken same-page anchor(s): {', '.join(missing_fragments[:8])}")
     if not "".join(parser.titles).strip():
         issues.append("missing title")
     if not metas("name", "description"):
