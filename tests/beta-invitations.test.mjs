@@ -13,7 +13,7 @@ function setup(){
  const db={prepare(sql){
   return {bind(...args){calls.push({sql,args});return {
    first:async()=>{
-    if(sql.includes('SELECT id FROM beta_invitations WHERE email=? AND accepted_at IS NULL')){
+    if(sql.includes('FROM beta_invitations WHERE email=? AND accepted_at IS NULL')){
      const row=state.invitation;
      return row&&!row.revoked_at&&!row.accepted_at?row:null;
     }
@@ -38,7 +38,7 @@ function setup(){
 }
 const request=(path,method='GET',data,origin=base)=>new Request(base+path,{
  method,headers:method==='GET'?{}:{Origin:origin,'Content-Type':'application/json'},
- ...(data===undefined?{}:{body:JSON.stringify(data)})
+ ...(data===undefined||method==='GET'?{}:{body:JSON.stringify(data)})
 });
 const send=(path,x,{method='GET',user=owner,mail='owner@example.test',data,origin=base}={})=>
  handleBetaInvitations(request(path,method,data,origin),x.env,{
