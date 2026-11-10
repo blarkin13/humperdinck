@@ -77,6 +77,8 @@ def status() -> dict:
         "development_preview": preview,
         "license_activated": bool(signed['active']),
         "license_source": 'signed-offline' if signed['active'] else ('development-preview' if preview else None),
-        "perpetual": bool(signed['active']),
+        "perpetual": bool(signed['active'] and not signed.get('beta')),
+        "beta": bool(signed.get('beta')),
+        "expires_at": signed.get('expires_at') if signed.get('beta') else None,
         "checkout_available": False,
     }
