@@ -1,6 +1,6 @@
 import {recordAnalyticsEvent, handleAnalyticsEvent} from './site-analytics.js';
 import {handleAccount,accountSession} from './account-auth.js';
-import {handleBetaFeedback} from './beta-feedback.js';
+import {handleBetaFeedback,purgeOldBetaFeedback} from './beta-feedback.js';
 import {handleLemonTest} from './lemon-test-commerce.js';
 import {isReservedProductionCommercePath,handleUnreleasedProductionCommerce} from './live-commerce-release-gate.js';
 import {publicRelease} from './public-releases.js';
@@ -102,5 +102,9 @@ export default {
   }catch(error){
    return new Response('Model upstream could not be reached',{status:502,headers:{'Cache-Control':'no-store','Content-Type':'text/plain; charset=utf-8'}});
   }
+ },
+ scheduled(event,env,ctx){
+  // Daily privacy-retention cleanup, never blocks or mutates normal web requests.
+  ctx.waitUntil(purgeOldBetaFeedback(env));
  }
 };
