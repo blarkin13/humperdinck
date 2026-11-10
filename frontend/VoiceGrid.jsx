@@ -1,15 +1,14 @@
 import React,{useEffect,useRef,useState} from 'react';
 
 import {createAvatar} from '@dicebear/core';
-import * as notionists from '@dicebear/notionists';
+import * as lorelei from '@dicebear/lorelei';
 
-// Notionists avatars by DiceBear (CC0). Drawn on this computer from the voice's
+// Lorelei avatars by DiceBear (CC0). Drawn on this computer from the voice's
 // name, so each voice keeps its own face and nothing is downloaded.
-const AVATAR_BACKGROUNDS=['f0e5cf','e6d3ae','d8e3dc','efd6cc','dde4ea','e9e1f0'];
 function hash(text){let h=2166136261;for(const c of text)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0}
 const avatars=new Map();
 function avatarUri(seed){
- if(!avatars.has(seed))avatars.set(seed,createAvatar(notionists,{seed,backgroundColor:AVATAR_BACKGROUNDS,backgroundType:['solid']}).toDataUri());
+ if(!avatars.has(seed))avatars.set(seed,createAvatar(lorelei,{seed}).toDataUri());
  return avatars.get(seed);
 }
 function SleeveArt({seed}){
