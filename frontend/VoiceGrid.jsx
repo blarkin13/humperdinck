@@ -11,7 +11,7 @@ function avatarUri(seed){
  if(!avatars.has(seed))avatars.set(seed,createAvatar(lorelei,{seed}).toDataUri());
  return avatars.get(seed);
 }
-function SleeveArt({seed}){
+export function SleeveArt({seed}){
  return <img className="sleeve-art" src={avatarUri(seed)} alt="" aria-hidden="true" draggable="false"/>;
 }
 
@@ -122,14 +122,14 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
  // (downloaded ones are its cards); without downloads it gets its own group.
  const hasGalleryGroup=names.includes('Voice Gallery');
  const galleryAfter=hasGalleryGroup?null:[...names].reverse().find(name=>name==='Built-In Humperdinck Voices'||name==='My Voices'||name.startsWith('My Voices · '));
- const galleryGroup=<div className="voice-group voice-gallery-group" key="gallery"><h4><i className="fa-solid fa-store"/> Voice Gallery</h4>{gallery}</div>;
+ const galleryGroup=<div className="voice-group voice-gallery-group" key="gallery"><h4><i className="fa-solid fa-store"/> Voice Gallery</h4><VoiceShelf name="Voice Gallery" count={1}>{gallery}</VoiceShelf></div>;
  return <div className="library">
   {items.length>6&&<div className="search-wrap"><i className="fa-solid fa-magnifying-glass"/><input className="search" type="search" aria-label="Search voices" placeholder="Search voices, categories or descriptions" value={query} onChange={e=>setQuery(e.target.value)}/></div>}
   {!items.length&&<div className="notice"><i className="fa-solid fa-record-vinyl"/> No voices yet. <button className="link" onClick={onCreate}>Create one in Voice Creator.</button></div>}
   {names.map(name=>{const list=groups[name];
    return <React.Fragment key={name}><div className="voice-group">
     {names.length>1||name!=='Uncategorized'?<h4><i className="fa-solid fa-layer-group"/> {name} <small>{list.length} {list.length===1?'voice':'voices'}</small></h4>:null}
-    <VoiceShelf name={name} count={list.length}>{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing?.startsWith(v.key+':'),preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
+    <VoiceShelf name={name} count={list.length+(gallery&&name==='Voice Gallery'?1:0)}>{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing?.startsWith(v.key+':'),preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
      return <article key={v.key} className={'voice-card'+(v.selected?' selected':'')+(v.ready?' ready':'')} role="button" tabIndex={0} aria-label={'Open '+v.name} onClick={v.onOpen} onKeyDown={e=>e.key==='Enter'&&v.onOpen()}>
      {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
      <div className="card-top">
@@ -171,8 +171,7 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
       <span className={'status'+(v.ready?' ok':'')}><i className={'fa-solid '+(v.ready?'fa-circle-check':'fa-pen-ruler')}/>{v.status}</span>
       <span className="specs">{v.specs.filter(Boolean).map(([icon,text,title])=><span key={title} title={title}><i className={icon}/>{text}</span>)}</span>
      </div>
-    </article>})}</VoiceShelf>
-    {gallery&&name==='Voice Gallery'&&gallery}
+    </article>})}{gallery&&name==='Voice Gallery'&&gallery}</VoiceShelf>
    </div>{gallery&&name===galleryAfter&&galleryGroup}</React.Fragment>})}
    {gallery&&!hasGalleryGroup&&!galleryAfter&&galleryGroup}
  </div>;
