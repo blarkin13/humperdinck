@@ -23,6 +23,14 @@ The owner has explicitly set this workflow. Follow it on **every** task update.
 - Where a task is completed, link exact acceptance proof in the Doc. The spreadsheet needs only a short merger/verification reference and the current status.
 - Never store passwords, private keys, secret values, personal voice recordings, or account recovery codes in either artifact.
 
+## Document organization (owner requirement, November 10)
+
+- **Section 7, Authoritative Task Register** is the living, full-evidence record. Find the exact task heading (including priority and source sheet row) and record every new dated update **under that task**, including who did the work and whether it was verified or remains open.
+- Do **not** maintain parallel "Completed / What still needs doing / Future state" summaries as independent status sources. Any such news belongs as an update to the relevant task description. Group the task register by priority P0, P1, P2 and P3 only when tasks exist.
+- Sections covering old engineering milestones and release notes are **historical context**, not a separate current task backlog. Keep them for traceability without mistaking an older open/pending statement for the latest state.
+- Never append a free-floating multi-paragraph report to the end of the document without associating it with the matching task. Do not rewrite or discard the owner's preserved evidence when improving navigation and headings.
+- For cross-cutting updates, reference the relevant existing tasks; create a new task only when truly outside the present scope and approved. Keep the Google Sheet concise and avoid contradicting its single Pending on owner.
+
 ## Changes and coordination
 
 1. Read the tracker and relevant Development Status task first.
