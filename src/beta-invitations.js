@@ -113,7 +113,7 @@ export async function handleBetaInvitations(request,env,{session}={}){
    const devices=await env.AUTH_DB.prepare('SELECT COUNT(*) AS count FROM pro_devices WHERE license_id=?').bind(target.id).first();
    if(Number(devices?.count||0)>0)return fail(409,'Existing registered devices require a separate offline license review');
    const result=await env.AUTH_DB.prepare(
-    "UPDATE pro_licenses SET status='revoked' WHERE id=? AND user_id=? AND status='active' AND provider='lemonsqueezy-test'")
+    "UPDATE pro_licenses SET status='void' WHERE id=? AND user_id=? AND status='active' AND provider='lemonsqueezy-test'")
     .bind(target.id,target.user_id).run();
    if(result.meta?.changes!==1)return fail(409,'Test license already changed');
    return json({revoked:true,account_email:email,purchase_history_preserved:true,
