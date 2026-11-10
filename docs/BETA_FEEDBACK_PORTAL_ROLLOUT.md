@@ -34,7 +34,7 @@ The portal collects:
 
 It does **not** automatically capture voice data, scripts, full diagnostic logs, IP addresses, contact emails, payment details or device IDs in the feedback tables. Cloudflare security/network logs may independently process request metadata under normal provider operation. Existing account identity remains separately managed.
 
-**Retention decision required before enabling:** recommend automatically deleting report text and screenshot objects after 90 days (or after issue closure plus a defined shorter period), with a verified data deletion workflow and backups policy. The current PR does not implement scheduled deletion, and the page should **remain disabled** until actual automated retention or an owner-accepted documented interim manual deletion method is in place. A bucket lifecycle rule alone does not remove the D1 metadata. Account deletion/privacy erasure must consider linked beta records and R2 objects; do not enable destructive account deletion while these tables would be orphaned.
+**Retention implemented but awaiting live acceptance:** Daily Cloudflare Worker cron `17 3 * * *` (03:17 UTC) calls `purgeOldBetaFeedback` to remove up to 50 reports older than **90 days**, deleting each report's R2 screenshot objects before their D1 metadata and text. New work/any other bucket is not scanned; the task is disabled unless the feature flag and bindings are present. Users can also DELETE their own reports and screenshots at any time; the owner can delete reports during privacy review. **Before enabling**, test the cron and delete path with fake D1/R2 data and an independent non-owner account; inspect Cloudflare cron history and D1 row removal. The cron is bounded (50 per day), so verify that load is far below its cleanup capacity and monitor failures. Backup snapshots may be retained under separately approved policies. Account deletion/privacy erasure must still consider linked beta records and R2 objects; do not enable destructive account deletion without integration testing.
 
 **No notification emails yet:** owner reviews the private dashboard directly; the public portal does not send copies of reports to email or GitHub. Consider sanitized incident notification only after scope and consent/retention review.
 
@@ -47,7 +47,7 @@ It does **not** automatically capture voice data, scripts, full diagnostic logs,
 - [ ] Owner UUID configured and permissions tested with two distinct accounts.
 - [ ] Submission, three screenshots, invalid file and size, 4th screenshot, basic abuse/rate-limit tests.
 - [ ] Private screenshot retrieval and no-store headers verified.
-- [ ] Report deletion and retention policy implemented/approved.
+- [ ] Report deletion and 90-day daily cron verified in test/staging and approved, with backup retention disclosed.
 - [ ] Public beta consent/help/privacy wording reviewed by owner.
 - [ ] Mobile/keyboard/zoom/cross-browser QA passed.
 - [ ] Flag enabled only after approval and independent beta users actually invited.
