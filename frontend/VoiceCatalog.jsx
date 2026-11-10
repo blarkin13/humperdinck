@@ -1,15 +1,18 @@
 import React,{useEffect,useState} from 'react';
 import {useNotifications} from './Notifications.jsx';
+import {useDialogFocus} from './useDialogFocus.js';
+import {SleeveArt} from './VoiceGrid.jsx';
 
-/** Humperdinck Voice Gallery: listen to optional voices and download the ones you want. */
+/** Humperdinck Voice Gallery: a card that opens every voice not downloaded yet. */
 export default function VoiceCatalog({api,onInstalled,canDownload=false}){
  const {notify}=useNotifications();
- const [voices,setVoices]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState('');
+ const [open,setOpen]=useState(false),[voices,setVoices]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState('');
  async function load(){
   setError('');
   try{setVoices((await api('voice-catalog')).voices)}catch(e){setError(e.message)}
  }
  useEffect(()=>{load()},[]);
+ const remaining=(voices||[]).filter(v=>!v.installed);
  async function download(voice){
   if(!canDownload){notify('Voice downloads require Pro. Checkout is not available yet.','info');return}
   setBusy(voice.voice_id);
@@ -20,20 +23,35 @@ export default function VoiceCatalog({api,onInstalled,canDownload=false}){
    onInstalled?.();
   }catch(e){notify(e.message,'error')}finally{setBusy('')}
  }
- return <div className="starter-voice-pack voice-catalog">
-  <div className="starter-voice-pack-content">
-   <p>{voices?.some(v=>v.installed)?'More in the gallery. ':''}Listen, then download the ones you like. They work offline once downloaded.</p>
-   {error&&<p className="starter-voice-error" role="alert">{error} <button type="button" className="link" onClick={load}>Try again</button></p>}
-   {!voices&&!error&&<p className="hint"><i className="fa-solid fa-spinner fa-spin"/> Loading the gallery…</p>}
-   {voices&&!voices.some(v=>!v.installed)&&<p className="hint">{voices.length?'You have every gallery voice.':'No gallery voices yet. Check back soon.'}</p>}
-   <div className="starter-voice-pack-list">{voices?.filter(v=>!v.installed).map(v=><div className="starter-voice-pack-row" key={v.voice_id}>
-    <div><strong>{v.name}</strong><small>{v.category||'Voice'}</small></div>
-    <div className="starter-voice-pack-actions">
+ return <>
+  <article className="voice-card gallery-browse-card" role="button" tabIndex={0} aria-label="Browse the voice gallery"
+   onClick={()=>setOpen(true)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setOpen(true)}}}>
+   <span className="gallery-browse-icon"><i className="fa-solid fa-store" aria-hidden="true"/></span>
+   <strong>Browse the gallery</strong>
+   <small>{error?'Gallery unavailable · try again':!voices?'Loading…':remaining.length?`${remaining.length} more ${remaining.length===1?'voice':'voices'} to download`:'You have every gallery voice'}</small>
+  </article>
+  {open&&<GalleryDialog voices={remaining} error={error} busy={busy} canDownload={canDownload} onDownload={download} onRetry={load} onClose={()=>setOpen(false)}/>}
+ </>;
+}
+
+function GalleryDialog({voices,error,busy,canDownload,onDownload,onRetry,onClose}){
+ const dialogRef=useDialogFocus({onEscape:onClose});
+ return <div className="narrator-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
+  <div className="narrator-modal gallery-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Voice gallery">
+   <div className="narrator-modal-head"><div><h3><i className="fa-solid fa-store" aria-hidden="true"/> Voice gallery</h3><p>Listen, then download the voices you like. They work offline once downloaded.</p></div>
+    <button type="button" className="narrator-close" onClick={onClose} aria-label="Close"><i className="fa-solid fa-xmark" aria-hidden="true"/></button></div>
+   <div className="gallery-modal-grid">
+    {error&&<p className="starter-voice-error" role="alert">{error} <button type="button" className="link" onClick={onRetry}>Try again</button></p>}
+    {!error&&!voices.length&&<p className="hint">You have every gallery voice. Check back for new ones.</p>}
+    {voices.map(v=><div className="voice-card gallery-voice" key={v.voice_id}>
+     <div className="card-top"><div className="sleeve"><SleeveArt seed={'u'+v.voice_id+v.name}/></div>
+      <div className="card-title"><span className="voice-name">{v.name}</span><small>{v.category||'Voice'}</small></div>
+      <button type="button" className="gallery-download" disabled={!!busy} onClick={()=>onDownload(v)}
+       aria-label={(canDownload?'Download ':'Pro required to download ')+v.name} title={canDownload?'Download':'Pro required'}>
+       <i className={'fa-solid '+(busy===v.voice_id?'fa-spinner fa-spin':canDownload?'fa-download':'fa-lock')} aria-hidden="true"/></button></div>
      <audio controls preload="none" src={v.sample_url} aria-label={'Sample of '+v.name}/>
-     {v.installed?<span className="catalog-installed"><i className="fa-solid fa-circle-check"/> In your library</span>
-      :<button type="button" className="primary" disabled={!!busy} onClick={()=>download(v)} title={canDownload?'Download this voice':'Pro required to download this voice'}>
-       <i className={'fa-solid '+(busy===v.voice_id?'fa-spinner fa-spin':canDownload?'fa-download':'fa-lock')}/> {canDownload?'Download':'Pro download'}</button>}
-    </div></div>)}</div>
+    </div>)}
+   </div>
   </div>
  </div>;
 }
