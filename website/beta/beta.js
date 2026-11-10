@@ -19,6 +19,11 @@ async function load(){
  try{
   const data=await api('/reports');
   $('content').hidden=false;$('state').hidden=true;
+  $('feedback-form').hidden=data.canSubmit!==true;
+  if(data.canSubmit!==true){
+   $('state').hidden=false;
+   $('state').textContent='An active beta invitation is required to submit feedback. Existing reports remain accessible below.';
+  }
   state.isOwner=data.isOwner===true;state.reports=data.reports||[];
   $('review').hidden=!state.isOwner;
   renderReports();
