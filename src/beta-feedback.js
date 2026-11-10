@@ -67,7 +67,7 @@ export async function handleBetaFeedback(request,env,{session}={}){
  const user=await session(request,env);
  if(!user||user.kind!=='web')return fail(401,'Sign in to submit beta feedback');
  const isOwner=owner(user,env);
- if(!['GET','POST','PATCH'].includes(request.method))return fail(405,'Method not allowed');
+ if(!['GET','POST','PATCH','DELETE'].includes(request.method))return fail(405,'Method not allowed');
  if(request.method!=='GET'&&!sameOrigin(request))return fail(403,'Invalid request origin');
  try{
   if(path==='/api/beta/reports'&&request.method==='POST'){
@@ -107,6 +107,15 @@ export async function handleBetaFeedback(request,env,{session}={}){
     'SELECT id,created_at,width,height FROM beta_screenshots WHERE report_id=? ORDER BY created_at ASC'
    ).bind(id).all();
    return j({report:publicRow(report),screenshots:images.results||[],isOwner});
+  }
+  if(!kind&&request.method==='DELETE'){
+   // The submitter may remove their own report; the reviewer can also honor deletion.
+   const imgs=await env.AUTH_DB.prepare('SELECT object_key FROM beta_screenshots WHERE report_id=?')
+     .bind(id).all();
+   for(const img of imgs.results||[])await env.BETA_SCREENSHOTS.delete(img.object_key);
+   await env.AUTH_DB.prepare('DELETE FROM beta_screenshots WHERE report_id=?').bind(id).run();
+   await env.AUTH_DB.prepare('DELETE FROM beta_reports WHERE id=?').bind(id).run();
+   return j({deleted:true});
   }
   if(!kind&&request.method==='PATCH'&&isOwner){
    const data=await jsonBody(request,512),status=clean(data?.status,25);
@@ -149,4 +158,24 @@ export async function handleBetaFeedback(request,env,{session}={}){
   // No user-controlled text, filenames, SQL values or object keys in logs.
   return fail(503,'Feedback temporarily unavailable');
  }
+}
+
+export async function purgeOldBetaFeedback(env,{cutoff=now()-90*86400,limit=50}={}){
+ // Scheduled purge is gated and bounded, so it never touches other D1 or R2 records.
+ if(env.BETA_FEEDBACK_ENABLED!=='1'||!env.AUTH_DB||!env.BETA_SCREENSHOTS)
+  return {deleted:0,skipped:true};
+ const stale=await env.AUTH_DB.prepare(
+   'SELECT id FROM beta_reports WHERE created_at<? ORDER BY created_at ASC LIMIT ?'
+ ).bind(cutoff,Math.min(50,Math.max(1,limit))).all();
+ let deleted=0;
+ for(const report of stale.results||[]){
+  const imgs=await env.AUTH_DB.prepare('SELECT object_key FROM beta_screenshots WHERE report_id=?')
+    .bind(report.id).all();
+  for(const img of imgs.results||[])await env.BETA_SCREENSHOTS.delete(img.object_key);
+  await env.AUTH_DB.prepare('DELETE FROM beta_screenshots WHERE report_id=?').bind(report.id).run();
+  const result=await env.AUTH_DB.prepare('DELETE FROM beta_reports WHERE id=? AND created_at<?')
+    .bind(report.id,cutoff).run();
+  if(result.meta?.changes===1)deleted++;
+ }
+ return {deleted,skipped:false};
 }
