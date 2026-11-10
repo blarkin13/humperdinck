@@ -74,3 +74,7 @@ It does **not** automatically capture voice data, scripts, full diagnostic logs,
 **DB migration:** `migrations/9998_beta_pro_grants.sql` was applied to D1 with only schema/index creation; **zero grants** existed at verification. Cloudflare has an exact verified owner user ID configured in the `ANALYTICS_OWNER_ACCOUNT_ID` Worker secret (not embedded in code). The public feature flags remain disabled.
 
 **Additional lifecycle:** Beta grant rows (distinct from paid purchase/entitlement records) are removed by the same daily cron 90 days after their expiration. Beta Pro issuance requires a separate explicit flag; turning off either flag does not convert temporary grants into lifetime purchases. Signed offline beta certificates can be locally checked until their expiration, after which the backend returns Free regardless of the online grant table.
+
+## Invitation-only feedback security adjustment
+
+The feedback POST endpoints require an **active, unrevoked beta invitation** (same 30-day grant), unless the user is the authenticated owner. Merely creating a Google account no longer permits screenshot uploads. Expired or revoked testers can still **read and delete their previous reports** while the portal is enabled. The browser hides the new-report form until an invitation is present. This ensures that owner-only reviewer operations and private R2 uploads are not exposed to all accounts.
