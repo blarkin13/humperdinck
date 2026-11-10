@@ -27,6 +27,8 @@ PRO_V2_KEY_ID = 'humperdinck-pro-ed25519-v2'
 LICENSE_FILE = 'pro-license.json'
 INSTALLATION_FILE = 'installation.json'
 LICENSE_TYPE = 'humperdinck.pro.perpetual'
+BETA_LICENSE_TYPE = 'humperdinck.pro.beta'
+BETA_LICENSE_FILE = 'beta-license.json'
 
 
 class InvalidLicense(ValueError):
@@ -84,6 +86,65 @@ def verify(token: str) -> dict:
     return info
 
 
+def verify_beta(token: str, installation_id: str, *, at: int | None = None) -> dict:
+    """Beta cannot pass perpetual verification; it expires even when offline."""
+    if not isinstance(token, str) or len(token) > 10000 or token.count('.') != 1:
+        raise InvalidLicense('Invalid beta license format')
+    body, sig = token.split('.')
+    try:
+        encoded, signature = _unbase64url(body), _unbase64url(sig)
+        info = json.loads(encoded)
+        if not isinstance(info, dict) or len(signature) != 64:
+            raise InvalidLicense('Malformed beta certificate')
+        key_id = info.get('key_id')
+        keys = {PRO_KEY_ID: PRO_PUBLIC_KEY_BASE64, PRO_V2_KEY_ID: PRO_V2_PUBLIC_KEY_BASE64}
+        pinned = keys.get(key_id)
+        if not pinned:
+            raise InvalidLicense('Unknown beta signing key')
+        Ed25519PublicKey.from_public_bytes(base64.b64decode(pinned, validate=True)).verify(signature, encoded)
+        now = int(time.time()) if at is None else int(at)
+        if (info.get('version') != 1 or info.get('type') != BETA_LICENSE_TYPE or
+            info.get('features') != ['pro'] or info.get('lifetime') is not False or
+            info.get('transfer') != 'single-installation-expiring' or
+            type(info.get('issued_at')) is not int or type(info.get('expires_at')) is not int or
+            not (0 < info['issued_at'] <= now < info['expires_at'] <= info['issued_at'] + 30*86400) or
+            info.get('installation_id') != installation_id or
+            not isinstance(info.get('subject'), str) or
+            not isinstance(info.get('license_id'), str)):
+            raise InvalidLicense('Beta Pro certificate expired or invalid')
+        UUID(info['subject']); UUID(info['license_id'])
+        return info
+    except (InvalidSignature, ValueError, TypeError, KeyError, UnicodeError, binascii.Error) as exc:
+        raise InvalidLicense('Beta Pro certificate expired or invalid') from exc
+
+
+def beta_certificate(data: Path) -> dict | None:
+    try:
+        stored = json.loads((Path(data) / BETA_LICENSE_FILE).read_text(encoding='utf-8'))
+        # Read-only: no network request is needed to verify the signed expiration.
+        identity = installation(data)['installation_id']
+        return verify_beta(stored['license'], identity)
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def save_beta(data: Path, token: str) -> dict:
+    identity = installation(data)['installation_id']
+    info = verify_beta(token, identity)
+    folder = Path(data)
+    folder.mkdir(parents=True, exist_ok=True)
+    temp = folder / ('.beta-license-' + secrets.token_hex(8))
+    try:
+        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            json.dump({'format':'humperdinck-beta-v1', 'license':token}, f)
+        os.replace(temp, folder / BETA_LICENSE_FILE)
+    finally:
+        temp.unlink(missing_ok=True)
+    return {'plan':'pro','active':True,'lifetime':False,'beta':True,
+            'expires_at':info['expires_at'],'license_id':info['license_id']}
+
+
 def _path(data: Path) -> Path:
     return Path(data) / LICENSE_FILE
 
@@ -101,6 +162,11 @@ def certificate(data: Path) -> str | None:
 def status(data: Path) -> dict:
     token = certificate(data)
     if token is None:
+        beta = beta_certificate(data)
+        if beta:
+            return {'plan':'pro','active':True,'offline':True,'beta':True,
+                    'lifetime':False,'perpetual':False,'portable_backup':False,
+                    'expires_at':beta['expires_at'], 'license_id':beta['license_id']}
         return {'plan': 'free', 'active': False, 'offline': True}
     info = verify(token)
     return {'plan': 'pro', 'active': True, 'offline': True, 'lifetime': True,
