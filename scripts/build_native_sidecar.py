@@ -86,7 +86,7 @@ def main():
     sys.path.insert(0, str(ROOT))
     from backend import voice_packs
     voice_data = []
-    if voice_packs.ENABLED:
+    if voice_packs.BUNDLED:
         if not args.builtin_voices_pack.is_file():
             parser.error("Built-In Humperdinck Voices are required: run python scripts/prepare_native_voice_pack.py")
         from prepare_native_voice_pack import validate as validate_builtin_voices
@@ -94,7 +94,7 @@ def main():
         print(f"Bundling {builtin_count} checksum-pinned Built-In Humperdinck Voices (rights approval separate)")
         voice_data = ["--add-data", f"{args.builtin_voices_pack.resolve()}{os.pathsep}voice-packs"]
     else:
-        print("Built-In Humperdinck Voices are switched off (backend/voice_packs.py): bundling none")
+        print("Not bundling the old built-in voice pack (backend/voice_packs.py BUNDLED=False); the app downloads current built-in voices on first launch")
 
     if not args.builtin_sounds_pack.is_file():
         parser.error("Approved Humperdinck Sound Effects are required: run python scripts/prepare_native_sound_pack.py")

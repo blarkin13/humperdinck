@@ -64,7 +64,7 @@ def main():
                         assert health["native_package"] is True
                         with urlopen(f"http://127.0.0.1:{port}/api/voices", timeout=8) as response:
                             builtin_voices = json.load(response)
-                        expected = 7 if health.get("voice_packs", True) else 0
+                        expected = 7 if health.get("bundled_voices", False) else 0
                         assert len([v for v in builtin_voices if v.get("origin") == "builtin-humperdinck"]) == expected, (
                             f"Expected {expected} Built-In Humperdinck Voices (backend/voice_packs.py switch)"
                         )

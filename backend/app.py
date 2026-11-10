@@ -184,7 +184,7 @@ def health():
             'models':choice, 'design_ready':engines.installed(choice['design']['engine']),
             'clone_ready':engines.installed(choice['clone']['engine']),
             'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status(),
-            'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1','voice_packs':voice_packs.ENABLED}
+            'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1','voice_packs':voice_packs.ENABLED,'bundled_voices':voice_packs.BUNDLED}
 
 class ServerSettingsInput(BaseModel):
     port: int = Field(default=0, ge=0, le=65535)
