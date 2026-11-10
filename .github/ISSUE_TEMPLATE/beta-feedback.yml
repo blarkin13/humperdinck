@@ -1,0 +1,88 @@
+name: "Beta issue (sanitized)"
+description: "Report a reproducible Humperdinck beta defect without sharing personal data, voice files or private scripts."
+title: "[BETA] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Public issue notice:** Anyone may read this issue. Do not attach recordings, private scripts, email addresses, device IDs, tokens, license keys, payment details, personal screenshots, consent forms or raw logs containing identifying information.
+        For privacy, legal or billing issues, contact the appropriate alias listed at https://humperdinck.studio/help/ instead of filing customer details publicly. Use only fictional text and anonymized reproduction steps. If the issue involves unsafe voice replication, describe the behavior without posting a replicated voice.
+  - type: input
+    id: beta-id
+    attributes:
+      label: Anonymous beta reference
+      description: "Optional random ID assigned by the study owner (e.g., BETA-2026-001). Not your name or email."
+      placeholder: "BETA-YYYY-NNN"
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux
+        - Browser studio
+        - Other / unknown
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Release or version
+      placeholder: "e.g. 0.1.x (public version only)"
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area affected
+      options:
+        - Installer / security warning
+        - First launch / account
+        - Model download / setup
+        - Voice Library
+        - Narration Studio
+        - Video Studio
+        - Audio playback / export
+        - Accessibility / usability
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps with fictional content
+      description: "Use short synthetic text instead of your own writing or voice recordings."
+      placeholder: "1. Open ...\n2. Select ...\n3. Enter: The lighthouse stood above the harbor."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior (redact sensitive details)
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Effect on use
+      options:
+        - Blocks first audio or core feature
+        - Workaround exists, but serious
+        - Minor usability problem
+        - Suggestion / enhancement
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Public-data safety review
+      options:
+        - label: "I removed private content, personal or account identifiers, recordings and sensitive logs from this report."
+          required: true
