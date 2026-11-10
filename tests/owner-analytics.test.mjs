@@ -68,3 +68,9 @@ test('Cloudflare parser ignores malicious negative or non-numeric datapoints',as
  assert.equal(data.page_views,5);
  assert.equal(data.download_clicks.windows,0);
 });
+test('GitHub token is sent when configured and rate limits are explained',async()=>{
+ let auth=null;
+ const result=await readGithubDownloads(async(url,init)=>{auth=init.headers.Authorization;return new Response('limit',{status:403})},{GITHUB_DOWNLOADS_TOKEN:'t'});
+ assert.equal(auth,'Bearer t');
+ assert.match(result.reason,/HTTP 403, rate limited/);
+});

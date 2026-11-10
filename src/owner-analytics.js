@@ -34,11 +34,15 @@ export async function readSiteEvents(env,days,fetcher=fetch){
   return {available:true,...summarizeEvents(data.data)};
  }catch{return {available:false,reason:'Cloudflare analytics temporarily unavailable'};}
 }
-export async function readGithubDownloads(fetcher=fetch){
+export async function readGithubDownloads(fetcher=fetch,env={}){
  try{
   const url='https://api.github.com/repos/blarkin13/humperdinck-downloads/releases?per_page=100';
-  const response=await fetcher(url,{headers:{Accept:'application/vnd.github+json','User-Agent':'Humperdinck-Owner-Analytics'},signal:AbortSignal.timeout(6000)});
-  if(!response.ok)return {available:false,reason:'GitHub release counts are unavailable'};
+  // Unauthenticated GitHub API calls share a per-IP limit, and Cloudflare's
+  // outbound IPs are shared, so an optional read-only token avoids 403s.
+  const headers={Accept:'application/vnd.github+json','User-Agent':'Humperdinck-Owner-Analytics'};
+  if(env.GITHUB_DOWNLOADS_TOKEN)headers.Authorization=`Bearer ${env.GITHUB_DOWNLOADS_TOKEN}`;
+  const response=await fetcher(url,{headers,signal:AbortSignal.timeout(6000)});
+  if(!response.ok)return {available:false,reason:`GitHub release counts are unavailable (HTTP ${response.status}${response.status===403||response.status===429?', rate limited; set GITHUB_DOWNLOADS_TOKEN':''})`};
   const releases=await response.json();
   if(!Array.isArray(releases))return {available:false,reason:'Invalid GitHub release data'};
   const counts={windows:0,macos:0,linux:0},assets=[];
@@ -65,7 +69,7 @@ export async function handleOwnerAnalytics(request,env,{user,fetcher=fetch}={}){
  const days=Number(url.searchParams.get('days')||7);
  if(!daysAllowed.has(days)||!/^([137]|30)$/.test(String(url.searchParams.get('days')||7)))
   return json({error:'Invalid range'},400);
- const [events,github]=await Promise.all([readSiteEvents(env,days,fetcher),readGithubDownloads(fetcher)]);
+ const [events,github]=await Promise.all([readSiteEvents(env,days,fetcher),readGithubDownloads(fetcher,env)]);
  return json({days,events,github,notes:{
   unique_visitors:'Use Cloudflare Web Analytics for unique visitor estimates; anonymous page_view events are not unique users.',
   downloads:'GitHub release asset counters are cumulative; website button clicks do not establish completed downloads.',
