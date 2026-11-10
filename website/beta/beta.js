@@ -27,7 +27,8 @@ async function load(){
   state.isOwner=data.isOwner===true;state.reports=data.reports||[];
   $('review').hidden=!state.isOwner;
   renderReports();
-  if(state.isOwner)await loadGrants();
+  if(state.isOwner){await loadGrants();await loadInvitations();}
+  else if(data.canSubmit!==true)await checkInvitations();
  }catch(error){
   $('content').hidden=true;$('state').hidden=false;
   $('state').replaceChildren();
@@ -107,6 +108,97 @@ $('save-status').addEventListener('click',async()=>{
   await load();
  }catch(error){$('dialog-message').textContent=error.message;}
  finally{b.disabled=false;}
+});
+async function checkInvitations(){
+ $('invite-claim-panel').hidden=true;
+ try{
+  const data=await api('/invitations/status');
+  $('invite-claim-panel').hidden=!data.invited;
+ }catch{}
+}
+$('claim-invite').addEventListener('click',async()=>{
+ const button=$('claim-invite');button.disabled=true;
+ $('claim-result').textContent='Activating your invitation…';
+ try{
+  const data=await api('/invitations/claim',{method:'POST'});
+  $('claim-result').textContent='Beta Pro active until '+new Date(data.expires_at*1000).toLocaleDateString()+'. You can now connect Humperdinck on your desktop.';
+  await load();
+ }catch(error){$('claim-result').textContent=error.message;}
+ finally{button.disabled=false;}
+});
+const inviteDraft=(email,url)=>{
+ return 'You are invited to test Humperdinck!\n\n'+
+ 'Please open '+url+' and sign in with this Google account: '+email+'\n\n'+
+ 'After signing in, select “Activate 30-day Pro” in the Beta Feedback page. '+
+ 'This gives you temporary Pro access for 30 days, starting when you activate it. '+
+ 'The invitation itself expires in 14 days. Beta software may have bugs. '+
+ 'Please submit only your own or permitted voice recordings and remove personal details from screenshots.\n\n'+
+ 'We welcome candid feedback, not positive reviews. Privacy: https://humperdinck.studio/privacy/\n'+
+ 'For help: support@humperdinck.studio';
+};
+async function loadInvitations(){
+ const list=$('invite-list');list.replaceChildren();
+ try{
+  const data=await api('/admin/invitations');
+  for(const item of data.invitations||[]){
+   const row=el('div',null,'grant-row');
+   const status=item.revoked_at?'Revoked':item.accepted_at?'Claimed':item.expires_at<=Date.now()/1000?'Expired':'Awaiting sign-in';
+   row.append(el('strong',item.email),el('span',status+' · Invitation expires '+new Date(item.expires_at*1000).toLocaleDateString(),'status'));
+   if(status==='Awaiting sign-in'){
+    const revoke=el('button','Cancel invitation');revoke.type='button';
+    revoke.addEventListener('click',async()=>{
+     if(!confirm('Cancel this unclaimed beta invitation?'))return;
+     revoke.disabled=true;
+     try{await api('/admin/invitations/'+item.id+'/revoke',{method:'POST'});await loadInvitations();}
+     catch(error){$('invite-result').textContent=error.message;}
+     finally{revoke.disabled=false;}
+    });row.append(revoke);
+   }
+   list.append(row);
+  }
+  if(!data.invitations?.length)list.append(el('p','No invitations created yet.','muted'));
+ }catch(error){$('invite-result').textContent='Could not load invitations: '+error.message;}
+}
+$('invite-form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const button=event.currentTarget.querySelector('button');button.disabled=true;
+ $('invite-result').textContent='Creating invitation…';
+ try{
+  const email=$('invite-email').value.trim().toLowerCase();
+  const data=await api('/admin/invitations',{method:'POST',
+   headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+  const body=inviteDraft(data.email,data.invitation_url);
+  $('invite-compose').hidden=false;
+  $('invite-message').value=body;
+  $('email-invitation').href='mailto:'+encodeURIComponent(data.email)+
+   '?subject='+encodeURIComponent('Invitation to test Humperdinck')+
+   '&body='+encodeURIComponent(body);
+  $('invite-result').textContent='Invitation created. Copy or compose the email to send it. No email has been sent yet.';
+  $('invite-email').value='';
+  await loadInvitations();
+ }catch(error){$('invite-result').textContent=error.message;}
+ finally{button.disabled=false;}
+});
+$('copy-invitation').addEventListener('click',async()=>{
+ try{await navigator.clipboard.writeText($('invite-message').value);
+  $('invite-result').textContent='Invitation message copied.';}
+ catch{$('invite-result').textContent='Select the invitation text above to copy it.';}
+});
+$('test-revoke-form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const email=$('test-revoke-email').value.trim().toLowerCase();
+ if(!confirm('Revoke ONLY the Lemon Squeezy TEST lifetime Pro license for '+email+'? The test order is retained. Any offline certificates already exported cannot be remotely revoked.'))return;
+ const button=event.currentTarget.querySelector('button');button.disabled=true;
+ $('test-revoke-result').textContent='Checking test entitlement…';
+ try{
+  const result=await api('/admin/test-license/revoke',{method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({email,confirm:'REVOKE TEST LICENSE'})});
+  $('test-revoke-result').textContent=result.revoked?
+   'Test lifetime Pro entitlement revoked. Account reverts to Free unless another Pro grant exists. Transaction history preserved.':'Unable to revoke test license.';
+  $('test-revoke-email').value='';
+ }catch(error){$('test-revoke-result').textContent=error.message;}
+ finally{button.disabled=false;}
 });
 async function loadGrants(){
  const panel=$('grant-panel'),list=$('grant-list');list.replaceChildren();
