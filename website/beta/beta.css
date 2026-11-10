@@ -3,3 +3,13 @@
 .danger{background:transparent;border:1px solid #9e6363;color:#f0cccc;padding:10px 14px;border-radius:8px;cursor:pointer;margin-top:20px}
 
 #grant-panel{border-top:1px solid #404040;margin-top:22px;padding-top:12px}#grant-panel h3{font-size:17px}#grant-form button,.grant-row button{border-radius:8px;border:1px solid #aaa;background:#222;color:#eee;min-height:40px;padding:9px 11px;cursor:pointer}#grant-form button:disabled,.grant-row button:disabled{opacity:.6}.grant-row{padding:12px 0;border-bottom:1px solid #383838;overflow-wrap:anywhere}.grant-row strong,.grant-row .status{display:block}.grant-row button{margin-top:8px}#grant-result{font-size:13px;color:#ccc}
+
+#invite-claim-panel p{color:#c2c2c2;line-height:1.55}
+#invite-claim-panel button,#invite-form button,#copy-invitation{background:#ededed;color:#111;border:0;border-radius:9px;padding:11px 15px;cursor:pointer;min-height:43px;font-weight:700}
+#invitation-panel,#test-license-panel{border-bottom:1px solid #424242;padding:12px 0 22px;margin-bottom:22px}
+#invitation-panel h3,#test-license-panel h3{font-size:18px;letter-spacing:-.02em}
+#invite-compose{margin:14px 0 20px}
+#invite-compose textarea{background:#090909;border:1px solid #555;color:#ddd;width:100%;padding:12px;border-radius:9px;line-height:1.55;resize:vertical;min-height:175px;font-size:13px}
+#invite-compose a{display:inline-block;font-size:13px;padding:12px 4px}
+#test-revoke-form .danger{margin:0}
+#invite-result,#test-revoke-result,#claim-result{font-size:13px;line-height:1.6;color:#dedede;overflow-wrap:anywhere}
