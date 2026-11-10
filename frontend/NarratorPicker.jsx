@@ -117,7 +117,7 @@ export default function NarratorPicker({api,options,currentKey,sectionNumber,use
     <button type="button" tabIndex={-1} className={'narrator-icon narrator-heart '+(fav?'on':'')} title={fav?'Remove from favorites (F)':'Add to favorites (F)'} aria-label={(fav?'Remove from favorites: ':'Add to favorites: ')+v.label} aria-pressed={fav} onClick={e=>{e.stopPropagation();toggleFavorite(v)}}>
      <i className={(fav?'fa-solid':'fa-regular')+' fa-heart'} aria-hidden="true"/></button>
     {!publicStudio&&v.kind!=='character'&&(()=>{const count=charactersOf(v).length,open=!!expanded[v.value+group];
-     return <button type="button" tabIndex={-1} className={'narrator-icon narrator-characters '+(open?'on':'')} title={count?(open?'Hide characters':'Show characters'):'New character (accent or way of talking)'} aria-expanded={count?open:undefined}
+     return <button type="button" tabIndex={-1} className={'narrator-icon narrator-characters '+(open?'on':'')} title={count?(open?'Hide characters':'Show characters'):'New character (impression or way of talking)'} aria-expanded={count?open:undefined}
       aria-label={count?`${open?'Hide':'Show'} ${count} character${count===1?'':'s'} of ${v.label}`:'New character for '+v.label}
       onClick={e=>{e.stopPropagation();if(count)setExpanded(o=>({...o,[v.value+group]:!open}));else{audio.current?.pause();setPlaying(null);setVariantOf(v)}}}>
       <i className="fa-solid fa-masks-theater" aria-hidden="true"/>{count>0&&<span className="narrator-count">{count}</span>}</button>})()}

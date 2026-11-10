@@ -196,7 +196,7 @@ function App(){
    ...uploads.filter(v=>!['builtin-humperdinck','humperdinck-catalog'].includes(v.origin)).map(v=>({value:'upload:'+v.voice_id,label:v.filename,accent:v.category||'Recorded / uploaded voice',kind:'uploaded',locked:!hasPro&&v.origin!=='recorded',previewUrl:'/api/voices/'+v.voice_id+'/audio'}))];
   // Characters belong to an original voice; the picker lists them under it.
   voiceOptions.push(...characters.map(c=>{const parent=voiceOptions.find(v=>v.value===c.source_key);return parent&&{value:'character:'+c.id,label:parent.label+' · '+c.name,
-   accent:[c.accent&&c.accent!=='Keep the original'?c.accent+' accent':'',c.direction].filter(Boolean).join(' · ')||'Character',kind:'character',parent:parent.value,locked:!hasPro&&(parent.locked||!c.performer||!parent.value.startsWith('preset:')),gender:parent.gender,region:parent.region,previewUrl:'/api/characters/'+c.id+'/sample.wav'}}).filter(Boolean));
+   accent:c.summary||[c.accent&&c.accent!=='Keep the original'?c.accent+' accent':'',c.direction].filter(Boolean).join(' · ')||'Character',kind:'character',parent:parent.value,locked:!hasPro&&(parent.locked||!c.performer||!parent.value.startsWith('preset:')),gender:parent.gender,region:parent.region,previewUrl:'/api/characters/'+c.id+'/sample.wav'}}).filter(Boolean));
  const busy=job=>['queued','running'].includes(job?.status);
  function changeBlock(id,field,value){
   setBlocks(old=>field==='text'?replaceSectionText(old,id,value):field==='voice_key'?assignSectionSpeaker(old,id,value):old.map(b=>b.id===id?{...b,[field]:value}:b));

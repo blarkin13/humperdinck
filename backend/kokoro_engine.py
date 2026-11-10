@@ -16,7 +16,7 @@ class KokoroEngine:
             self.model = Kokoro(str(folder / 'kokoro-v1.0.onnx'), str(folder / 'voices-v1.0.bin'))
         return self.model
 
-    def synthesize(self, text: str, voice: str, destination: Path, on_progress=None, speed=1.0):
+    def synthesize(self, text: str, voice: str, destination: Path, on_progress=None, speed=1.0, blend=None):
         import numpy as np
         import soundfile as sf
         if voice not in PRESET_VOICES['kokoro']:
@@ -25,6 +25,14 @@ class KokoroEngine:
         if not chunks:
             raise ValueError('No narration text')
         model = self.load()
+        style = voice
+        if blend:
+            # An impression: this voice's style moved part of the way toward another
+            # voice. The source voice keeps its language and most of its identity.
+            other, weight = blend.get('voice'), float(blend.get('weight', 0))
+            if other not in PRESET_VOICES['kokoro'] or not 0 < weight <= 0.6:
+                raise ValueError('Invalid impression blend')
+            style = (1 - weight) * model.get_voice_style(voice) + weight * model.get_voice_style(other)
         audio, rate = [], None
         # v1.0 Kokoro uses distinct phoneme sets across languages. Never
         # phonemize all voices as American English.
@@ -48,9 +56,9 @@ class KokoroEngine:
         for index, chunk in enumerate(chunks):
             if g2p is not None:
                 phonemes, _ = g2p(chunk)
-                samples, current_rate = model.create(phonemes, voice=voice, speed=speed, is_phonemes=True)
+                samples, current_rate = model.create(phonemes, voice=style, speed=speed, is_phonemes=True)
             else:
-                samples, current_rate = model.create(chunk, voice=voice, speed=speed, lang=language)
+                samples, current_rate = model.create(chunk, voice=style, speed=speed, lang=language)
             if rate is not None and current_rate != rate:
                 raise RuntimeError('Inconsistent Kokoro sample rates')
             rate = current_rate

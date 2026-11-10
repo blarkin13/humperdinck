@@ -4,7 +4,7 @@ import {useNotifications} from './Notifications.jsx';
 const roles=[['preset','Fast preset narration','Fast, CPU-friendly built-in voices in multiple languages, ready to use throughout Humperdinck. These are preset voices, not clones of uploaded recordings.'],
  ['design','Voice design','Turns a written description or the sliders into preview voices in Voice Creator.'],
  ['clone','Custom voice cloning','Recreates an approved designed voice or uploaded recording in Narration Studio. This can be much slower than preset narration.'],
- ['convert','Character voices','Gives any of your voices an accent or a character performance while keeping it that voice. About 130 MB plus PyTorch; runs on CPU.']];
+ ['convert','Character voices','Gives your recorded and designed voices a character performance while keeping that voice. Built-in voices do impressions without it. About 130 MB plus PyTorch; runs on CPU.']];
 
 // Kokoro's voices share one download, so it gets a single row instead of one per voice.
 function KokoroVoices({e,data,running,install,removeModel}){
