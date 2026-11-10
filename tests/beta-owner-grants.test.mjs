@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
-import {handleBetaFeedback} from '../src/beta-feedback.js';
+import {handleBetaFeedback,purgeOldBetaGrants} from '../src/beta-feedback.js';
 
 globalThis.crypto ||= webcrypto;
 const home='https://humperdinck.studio';
@@ -49,4 +49,14 @@ test('owner can revoke online renewals, not previously signed offline access',as
  assert.equal(r.status,200);
  assert.match((await r.json()).warning,/offline beta certificates/);
  assert.ok(x.calls.some(v=>v.sql.includes('UPDATE beta_pro_grants')));
+});
+
+test('expired beta grant cleanup uses a bounded timestamp and never touches purchase tables',async()=>{
+ const x=make(),at=1_700_000_000;
+ const result=await purgeOldBetaGrants(x.env,{cutoff:at});
+ assert.deepEqual(result,{deleted:1,skipped:false});
+ const query=x.calls.find(c=>c.sql.startsWith('DELETE FROM beta_pro_grants'));
+ assert.ok(query);
+ assert.deepEqual(query.args,[at,at]);
+ assert.equal(x.calls.some(c=>c.sql.includes('pro_licenses')),false);
 });
