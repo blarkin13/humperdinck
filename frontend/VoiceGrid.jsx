@@ -1,18 +1,19 @@
 import React,{useEffect,useRef,useState} from 'react';
 
-const PALETTES=[['#193A3E','#C6A46A','#F0E5CF'],['#A3544C','#F0E5CF','#C6A46A'],['#C6A46A','#101B23','#193A3E'],['#24494d','#A3544C','#F0E5CF'],['#F0E5CF','#193A3E','#A3544C']];
+import {createAvatar} from '@dicebear/core';
+import * as notionists from '@dicebear/notionists';
 
+// Notionists avatars by DiceBear (CC0). Drawn on this computer from the voice's
+// name, so each voice keeps its own face and nothing is downloaded.
+const AVATAR_BACKGROUNDS=['f0e5cf','e6d3ae','d8e3dc','efd6cc','dde4ea','e9e1f0'];
 function hash(text){let h=2166136261;for(const c of text)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0}
-
-// Mid-century sleeve art: a few circles, bars and arcs placed from the voice's name, so each voice keeps its own cover.
+const avatars=new Map();
+function avatarUri(seed){
+ if(!avatars.has(seed))avatars.set(seed,createAvatar(notionists,{seed,backgroundColor:AVATAR_BACKGROUNDS,backgroundType:['solid']}).toDataUri());
+ return avatars.get(seed);
+}
 function SleeveArt({seed}){
- const h=hash(seed),[bg,a,b]=PALETTES[h%PALETTES.length],r=n=>(h>>>n)%100,layout=h%3;
- return <svg className="sleeve-art" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-  <rect width="160" height="100" fill={bg}/>
-  {layout===0&&<><circle cx={40+r(3)*.6} cy="55" r="34" fill={a}/><circle cx={95+r(5)*.3} cy="45" r="22" fill="none" stroke={b} strokeWidth="5"/><rect x="0" y="84" width="160" height="5" fill={b}/></>}
-  {layout===1&&<>{[0,1,2,3,4].map(i=><rect key={i} x={18+i*26} y={20+((h>>>i*3)%40)} width="12" height={80} fill={i%2?a:b}/>)}<circle cx={130} cy={24} r="12" fill={a}/></>}
-  {layout===2&&<><path d="M0 100 A80 80 0 0 1 160 100" fill={a}/><path d="M30 100 A50 50 0 0 1 130 100" fill={bg}/><circle cx={30+r(7)} cy="26" r="9" fill={b}/><rect x="120" y="14" width="26" height="4" fill={b}/><rect x="120" y="22" width="18" height="4" fill={b}/></>}
- </svg>;
+ return <img className="sleeve-art" src={avatarUri(seed)} alt="" aria-hidden="true" draggable="false"/>;
 }
 
 const METHODS={preset:['Built-in voice','fa-compact-disc'],sliders:['Designed with sliders','fa-sliders'],prompt:['Described in words','fa-feather-pointed'],designed:['Designed with AI','fa-wand-magic-sparkles'],

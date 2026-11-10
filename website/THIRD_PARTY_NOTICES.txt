@@ -15,6 +15,13 @@ Browser speech model:
   License: Apache License 2.0
   Model weights are downloaded by users' browsers from Hugging Face.
 
+Voice avatars:
+  DiceBear (@dicebear/core) - https://www.dicebear.com
+  License: MIT, Copyright (c) Florian Koerner
+  "Notionists" avatar style (@dicebear/notionists), based on Notionists by Zoish
+  License: CC0 1.0 (public domain dedication)
+  Avatars are drawn on the user's own device; nothing is downloaded.
+
 The public build also bundles JavaScript runtime dependencies from npm. The
 licenses and copyright notices for those dependencies remain applicable.
 These acknowledgments are kept in a license notice rather than shown under

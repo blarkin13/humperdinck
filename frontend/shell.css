@@ -60,3 +60,7 @@
  .app-shell .topbar{margin:0 -16px 18px;padding:10px 16px}
  :root .app-shell .workspace section{padding:20px 18px;border-radius:14px}
 }
+
+/* Voice avatars (DiceBear Notionists): soft rounded frame, no sleeve glare */
+.app-shell .voice-card .sleeve{border-radius:14px}
+.app-shell .voice-card .sleeve::after{display:none}
