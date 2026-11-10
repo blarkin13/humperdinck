@@ -12,3 +12,7 @@
 - Never require a Cloudflare account or a network request for Free desktop narration. Users' local voice recordings, project files, and AI model weights stay local unless the user explicitly shares them.
 
 See `docs/CLOUDFLARE_AGENT_SETUP.md` for how to connect your coding agent.
+
+## Development tracker and evidence (owner direction)
+
+Follow [CLAUDE.md](CLAUDE.md) for the mandatory P0–P3 tracking process. The Launch Tasks spreadsheet is concise; full per-task historical work and acceptance evidence for **every** priority is retained in the Development Status Google Doc. The spreadsheet completion-evidence cell contains only brief PR references; "Pending on" contains **one** accountable person/entity (monitoring row: **Brian**). Never discard existing evidence; archive and append before shortening tracker cells.
