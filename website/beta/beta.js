@@ -87,13 +87,7 @@ $('feedback-form').addEventListener('submit',async event=>{
   $('result').textContent='Feedback saved. Reference: '+data.id+
    (failures?' — '+failures+' screenshot(s) could not upload; please contact support.':'');
   $('feedback-form').reset();$('image-list').replaceChildren();
-  await $('delete-report').addEventListener('click',async()=>{
- if(!state.active||!confirm('Delete this report and every attached screenshot permanently?'))return;
- const id=state.active.id;
- try{await api('/reports/'+id,{method:'DELETE'});$('report-dialog').close();state.active=null;await load();}
- catch(error){$('dialog-message').textContent=error.message||'Could not delete report';}
-});
-load();
+  await load();
  }catch(error){$('result').textContent=error.message||'Submission failed. Please try again.';}
  finally{send.disabled=false;}
 });
@@ -107,5 +101,11 @@ $('save-status').addEventListener('click',async()=>{
   await load();
  }catch(error){$('dialog-message').textContent=error.message;}
  finally{b.disabled=false;}
+});
+$('delete-report').addEventListener('click',async()=>{
+ if(!state.active||!confirm('Delete this report and every attached screenshot permanently?'))return;
+ const id=state.active.id;
+ try{await api('/reports/'+id,{method:'DELETE'});$('report-dialog').close();state.active=null;await load();}
+ catch(error){$('dialog-message').textContent=error.message||'Could not delete report';}
 });
 load();
