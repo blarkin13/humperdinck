@@ -23,6 +23,29 @@ CODE_FILES = ("app.py", "catalog.py", "engines.py", "engine.py", "worker.py", "k
               "shared_models.py", "audio_fx.py", "native_models.py")
 
 
+def render_code_stamp() -> str | None:
+    """Hash of the rendering code, so an app update invalidates reused speech."""
+    code_stamp = hashlib.sha256()
+    source_dir = Path(__file__).resolve().parent
+    for filename in CODE_FILES:
+        code_stamp.update(filename.encode())
+        source = source_dir / filename
+        if source.is_file():
+            code_stamp.update(source.read_bytes())
+        elif getattr(sys, "frozen", False) or os.getenv("HUMPERDINCK_NATIVE_PACKAGE") == "1":
+            # Packaged Python helpers generally contain bytecode, not .py
+            # source files. Use the exact installed helper binary identity
+            # so a native update invalidates old rendered speech.
+            executable = Path(sys.executable)
+            stamp = executable.stat()
+            code_stamp.update(json.dumps(
+                [str(executable), stamp.st_size, stamp.st_mtime_ns]).encode())
+            break
+        else:
+            return None
+    return code_stamp.hexdigest()
+
+
 def preset_render_key(*, model_root: Path, voice_key: str, text: str,
                       speed: float, gain: float, desk: dict | None) -> str | None:
     """Return a stable key or None if the model is not present/inspectable.
@@ -44,27 +67,12 @@ def preset_render_key(*, model_root: Path, voice_key: str, text: str,
         for path in model_files:
             stat = path.stat()
             model_stamp.append([str(path.relative_to(root)), stat.st_size, stat.st_mtime_ns])
-        code_stamp = hashlib.sha256()
-        source_dir = Path(__file__).resolve().parent
-        for filename in CODE_FILES:
-            code_stamp.update(filename.encode())
-            source = source_dir / filename
-            if source.is_file():
-                code_stamp.update(source.read_bytes())
-            elif getattr(sys, "frozen", False) or os.getenv("HUMPERDINCK_NATIVE_PACKAGE") == "1":
-                # Packaged Python helpers generally contain bytecode, not .py
-                # source files. Use the exact installed helper binary identity
-                # so a native update invalidates old rendered preset speech.
-                executable = Path(sys.executable)
-                stamp = executable.stat()
-                code_stamp.update(json.dumps(
-                    [str(executable), stamp.st_size, stamp.st_mtime_ns]).encode())
-                break
-            else:
-                return None
+        code_stamp = render_code_stamp()
+        if code_stamp is None:
+            return None
         payload = json.dumps({
             "schema": CACHE_VERSION, "model_files": model_stamp,
-            "render_code": code_stamp.hexdigest(), "voice": voice_key,
+            "render_code": code_stamp, "voice": voice_key,
             "text": text, "speed": speed, "gain": gain, "desk": desk,
         }, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
