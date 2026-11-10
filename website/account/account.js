@@ -251,7 +251,14 @@ async function refreshOwnerAnalytics(){
    q('analytics-download-'+platform).textContent=github.available?display(github.counts?.[platform]):'—';
   }
   q('analytics-downloads').textContent=github.available?display(Object.values(github.counts||{}).reduce((a,b)=>a+Number(b||0),0)):'—';
+  const accounts=info.accounts||{};
+  q('analytics-accounts-active').textContent=accounts.available?display(accounts.active):'—';
+  q('analytics-accounts-detail').textContent=accounts.available?`${display(accounts.total)} total · ${display(accounts.new_accounts)} new`:'—';
+  const providerName=p=>({google:'Google',apple:'Apple',github:'GitHub',microsoft:'Microsoft',email:'Email'}[p]||p);
+  q('analytics-accounts-providers').textContent=accounts.available?Object.entries(accounts.providers||{})
+   .map(([p,c])=>`${providerName(p)} ${display(c.active)} active / ${display(c.total)}`).join(' · '):'';
   const messages=[];
+  if(!accounts.available)messages.push('Accounts: '+(accounts.reason||'unavailable'));
   if(!events.available)messages.push('Cloudflare events: '+(events.reason||'unavailable'));
   if(!github.available)messages.push('GitHub download counts: '+(github.reason||'unavailable'));
   status.textContent=messages.length?messages.join(' · '):'Live aggregate counts loaded. GitHub totals cover published assets, all time.';
