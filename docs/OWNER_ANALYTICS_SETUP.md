@@ -9,6 +9,7 @@ The account page reveals the Owner Analytics panel only after `GET /api/account/
 - `ANALYTICS_OWNER_ACCOUNT_ID`: owner's exact `auth_users.id` UUID from the account dashboard. Do not use a display name, email address, or customer-managed account label.
 - `CF_ANALYTICS_ACCOUNT_ID`: Cloudflare account ID (32 lowercase hex characters).
 - `CF_ANALYTICS_READ_TOKEN`: **secret**, limited to Account Analytics Read for the relevant account. Never use a Global API Key or put this in code, documentation, GitHub Actions logs or frontend JavaScript.
+- `GITHUB_DOWNLOADS_TOKEN` (optional, **secret**): a fine-grained GitHub token with read-only access to public repositories. Without it the GitHub API often rate-limits Cloudflare's shared IPs and the dashboard shows "GitHub release counts are unavailable (HTTP 403, rate limited)". Set with `npx wrangler secret put GITHUB_DOWNLOADS_TOKEN`.
 
 The existing `ANALYTICS` binding writes to dataset `humperdinck_site_events`; the new endpoint reads its aggregates with Cloudflare Workers Analytics Engine's **original** account-scoped SQL API. Missing/invalid credentials display an unavailable state rather than invented zeros.
 
