@@ -15,6 +15,7 @@ function setup(user={id:userId,kind:'web'}){
  const db={prepare(sql){
   return {bind(...params){calls.push({sql,params});return {
    first:async()=>{
+    if(sql.includes('FROM beta_pro_grants WHERE user_id='))return {id:'valid-invitation'};
     if(sql.includes('FROM beta_reports WHERE id='))return params[0]===uuid&&(params[1]===userId||params[2]===1)?report:null;
     if(sql.includes('FROM beta_screenshots'))return null;
     return null;
@@ -22,7 +23,7 @@ function setup(user={id:userId,kind:'web'}){
    run:async()=>({meta:{changes:1}})
   }}};
  }};
- const env={BETA_FEEDBACK_ENABLED:'1',ANALYTICS_OWNER_ACCOUNT_ID:ownerId,
+ const env={BETA_FEEDBACK_ENABLED:'1',BETA_PRO_ENABLED:'1',ANALYTICS_OWNER_ACCOUNT_ID:ownerId,
   AUTH_DB:db,BETA_SCREENSHOTS:{get:async key=>bucket.get(key)||null,put:async(key,data)=>bucket.set(key,{body:data})}};
  const session=async()=>user;
  return {env,session,calls,report,bucket};
@@ -57,7 +58,7 @@ test('rejects sensitive or incomplete report contract and missing confirmation',
  const {env,session,calls}=setup();
  const data={category:'bug',platform:'macos',area:'narration',summary:'Issue with audio',details:'A fictional bug reproduced',privacyConfirmed:false};
  const r=await handleBetaFeedback(req('/api/beta/reports','POST',data),env,{session});
- assert.equal(r.status,400);assert.equal(calls.length,0);
+ assert.equal(r.status,400);assert.equal(calls.some(x=>x.sql.startsWith('INSERT INTO beta_reports')),false);
 });
 test('accepts valid report through atomic per-user cap',async()=>{
  const {env,session,calls}=setup();
@@ -174,4 +175,18 @@ test('screenshot upload rejects spoofed CRC and unwanted metadata tampering',asy
   method:'POST',headers:{Origin:home,'Content-Type':'image/png'},body:modified});
  const response=await handleBetaFeedback(request,env,{session});
  assert.equal(response.status,400);
+});
+
+test('signed-in users without an active beta invitation cannot submit',async()=>{
+ const {env,session,calls}=setup();
+ const original=env.AUTH_DB.prepare.bind(env.AUTH_DB);
+ env.AUTH_DB.prepare=sql=>{
+  if(sql.includes('FROM beta_pro_grants WHERE user_id='))return {bind:()=>({first:async()=>null})};
+  return original(sql);
+ };
+ const data={category:'bug',platform:'macos',area:'narration',
+  summary:'Fictional issue',details:'A fictional bug reproduced safely',privacyConfirmed:true};
+ const r=await handleBetaFeedback(req('/api/beta/reports','POST',data),env,{session});
+ assert.equal(r.status,403);
+ assert.equal(calls.some(x=>x.sql.startsWith('INSERT INTO beta_reports')),false);
 });
