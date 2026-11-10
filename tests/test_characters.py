@@ -10,6 +10,16 @@ def test_performer_uses_kokoro_only_for_real_accents_without_direction():
     assert ch.performer(ch.KEEP, '', 'male', 0) is None
 
 
+def test_performer_never_uses_the_opposite_gender():
+    assert ch.performer('French', '', 'male', 0) is None  # Designed instead of a woman's voice.
+    assert ch.performer('French', '', '', 0) == 'ff_siwis'  # No gender chosen: any real speaker.
+    female = {v for a in ch.KOKORO_ACCENTS.values() for v in a['female']}
+    for accent, voices in ch.KOKORO_ACCENTS.items():
+        for take in range(3):
+            voice = ch.performer(accent, '', 'male', take)
+            assert voice is None or voice not in female, (accent, voice)
+
+
 def test_description_leads_with_accent_and_adds_direction():
     text = ch.description('Scottish', 'slow and gravelly', 'male')
     assert text.startswith('A man from Glasgow') and 'Delivery: slow and gravelly' in text
