@@ -40,7 +40,7 @@ class JobStore:
             for row in c.execute("SELECT job_id, data FROM jobs").fetchall():
                 data = json.loads(row[1])
                 if data.get('status') in ('queued', 'running'):
-                    data.update(status='failed', message='Interrupted by a backend restart. Please try again.')
+                    data.update(status='failed', message='Interrupted by a backend restart. Try again to continue from the finished sections.')
                     c.execute('UPDATE jobs SET data=?, updated_at=? WHERE job_id=?', (json.dumps(data), now(), row[0]))
 
     @contextmanager
