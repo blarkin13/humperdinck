@@ -1,18 +1,18 @@
 import React,{useEffect,useRef,useState} from 'react';
 
-const PALETTES=[['#193A3E','#C6A46A','#F0E5CF'],['#A3544C','#F0E5CF','#C6A46A'],['#C6A46A','#101B23','#193A3E'],['#24494d','#A3544C','#F0E5CF'],['#F0E5CF','#193A3E','#A3544C']];
+import {createAvatar} from '@dicebear/core';
+import * as lorelei from '@dicebear/lorelei';
 
+// Lorelei avatars by DiceBear (CC0). Drawn on this computer from the voice's
+// name, so each voice keeps its own face and nothing is downloaded.
 function hash(text){let h=2166136261;for(const c of text)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0}
-
-// Mid-century sleeve art: a few circles, bars and arcs placed from the voice's name, so each voice keeps its own cover.
-function SleeveArt({seed}){
- const h=hash(seed),[bg,a,b]=PALETTES[h%PALETTES.length],r=n=>(h>>>n)%100,layout=h%3;
- return <svg className="sleeve-art" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-  <rect width="160" height="100" fill={bg}/>
-  {layout===0&&<><circle cx={40+r(3)*.6} cy="55" r="34" fill={a}/><circle cx={95+r(5)*.3} cy="45" r="22" fill="none" stroke={b} strokeWidth="5"/><rect x="0" y="84" width="160" height="5" fill={b}/></>}
-  {layout===1&&<>{[0,1,2,3,4].map(i=><rect key={i} x={18+i*26} y={20+((h>>>i*3)%40)} width="12" height={80} fill={i%2?a:b}/>)}<circle cx={130} cy={24} r="12" fill={a}/></>}
-  {layout===2&&<><path d="M0 100 A80 80 0 0 1 160 100" fill={a}/><path d="M30 100 A50 50 0 0 1 130 100" fill={bg}/><circle cx={30+r(7)} cy="26" r="9" fill={b}/><rect x="120" y="14" width="26" height="4" fill={b}/><rect x="120" y="22" width="18" height="4" fill={b}/></>}
- </svg>;
+const avatars=new Map();
+function avatarUri(seed){
+ if(!avatars.has(seed))avatars.set(seed,createAvatar(lorelei,{seed}).toDataUri());
+ return avatars.get(seed);
+}
+export function SleeveArt({seed}){
+ return <img className="sleeve-art" src={avatarUri(seed)} alt="" aria-hidden="true" draggable="false"/>;
 }
 
 const METHODS={preset:['Built-in voice','fa-compact-disc'],sliders:['Designed with sliders','fa-sliders'],prompt:['Described in words','fa-feather-pointed'],designed:['Designed with AI','fa-wand-magic-sparkles'],
@@ -57,7 +57,7 @@ function VoiceShelf({name,count,children}){
 
 // Voice cards grouped by category in horizontally browsable shelves.
 // items: [{key,method,name,category,ready,status,summary,meters:[[label,0-100,low,high]],traits,specs:[[icon,text,title]],previewUrl,selected,onOpen,onDelete}]
-export default function VoiceGrid({items,onCreate,previewDisabled=false,onPreviewVoice=null,builtinPublisher=null,characterCounts=null,onCharacters=null}){
+export default function VoiceGrid({items,onCreate,previewDisabled=false,onPreviewVoice=null,gallery=null,characterCounts=null,onCharacters=null}){
  const [query,setQuery]=useState(''),[playing,setPlaying]=useState(null),[previewJobs,setPreviewJobs]=useState({}),audio=useRef(null);
  useEffect(()=>()=>audio.current?.pause(),[]);
  function playAudio(v,url,kind='generated'){
@@ -112,20 +112,24 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
  const names=Object.keys(groups).sort((a,b)=>{
   // User-owned voices first, then official Humperdinck voices, then model presets.
   const rank=name=>name==='My Voices'||name.startsWith('My Voices · ')?0
-   :name==='Built-In Humperdinck Voices'?1:2;
+   :name==='Built-In Humperdinck Voices'?1:name==='Voice Gallery'?1.5:2;
   if(rank(a)!==rank(b))return rank(a)-rank(b);
   if(a==='Uncategorized'||b==='Uncategorized')return a==='Uncategorized'?1:-1;
   return a.localeCompare(b);
  });
- const publisherGroup=names.includes('Built-In Humperdinck Voices')?'Built-In Humperdinck Voices':names.find(name=>name==='My Voices'||name.startsWith('My Voices · '))||names[0];
+ // The Voice Gallery sits right after the Built-In Humperdinck Voices (or My Voices).
+ // Gallery voices not yet downloaded are listed inside the Voice Gallery group
+ // (downloaded ones are its cards); without downloads it gets its own group.
+ const hasGalleryGroup=names.includes('Voice Gallery');
+ const galleryAfter=hasGalleryGroup?null:[...names].reverse().find(name=>name==='Built-In Humperdinck Voices'||name==='My Voices'||name.startsWith('My Voices · '));
+ const galleryGroup=<div className="voice-group voice-gallery-group" key="gallery"><h4><i className="fa-solid fa-store"/> Voice Gallery</h4><VoiceShelf name="Voice Gallery" count={1}>{gallery}</VoiceShelf></div>;
  return <div className="library">
   {items.length>6&&<div className="search-wrap"><i className="fa-solid fa-magnifying-glass"/><input className="search" type="search" aria-label="Search voices" placeholder="Search voices, categories or descriptions" value={query} onChange={e=>setQuery(e.target.value)}/></div>}
   {!items.length&&<div className="notice"><i className="fa-solid fa-record-vinyl"/> No voices yet. <button className="link" onClick={onCreate}>Create one in Voice Creator.</button></div>}
   {names.map(name=>{const list=groups[name];
-   return <div className="voice-group" key={name}>
+   return <React.Fragment key={name}><div className="voice-group">
     {names.length>1||name!=='Uncategorized'?<h4><i className="fa-solid fa-layer-group"/> {name} <small>{list.length} {list.length===1?'voice':'voices'}</small></h4>:null}
-    {builtinPublisher&&name===publisherGroup&&<div className="builtin-publisher">{builtinPublisher}</div>}
-    <VoiceShelf name={name} count={list.length}>{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing?.startsWith(v.key+':'),preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
+    <VoiceShelf name={name} count={list.length+(gallery&&name==='Voice Gallery'?1:0)}>{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing?.startsWith(v.key+':'),preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
      return <article key={v.key} className={'voice-card'+(v.selected?' selected':'')+(v.ready?' ready':'')} role="button" tabIndex={0} aria-label={'Open '+v.name} onClick={v.onOpen} onKeyDown={e=>e.key==='Enter'&&v.onOpen()}>
      {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
      <div className="card-top">
@@ -167,8 +171,8 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
       <span className={'status'+(v.ready?' ok':'')}><i className={'fa-solid '+(v.ready?'fa-circle-check':'fa-pen-ruler')}/>{v.status}</span>
       <span className="specs">{v.specs.filter(Boolean).map(([icon,text,title])=><span key={title} title={title}><i className={icon}/>{text}</span>)}</span>
      </div>
-    </article>})}</VoiceShelf>
-   </div>})}
-   {builtinPublisher&&!publisherGroup&&<div className="builtin-publisher">{builtinPublisher}</div>}
+    </article>})}{gallery&&name==='Voice Gallery'&&gallery}</VoiceShelf>
+   </div>{gallery&&name===galleryAfter&&galleryGroup}</React.Fragment>})}
+   {gallery&&!hasGalleryGroup&&!galleryAfter&&galleryGroup}
  </div>;
 }

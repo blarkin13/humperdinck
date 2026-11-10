@@ -137,3 +137,61 @@ def test_full_narration_reuses_unchanged_preset_sections_without_reinvoking_engi
     run("c" * 32, text="Updated text.")
     run("d" * 32, speed=1.1)
     assert len(calls) == 3
+
+
+def test_narration_cancel_during_preset_engine_never_publishes_final_output(tmp_path, monkeypatch):
+    """Cancellation waits for the current engine call and stops before assembly."""
+    from backend import app as api
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    import soundfile as sf
+
+    root = model(tmp_path)
+    (tmp_path / "outputs").mkdir()
+    monkeypatch.setattr(api, "DATA", tmp_path)
+    monkeypatch.setattr(api, "preset_section_cache", PresetSectionCache(tmp_path / "render-cache"))
+    monkeypatch.setattr(api, "jobs", {})
+    monkeypatch.setattr(api, "settings", SimpleNamespace(load=lambda: {"clone": {"engine": "unused"}}))
+    monkeypatch.setattr(api.catalog, "preset_path", lambda _engine, _voice: root)
+    calls = []
+
+    job_id = "e" * 32
+    api.jobs[job_id] = {"job_id": job_id, "kind": "narration", "status": "queued", "progress": 0}
+
+    def synth(engine, voice, output, text, *, on_progress=None, speed=1):
+        calls.append(text)
+        assert api.cancel_narration(job_id)["cancel_requested"] is True
+        sf.write(output, np.array([0.1, 0.2], dtype=np.float32), 24_000)
+
+    monkeypatch.setattr(api.engines, "preset", synth)
+    request = api.MultiNarrationRequest(
+        blocks=[
+            {"text": "First.", "voice_key": "preset:kokoro:af_heart"},
+            {"text": "Second.", "voice_key": "preset:kokoro:af_heart"},
+        ],
+        format="wav",
+    )
+    api.run_multi(job_id, request, [(None, ("kokoro", "af_heart"))] * 2)
+    assert calls == ["First."]
+    assert api.jobs[job_id]["status"] == "cancelled"
+    assert not (tmp_path / "outputs" / f"{job_id}.wav").exists()
+    assert not list((tmp_path / "outputs").glob(f"{job_id}-*.wav"))
+    try:
+        api.cancel_narration(job_id)
+    except HTTPException as exc:
+        assert exc.status_code == 409
+    else:
+        raise AssertionError("Finished narration must reject cancellation")
+
+
+def test_narration_cancel_rejects_other_job_kinds(tmp_path, monkeypatch):
+    from backend import app as api
+    from fastapi import HTTPException
+    monkeypatch.setattr(api, "jobs", {"f" * 32: {"kind": "video", "status": "running"}})
+    for job_id in ("f" * 32, "missing"):
+        try:
+            api.cancel_narration(job_id)
+        except HTTPException as exc:
+            assert exc.status_code == 404
+        else:
+            raise AssertionError("Only a narration job can be cancelled")

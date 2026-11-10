@@ -30,7 +30,7 @@ from backend import media_tools
 from backend import native_models
 from backend.voice_picker import VoicePicker
 from backend import video_projects, audio_fx
-from backend import narration_cache
+from backend import narration_cache, narration_checkpoints
 from backend.characters import (Characters, TARGET_TEXT, NAMES as CHARACTER_NAMES, accents as character_accents,
                                 performer as character_performer, description as character_description)
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
@@ -62,6 +62,9 @@ from backend.pronunciation import Pronunciations
 pronunciations = Pronunciations(DATA)
 starter_voice_jobs = {}
 preset_section_cache = narration_cache.PresetSectionCache(DATA / 'render-cache')
+# Custom-voice sections kept only to resume an interrupted export (see module notes).
+section_checkpoints = narration_checkpoints.CheckpointStore(DATA / 'render-checkpoints')
+section_checkpoints.prune()
 
 class Sentence(BaseModel):
     text: str
@@ -184,7 +187,7 @@ def health():
             'models':choice, 'design_ready':engines.installed(choice['design']['engine']),
             'clone_ready':engines.installed(choice['clone']['engine']),
             'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status(),
-            'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1','voice_packs':voice_packs.ENABLED}
+            'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1','voice_packs':voice_packs.ENABLED,'bundled_voices':voice_packs.BUNDLED}
 
 class ServerSettingsInput(BaseModel):
     port: int = Field(default=0, ge=0, le=65535)
@@ -545,6 +548,7 @@ def delete_voice(voice_id: str):
     if re.fullmatch(r'[0-9a-f]{32}', voice_id):
         voice_consent.delete_document(DATA, voice_id)
     meta = voice_meta(); meta.pop(voice_id, None); save_voice_meta(meta)
+    section_checkpoints.purge_voice('upload:' + voice_id)
     return {'deleted':True}
 
 @app.post('/api/voices')
@@ -684,6 +688,7 @@ def rename_designed_voice(voice_id: str, request: RenameInput):
 @app.delete('/api/designed-voices/{voice_id}/versions/{version}')
 def delete_designed_version(voice_id: str, version: int):
     library.get(voice_id) or _missing_voice()
+    section_checkpoints.purge_voice('design:' + voice_id)
     try:
         return library.delete_version(voice_id, version) or _missing_version()
     except ValueError as exc:
@@ -695,6 +700,7 @@ def _missing_version():
 @app.delete('/api/designed-voices/{voice_id}')
 def delete_designed_voice(voice_id: str):
     if not library.delete(voice_id): _missing_voice()
+    section_checkpoints.purge_voice('design:' + voice_id)
     return {'deleted':True}
 
 @app.post('/api/designed-voices/{voice_id}/duplicate', status_code=201)
@@ -1207,6 +1213,7 @@ def rename_character(character_id: str, request: CharacterRename):
 def delete_character(character_id: str):
     if not characters.delete(character_id):
         _missing_character()
+    section_checkpoints.purge_voice('character:' + character_id)
     return {'deleted': True}
 
 
@@ -1437,16 +1444,37 @@ def resolve_voice_key(key):
         raise HTTPException(400,'Voice needs an approved reference recording')
     return path, text
 
+class NarrationCancelled(Exception):
+    """Cooperative stop at narration section boundaries (no engine process kill)."""
+
+
+def section_voice_state(voice_key):
+    """Voice settings that change a custom section's sound beyond its reference audio."""
+    if voice_key.startswith('upload:'):
+        return voice_meta().get(voice_key[7:], {}).get('refinement')
+    if voice_key.startswith('character:'):
+        character = characters.get(voice_key[10:]) or {}
+        return {k: v for k, v in character.items() if k not in ('name', 'created_at', 'updated_at')}
+    if voice_key.startswith('design:'):
+        approved = library.latest_approved(voice_key[7:]) or {}
+        return {k: approved.get(k) for k in ('version', 'sample_id', 'model_id')}
+    return None
+
+
 def run_multi(job_id, request, references):
     job = jobs[job_id]
     try:
         import soundfile as sf
         import numpy as np
         with engine_lock:
+            if job.get('cancel_requested'):
+                raise NarrationCancelled()
             job.update(status='running',message='Generating narration')
-            sections=[]; section_cues=[]; target_rate=24000
+            sections=[]; section_cues=[]; target_rate=24000; checkpoint_keys=[]
             choice=settings.load()['clone']
             for index,(block,(reference,ref_text)) in enumerate(zip(request.blocks,references)):
+                if job.get('cancel_requested'):
+                    raise NarrationCancelled()
                 temp=DATA/'outputs'/f'{job_id}-{index}.wav'
                 try:
                     def progress(done, total):
@@ -1468,6 +1496,16 @@ def run_multi(job_id, request, references):
                             speed=block.speed, gain=block.gain,
                             desk=request.desk)
                         cached_audio = preset_section_cache.load(cache_key)
+                    else:
+                        # Custom voices: a short-lived checkpoint tied to this exact
+                        # recording and settings lets Try again resume after a
+                        # cancel, failure or restart without re-rendering this block.
+                        checkpoint_key = narration_checkpoints.section_key(
+                            voice_key=block.voice_key, reference=reference, reference_text=ref_text,
+                            voice_state=section_voice_state(block.voice_key), engine_choice=choice,
+                            text=narration_text, speed=block.speed, gain=block.gain, desk=request.desk)
+                        checkpoint_keys.append(checkpoint_key)
+                        cached_audio = section_checkpoints.load(checkpoint_key)
                     if cached_audio is None:
                         # Pace: Kokoro voices (and Kokoro-performed characters) speak at the pace
                         # natively; others are time-stretched afterwards, which can sound less clean.
@@ -1482,6 +1520,8 @@ def run_multi(job_id, request, references):
                             stretch=1.0
                         else:
                             engines.clone(choice, temp, narration_text, reference, ref_text, on_progress=progress)
+                        if job.get('cancel_requested'):
+                            raise NarrationCancelled()
                         audio,rate=sf.read(temp,dtype='float32',always_2d=False)
                         if audio.ndim==2: audio=audio.mean(axis=1)
                         if rate!=target_rate:
@@ -1509,9 +1549,12 @@ def run_multi(job_id, request, references):
                             finally:desked.unlink(missing_ok=True)
                         if cache_key is not None:
                             preset_section_cache.store(cache_key, audio)
+                        elif checkpoint_keys and checkpoint_keys[-1] is not None and not block.voice_key.startswith('preset:'):
+                            section_checkpoints.store(checkpoint_keys[-1], audio, block.voice_key)
                     else:
                         audio = cached_audio
-                        job.update(message=f'Reusing unchanged preset block {index+1}/{len(references)}')
+                        job.update(resumed_sections=job.get('resumed_sections', 0) + 1,
+                                   message=f'Reusing finished block {index+1}/{len(references)}')
                     for effect in block.effects:
                         if effect.position not in ('before','after','mix'):
                             raise ValueError('Invalid sound effect position')
@@ -1545,7 +1588,10 @@ def run_multi(job_id, request, references):
                     sections.append((effect_clips('before'),audio,effect_clips('after'),delay))
                     section_cues.append(layers)
                 finally: temp.unlink(missing_ok=True)
-                job.update(progress=round((index+1)/len(references)*95),message=f'Generated block {index+1}/{len(references)}')
+                if not job.get('cancel_requested'):
+                    job.update(progress=round((index+1)/len(references)*95),message=f'Generated block {index+1}/{len(references)}')
+            if job.get('cancel_requested'):
+                raise NarrationCancelled()
             ambience_audio=None
             ambience=request.ambience
             if ambience is not None:
@@ -1565,10 +1611,20 @@ def run_multi(job_id, request, references):
                 mixed=mix_ambience(mixed,ambience_audio,np.array(dry_masks,dtype=bool),
                     sample_rate=target_rate,volume=ambience.volume,ducking=ambience.ducking,
                     fade_in=ambience.fade_in,fade_out=ambience.fade_out)
+            if job.get('cancel_requested'):
+                raise NarrationCancelled()
             wav=DATA/'outputs'/f'{job_id}.wav'
             sf.write(wav,mixed,target_rate,subtype='PCM_16')
             if request.format=='mp3': export_mp3(wav,DATA/'outputs'/f'{job_id}.mp3')
+            if job.get('cancel_requested'):
+                (DATA/'outputs'/f'{job_id}.{request.format}').unlink(missing_ok=True)
+                wav.unlink(missing_ok=True)
+                raise NarrationCancelled()
             job.update(status='complete',progress=100,download_url=f'/api/outputs/{job_id}.{request.format}',message='Narration ready')
+            # The finished export now holds this audio; drop the personal-voice checkpoints.
+            section_checkpoints.discard(checkpoint_keys)
+    except NarrationCancelled:
+        job.update(status='cancelled',message='Narration cancelled; finished sections are reused when you try again')
     except Exception as exc:
         job.update(status='failed',message=f'{type(exc).__name__}: {exc}')
 
@@ -1602,9 +1658,20 @@ def create_narration(request: MultiNarrationRequest):
     if any(reference is not None and b.voice_key not in performed for b,(reference, _) in zip(request.blocks,references)):
         require_engine('clone')
     job_id=uuid4().hex
-    jobs[job_id]={'job_id':job_id,'status':'queued','progress':0,'message':'Waiting for narration engine'}
+    jobs[job_id]={'job_id':job_id,'kind':'narration','status':'queued','progress':0,'message':'Waiting for narration engine'}
     Thread(target=run_multi,args=(job_id,request,references),daemon=True).start()
     return jobs[job_id]
+
+@app.post('/api/narrations/{job_id}/cancel')
+def cancel_narration(job_id: str):
+    """Request a safe stop; in-progress engine calls finish before cancellation."""
+    job = jobs.get(job_id)
+    if job is None or job.get('kind') != 'narration':
+        raise HTTPException(404, 'Narration job not found')
+    if job.get('status') in ('complete', 'failed', 'cancelled'):
+        raise HTTPException(409, 'Narration job has already finished')
+    job.update(cancel_requested=True, message='Stopping after the current voice segment')
+    return job
 
 class VideoRenderRequest(BaseModel):
     video_id: str

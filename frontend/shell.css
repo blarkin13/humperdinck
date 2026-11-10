@@ -60,3 +60,33 @@
  .app-shell .topbar{margin:0 -16px 18px;padding:10px 16px}
  :root .app-shell .workspace section{padding:20px 18px;border-radius:14px}
 }
+
+/* Voice avatars (DiceBear Lorelei): transparent, no frame */
+:root .app-shell .voice-card .sleeve{background:none;border:0;border-radius:0;box-shadow:none;overflow:visible}
+.app-shell .voice-card .sleeve::after{display:none}
+
+/* Voice Gallery: browse card and dialog */
+.app-shell .gallery-browse-card{align-items:center!important;justify-content:center;text-align:center;gap:8px!important;border-style:dashed!important;min-height:200px}
+.gallery-browse-icon{display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:var(--surface-2);border:1px solid var(--hairline-strong);color:var(--brass);font-size:20px}
+.gallery-browse-card strong{font-size:16px}
+.gallery-modal{width:min(760px,100%)}
+.gallery-modal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;padding:4px 20px 20px;overflow-y:auto}
+.gallery-modal .gallery-voice{cursor:default;padding:14px;gap:10px}
+.gallery-modal .gallery-voice:hover{transform:none}
+.gallery-modal .card-top{align-items:center}
+.gallery-modal .sleeve{width:56px;height:56px}
+.gallery-modal .card-title{flex:1;padding-right:0}
+.gallery-modal .voice-name{font-size:17px}
+.gallery-modal audio{width:100%;height:34px}
+.gallery-download{flex:none;width:40px;height:40px;padding:0;border-radius:50%!important;display:grid;place-items:center}
+
+/* Touch: every control at least 24px, and roomier on touch screens */
+:root .app-shell summary{min-height:28px;display:flex;align-items:center;gap:6px}
+:root .app-shell input[type=radio],:root .app-shell input[type=checkbox]{width:18px;height:18px;flex:none}
+:root .app-shell input[type=range]{height:28px}
+@media(pointer:coarse){
+ :root .app-shell input[type=range]{height:40px}
+ :root .app-shell input[type=radio],:root .app-shell input[type=checkbox]{width:22px;height:22px}
+ :root .app-shell summary{min-height:44px}
+ :root .app-shell button{min-height:40px}
+}

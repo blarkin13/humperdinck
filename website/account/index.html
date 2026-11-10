@@ -14,8 +14,8 @@
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 <link rel="stylesheet" href="/footer-unified.css?v=20261108">
-<link rel="stylesheet" href="/account/account.css?v=20261109-privacy-v1">
-<script src="/account/account.js?v=20261109-privacy-v1" defer></script>
+<link rel="stylesheet" href="/account/account.css?v=20261110-owner-analytics">
+<script src="/account/account.js?v=20261110-owner-analytics" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -96,6 +96,7 @@
       <a href="#license-downloads"><i class="fa-solid fa-download" aria-hidden="true"></i>Downloads</a>
       <a href="#account-recovery"><i class="fa-solid fa-key" aria-hidden="true"></i>Recovery</a>
       <a href="#account-privacy"><i class="fa-solid fa-shield-heart" aria-hidden="true"></i>Privacy</a>
+      <a href="#owner-analytics" id="owner-analytics-link" hidden><i class="fa-solid fa-chart-line" aria-hidden="true"></i>Site analytics</a>
     </nav>
 
     <section id="purchase" class="dashboard-section">
@@ -168,6 +169,18 @@
           <p class="account-fine-print">Lifetime Pro certificates already downloaded to a device cannot be remotely erased. Legally necessary purchase records may need to be retained. <a href="/privacy/">Privacy Policy</a>.</p>
         </div>
       </div>
+    </section>
+
+    <section id="owner-analytics" class="dashboard-section" hidden>
+      <div class="dashboard-section-title"><div><span class="account-kicker">OWNER ONLY / ANALYTICS</span><h2>Site analytics<span>.</span></h2><p>Aggregate traffic and downloads. No visitor identity, scripts or voice recordings are collected.</p></div></div>
+      <div class="owner-analytics-toolbar"><label for="analytics-range">Event period</label><select id="analytics-range" class="account-privacy-select"><option value="1">Today / last 24 hours</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option></select><button id="analytics-refresh" class="account-action account-action-outline" type="button">Refresh counts</button></div>
+      <p id="analytics-status" class="account-fine-print" role="status" aria-live="polite">Loading analytics…</p>
+      <div class="owner-analytics-grid">
+       <div class="account-detail-card"><span class="account-card-label">WEBSITE EVENTS / SELECTED PERIOD</span><h3 id="analytics-views">—</h3><p>Anonymous page-view events (not unique visitors)</p></div>
+       <div class="account-detail-card"><span class="account-card-label">DOWNLOAD CLICKS / SELECTED PERIOD</span><h3 id="analytics-clicks">—</h3><p>Windows <span id="analytics-click-windows">—</span> · Mac <span id="analytics-click-macos">—</span> · Linux <span id="analytics-click-linux">—</span></p></div>
+       <div class="account-detail-card"><span class="account-card-label">GITHUB INSTALLER DOWNLOADS / ALL TIME</span><h3 id="analytics-downloads">—</h3><p>Windows <span id="analytics-download-windows">—</span> · Mac <span id="analytics-download-macos">—</span> · Linux <span id="analytics-download-linux">—</span></p></div>
+      </div>
+      <p class="account-fine-print">Download-click totals can differ from actual GitHub downloads. GitHub counters are cumulative across the published assets returned by its API; selecting a time range only changes Cloudflare event totals. <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">Cloudflare Web Analytics</a> provides unique-visitor estimates.</p>
     </section>
 
     <p id="dashboard-notice" class="dashboard-notice" role="status" aria-live="polite" hidden></p>
