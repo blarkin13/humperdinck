@@ -99,6 +99,17 @@ def test_english_accent_language_hint():
     assert design_language('Une voix française douce.') == 'auto'
 
 
+def test_every_designed_accent_is_spoken_in_english():
+    from backend.qwen_engine import design_language
+    from backend import characters as ch
+    for accent in ch.DESIGNED_ACCENTS:
+        for gender in ('male', 'female', ''):
+            assert design_language(ch.description(accent, '', gender)) == 'english', accent
+    # A foreign accent on English words is still English.
+    assert design_language('A man speaking English with a heavy German accent.') == 'english'
+    assert design_language('Eine deutsche Stimme.') == 'auto'
+
+
 def test_cpu_preset_catalog_and_downloads(tmp_path, monkeypatch):
     monkeypatch.setattr(catalog, 'preset_path', lambda engine, voice: tmp_path / engine)
     kokoro = tmp_path / 'kokoro'

@@ -19,7 +19,8 @@ from uuid import uuid4
 KOKORO_ACCENTS = {
     'American': {'female': ['af_heart', 'af_bella', 'af_nicole'], 'male': ['am_michael', 'am_adam', 'am_eric']},
     'British (RP)': {'female': ['bf_emma', 'bf_isabella', 'bf_alice'], 'male': ['bm_george', 'bm_fable', 'bm_lewis']},
-    'French': {'female': ['ff_siwis'], 'male': ['ff_siwis']},
+    # Kokoro has no male French voice; male French characters are designed instead.
+    'French': {'female': ['ff_siwis'], 'male': []},
     'Italian': {'female': ['if_sara'], 'male': ['im_nicola']},
     'Spanish': {'female': ['ef_dora'], 'male': ['em_alex', 'em_santa']},
     'Indian': {'female': ['hf_alpha', 'hf_beta'], 'male': ['hm_omega', 'hm_psi']},
@@ -58,7 +59,15 @@ def performer(accent: str, direction: str, gender: str, take: int) -> str | None
     """The Kokoro voice for this take, or None when the voice designer must perform it."""
     if direction.strip() or accent not in KOKORO_ACCENTS:
         return None
-    voices = KOKORO_ACCENTS[accent].get(gender) or KOKORO_ACCENTS[accent]['male']
+    by_gender = KOKORO_ACCENTS[accent]
+    if gender in by_gender:
+        voices = by_gender[gender]
+    else:  # No gender chosen: any real speaker of the accent will do.
+        voices = by_gender['male'] or by_gender['female']
+    # Never perform with the opposite gender: the converter keeps the
+    # performer's pitch contour, so a woman's take sounds wrong as a man.
+    if not voices:
+        return None
     return voices[take % len(voices)]
 
 

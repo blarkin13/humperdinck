@@ -49,8 +49,16 @@ def design_language(description: str) -> str:
     instruction. This selects the language, not a guaranteed regional accent.
     """
     import re
-    english_accents = r'\b(british|english accent|received pronunciation|scottish|irish|australian|canadian|american|new zealand|south african)\b'
-    return 'english' if re.search(english_accents, description, re.IGNORECASE) else 'auto'
+    english_accents = (r'\b(british|english accent|received pronunciation|scottish|irish|welsh|cockney|'
+                       r'new york|brooklyn|southern|australian|canadian|american|new zealand|south african|'
+                       r'jamaican)\b')
+    # "speaking English with a heavy German accent": the words are English even
+    # though the accent names another language, which otherwise pulls Qwen's
+    # language guess away from English.
+    speaking_english = r'\bspeak(?:s|ing)? english\b'
+    if re.search(english_accents, description, re.IGNORECASE) or re.search(speaking_english, description, re.IGNORECASE):
+        return 'english'
+    return 'auto'
 
 
 class QwenVoiceDesigner:
