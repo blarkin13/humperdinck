@@ -1,0 +1,74 @@
+# P0 — Voice and asset commercial-rights acceptance
+
+**Status: BLOCKED (November 10, 2026).** This is an actionable evidence/decision checklist, not a legal opinion or a declaration of permission. Do not change `docs/RELEASE_RIGHTS_APPROVAL.json` from BLOCKED, configure `RELEASE_RIGHTS_APPROVAL_JSON`, or publish a commercial installer on the strength of this checklist.
+
+## Actual packaging and what is already verified
+
+Source review of `docs/REDISTRIBUTION_EVIDENCE_2026-11-08.md`, `docs/THIRD_PARTY_RELEASE_AUDIT.md`, `scripts/prepare_native_voice_pack.py`, `scripts/check-release-rights.py`, and `website/THIRD_PARTY_NOTICES.txt`:
+
+| Category | Current facts | Acceptance still required | Responsible for final evidence |
+| --- | --- | --- | --- |
+| Seven Humperdinck reference voice clips | SHA-pinned asset `humperdinck-builtin-voices-v1.zip` with digest `15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49`; native build stages seven clips | **BLOCKED**: private signed performer authorization and original recording copyright grant for *each exact sample*, covering AI voice recreation, paid redistribution, bundling and sublicensing. Record documentary hashes, restrictions, expiry and reviewer. If any lack evidence, remove/replace and re-review the entire exact-release payload. | Brian + actual rightsholders; qualified reviewer/counsel for interpretation |
+| Nine processed nature sounds | Nine original source URLs listed in `docs/REDISTRIBUTION_EVIDENCE_2026-11-08.md` and `docs/CC0_NATURE_COLLECTION.md`; native CI stages nine normalized files | **NOT YET ACCEPTED**: archive each individual source page/license as of review, author/source and original checksum, resulting WAV checksum and archive location. Do not extrapolate a site's default license to every recording. | Engineering archives evidence; Brian/reviewer accepts |
+| Qwen3-TTS, quantized MLX variants | Users download model weights separately, not embedded by default; reviewed publisher model-card license family Apache-2.0 | **NOT YET ACCEPTED**: list the exact offered model IDs and immutable revision/variant, tokenizer, code and NOTICE/license; verify any generated and customer-provided voice rights separately. | Engineering + rights reviewer |
+| Kokoro ONNX, voice table and Python runtime | User downloads pinned ONNX/voice-table files; native runtime `kokoro-onnx` is bundled; upstream models commonly marked Apache-2.0 and runtime MIT | **NOT YET ACCEPTED**: archive exact revision licenses, voice-table/source attribution, runtime wheel and license text, notices for Humperdinck's own hosted mirror. | Engineering + rights reviewer |
+| Optional Piper voices | Separate voice models not shipped in the default native workflow | **NOT YET ACCEPTED** for any later distributed/downloadable voice: verify that exact voice's dataset/model and author rights. No blanket commercial claim. | Engineering + rights reviewer |
+| DiceBear avatars | `@dicebear/core` and `@dicebear/lorelei` 9.4.2; MIT code, CC0 design; notices already in `website/THIRD_PARTY_NOTICES.txt` | **PRELIMINARY DOCUMENTATION COMPLETE**: ensure all actual shipped distributions retain the corresponding license/notice text after dependency version changes. | Engineering |
+| FFmpeg and platform/native dependencies | Native build does not explicitly stage runtime FFmpeg; actual frozen PyInstaller/Tauri payload may contain transitive binaries; build audit inventories exist | **BLOCKED** for full commercial review: examine exact Windows/macOS/Linux artifacts, SBOM and native libraries; match license text/NOTICE/source correspondence. If FFmpeg is included in any artifact, inspect real `-version`/`-buildconf`, codec/build flags and LGPL/GPL obligations. | Engineering collects; qualified reviewer accepts |
+
+**Important:** Open model licenses do **not** establish a legal right to reproduce or commercially distribute a living person's voice. CC0 generally addresses copyright, not independently held publicity, personality, or privacy rights. Do not represent any unverified author, speaker or agreement as approved.
+
+## Seven voice grants — repeat for each *actual* manifest entry
+
+Do not invent voice names or speaker identities in a public record. Obtain the real `manifest.json` and compute each original sample SHA-256 from the pinned ZIP on a trusted operator machine. **The public file may contain safe hashes/status only; keep the recordings, signatures, names, contact information and signed grant forms privately controlled.**
+
+| Field | Evidence required for each of the 7 voices |
+| --- | --- |
+| Sample identity | `sample_sha256`, manifest name/slug, pack digest, recording date and source identity (sensitive details only in private ledger) |
+| Performer consent | Privately stored, signed and dated performer consent/release, verifying identity/authority, with `signed_performer_release_sha256` in the release ledger |
+| Copyright in recording | Recording's copyright owner, source/production chain and signed license or transfer for commercial reproduction/redistribution; record `recording_copyright_grant_sha256` |
+| Exact permitted operations | Explicit AI reference voice cloning/recreation; use in synthesized performances, character styles, built-in/gallery samples; commercial redistribution; inclusion in paid/free app; installer and updates; downstream user use/sublicensing, as applicable |
+| Boundaries | Commercial territory, duration, transferability, compensation, attribution, withdrawal/termination procedures, restrictions, permitted use of name/persona and post-withdrawal issued-copies handling |
+| Reviewer acceptance | One named authorized reviewer, signed record date, artifact/voice hash match, and a confirmed yes/no/excluded status. No public sign-off merely because a hash exists |
+
+### Private, counsel-reviewed performer authorization outline (not ready-to-sign legal instrument)
+
+Have a qualified professional adapt the actual written release for each performer and recording copyright holder. It should identify the parties, the particular recordings and rights each party controls; expressly authorize use of the voice/likeness for AI training or inference as actually performed, speaker reference cloning, synthesis, display/preview, commercial bundled distribution and downstream usage; define geographic, duration and revocation limitations; address compensation, warranties and third-party content rights, applicable jurisdiction, retention and withdrawal handling; obtain an actual signature/date. **The application owner's possession of an audio file does not establish these grants.** Don't upload signed forms or raw reference recordings to public GitHub or the general-purpose development tracker.
+
+## Nine sound-source evidence rows
+
+For each original source, capture timestamped page/license evidence, author/attribution, original raw bytes SHA-256, transformation and packaged WAV SHA-256, and reviewer verdict. Source URLs currently identified (individual CC0 designations must be independently read and archived before closing):
+
+1. Rain on Leaves — https://freesound.org/people/SamsterBirdies/sounds/584272/
+2. Thunderstorm — https://freesound.org/people/laribum/sounds/353025/
+3. Atlantic Ocean Waves — https://freesound.org/people/INNORECORDS/sounds/457740/
+4. River and Creek — https://freesound.org/people/kentspublicdomain/sounds/325182/
+5. Forest Birds — https://freesound.org/people/Magnesus/sounds/723913/
+6. Wind Over Holehead Hill — https://freesound.org/people/Sandy-Ogilvie/sounds/847257/
+7. Summer Evening Crickets — https://freesound.org/people/RyanKingArt/sounds/746366/
+8. Campfire Crackling — https://freesound.org/people/Defaultv/sounds/536935/
+9. Trickling Water — https://commons.wikimedia.org/wiki/File:Swale.ogg
+
+Do not record an item as verified simply because a technical manifest says `CC0`. Archive real license snapshots and apply exact file hashes to the audio included in the release.
+
+## Steps to finish this existing P0 (no duplicate task)
+
+1. **Engineering:** Export a sanitized per-release payload inventory for the actual final candidate (not an unrelated CI build) including seven exact sample hashes, nine sound hashes and platform binary manifests. Compare to the pinned ZIP digest and identify any changed voice packs.
+2. **Brian / performers:** For each of seven shipped clips, obtain and privately retain actual signed performer permissions and copyright-owner grant. If absent or not granted, remove/replace that clip before public release. No one else may sign on behalf of a speaker without demonstrable authority.
+3. **Engineering:** Archive all nine item-specific sound pages and license statements, original and normalized hashes, exact Qwen/Kokoro/Piper (if used) license+model IDs, DiceBear/other notices and frozen platform dependencies.
+4. **Reviewer + Brian:** Inspect **the exact commit and version**, record real evidence checksums and legal restrictions. Obtain counsel input where terms, voice/publicity rights, sublicensing or consumer promises are ambiguous.
+5. **Release operator:** Only after proof is complete, prepare the **private** `RELEASE_RIGHTS_APPROVAL_JSON` record with all seven grants, original sound/archive and frozen dependency review set true, a named reviewer, date, correct digest, version and commit; run `python scripts/check-release-rights.py --manifest - --version VERSION --commit COMMIT` with the private ledger on standard input in the existing release process. Keep `docs/RELEASE_RIGHTS_APPROVAL.json` intentionally BLOCKED and never place private key or signed rights documents in GitHub.
+6. **QA:** Match the signed rights acceptance to each platform installer checksum and voice/sound pack deployed. Reopen the audit if a voice pack, source, dependency, model revision or license changes.
+
+### Existing fail-closed enforcement
+
+`scripts/check-release-rights.py` checks the version, exact 40-character commit, pinned seven-voice archive hash, seven distinct sample SHA-256 values, hashes of performer and recording-owner grants, three explicit permission booleans per voice, sound archives verified, dependencies reviewed, and FFmpeg review when bundled. A passing programmatic check establishes record *shape and consistency*, **not** authenticity of signatures or legal enforceability.
+
+## Owner decisions not yet evidenced
+
+- Whether all seven shipped voices have a true recorded performer whose authorization can be obtained, or which must be excluded/replaced.
+- Whether the speaker is also the original recording's copyright owner for each sample.
+- Whether the final version is still `humperdinck-builtin-voices-v1.zip` or an updated built-in/gallery pack; any updated pack requires new pinning and new review.
+- Who is authorized to approve license/notice obligations and consumer voice rights for the public release.
+
+**Current P0 status remains BLOCKED.** Finish the above evidence before changing it; source documentation alone cannot clear it.
