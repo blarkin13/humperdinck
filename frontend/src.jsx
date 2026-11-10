@@ -74,7 +74,7 @@ function errorText(j){const d=j?.detail;if(typeof d==='string')return d;if(Array
 const json=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function App(){
  const {notify,confirm:askConfirm,input:askInput}=useNotifications();
- const [nativePackage,setNativePackage]=useState(null);
+ const [nativePackage,setNativePackage]=useState(null),[voicePacks,setVoicePacks]=useState(false);
  const [entitlementStatus,setEntitlementStatus]=useState({plan:'free',capabilities:{}});
  const hasPro=!PUBLIC_STUDIO&&entitlementStatus.plan==='pro';
  const [serverSettingsOpen,setServerSettingsOpen]=useState(false);
@@ -118,7 +118,7 @@ function App(){
  async function refresh(){try{if(PUBLIC_STUDIO){setDesigned([]);setUploads([]);setPresets(PUBLIC_VOICES);return}const [d,u,p,c]=await Promise.all([api('designed-voices'),api('voices'),api('preset-voices'),api('characters').catch(()=>[])]);setDesigned(d);setUploads(u);setPresets(p);setCharacters(c)}catch(e){setStatus(e.message)}}
  useEffect(()=>{refresh()},[]);
  // Publishing curated starter packs is an authoring tool, not a native end-user control.
- useEffect(()=>{if(!PUBLIC_STUDIO)api('health').then(h=>setNativePackage(!!h.native_package)).catch(()=>{});},[]);
+ useEffect(()=>{if(!PUBLIC_STUDIO)api('health').then(h=>{setNativePackage(!!h.native_package);setVoicePacks(h.voice_packs!==false)}).catch(()=>{});},[]);
  useEffect(()=>{if(!PUBLIC_STUDIO)api('entitlements').then(setEntitlementStatus).catch(()=>{});},[]);
  // Pick up Built-In Humperdinck Voices that were added, changed or removed since last launch.
  useEffect(()=>{if(nativePackage===true)api('builtin-voices/check',{method:'POST'}).then(r=>{if(r.changed)refresh()}).catch(()=>{});},[nativePackage]);
@@ -414,7 +414,7 @@ function App(){
   onChanged={refresh} onClose={()=>setCharactersFor(null)} onOpenModels={()=>{setCharactersFor(null);setTab('models')}}
   onUse={key=>{setCharactersFor(null);setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,key));setTab('narration')}}/>}
  {tab==='voices'&&<section><div className="heading"><div><h2>Voice Library</h2><p>Browse built-in and saved voices. Select a built-in voice for narration or edit your own voices in Voice Creator.</p></div><button className="primary" onClick={()=>{newVoice();setMethod('controls');setTab('creator')}}><i className="fa-solid fa-plus"/> New voice</button></div>
- {!PUBLIC_STUDIO&&<div id="voice-gallery"><VoiceCatalog api={api} onInstalled={refresh} canDownload={hasPro}/></div>}
+ {!PUBLIC_STUDIO&&voicePacks&&<div id="voice-gallery"><VoiceCatalog api={api} onInstalled={refresh} canDownload={hasPro}/></div>}
  <VoiceGrid characterCounts={PUBLIC_STUDIO?null:Object.fromEntries(voiceOptions.filter(v=>v.kind!=='character').map(v=>[v.value,characters.filter(c=>c.source_key===v.value).length]))}
   onCharacters={PUBLIC_STUDIO?null:key=>setCharactersFor(key)} builtinPublisher={!PUBLIC_STUDIO&&nativePackage===false?<StarterVoicePack api={api} voices={uploads}/>:null} previewDisabled={PUBLIC_STUDIO} onPreviewVoice={PUBLIC_STUDIO?(v)=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration')}:undefined} onCreate={()=>{newVoice();setMethod("controls");setTab("creator")}} items={[...presets.map(v=>({key:v.key,voiceKey:v.key,method:'preset',name:v.name,category:'Built-in · '+v.accent.split(' · ')[0],ready:true,status:'Ready for narration',summary:v.accent,traits:[v.accent],specs:[],onOpen:()=>{setBlocks(old=>assignSectionSpeaker(old,old[0]?.id,v.key));setTab('narration');}})),...designed.map(v=>({key:'d'+v.id,voiceKey:'design:'+v.id,method:v.method||'designed',name:v.name,category:'My Voices',selected:selected===v.id,ready:hasPro&&!!v.narration_sample_id,
   status:!hasPro?'Pro required':v.narration_sample_id?'Ready · v'+v.narration_version+' approved':'Draft · v'+v.active_version,summary:voiceSummary(v),
