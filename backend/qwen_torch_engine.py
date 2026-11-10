@@ -103,11 +103,13 @@ class QwenTorchEngine:
                 on_progress(i + 1, len(chunks))
         self._write(parts, rate, destination)
 
-    def clone(self, text, reference, destination, ref_text=None, on_progress=None):
+    def clone(self, text, reference, destination, ref_text=None, on_progress=None, blend=None):
         model = self.load()
         chunks = segments(text)
         if not chunks:
             raise ValueError('No narration text')
+        if blend:
+            return self._impression(model, chunks, text, reference, destination, blend, on_progress)
         key = reference_identity(reference, ref_text)
         if key not in self.prompts:
             # A replaced recording must never inherit the previous speaker's
@@ -122,6 +124,27 @@ class QwenTorchEngine:
         for i, chunk in enumerate(chunks):
             _seed_torch(seed_for(identity, chunk))
             wavs, rate = model.generate_voice_clone(text=chunk, language='Auto', voice_clone_prompt=self.prompts[key])
+            parts.append(wavs[0])
+            if on_progress:
+                on_progress(i + 1, len(chunks))
+        self._write(parts, rate, destination)
+
+    def _impression(self, model, chunks, text, reference, destination, blend, on_progress):
+        """Clone from the voice's sound alone with its speaker embedding blended
+        part of the way toward another voice. Built uncached: impressions are rare."""
+        from backend.qwen_engine import blend_weight
+        weight = blend_weight(blend)
+        prompt = model.create_voice_clone_prompt(ref_audio=str(reference), ref_text=None, x_vector_only_mode=True)
+        other = model.create_voice_clone_prompt(ref_audio=str(blend['reference']), ref_text=None, x_vector_only_mode=True)
+        for mine, theirs in zip(prompt, other):
+            if getattr(mine, 'ref_spk_embedding', None) is None or getattr(theirs, 'ref_spk_embedding', None) is None:
+                raise RuntimeError('This Qwen version cannot blend voices for impressions')
+            mine.ref_spk_embedding = (1 - weight) * mine.ref_spk_embedding + weight * theirs.ref_spk_embedding
+        identity = clone_identity(reference, None) + ':' + str(blend['reference']) + ':' + str(weight)
+        parts, rate = [], None
+        for i, chunk in enumerate(chunks):
+            _seed_torch(seed_for(identity, chunk))
+            wavs, rate = model.generate_voice_clone(text=chunk, language='Auto', voice_clone_prompt=prompt)
             parts.append(wavs[0])
             if on_progress:
                 on_progress(i + 1, len(chunks))

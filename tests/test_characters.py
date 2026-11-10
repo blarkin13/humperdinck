@@ -23,7 +23,7 @@ def test_impression_targets_same_language_other_gender_first():
     assert ch.impression_targets('af_heart', voices)[0]['gender'] == 'male'
     assert ch.impression_targets('nope', voices) == []
     assert ch.impression_targets('bm_george', voices, downloaded=lambda v: v == 'bf_emma') == \
-        [{'voice': 'bf_emma', 'name': 'Emma', 'gender': 'female'}]
+        [{'voice': 'bf_emma', 'name': 'Emma', 'gender': 'female', 'group': 'A woman'}]
     assert len(ch.IMPRESSION_WEIGHTS) == len(ch.IMPRESSION_STRENGTHS) == 3
     assert all(0 < w <= 0.6 for w in ch.IMPRESSION_WEIGHTS)
 
@@ -83,7 +83,9 @@ def test_impression_takes_save_and_narrate_without_converter_or_clone(tmp_path, 
 
     options = api.character_options('preset:kokoro:bm_george')
     assert 'bf_emma' in {t['voice'] for t in options['impressions']}
-    assert api.character_options('upload:abc')['impressions'] == []
+    upload = api.character_options('upload:abc')['impressions']
+    assert upload and all(t['voice'] != 'upload:abc' for t in upload)
+    assert api.character_options('preset:piper:x')['impressions'] == []
 
     job = api.create_character_takes(api.CharacterTakesInput(
         source_key='preset:kokoro:bm_george', impression='bf_emma', text='Hello darling.'))
