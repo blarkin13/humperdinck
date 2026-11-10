@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {handleOwnerAnalytics,readGithubDownloads,readSiteEvents} from '../src/owner-analytics.js';
+import {handleOwnerAnalytics,readAccounts,readGithubDownloads,readSiteEvents} from '../src/owner-analytics.js';
 
 const req=(days='7',method='GET')=>new Request('https://humperdinck.studio/api/account/dashboard/analytics?days='+days,{method});
 const user={id:'owner-uuid',kind:'web'};
@@ -73,4 +73,19 @@ test('GitHub token is sent when configured and rate limits are explained',async(
  const result=await readGithubDownloads(async(url,init)=>{auth=init.headers.Authorization;return new Response('limit',{status:403})},{GITHUB_DOWNLOADS_TOKEN:'t'});
  assert.equal(auth,'Bearer t');
  assert.match(result.reason,/HTTP 403, rate limited/);
+});
+test('account counts are aggregate only, grouped by any provider',async()=>{
+ const seen=[];
+ const db={prepare(sql){seen.push(sql);return {bind(){return this},
+  first:async()=>({total:5,new_accounts:2,active:3}),
+  all:async()=>({results:[{provider:'google',total:4,active:3},{provider:'apple',total:1,active:0}]})}}};
+ const result=await readAccounts({AUTH_DB:db},7);
+ assert.deepEqual(result,{available:true,total:5,new_accounts:2,active:3,
+  providers:{google:{total:4,active:3},apple:{total:1,active:0}}});
+ assert.ok(seen.every(q=>!/email|display_name/i.test(q)));
+});
+test('account count failures show unavailable, not zero',async()=>{
+ const result=await readAccounts({AUTH_DB:{prepare(){throw new Error('db down')}}},7);
+ assert.equal(result.available,false);
+ assert.equal(result.total,undefined);
 });

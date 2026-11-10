@@ -61,6 +61,33 @@ export async function readGithubDownloads(fetcher=fetch,env={}){
   return {available:true,counts,assets:assets.slice(0,40),scope:'Published GitHub release assets, first 100 releases, all time'};
  }catch{return {available:false,reason:'GitHub downloads temporarily unavailable'};}
 }
+// Account counts only (never names, emails or ids). "Active" = signed in, or a
+// connected desktop checked in, during the period. Providers are read from the
+// data so new sign-in methods appear without code changes.
+export async function readAccounts(env,days){
+ if(!env.AUTH_DB)return {available:false,reason:'Account database unavailable'};
+ const since=Math.floor(Date.now()/1000)-days*86400;
+ const active=`SELECT user_id FROM auth_sessions WHERE created_at>=?1
+  UNION SELECT user_id FROM auth_connected_desktops WHERE last_seen_at>=?1`;
+ try{
+  const totals=await env.AUTH_DB.prepare(`SELECT
+    (SELECT COUNT(*) FROM auth_users) AS total,
+    (SELECT COUNT(*) FROM auth_users WHERE created_at>=?1) AS new_accounts,
+    (SELECT COUNT(*) FROM (${active})) AS active`).bind(since).first();
+  const {results=[]}=await env.AUTH_DB.prepare(`SELECT i.provider AS provider,
+    COUNT(DISTINCT i.user_id) AS total,
+    COUNT(DISTINCT CASE WHEN a.user_id IS NOT NULL THEN i.user_id END) AS active
+    FROM auth_identities i LEFT JOIN (${active}) a ON a.user_id=i.user_id
+    GROUP BY i.provider ORDER BY total DESC`).bind(since).all();
+  const providers={};
+  for(const row of results){
+   const name=String(row.provider||'').slice(0,40);
+   if(name)providers[name]={total:Number(row.total)||0,active:Number(row.active)||0};
+  }
+  return {available:true,total:Number(totals?.total)||0,new_accounts:Number(totals?.new_accounts)||0,
+   active:Number(totals?.active)||0,providers};
+ }catch{return {available:false,reason:'Account counts temporarily unavailable'};}
+}
 export async function handleOwnerAnalytics(request,env,{user,fetcher=fetch}={}){
  if(request.method!=='GET')return json({error:'Method not allowed'},405);
  if(!user)return json({error:'Sign in required'},401);
@@ -69,8 +96,8 @@ export async function handleOwnerAnalytics(request,env,{user,fetcher=fetch}={}){
  const days=Number(url.searchParams.get('days')||7);
  if(!daysAllowed.has(days)||!/^([137]|30)$/.test(String(url.searchParams.get('days')||7)))
   return json({error:'Invalid range'},400);
- const [events,github]=await Promise.all([readSiteEvents(env,days,fetcher),readGithubDownloads(fetcher,env)]);
- return json({days,events,github,notes:{
+ const [events,github,accounts]=await Promise.all([readSiteEvents(env,days,fetcher),readGithubDownloads(fetcher,env),readAccounts(env,days)]);
+ return json({days,events,github,accounts,notes:{
   unique_visitors:'Use Cloudflare Web Analytics for unique visitor estimates; anonymous page_view events are not unique users.',
   downloads:'GitHub release asset counters are cumulative; website button clicks do not establish completed downloads.',
   installation:'No installation-level tracking or personal voice data is collected.'}});
