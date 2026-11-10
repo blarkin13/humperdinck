@@ -32,6 +32,10 @@ The owner has explicitly set this workflow. Follow it on **every** task update.
 - Never append a free-floating multi-paragraph report to the end of the document without associating it with the matching task. Do not rewrite or discard the owner's preserved evidence when improving navigation and headings.
 - For cross-cutting updates, reference the relevant existing tasks; create a new task only when truly outside the present scope and approved. Keep the Google Sheet concise and avoid contradicting its single Pending on owner.
 
+## First-party voice rights (owner decision, November 10)
+
+Brian confirms the seven built-in Humperdinck reference voices were made from his own recordings blended with Qwen. **Do not ask him to sign a release giving himself permission to use his own voice.** Record his first-party provenance statement and technical sample hashes, check any genuinely third-party sources and exact model/license terms, and leave legal advice to counsel if needed. A draft self-signature form was retired; it is not a launch gate. Continue to enforce commercial-release approval for actual third-party sound archives, frozen native dependencies, NOTICE obligations and any outside speaker recordings. Keep P0 status truthful until those remaining gates are verified.
+
 ## Changes and coordination
 
 1. Read the tracker and relevant Development Status task first.
