@@ -113,3 +113,7 @@ The new `.github/workflows/production-monitor.yml` (when reviewed and merged) sc
 5. Complete Cloudflare Worker exception/latency monitoring and live-merchant/webhook/entitlement alarm integration before declaring production alert acceptance.
 
 **Status:** Partially verified. Owner handoff and the three mailbox tests remain open. No live payment gates, DNS or forwarding destinations were changed.
+
+### Nov 10 Worker issue alert — new verified configuration
+
+A Cloudflare Notification policy **Humperdinck Worker real-time issues** was created with type `workers_observability_real_time_issue`, enabled for the owner Gmail recipient. Read-back from Cloudflare confirmed enabled and one email mechanism. Cloudflare's test-notification API returned `success:true` for an INFO-severity test. **An independent Gmail Inbox delivery check has not yet confirmed receipt**, so end-to-end alert delivery is pending. The only other existing policy observed is Cloudflare's default billing-budget alert. Do not infer this new policy independently detects every login, checkout, license, or download error; monitor product-specific error telemetry separately.
