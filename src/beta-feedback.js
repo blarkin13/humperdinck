@@ -121,6 +121,47 @@ export async function handleBetaFeedback(request,env,{session}={}){
  if(!['GET','POST','PATCH','DELETE'].includes(request.method))return fail(405,'Method not allowed');
  if(request.method!=='GET'&&!sameOrigin(request))return fail(403,'Invalid request origin');
  try{
+  // Invitation-only beta license grants: only the verified owner, never an
+  // anonymous signup or a GitHub issue, can approve a 30-day trial.
+  if(path==='/api/beta/admin/grants'){
+   if(!isOwner||env.BETA_PRO_ENABLED!=='1')return fail(404,'Not found');
+   if(request.method==='GET'){
+    const rows=await env.AUTH_DB.prepare(
+     'SELECT u.email, g.id, g.issued_at, g.expires_at, g.revoked_at '+
+     'FROM beta_pro_grants g JOIN auth_users u ON u.id=g.user_id '+
+     'ORDER BY g.created_at DESC LIMIT 100').all();
+    return j({grants:rows.results||[]});
+   }
+   if(request.method==='POST'){
+    const data=await jsonBody(request,512);
+    const email=typeof data?.email==='string'?data.email.trim().toLowerCase():'';
+    if(email.length>320||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+     return fail(400,'Enter an existing tester account email');
+    const tester=await env.AUTH_DB.prepare(
+     "SELECT u.id FROM auth_users u JOIN auth_identities i ON i.user_id=u.id "+
+     "WHERE lower(u.email)=? AND i.provider='google' LIMIT 1").bind(email).first();
+    if(!tester)return fail(404,'Tester must sign in with Google first');
+    const issued=now(),expires=issued+30*86400,id=crypto.randomUUID();
+    const row=await env.AUTH_DB.prepare(
+     'INSERT INTO beta_pro_grants(id,user_id,issued_at,expires_at,revoked_at,created_at) '+
+     'SELECT ?,?,?,?,?,? WHERE NOT EXISTS ('+
+     'SELECT 1 FROM beta_pro_grants WHERE user_id=? AND revoked_at IS NULL AND expires_at>?)'
+    ).bind(id,tester.id,issued,expires,null,issued,tester.id,issued).run();
+    if(row.meta?.changes!==1)return fail(409,'Tester already has active beta Pro access');
+    return j({id,issued_at:issued,expires_at:expires,temporary:true},201);
+   }
+   return fail(405,'Method not allowed');
+  }
+  const grantRevoke=path.match(/^\/api\/beta\/admin\/grants\/([0-9a-f-]{36})\/revoke$/i);
+  if(grantRevoke){
+   if(!isOwner||env.BETA_PRO_ENABLED!=='1')return fail(404,'Not found');
+   if(request.method!=='POST'||!UUID.test(grantRevoke[1]))return fail(405,'Method not allowed');
+   const result=await env.AUTH_DB.prepare(
+    'UPDATE beta_pro_grants SET revoked_at=? WHERE id=? AND revoked_at IS NULL'
+   ).bind(now(),grantRevoke[1]).run();
+   if(result.meta?.changes!==1)return fail(404,'Grant not found or already revoked');
+   return j({revoked:true,warning:'Issued offline beta certificates remain usable until their signed expiry'});
+  }
   if(path==='/api/beta/reports'&&request.method==='POST'){
    const data=await jsonBody(request);
    if(!data||typeof data!=='object'||Array.isArray(data))return fail(400,'Invalid feedback');
