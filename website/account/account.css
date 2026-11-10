@@ -169,3 +169,13 @@
 /* Sandbox (test-mode) checkout */
 .account-test-checkout{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:18px}
 .account-test-checkout .account-fine-print{margin:0;flex:1 1 260px}
+
+/* Owner-only aggregate metrics, responsive to mobile dashboard widths. */
+.owner-analytics-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:0 0 16px}
+.owner-analytics-toolbar label{color:var(--muted,#aaa);font-size:13px}
+.owner-analytics-toolbar select{min-width:180px}
+.owner-analytics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.owner-analytics-grid .account-detail-card{min-width:0}
+.owner-analytics-grid h3{font-variant-numeric:tabular-nums;font-size:clamp(24px,3vw,36px);margin:12px 0}
+.owner-analytics-grid p{overflow-wrap:anywhere}
+@media(max-width:800px){.owner-analytics-grid{grid-template-columns:1fr}}

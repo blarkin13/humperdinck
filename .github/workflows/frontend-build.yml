@@ -61,6 +61,7 @@ jobs:
           node --test tests/account-auth.test.mjs
           node --check src/account-dashboard.js
           node --test tests/account-dashboard.test.mjs
+          node --test tests/owner-analytics.test.mjs
           node --test tests/account-privacy.test.mjs
           node --test tests/account-deletion-retention.test.mjs
           node --test tests/account-privacy-ui.test.mjs
