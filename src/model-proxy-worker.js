@@ -1,7 +1,7 @@
 import {recordAnalyticsEvent, handleAnalyticsEvent} from './site-analytics.js';
 import {handleAccount,accountSession} from './account-auth.js';
 import {handleBetaFeedback,purgeOldBetaFeedback,purgeOldBetaGrants} from './beta-feedback.js';
-import {handleBetaInvitations} from './beta-invitations.js';
+import {handleBetaInvitations,purgeOldBetaInvitations} from './beta-invitations.js';
 import {handleLemonTest} from './lemon-test-commerce.js';
 import {isReservedProductionCommercePath,handleUnreleasedProductionCommerce} from './live-commerce-release-gate.js';
 import {publicRelease} from './public-releases.js';
@@ -107,6 +107,6 @@ export default {
  },
  scheduled(event,env,ctx){
   // Daily privacy-retention cleanup, never blocks or mutates normal web requests.
-  ctx.waitUntil(Promise.all([purgeOldBetaFeedback(env),purgeOldBetaGrants(env)]));
+  ctx.waitUntil(Promise.all([purgeOldBetaFeedback(env),purgeOldBetaGrants(env),purgeOldBetaInvitations(env)]));
  }
 };
