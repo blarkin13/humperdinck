@@ -35,6 +35,7 @@ jobs:
           node --check src/beta-feedback.js
           node --check website/beta/beta.js
           node --test tests/beta-feedback.test.mjs
+          node --test tests/beta-pro-grants.test.mjs
           node --check src/account-auth.js
           node --check src/lemon-test-commerce.js
           node --test tests/lemon-test-commerce.test.mjs
