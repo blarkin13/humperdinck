@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {handleBetaFeedback} from '../src/beta-feedback.js';
+import {handleBetaFeedback,purgeOldBetaFeedback} from '../src/beta-feedback.js';
 
 const ownerId='8b9d2ab3-cdbb-44d5-852e-7b99523b2a01';
 const userId='31d283a4-50a4-4a61-845e-030ccc3ad3a7';
@@ -86,4 +86,56 @@ test('private report details are never cached',async()=>{
  const {env,session}=setup();
  const r=await handleBetaFeedback(req('/api/beta/reports/'+uuid),env,{session});
  assert.equal(r.status,200);assert.equal(r.headers.get('Cache-Control'),'no-store');
+});
+
+test('valid PNG screenshot is stored only in private R2 with a generated key',async()=>{
+ const {env,session,bucket,calls}=setup();
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6u4AAAAASUVORK5CYII=','base64');
+ const response=await handleBetaFeedback(new Request(home+'/api/beta/reports/'+uuid+'/screenshots',{
+   method:'POST',headers:{Origin:home,'Content-Type':'image/png'},body:png}),env,{session});
+ assert.equal(response.status,201);
+ assert.equal(bucket.size,1);
+ const key=[...bucket.keys()][0];
+ assert.match(key,new RegExp('^beta/'+uuid+'/[0-9a-f-]{36}\\.png$'));
+ assert.ok(calls.some(x=>x.sql.includes('COUNT(*) FROM beta_screenshots')));
+});
+test('self deletion erases D1 references and private R2 objects',async()=>{
+ const {env,session,calls}=setup();
+ const deleted=[];
+ env.BETA_SCREENSHOTS.delete=async key=>deleted.push(key);
+ const previousPrepare=env.AUTH_DB.prepare.bind(env.AUTH_DB);
+ env.AUTH_DB.prepare=(sql)=>{
+  if(sql.includes('SELECT object_key FROM beta_screenshots WHERE report_id=')){
+   return {bind:()=>({all:async()=>({results:[{object_key:'beta/'+uuid+'/s.png'}]})})};
+  }
+  return previousPrepare(sql);
+ };
+ const response=await handleBetaFeedback(req('/api/beta/reports/'+uuid,'DELETE'),env,{session});
+ assert.equal(response.status,200);
+ assert.deepEqual(deleted,['beta/'+uuid+'/s.png']);
+ assert.ok(calls.some(x=>x.sql.startsWith('DELETE FROM beta_reports')));
+});
+test('ninety-day cleanup is disabled unless explicitly enabled',async()=>{
+ const {env,calls}=setup();delete env.BETA_FEEDBACK_ENABLED;
+ const result=await purgeOldBetaFeedback(env,{cutoff:42});
+ assert.deepEqual(result,{deleted:0,skipped:true});
+ assert.equal(calls.length,0);
+});
+test('bounded retention purge removes R2 object before D1 record',async()=>{
+ const {env,calls}=setup();const order=[];
+ const previousPrepare=env.AUTH_DB.prepare.bind(env.AUTH_DB);
+ env.AUTH_DB.prepare=sql=>{
+  if(sql.includes('SELECT id FROM beta_reports WHERE created_at<')){
+   return {bind:(...params)=>({all:async()=>{assert.equal(params[1],50);return {results:[{id:uuid}]};}})};
+  }
+  if(sql.includes('SELECT object_key FROM beta_screenshots WHERE report_id=')){
+   return {bind:()=>({all:async()=>({results:[{object_key:'beta/'+uuid+'/s.png'}]})})};
+  }
+  if(sql.startsWith('DELETE')){return {bind:()=>({run:async()=>{order.push('database');return {meta:{changes:1}};}})}}
+  return previousPrepare(sql);
+ };
+ env.BETA_SCREENSHOTS.delete=async key=>{assert.match(key,/beta\//);order.push('r2');};
+ const result=await purgeOldBetaFeedback(env,{cutoff:42,limit:1000});
+ assert.deepEqual(result,{deleted:1,skipped:false});
+ assert.deepEqual(order,['r2','database','database']);
 });
