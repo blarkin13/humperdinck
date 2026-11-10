@@ -236,7 +236,12 @@ def _activate_with_token(data: Path, token: str) -> dict:
     if not isinstance(certificate, str):
         raise HTTPException(503, 'Account server did not supply a signed license')
     try:
-        saved = pro_license.save(data, certificate)
+        if result.get('beta') is True and result.get('lifetime') is False:
+            saved = pro_license.save_beta(data, certificate)
+        elif result.get('beta') is not True:
+            saved = pro_license.save(data, certificate)
+        else:
+            raise pro_license.InvalidLicense('Unsupported certificate response')
     except pro_license.InvalidLicense as exc:
         raise HTTPException(503, 'Server license signature could not be verified') from exc
     return {'activated': True, 'license': saved,
