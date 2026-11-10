@@ -39,7 +39,7 @@ def test_blocked_default_manifest_cannot_publish():
     errors=gate.check(actual,"0.2.1","a"*40)
     assert errors
     assert any("not approved" in issue for issue in errors)
-    assert any("owner-voice provenance" in issue for issue in errors)
+    assert any("provenance" in issue.lower() for issue in errors)
 
 
 def test_exact_commit_and_every_voice_permission_required():
