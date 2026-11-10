@@ -18,7 +18,7 @@ function setup(user={id:userId,kind:'web'}){
     if(sql.includes('FROM beta_reports WHERE id='))return params[0]===uuid&&(params[1]===userId||params[2]===1)?report:null;
     if(sql.includes('FROM beta_screenshots'))return null;
     return null;
-   },all:async()=>({results:sql.includes('FROM beta_reports')?[report]:[]}),
+   },all:async()=>({results:sql.includes('FROM beta_reports')&&!sql.includes('WHERE created_at<')?[report]:[]}),
    run:async()=>({meta:{changes:1}})
   }}};
  }};
