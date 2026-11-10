@@ -47,7 +47,19 @@ jobs:
       TARGET_REPOSITORY: blarkin13/humperdinck-downloads
     steps:
       - uses: actions/checkout@v4
-      - name: Require independent exact-build P0 commercial launch signoff
+      # A free update (payments locked off in code, no Built-In Humperdinck
+      # Voices bundled) publishes on the production approval alone. Anything
+      # else still needs both sign-offs below.
+      - name: Classify release (free update or commercial)
+        id: kind
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind="$(python scripts/classify_release.py)"
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
+          echo "Release kind: $kind"
+      - if: steps.kind.outputs.kind != 'free'
+        name: Require independent exact-build P0 commercial launch signoff
         shell: bash
         env:
           P0_RELEASE_APPROVAL_JSON: ${{ secrets.P0_RELEASE_APPROVAL_JSON }}
@@ -55,7 +67,8 @@ jobs:
           set -euo pipefail
           test -n "$P0_RELEASE_APPROVAL_JSON" || { echo 'Commercial P0 approval secret missing; publishing blocked'; exit 1; }
           printf '%s' "$P0_RELEASE_APPROVAL_JSON" | python scripts/check-p0-publish-approval.py --manifest - --version "$VERSION" --commit "${{ github.sha }}"
-      - name: Require external exact-build commercial redistribution and speaker-rights signoff
+      - if: steps.kind.outputs.kind != 'free'
+        name: Require external exact-build commercial redistribution and speaker-rights signoff
         shell: bash
         env:
           RELEASE_RIGHTS_APPROVAL_JSON: ${{ secrets.RELEASE_RIGHTS_APPROVAL_JSON }}
