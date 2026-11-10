@@ -57,7 +57,7 @@ function VoiceShelf({name,count,children}){
 
 // Voice cards grouped by category in horizontally browsable shelves.
 // items: [{key,method,name,category,ready,status,summary,meters:[[label,0-100,low,high]],traits,specs:[[icon,text,title]],previewUrl,selected,onOpen,onDelete}]
-export default function VoiceGrid({items,onCreate,previewDisabled=false,onPreviewVoice=null,builtinPublisher=null,characterCounts=null,onCharacters=null}){
+export default function VoiceGrid({items,onCreate,previewDisabled=false,onPreviewVoice=null,gallery=null,characterCounts=null,onCharacters=null}){
  const [query,setQuery]=useState(''),[playing,setPlaying]=useState(null),[previewJobs,setPreviewJobs]=useState({}),audio=useRef(null);
  useEffect(()=>()=>audio.current?.pause(),[]);
  function playAudio(v,url,kind='generated'){
@@ -117,14 +117,15 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
   if(a==='Uncategorized'||b==='Uncategorized')return a==='Uncategorized'?1:-1;
   return a.localeCompare(b);
  });
- const publisherGroup=names.includes('Built-In Humperdinck Voices')?'Built-In Humperdinck Voices':names.find(name=>name==='My Voices'||name.startsWith('My Voices · '))||names[0];
+ // The Voice Gallery sits right after the Built-In Humperdinck Voices (or My Voices).
+ const galleryAfter=[...names].reverse().find(name=>name==='Built-In Humperdinck Voices'||name==='My Voices'||name.startsWith('My Voices · '));
+ const galleryGroup=<div className="voice-group voice-gallery-group" key="gallery"><h4><i className="fa-solid fa-store"/> Humperdinck Voice Gallery</h4>{gallery}</div>;
  return <div className="library">
   {items.length>6&&<div className="search-wrap"><i className="fa-solid fa-magnifying-glass"/><input className="search" type="search" aria-label="Search voices" placeholder="Search voices, categories or descriptions" value={query} onChange={e=>setQuery(e.target.value)}/></div>}
   {!items.length&&<div className="notice"><i className="fa-solid fa-record-vinyl"/> No voices yet. <button className="link" onClick={onCreate}>Create one in Voice Creator.</button></div>}
   {names.map(name=>{const list=groups[name];
-   return <div className="voice-group" key={name}>
+   return <React.Fragment key={name}><div className="voice-group">
     {names.length>1||name!=='Uncategorized'?<h4><i className="fa-solid fa-layer-group"/> {name} <small>{list.length} {list.length===1?'voice':'voices'}</small></h4>:null}
-    {builtinPublisher&&name===publisherGroup&&<div className="builtin-publisher">{builtinPublisher}</div>}
     <VoiceShelf name={name} count={list.length}>{list.map(v=>{const m=METHODS[v.method]||METHODS.designed,on=playing?.startsWith(v.key+':'),preview=previewJobs[v.key],working=['queued','running'].includes(preview?.status);
      return <article key={v.key} className={'voice-card'+(v.selected?' selected':'')+(v.ready?' ready':'')} role="button" tabIndex={0} aria-label={'Open '+v.name} onClick={v.onOpen} onKeyDown={e=>e.key==='Enter'&&v.onOpen()}>
      {v.onDelete&&<button className="card-x" title={'Delete '+v.name} aria-label={'Delete '+v.name} onClick={e=>{e.stopPropagation();v.onDelete()}}><i className="fa-solid fa-xmark"/></button>}
@@ -168,7 +169,7 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
       <span className="specs">{v.specs.filter(Boolean).map(([icon,text,title])=><span key={title} title={title}><i className={icon}/>{text}</span>)}</span>
      </div>
     </article>})}</VoiceShelf>
-   </div>})}
-   {builtinPublisher&&!publisherGroup&&<div className="builtin-publisher">{builtinPublisher}</div>}
+   </div>{gallery&&name===galleryAfter&&galleryGroup}</React.Fragment>})}
+   {gallery&&!galleryAfter&&galleryGroup}
  </div>;
 }
