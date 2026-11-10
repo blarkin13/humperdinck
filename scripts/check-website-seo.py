@@ -3,6 +3,7 @@
 from html.parser import HTMLParser
 from pathlib import Path
 import json
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -119,6 +120,35 @@ def check_page(slug):
                 issues.append("Free edition offer must be USD 0 with correct download URL")
             if "review" in app or "aggregateRating" in app:
                 issues.append("do not publish unverified software reviews or ratings")
+    if not slug:
+        # The pricing cards must reflect the owner's actual Free/Pro decisions.
+        # Keep checks narrow: marketing copy and layout remain editorial decisions.
+        from html import unescape
+        homepage = path.read_text(encoding="utf-8")
+        section_match = re.search(
+            r'<section class="section plan-section".*?</section>',
+            homepage, flags=re.DOTALL,
+        )
+        if not section_match:
+            issues.append("missing Free/Pro comparison section")
+        else:
+            section = unescape(re.sub(r"<[^>]+>", " ", section_match.group(0)))
+            section = " ".join(section.split()).lower()
+            free_match = re.search(r"humperdinck free(.*?)humperdinck pro", section)
+            pro_match = re.search(r"humperdinck pro(.*)", section)
+            free, pro = (free_match.group(1) if free_match else ""), (pro_match.group(1) if pro_match else "")
+            for phrase in ("clone your own voice", "characters", "export"):
+                if phrase not in free:
+                    issues.append(f"Free pricing card missing confirmed feature: {phrase}")
+            if "$0" not in free:
+                issues.append("Free pricing card missing $0")
+            if "$49" not in pro or "coming soon" not in section:
+                issues.append("Pro card must show planned $49 and coming-soon status")
+            if "export finished audio" in pro:
+                issues.append("ordinary audio exports must not be presented as Pro-only")
+            for forbidden in ("qwen", "kokoro", "microphone recording"):
+                if forbidden in section:
+                    issues.append(f"avoid technical or inaccurate wording in pricing section: {forbidden}")
     if parser.heading_count != 1:
         issues.append("expected exactly one h1")
     if parser.heading_open:
