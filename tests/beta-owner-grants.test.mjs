@@ -10,10 +10,13 @@ const testerId='31d283a4-50a4-4a61-845e-030ccc3ad3a7';
 const newTester='other@example.test';
 const make=({kind='web',id=ownerId,enabled=true}={})=>{
  const calls=[];
- const db={prepare(sql){return {bind(...args){calls.push({sql,args});return {
-  first:async()=>sql.includes('FROM auth_users u JOIN auth_identities')?{id:testerId}:null,
-  run:async()=>({meta:{changes:1}}),all:async()=>({results:[]})
- };}},all:async()=>({results:[]})}}};
+ const db={prepare(sql){return {
+  bind(...args){calls.push({sql,args});return {
+   first:async()=>sql.includes('FROM auth_users u JOIN auth_identities')?{id:testerId}:null,
+   run:async()=>({meta:{changes:1}}),all:async()=>({results:[]})
+  };},
+  all:async()=>({results:[]})
+ };}};
  const env={AUTH_DB:db,BETA_FEEDBACK_ENABLED:'1',BETA_PRO_ENABLED:enabled?'1':'0',
   ANALYTICS_OWNER_ACCOUNT_ID:ownerId,BETA_SCREENSHOTS:{get:async()=>null,put:async()=>{}}};
  return {env,calls,session:async()=>({id,kind})};
