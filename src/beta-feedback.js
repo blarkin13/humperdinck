@@ -198,7 +198,11 @@ export async function handleBetaFeedback(request,env,{session}={}){
     'SELECT id,user_id,category,platform,area,summary,details,status,created_at,updated_at '+
     'FROM beta_reports WHERE user_id=? OR ?=1 ORDER BY created_at DESC LIMIT 100'
    ).bind(user.id,isOwner?1:0).all();
-   return j({reports:(rows.results||[]).map(publicRow),isOwner});
+   const time=now();
+   const grant=!isOwner&&env.BETA_PRO_ENABLED==='1'?await env.AUTH_DB.prepare(
+    'SELECT id FROM beta_pro_grants WHERE user_id=? AND revoked_at IS NULL AND issued_at<=? AND expires_at>? LIMIT 1'
+   ).bind(user.id,time,time).first():null;
+   return j({reports:(rows.results||[]).map(publicRow),isOwner,canSubmit:isOwner||!!grant});
   }
   const match=path.match(/^\/api\/beta\/reports\/([0-9a-f-]{36})(?:\/(screenshots)(?:\/([0-9a-f-]{36}))?)?$/i);
   if(!match||!UUID.test(match[1]))return fail(404,'Not found');
