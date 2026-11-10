@@ -124,3 +124,10 @@ export async function handleBetaInvitations(request,env,{session}={}){
   return fail(400,'Invalid invitation request');
  }
 }
+
+export async function purgeOldBetaInvitations(env,{cutoff=now()-90*86400}={}){
+ if(!env.AUTH_DB)return {deleted:0,skipped:true};
+ const result=await env.AUTH_DB.prepare('DELETE FROM beta_invitations WHERE expires_at<?')
+   .bind(cutoff).run();
+ return {deleted:result.meta?.changes||0,skipped:false};
+}
