@@ -32,6 +32,14 @@ jobs:
         run: |
           node --check src/public-releases.js
           node --check src/model-proxy-worker.js
+          node --check src/beta-feedback.js
+          node --check website/beta/beta.js
+          node --test tests/beta-feedback.test.mjs
+          node --test tests/beta-pro-grants.test.mjs
+          node --test tests/beta-owner-grants.test.mjs
+          node --check src/beta-invitations.js
+          node --check website/beta/beta.js
+          node --test tests/beta-invitations.test.mjs
           node --check src/account-auth.js
           node --check src/lemon-test-commerce.js
           node --test tests/lemon-test-commerce.test.mjs
@@ -73,6 +81,7 @@ jobs:
           node --test tests/public-releases.test.mjs
           node --test tests/download-mobile-layout.test.mjs
           node --test tests/site-analytics-optout.test.mjs
+          node --test tests/support-contact-links.test.mjs
       - name: Validate public website SEO metadata and sitemap
         run: python3 scripts/check-website-seo.py
       - name: Check browser Kokoro worker syntax

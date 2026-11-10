@@ -347,10 +347,11 @@ class Pool:
 pool = Pool()
 
 
-def synthesize(engine, output, text, *, model, mode, description='', reference=None, ref_text=None, on_progress=None, speed=1.0):
+def synthesize(engine, output, text, *, model, mode, description='', reference=None, ref_text=None, on_progress=None, speed=1.0, blend=None):
     pool.synthesize(engine, {'engine': engine, 'model': model, 'mode': mode, 'text': text, 'description': description,
                              'reference': str(reference) if reference else None, 'ref_text': ref_text,
                              'preset_voice': model if mode == 'preset' else None, 'speed': float(speed),
+                             'blend': blend,
                              'output': str(output)}, on_progress)
 
 
@@ -359,17 +360,33 @@ def design(choice, output, text, description, on_progress=None):
     synthesize(choice['engine'], output, text, model=choice['model'], mode='design', description=description, on_progress=on_progress)
 
 
-def clone(choice, output, text, reference, ref_text=None, on_progress=None):
-    """Speak text in the voice of a reference clip with the chosen cloning model."""
+def clone(choice, output, text, reference, ref_text=None, on_progress=None, blend=None):
+    """Speak text in the voice of a reference clip with the chosen cloning model.
+
+    ``blend`` ({'reference', 'weight'}) makes an impression: the clone's speaker
+    embedding is moved part of the way toward the voice in another recording.
+    """
+    extra = {}
+    if blend is not None:
+        extra['blend'] = {'reference': str(blend['reference']), 'weight': float(blend['weight'])}
     synthesize(choice['engine'], output, text, model=choice['model'], mode='clone', reference=reference,
-               ref_text=ref_text, on_progress=on_progress)
+               ref_text=ref_text, on_progress=on_progress, **extra)
 
 
-def preset(engine, voice, output, text, on_progress=None, speed=1.0):
-    """Speak with one named Kokoro voice, not a cloned reference recording."""
+def preset(engine, voice, output, text, on_progress=None, speed=1.0, blend=None):
+    """Speak with one named Kokoro voice, not a cloned reference recording.
+
+    ``blend`` ({'voice', 'weight'}) makes an impression: the voice's style moved
+    part of the way toward another Kokoro voice.
+    """
     if engine != 'kokoro' or voice not in catalog.PRESET_VOICES[engine]:
         raise ValueError('Unknown preset voice')
+    if blend is not None and (blend.get('voice') not in catalog.PRESET_VOICES[engine]
+                              or not 0 < float(blend.get('weight', 0)) <= 0.6):
+        raise ValueError('Invalid impression blend')
     extra = {'speed': speed} if speed != 1 else {}
+    if blend is not None:
+        extra['blend'] = {'voice': blend['voice'], 'weight': float(blend['weight'])}
     synthesize(engine, output, text, model=voice, mode='preset', on_progress=on_progress, **extra)
 
 

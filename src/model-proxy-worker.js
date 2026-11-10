@@ -1,5 +1,7 @@
 import {recordAnalyticsEvent, handleAnalyticsEvent} from './site-analytics.js';
 import {handleAccount,accountSession} from './account-auth.js';
+import {handleBetaFeedback,purgeOldBetaFeedback,purgeOldBetaGrants} from './beta-feedback.js';
+import {handleBetaInvitations,purgeOldBetaInvitations} from './beta-invitations.js';
 import {handleLemonTest} from './lemon-test-commerce.js';
 import {isReservedProductionCommercePath,handleUnreleasedProductionCommerce} from './live-commerce-release-gate.js';
 import {publicRelease} from './public-releases.js';
@@ -28,6 +30,8 @@ export default {
   // Deny-first: no environment flag, secret, checkout callback or static fallback
   // can accidentally expose a live production-commerce endpoint.
   if(isReservedProductionCommercePath(url.pathname))return handleUnreleasedProductionCommerce(request);
+  if(url.pathname.startsWith('/api/beta/admin/invitations')||url.pathname.startsWith('/api/beta/invitations/')||url.pathname==='/api/beta/admin/test-license/revoke')return handleBetaInvitations(request,env,{session:accountSession});
+  if(url.pathname.startsWith('/api/beta/'))return handleBetaFeedback(request,env,{session:accountSession});
   if(url.pathname.startsWith('/api/account/'))return handleAccount(request,env);
   if(url.pathname.startsWith('/api/commerce/test/'))return handleLemonTest(request,env,{session:accountSession});
   if(url.pathname==='/analytics/event')return handleAnalyticsEvent(request,env);
@@ -100,5 +104,9 @@ export default {
   }catch(error){
    return new Response('Model upstream could not be reached',{status:502,headers:{'Cache-Control':'no-store','Content-Type':'text/plain; charset=utf-8'}});
   }
+ },
+ scheduled(event,env,ctx){
+  // Daily privacy-retention cleanup, never blocks or mutates normal web requests.
+  ctx.waitUntil(Promise.all([purgeOldBetaFeedback(env),purgeOldBetaGrants(env),purgeOldBetaInvitations(env)]));
  }
 };

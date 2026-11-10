@@ -35,7 +35,7 @@ class FakeEngine:
     def design(self, text, description, output, on_progress=None):
         self.synthesize(text, description, output, on_progress)
 
-    def clone(self, text, reference, output, ref_text=None, on_progress=None):
+    def clone(self, text, reference, output, ref_text=None, on_progress=None, blend=None):
         self.synthesize(text, reference, output, on_progress)
 
 
@@ -98,15 +98,18 @@ def handle(request):
         if request['engine'] != 'kokoro':
             raise ValueError('Preset voices require Kokoro')
         engine.synthesize(request['text'], request['preset_voice'], output, on_progress=progress,
-                          speed=max(0.5, min(2.0, float(request.get('speed') or 1.0))))
+                          speed=max(0.5, min(2.0, float(request.get('speed') or 1.0))),
+                          blend=request.get('blend'))
     elif request['engine'] == 'qwen-mlx' and request['mode'] == 'clone':
         engine.synthesize(request['text'], Path(request['reference']), output,
-                          ref_text=request.get('ref_text'), on_progress=progress)
+                          ref_text=request.get('ref_text'), on_progress=progress,
+                          blend=request.get('blend'))
     elif request['engine'] == 'qwen-torch':
         if request['mode'] == 'design':
             engine.design(request['text'], request['description'], output, on_progress=progress)
         else:
-            engine.clone(request['text'], Path(request['reference']), output, request.get('ref_text'), on_progress=progress)
+            engine.clone(request['text'], Path(request['reference']), output, request.get('ref_text'),
+                         on_progress=progress, blend=request.get('blend'))
     else:
         voice = request['description'] if request['mode'] == 'design' else Path(request['reference'])
         engine.synthesize(request['text'], voice, output, on_progress=progress)

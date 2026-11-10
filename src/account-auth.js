@@ -2,7 +2,7 @@
  * No account or cloud request is required for Free desktop narration.
  * OAuth code flow + PKCE + cryptographically validated OIDC ID tokens.
  */
-import {handleProLicense} from './pro-license.js';
+import {handleProLicense,betaForUser} from './pro-license.js';
 import {limitedJson} from './limited-json.js';
 import {handleAccountDashboard,createLinkIntent,readLinkIntent} from './account-dashboard.js';
 const ORIGIN = 'https://humperdinck.studio';
@@ -76,9 +76,12 @@ async function session(request,env){
 }
 async function profile(env,user){
   const identities=await env.AUTH_DB.prepare('SELECT provider FROM auth_identities WHERE user_id=?').bind(user.id).all();
+  const paid=await env.AUTH_DB.prepare("SELECT id FROM pro_licenses WHERE user_id=? AND status='active'").bind(user.id).first();
+  const beta=paid?null:await betaForUser(env,user.id);
   return {id:user.id,email:user.email||null,display_name:user.display_name||null,
     providers:(identities.results||[]).map(r=>r.provider),
-    plan:(await env.AUTH_DB.prepare("SELECT id FROM pro_licenses WHERE user_id=? AND status='active'").bind(user.id).first())?'pro':'free'};
+    plan:paid||beta?'pro':'free', beta:!paid&&!!beta,
+    beta_expires_at:!paid&&beta?beta.expires_at:null};
 }
 async function saveSession(env,userId,kind){
   const token=random(), expire=now()+(kind==='desktop'?DESKTOP_TTL:WEB_TTL);

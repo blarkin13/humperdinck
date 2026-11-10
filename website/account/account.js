@@ -78,28 +78,31 @@ function deviceRow(name,subline,actionLabel,onClick){
 function renderPurchase(info,license){
  const purchase=info.purchase||{};
  const active=purchase.status==='active';
- const label=active?'Pro · Lifetime':'Free';
+ const beta=!active&&license?.beta===true&&license?.lifetime===false;
+ const label=active?'Pro · Lifetime':beta?'Pro · Beta':'Free';
  const details={
   active:'Lifetime Pro license on file',
   refunded:'Refunded',
   void:'Cancelled',
   none:'No purchase on file'
  };
- q('purchase-badge').textContent=active?'Lifetime Pro':purchase.status==='refunded'?'Refunded':purchase.status==='void'?'Cancelled':'Free edition';
- q('purchase-name').textContent=active?'Humperdinck Pro':'Humperdinck Free';
+ q('purchase-badge').textContent=active?'Lifetime Pro':beta?'Temporary beta Pro':purchase.status==='refunded'?'Refunded':purchase.status==='void'?'Cancelled':'Free edition';
+ q('purchase-name').textContent=active?'Humperdinck Pro':beta?'Humperdinck Pro Beta':'Humperdinck Free';
  q('purchase-message').textContent=active?
   'Your lifetime Pro entitlement is associated with this account. There are no renewals or mandatory online checks for an installed signed license.':
+  beta?'Your temporary beta Pro access expires '+fmt(license.expires_at)+'. It is not a purchase or a lifetime license; connect your desktop account and activate Pro to start testing.':
   purchase.status==='refunded'||purchase.status==='void'?
   'No active Pro entitlement is associated with this account. Previously exported offline licenses cannot be remotely revoked.':
   'Your Free studios, built-in voices and exports remain available without signing in or entering payment details.';
- q('purchase-status').textContent=details[purchase.status]||'Not available';
+ q('purchase-status').textContent=beta?'Temporary beta access':details[purchase.status]||'Not available';
  q('purchase-date').textContent=active?fmt(purchase.issued_at):'—';
  q('purchase-provider').textContent=purchase.provider||'Not connected';
  q('purchase-reference').textContent=purchase.reference||'—';
  q('stat-edition').textContent=label;
- q('stat-edition-note').textContent=active?'Permanent Pro access':'Your local studio';
+ q('stat-edition-note').textContent=active?'Permanent Pro access':beta?'Expires '+fmt(license.expires_at):'Your local studio';
  q('purchase-footnote').textContent=active?
-  'Purchases are one-time; payment receipts will be linked here when the checkout provider is integrated.':
+  'Purchases are one-time; payment receipts will be linked here when the checkout provider is integrated.':beta?
+  'Beta testing access expires automatically. No payment is charged and no lifetime license backup is available.':
   'One-time Pro checkout is not available yet. No payment has been charged through this dashboard.';
  const proDevices=Array.isArray(license?.devices)?license.devices:[];
  const count=Number(license?.active_devices||0),limit=Number(license?.device_limit||10);
@@ -119,11 +122,13 @@ function renderPurchase(info,license){
  }
  const canDownload=active&&Boolean(license?.license?.backup_available);
  q('download-license').hidden=!canDownload;
- q('license-title').textContent=active?'Your signed lifetime Pro license':'Your Free edition needs no license';
+ q('license-title').textContent=active?'Your signed lifetime Pro license':beta?'Your temporary Pro trial':'Your Free edition needs no license';
  q('license-description').textContent=active?
   'Export your permanent Pro license as a signed JSON backup. You can restore it from the desktop app without an internet connection.':
+  beta?'Sign in from your desktop app and choose Activate Pro. Temporary beta certificates are bound to that installation, expire automatically, and cannot be backed up as lifetime licenses.':
   'All Free features work without a license file or an internet connection.';
- q('license-missing').textContent=active&&!canDownload?'License download is temporarily unavailable. Your installed offline backup remains valid.':
+ q('license-missing').textContent=active&&!canDownload?'License download is temporarily unavailable. Your installed offline backup remains valid.':beta?
+  'Beta Pro is temporary; export of a permanent offline license is unavailable.':
   'Pro license downloads become available after a verified purchase.';
  q('license-missing').hidden=canDownload;
 }
