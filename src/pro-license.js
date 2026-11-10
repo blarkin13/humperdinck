@@ -68,7 +68,7 @@ async function signLicense(license,signerInfo){
 
 // Temporary beta access is never a perpetual purchase. Grants are provisioned
 // only by an authorized operator in D1; the HTTP API cannot create or extend them.
-async function betaForUser(env,userId){
+export async function betaForUser(env,userId){
  if(env.BETA_PRO_ENABLED!=='1')return null;
  return env.AUTH_DB.prepare('SELECT id,user_id,issued_at,expires_at FROM beta_pro_grants WHERE user_id=? AND revoked_at IS NULL AND issued_at<=? AND expires_at>? ORDER BY expires_at DESC LIMIT 1')
   .bind(userId,clock(),clock()).first();
