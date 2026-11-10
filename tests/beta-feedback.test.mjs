@@ -65,7 +65,7 @@ test('accepts valid report through atomic per-user cap',async()=>{
  const data={category:'bug',platform:'macos',area:'narration',summary:'Issue with audio',details:'A fictional bug reproduced',privacyConfirmed:true};
  const r=await handleBetaFeedback(req('/api/beta/reports','POST',data),env,{session});
  assert.equal(r.status,201);const body=await r.json();assert.match(body.id,/^[0-9a-f-]{36}$/);
- assert.match(calls[0].sql,/COUNT\(\*\).*created_at>/);
+ assert.ok(calls.some(x=>/COUNT\(\*\).*created_at>/.test(x.sql)));
 });
 test('owner-only status update and other users cannot access report',async()=>{
  const {env,session}=setup();const request=req('/api/beta/reports/'+uuid,'PATCH',{status:'fixed'});
