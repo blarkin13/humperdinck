@@ -14,6 +14,7 @@ class BetaSchemaTests(unittest.TestCase):
         self.db.execute("CREATE TABLE auth_users (id TEXT PRIMARY KEY)")
         self.db.execute("INSERT INTO auth_users(id) VALUES ('beta-user')")
         self.db.executescript(MIGRATION.read_text(encoding="utf-8"))
+        self.db.executescript((ROOT / "migrations" / "9998_beta_pro_grants.sql").read_text(encoding="utf-8"))
 
     def tearDown(self):
         self.db.close()
@@ -38,6 +39,17 @@ class BetaSchemaTests(unittest.TestCase):
             self.db.execute(base, ("bad", "beta-user", "harmful", "macos", "other", "test summary", "fictional details", 1, 1))
         with self.assertRaises(sqlite3.IntegrityError):
             self.db.execute(base, ("bad", "unknown", "bug", "macos", "other", "test summary", "fictional details", 1, 1))
+
+    def test_temporary_pro_schema_enforces_maximum_30_days(self):
+        self.db.execute("""INSERT INTO beta_pro_grants
+          (id,user_id,issued_at,expires_at,created_at)
+          VALUES ('trial-1','beta-user',100,?,100)""", (100+30*86400,))
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM beta_pro_grants").fetchone()[0], 1)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("""INSERT INTO beta_pro_grants
+              (id,user_id,issued_at,expires_at,created_at)
+              VALUES ('trial-2','beta-user',100,?,100)""", (100+31*86400,))
 
     def test_screenshot_delete_cascade(self):
         self.db.execute("""INSERT INTO beta_reports
