@@ -31,7 +31,7 @@ function setup(){
     return {meta:{changes:1}};
    },
    all:async()=>({results:[]})
-  }}},all:async()=>({results:[]})};
+  }},all:async()=>({results:[]})};
  }};
  const env={AUTH_DB:db,BETA_PRO_ENABLED:'1',BETA_FEEDBACK_ENABLED:'1',ANALYTICS_OWNER_ACCOUNT_ID:owner};
  return {env,calls,state};
