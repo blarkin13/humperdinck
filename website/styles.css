@@ -1294,7 +1294,7 @@ html{scroll-padding-top:0}
 
 /* Download cards v3 — quiet metadata, icon-only action. */
 .download-card .download-card-index,.download-card .download-visual-caption{display:none}
-.download-card-bottom{padding:21px 25px 24px}
+.download-card-bottom{padding:21px 25px 24px;align-self:stretch;width:auto}
 .download-build-row{display:grid;grid-template-columns:minmax(0,1fr) 54px;gap:16px;align-items:center}
 .download-build-meta{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
 .download-card .download-version{text-align:left;overflow-wrap:anywhere;font-size:12px;line-height:1.5;margin:0}
