@@ -25,7 +25,7 @@ def test_impression_targets_same_language_other_gender_first():
     assert ch.impression_targets('bm_george', voices, downloaded=lambda v: v == 'bf_emma') == \
         [{'voice': 'bf_emma', 'name': 'Emma', 'gender': 'female', 'group': 'A woman'}]
     assert len(ch.IMPRESSION_WEIGHTS) == len(ch.IMPRESSION_STRENGTHS) == 3
-    assert all(0 < w <= 0.6 for w in ch.IMPRESSION_WEIGHTS)
+    assert all(0 < w <= ch.IMPRESSION_MAX for w in ch.IMPRESSION_WEIGHTS)
 
 
 def test_create_list_rename_delete(tmp_path):
@@ -116,3 +116,12 @@ def test_impression_rejects_other_languages_and_non_kokoro_sources(monkeypatch):
         with pytest.raises(HTTPException) as err:
             api.create_character_takes(api.CharacterTakesInput(source_key=source, impression=target, text='Hi'))
         assert err.value.status_code == 422
+
+
+def test_mix_slider_makes_three_takes_around_the_chosen_strength():
+    assert ch.impression_weights(None) == (list(ch.IMPRESSION_WEIGHTS), list(ch.IMPRESSION_STRENGTHS))
+    assert ch.impression_weights(0.5) == ([0.4, 0.5, 0.6], ['40% mix', '50% mix', '60% mix'])
+    # Clamped at both ends; duplicates collapse instead of rendering the same take twice.
+    assert ch.impression_weights(0.8)[0] == [0.7, 0.8]
+    assert ch.impression_weights(0.1)[0] == [0.1, 0.2]
+    assert ch.impression_weights(5)[0] == [0.7, 0.8]

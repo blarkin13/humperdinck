@@ -22,6 +22,19 @@ from uuid import uuid4
 # the way toward the other voice; each take is one strength.
 IMPRESSION_WEIGHTS = (0.2, 0.35, 0.5)
 IMPRESSION_STRENGTHS = ('Subtle', 'Medium', 'Strong')
+# The Mix slider: how far the voice moves toward the impersonated voice.
+# Deep or very distinctive voices may need more than the default to be heard.
+IMPRESSION_MAX = 0.8
+IMPRESSION_MIN = 0.1
+
+
+def impression_weights(strength=None):
+    """Three takes around the chosen Mix (or the default Subtle/Medium/Strong)."""
+    if strength is None:
+        return list(IMPRESSION_WEIGHTS), list(IMPRESSION_STRENGTHS)
+    s = min(IMPRESSION_MAX, max(IMPRESSION_MIN, round(float(strength), 2)))
+    weights = sorted({round(min(IMPRESSION_MAX, max(IMPRESSION_MIN, s + d)), 2) for d in (-0.1, 0, 0.1)})
+    return weights, [f'{round(w * 100)}% mix' for w in weights]
 
 
 def impression_targets(source_voice: str, preset_voices: dict, downloaded=lambda v: True) -> list[dict]:

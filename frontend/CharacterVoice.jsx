@@ -13,12 +13,12 @@ export default function CharacterVoice({api,source,onClose,onCreated,onOpenModel
  const [options,setOptions]=useState(null),[nameChoice,setNameChoice]=useState('Narrator'),[customName,setCustomName]=useState('');
  const [impression,setImpression]=useState(''),[direction,setDirection]=useState(''),[gender,setGender]=useState(source.gender||'female');
  const [text,setText]=useState(SAMPLE),[job,setJob]=useState(null),[pick,setPick]=useState(0),[playing,setPlaying]=useState(null);
- const [busy,setBusy]=useState(''),[error,setError]=useState('');
+ const [busy,setBusy]=useState(''),[error,setError]=useState(''),[mix,setMix]=useState(50);
  const audio=useRef(null),requested=useRef('');
  useEffect(()=>{api('characters/options?source_key='+encodeURIComponent(source.value)).then(o=>{setOptions(o);setImpression(o.impressions?.[0]?.voice||'')}).catch(e=>setError(e.message));return()=>audio.current?.pause()},[]);
 
  const impressions=options?.impressions||[],canImpress=impressions.length>0;
- const recipe=[impression,direction.trim(),gender,text].join('|');
+ const recipe=[impression,mix,direction.trim(),gender,text].join('|');
  const name=(nameChoice===CUSTOM?customName:nameChoice).trim();
  const takes=job?.takes||[];
  const ready=job?.status==='complete'&&takes[pick]?.status==='complete'&&requested.current===recipe;
@@ -36,7 +36,7 @@ export default function CharacterVoice({api,source,onClose,onCreated,onOpenModel
  async function makeTakes(){
   setError('');setBusy('takes');setPlaying(null);audio.current?.pause();requested.current=recipe;setPick(0);
   try{
-   let j=await api('characters/takes',post(canImpress?{source_key:source.value,impression,text}:{source_key:source.value,direction,gender,text}));
+   let j=await api('characters/takes',post(canImpress?{source_key:source.value,impression,strength:mix/100,text}:{source_key:source.value,direction,gender,text}));
    setJob(j);
    for(let n=0;!['complete','failed'].includes(j.status)&&n<3600;n++){await new Promise(r=>setTimeout(r,1000));j=await api('jobs/'+j.job_id);setJob(j)}
    if(j.status!=='complete')throw Error(j.message||'Could not make takes');
@@ -60,12 +60,13 @@ export default function CharacterVoice({api,source,onClose,onCreated,onOpenModel
      <select value={nameChoice} onChange={e=>setNameChoice(e.target.value)}>{(options?.names||['Narrator']).map(n=><option key={n}>{n}</option>)}<option value={CUSTOM}>Custom…</option></select>
     </label>
     {nameChoice===CUSTOM&&<input aria-label="Custom character name" autoFocus maxLength={80} value={customName} onChange={e=>setCustomName(e.target.value)} placeholder="e.g. Captain Mira"/>}
-    {canImpress?<label>Impersonating<select value={impression} onChange={e=>setImpression(e.target.value)}>
+    {canImpress?<><label>Impersonating<select value={impression} onChange={e=>setImpression(e.target.value)}>
      {[...new Set(impressions.map(t=>t.group))].map(g=><optgroup key={g} label={g}>{impressions.filter(t=>t.group===g).map(t=><option key={t.voice} value={t.voice}>{t.name}</option>)}</optgroup>)}
     </select></label>
+    <label>Mix <span className="hint">{mix}%</span><input type="range" min="10" max="80" step="5" value={mix} onChange={e=>setMix(Number(e.target.value))} aria-valuetext={`${mix} percent toward ${target?.name||'the other voice'}`}/></label></>
     :<label>How they talk<textarea rows={2} maxLength={400} value={direction} onChange={e=>setDirection(e.target.value)} placeholder="e.g. old and slow, gravelly, whispering, excited"/></label>}
     {!canImpress&&!source.gender&&<label>The original voice is<select value={gender} onChange={e=>setGender(e.target.value)}><option value="female">Female</option><option value="male">Male</option><option value="neutral">Neither / unsure</option></select></label>}
-    <p className="hint">{canImpress?`${source.label} impersonates ${target?.name||'another voice'}: still ${source.label}, pushed toward their voice. You get a subtle, medium and strong take.`
+    <p className="hint">{canImpress?`${source.label} impersonates ${target?.name||'another voice'}: still ${source.label}, pushed toward their voice. Mix sets how far: raise it for deep or very distinctive voices. You get three takes around it.`
      :`The voice designer performs the line from your description, then it's turned into ${source.label}'s voice.`}</p>
     {needsDesigner&&options&&!options.design_ready&&<div className="notice">This needs the voice designer. Install it in Models.</div>}
     <label>Preview line<input value={text} maxLength={300} onChange={e=>setText(e.target.value)}/></label>

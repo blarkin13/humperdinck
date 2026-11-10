@@ -222,7 +222,7 @@ class QwenBaseCloner:
 
 def blend_weight(blend) -> float:
     weight = float((blend or {}).get('weight', 0))
-    if not 0 < weight <= 0.6:
+    if not 0 < weight <= 0.8:
         raise ValueError('Invalid impression blend')
     other = Path(str((blend or {}).get('reference', '')))
     if not other.is_file():
