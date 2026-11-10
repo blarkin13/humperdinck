@@ -3,6 +3,7 @@
 from html.parser import HTMLParser
 from pathlib import Path
 import json
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -123,19 +124,18 @@ def check_page(slug):
         # The pricing cards must reflect the owner's actual Free/Pro decisions.
         # Keep checks narrow: marketing copy and layout remain editorial decisions.
         from html import unescape
-        from re import sub, search
         homepage = path.read_text(encoding="utf-8")
-        section_match = search(
+        section_match = re.search(
             r'<section class="section plan-section".*?</section>',
-            homepage, flags=__import__("re").DOTALL,
+            homepage, flags=re.DOTALL,
         )
         if not section_match:
             issues.append("missing Free/Pro comparison section")
         else:
-            section = unescape(sub(r"<[^>]+>", " ", section_match.group(0)))
+            section = unescape(re.sub(r"<[^>]+>", " ", section_match.group(0)))
             section = " ".join(section.split()).lower()
-            free_match = search(r"humperdinck free(.*?)humperdinck pro", section)
-            pro_match = search(r"humperdinck pro(.*)", section)
+            free_match = re.search(r"humperdinck free(.*?)humperdinck pro", section)
+            pro_match = re.search(r"humperdinck pro(.*)", section)
             free, pro = (free_match.group(1) if free_match else ""), (pro_match.group(1) if pro_match else "")
             for phrase in ("clone your own voice", "characters", "export"):
                 if phrase not in free:
