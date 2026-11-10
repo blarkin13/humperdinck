@@ -42,21 +42,72 @@ async function rowFor(db,id,user,isOwner){
 }
 function publicRow(row){return {id:row.id,category:row.category,platform:row.platform,area:row.area,
  summary:row.summary,details:row.details,status:row.status,created_at:row.created_at,updated_at:row.updated_at};}
+// PNG files may contain comments, profile metadata, location text or other identifiers.
+// Parse chunk framing and CRCs; retain only image-critical chunks, discarding all ancillary
+// metadata. Never use the original upload's bytes or filename for private storage.
+const PNG_CRC_TABLE=Uint32Array.from({length:256},(_,n)=>{
+ let crc=n;for(let i=0;i<8;i++)crc=(crc&1)?(0xedb88320^(crc>>>1)):(crc>>>1);
+ return crc>>>0;
+});
+function pngCRC(bytes,start,end){
+ let crc=0xffffffff;
+ for(let i=start;i<end;i++)crc=PNG_CRC_TABLE[(crc^bytes[i])&255]^(crc>>>8);
+ return (crc^0xffffffff)>>>0;
+}
+function sanitizedPNG(bytes){
+ if(bytes.length<45||!PNG.every((n,i)=>bytes[i]===n))throw Error('PNG signature');
+ const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+ const keep=[bytes.subarray(0,8)];let at=8,width=0,height=0,seenIHDR=false,seenIDAT=false,seenIEND=false;
+ let idatDone=false,seenPLTE=false,seenTRNS=false,colorType=0,bitDepth=0;
+ while(at<bytes.length){
+  if(at+12>bytes.length)throw Error('Truncated PNG chunk');
+  const len=view.getUint32(at),end=at+12+len;
+  if(len>MAX_IMAGE||end>bytes.length)throw Error('Invalid PNG chunk length');
+  const tag=String.fromCharCode(...bytes.subarray(at+4,at+8));
+  if(!/^[A-Za-z]{4}$/.test(tag))throw Error('Invalid PNG chunk type');
+  if(pngCRC(bytes,at+4,at+8+len)!==view.getUint32(at+8+len))throw Error('PNG checksum failure');
+  const payload=at+8;
+  if(!seenIHDR){
+   if(tag!=='IHDR'||len!==13)throw Error('PNG must start with IHDR');
+   width=view.getUint32(payload);height=view.getUint32(payload+4);
+   bitDepth=bytes[payload+8];colorType=bytes[payload+9];
+   const compatible=({0:[1,2,4,8,16],2:[8,16],3:[1,2,4,8],4:[8,16],6:[8,16]})[colorType];
+   if(!width||!height||width>4096||height>4096||!compatible?.includes(bitDepth)
+      ||bytes[payload+10]!==0||bytes[payload+11]!==0||bytes[payload+12]>1)
+    throw Error('Unsupported PNG image dimensions or color');
+   seenIHDR=true;keep.push(bytes.subarray(at,end));
+  }else if(tag==='PLTE'){
+   if(seenIDAT||seenPLTE||len%3!==0||len===0||len>768)throw Error('Invalid PNG palette');
+   seenPLTE=true;keep.push(bytes.subarray(at,end));
+  }else if(tag==='tRNS'){
+   if(seenIDAT||seenTRNS||![0,2,3].includes(colorType))throw Error('Invalid PNG transparency');
+   seenTRNS=true;keep.push(bytes.subarray(at,end));
+  }else if(tag==='IDAT'){
+   if(idatDone)throw Error('Separated PNG image chunks');
+   seenIDAT=true;keep.push(bytes.subarray(at,end));
+  }else if(tag==='IEND'){
+   if(!seenIDAT||len!==0||end!==bytes.length)throw Error('Invalid PNG end');
+   seenIEND=true;keep.push(bytes.subarray(at,end));
+  }else if(tag[0]===tag[0].toUpperCase()){
+   // Reject unknown critical features; ancillary metadata is discarded.
+   throw Error('Unsupported critical PNG chunk');
+  }
+  if(tag!=='IDAT'&&seenIDAT)idatDone=true;
+  at=end;
+ }
+ if(!seenIEND||(colorType===3&&!seenPLTE))throw Error('Incomplete PNG');
+ const total=keep.reduce((n,c)=>n+c.byteLength,0),output=new Uint8Array(total);
+ let offset=0;for(const chunk of keep){output.set(chunk,offset);offset+=chunk.byteLength;}
+ return {bytes:output,width,height};
+}
 async function receivePNG(request){
  const length=Number(request.headers.get('Content-Length')||0);
  if(length>MAX_IMAGE)return {error:'Screenshot must be 2 MB or less'};
- if(request.headers.get('Content-Type')?.split(';')[0].trim()!=='image/png')return {error:'Only PNG screenshots are allowed'};
+ if(request.headers.get('Content-Type')?.split(';')[0].trim()!=='image/png')
+  return {error:'Only PNG screenshots are allowed'};
  let bytes;
  try{bytes=await bounded(request,MAX_IMAGE);}catch{return {error:'Screenshot must be 2 MB or less'};}
- const valid=bytes.length>=32&&PNG.every((n,i)=>bytes[i]===n);
- // PNG signature, IHDR type, positive bounded pixel dimensions and final IEND chunk.
- const type=bytes.length>=24&&new TextDecoder().decode(bytes.slice(12,16))==='IHDR';
- const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
- const width=bytes.length>=24?view.getUint32(16):0,height=bytes.length>=24?view.getUint32(20):0;
- const end=bytes.length>=12&&new TextDecoder().decode(bytes.slice(-8,-4))==='IEND';
- if(!valid||!type||!width||!height||width>8000||height>8000||!end)
-  return {error:'The file is not a supported PNG screenshot'};
- return {bytes,width,height};
+ try{return sanitizedPNG(bytes);}catch{return {error:'Invalid or unsupported PNG screenshot'};}
 }
 
 export async function handleBetaFeedback(request,env,{session}={}){
@@ -162,7 +213,7 @@ export async function handleBetaFeedback(request,env,{session}={}){
 
 export async function purgeOldBetaFeedback(env,{cutoff=now()-90*86400,limit=50}={}){
  // Scheduled purge is gated and bounded, so it never touches other D1 or R2 records.
- if(env.BETA_FEEDBACK_ENABLED!=='1'||!env.AUTH_DB||!env.BETA_SCREENSHOTS)
+ if(!env.AUTH_DB||!env.BETA_SCREENSHOTS)
   return {deleted:0,skipped:true};
  const stale=await env.AUTH_DB.prepare(
    'SELECT id FROM beta_reports WHERE created_at<? ORDER BY created_at ASC LIMIT ?'
