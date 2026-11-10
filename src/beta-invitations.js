@@ -64,6 +64,15 @@ export async function handleBetaInvitations(request,env,{session}={}){
    if(result.meta?.changes!==1)return fail(404,'Invitation cannot be revoked');
    return json({revoked:true});
   }
+  if(path==='/api/beta/invitations/status'&&request.method==='GET'){
+   const email=normalEmail(user.email);
+   const verified=validEmail(email)?await activeGoogleUser(env.AUTH_DB,email):null;
+   if(!verified||verified.id!==user.id)return json({invited:false});
+   const invite=await env.AUTH_DB.prepare(
+    'SELECT id,expires_at FROM beta_invitations WHERE email=? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at>? ORDER BY created_at DESC LIMIT 1')
+    .bind(email,now()).first();
+   return json({invited:!!invite,invitation_expires_at:invite?.expires_at||null});
+  }
   if(path==='/api/beta/invitations/claim'&&request.method==='POST'){
    const email=normalEmail(user.email);
    if(!validEmail(email))return fail(403,'Google account email required');
