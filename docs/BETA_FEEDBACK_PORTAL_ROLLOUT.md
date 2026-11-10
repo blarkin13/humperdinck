@@ -53,3 +53,22 @@ It does **not** automatically capture voice data, scripts, full diagnostic logs,
 - [ ] Flag enabled only after approval and independent beta users actually invited.
 
 **Tracker row 36: IN PROGRESS until a real accessible and safe pilot is accepted, external testers participate, and results are documented.** This code by itself is not proof of buyer interest.
+
+## Temporary 30-day Beta Pro — added November 10, 2026
+
+**Purpose:** Permit invited testers to evaluate real Pro voice features without purchasing or creating an irrevocable lifetime grant.
+
+1. Tester signs into their own existing Humperdinck Google account (the usual `/account/` sign-in).
+2. The verified owner opens the `/beta/` private review panel, enters that tester's exact Google account email, and issues one 30-day invitation. This only works when the separately configured `BETA_PRO_ENABLED=1` and `BETA_FEEDBACK_ENABLED=1` flags are set.
+3. The owner issuance API looks up an existing *Google* identity, stores the random grant UUID, associated account UUID, creation, issue and expiration times in `beta_pro_grants`, and rejects a second concurrent grant. It sends no promotional email automatically.
+4. The tester connects that account in the desktop app and activates Pro. The Worker returns an Ed25519-signed `humperdinck.pro.beta` certificate with the exact 30-day expiry and the desktop's randomly generated installation ID.
+5. The Python backend verifies the certificate using the pinned Pro verification keys, rejects installation-ID mismatches, and checks expiration **on each entitlement/status read**. It stores the beta certificate separately in `beta-license.json`. The permanent `pro-license.json`, purchase records and lifetime export remain untouched.
+6. At expiration, that installation returns to **Free** without a purchase. An existing purchased perpetual certificate always takes precedence. Beta certificates cannot be exported/imported using the permanent Pro backup mechanism.
+7. An owner can revoke future issuance through the beta panel. **Important limitation:** revocation cannot invalidate a previously issued *offline* beta certificate until its signed expiry. A deliberately changed system clock also weakens offline expiration; do not present beta access as tamper-proof DRM.
+8. Do not grant access to anyone who has not agreed to the beta terms, authorized voice use and temporary expiry. Test with separate non-owner Google accounts before opening recruitment.
+
+**Activation constraints:** The trial is intended to last exactly 30 days from issuance, not 30 days after first app use. Users with an existing desktop pairing may need to manually re-run Activate Pro. The trial is device-bound; pairing another installation uses the same account's unexpired grant to issue a separate device-bound certificate.
+
+**Release gate:** Do not enable `BETA_PRO_ENABLED` until the beta signature/expiry tests, two-account owner access tests, production D1 migration, Worker/R2 binding and first real desktop activation check pass. Never insert trial rows into `pro_licenses`, never mint a `humperdinck.pro.perpetual` trial, and never grant permanent backup capability to a beta license.
+
+**DB migration:** `migrations/9998_beta_pro_grants.sql` was applied to D1 with only schema/index creation; **zero grants** existed at verification. Cloudflare has an exact verified owner user ID configured in the `ANALYTICS_OWNER_ACCOUNT_ID` Worker secret (not embedded in code). The public feature flags remain disabled.
