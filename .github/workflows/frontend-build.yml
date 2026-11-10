@@ -32,6 +32,9 @@ jobs:
         run: |
           node --check src/public-releases.js
           node --check src/model-proxy-worker.js
+          node --check src/beta-feedback.js
+          node --check website/beta/beta.js
+          node --test tests/beta-feedback.test.mjs
           node --check src/account-auth.js
           node --check src/lemon-test-commerce.js
           node --test tests/lemon-test-commerce.test.mjs
