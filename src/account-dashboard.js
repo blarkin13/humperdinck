@@ -1,5 +1,6 @@
 import {limitedJson} from './limited-json.js';
 import {handleAccountPrivacy} from './account-privacy.js';
+import {handleOwnerAnalytics} from './owner-analytics.js';
 /* Authenticated account dashboard, connected desktops and offline account recovery.
  * Free has no cloud requirement. No payment provider, receipt generation or license
  * issuance is exposed by these routes.
@@ -64,6 +65,7 @@ export async function handleAccountDashboard(request,env,{session,sameOrigin,sav
  const user=await session(request,env);
  if(!user)return problem(401,'Sign in to manage your account');
  if(path.startsWith('/api/account/privacy/'))return handleAccountPrivacy(request,env,{user,sameOrigin});
+ if(path==='/api/account/dashboard/analytics')return handleOwnerAnalytics(request,env,{user});
  if(path==='/api/account/dashboard'&&request.method==='GET')
   return json(await overview(env,user));
 
