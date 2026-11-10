@@ -22,11 +22,11 @@ export default function VoiceCatalog({api,onInstalled,canDownload=false}){
  }
  return <div className="starter-voice-pack voice-catalog">
   <div className="starter-voice-pack-content">
-   <p>More voices made by Humperdinck. Listen, then download the ones you like. They work offline once downloaded.</p>
+   <p>{voices?.some(v=>v.installed)?'More in the gallery. ':''}Listen, then download the ones you like. They work offline once downloaded.</p>
    {error&&<p className="starter-voice-error" role="alert">{error} <button type="button" className="link" onClick={load}>Try again</button></p>}
    {!voices&&!error&&<p className="hint"><i className="fa-solid fa-spinner fa-spin"/> Loading the gallery…</p>}
-   {voices&&!voices.length&&<p className="hint">No gallery voices yet. Check back soon.</p>}
-   <div className="starter-voice-pack-list">{voices?.map(v=><div className="starter-voice-pack-row" key={v.voice_id}>
+   {voices&&!voices.some(v=>!v.installed)&&<p className="hint">{voices.length?'You have every gallery voice.':'No gallery voices yet. Check back soon.'}</p>}
+   <div className="starter-voice-pack-list">{voices?.filter(v=>!v.installed).map(v=><div className="starter-voice-pack-row" key={v.voice_id}>
     <div><strong>{v.name}</strong><small>{v.category||'Voice'}</small></div>
     <div className="starter-voice-pack-actions">
      <audio controls preload="none" src={v.sample_url} aria-label={'Sample of '+v.name}/>

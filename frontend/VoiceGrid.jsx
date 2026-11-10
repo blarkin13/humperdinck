@@ -112,14 +112,17 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
  const names=Object.keys(groups).sort((a,b)=>{
   // User-owned voices first, then official Humperdinck voices, then model presets.
   const rank=name=>name==='My Voices'||name.startsWith('My Voices · ')?0
-   :name==='Built-In Humperdinck Voices'?1:2;
+   :name==='Built-In Humperdinck Voices'?1:name==='Voice Gallery'?1.5:2;
   if(rank(a)!==rank(b))return rank(a)-rank(b);
   if(a==='Uncategorized'||b==='Uncategorized')return a==='Uncategorized'?1:-1;
   return a.localeCompare(b);
  });
  // The Voice Gallery sits right after the Built-In Humperdinck Voices (or My Voices).
- const galleryAfter=[...names].reverse().find(name=>name==='Built-In Humperdinck Voices'||name==='My Voices'||name.startsWith('My Voices · '));
- const galleryGroup=<div className="voice-group voice-gallery-group" key="gallery"><h4><i className="fa-solid fa-store"/> Humperdinck Voice Gallery</h4>{gallery}</div>;
+ // Gallery voices not yet downloaded are listed inside the Voice Gallery group
+ // (downloaded ones are its cards); without downloads it gets its own group.
+ const hasGalleryGroup=names.includes('Voice Gallery');
+ const galleryAfter=hasGalleryGroup?null:[...names].reverse().find(name=>name==='Built-In Humperdinck Voices'||name==='My Voices'||name.startsWith('My Voices · '));
+ const galleryGroup=<div className="voice-group voice-gallery-group" key="gallery"><h4><i className="fa-solid fa-store"/> Voice Gallery</h4>{gallery}</div>;
  return <div className="library">
   {items.length>6&&<div className="search-wrap"><i className="fa-solid fa-magnifying-glass"/><input className="search" type="search" aria-label="Search voices" placeholder="Search voices, categories or descriptions" value={query} onChange={e=>setQuery(e.target.value)}/></div>}
   {!items.length&&<div className="notice"><i className="fa-solid fa-record-vinyl"/> No voices yet. <button className="link" onClick={onCreate}>Create one in Voice Creator.</button></div>}
@@ -169,7 +172,8 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
       <span className="specs">{v.specs.filter(Boolean).map(([icon,text,title])=><span key={title} title={title}><i className={icon}/>{text}</span>)}</span>
      </div>
     </article>})}</VoiceShelf>
+    {gallery&&name==='Voice Gallery'&&gallery}
    </div>{gallery&&name===galleryAfter&&galleryGroup}</React.Fragment>})}
-   {gallery&&!galleryAfter&&galleryGroup}
+   {gallery&&!hasGalleryGroup&&!galleryAfter&&galleryGroup}
  </div>;
 }
