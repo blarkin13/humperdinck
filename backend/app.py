@@ -32,7 +32,8 @@ from backend.voice_picker import VoicePicker
 from backend import video_projects, audio_fx
 from backend import narration_cache, narration_checkpoints
 from backend.characters import (Characters, TARGET_TEXT, NAMES as CHARACTER_NAMES, accents as character_accents,
-                                performer as character_performer, description as character_description)
+                                performer as character_performer, description as character_description,
+                                impression_targets, IMPRESSION_WEIGHTS, IMPRESSION_STRENGTHS)
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
 from backend.curated_sounds import BY_SLUG,public_catalog
@@ -1076,6 +1077,7 @@ class CharacterTakesInput(BaseModel):
     direction: str = Field(default='', max_length=400)
     gender: str = Field(default='female', pattern='^(female|male|neutral)$')
     text: str = Field(min_length=1, max_length=300)
+    impression: str = Field(default='', max_length=40)  # Kokoro voice to impersonate
 
 
 class CharacterInput(BaseModel):
@@ -1150,16 +1152,63 @@ def list_characters():
     return characters.list()
 
 
+def kokoro_source(source_key):
+    """The Kokoro voice id behind a source key, or None for any other kind of voice."""
+    parts = source_key.split(':')
+    return parts[2] if len(parts) == 3 and parts[:2] == ['preset', 'kokoro'] else None
+
+
+def source_impressions(source_key):
+    voice = kokoro_source(source_key)
+    if not voice:
+        return []
+    return impression_targets(voice, catalog.PRESET_VOICES['kokoro'], catalog.downloaded)
+
+
 @app.get('/api/characters/options')
-def character_options():
+def character_options(source_key: str = ''):
     return {'accents': character_accents(), 'names': CHARACTER_NAMES,
+            'impressions': source_impressions(source_key),
+            'impression_strengths': list(IMPRESSION_STRENGTHS),
             'converter_ready': engines.installed('openvoice') and catalog.downloaded(CONVERTER_MODEL),
             'design_ready': engines.installed(settings.load()['design']['engine'])}
+
+
+def run_impression_takes(job_id, request):
+    """One take per strength: the Kokoro voice blended toward the impersonated voice."""
+    job = jobs[job_id]
+    try:
+        voice = kokoro_source(request.source_key)
+        with engine_lock:
+            job.update(status='running', message='Performing the impression')
+            for i, weight in enumerate(IMPRESSION_WEIGHTS):
+                job.update(message=f'{IMPRESSION_STRENGTHS[i]} take', progress=round(i / len(IMPRESSION_WEIGHTS) * 100))
+                blend = {'voice': request.impression, 'weight': weight}
+                engines.preset('kokoro', voice, characters.take_path(job_id, i), pronunciations.apply(request.text), blend=blend)
+                name = catalog.PRESET_VOICES['kokoro'][request.impression][0]
+                job['takes'][i] = {'status': 'complete', 'url': f'/api/characters/takes/{job_id}-{i}.wav',
+                                   'impression': blend, 'label': IMPRESSION_STRENGTHS[i],
+                                   'summary': f'Impersonating {name} · {IMPRESSION_STRENGTHS[i].lower()}'}
+        job.update(status='complete', progress=100, message='Takes ready')
+    except Exception as exc:
+        job.update(status='failed', message=f'{type(exc).__name__}: {exc}' if not isinstance(exc, HTTPException) else exc.detail)
 
 
 @app.post('/api/characters/takes')
 def create_character_takes(request: CharacterTakesInput):
     require_voice_selection(request.source_key)
+    if request.impression:
+        # Impressions are Kokoro-only and need neither the converter nor Pro.
+        if request.impression not in {t['voice'] for t in source_impressions(request.source_key)}:
+            raise HTTPException(422, 'Impressions work with built-in Kokoro voices of the same language')
+        characters.prune_takes()
+        job_id = uuid4().hex
+        jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0, 'message': 'Waiting for the voice engine',
+                        'text': request.text, 'takes': [{'status': 'pending'} for _ in IMPRESSION_WEIGHTS]}
+        Thread(target=run_impression_takes, args=(job_id, request), daemon=True).start()
+        return jobs[job_id]
+    if not request.direction.strip():
+        raise HTTPException(422, 'Describe how the character talks')
     if not character_performer(request.accent, request.direction, request.gender, 0):
         entitlements.require('voice.custom_qwen_design')
     require_converter()
@@ -1201,7 +1250,9 @@ def save_character(request: CharacterInput):
         raise HTTPException(404, 'Take audio is missing')
     return characters.create(source_key=request.source_key, name=request.name.strip(), accent=request.accent,
                              direction=request.direction.strip(), text=job.get('text', ''), gender=request.gender,
-                             take_path=path, performer_voice=job['takes'][request.take].get('performer'))
+                             take_path=path, performer_voice=job['takes'][request.take].get('performer'),
+                             impression=job['takes'][request.take].get('impression'),
+                             summary=job['takes'][request.take].get('summary'))
 
 
 @app.patch('/api/characters/{character_id}')
@@ -1232,7 +1283,11 @@ def _missing_character():
 def render_character(character_id, text, output, on_progress=None, speed=1.0):
     """Speak new text as a character: perform it, then convert into the original voice."""
     character = characters.get(character_id) or _missing_character()
-    if character.get('performer'):
+    if character.get('impression'):
+        voice = kokoro_source(character['source_key'])
+        engines.preset('kokoro', voice, output, text, on_progress=on_progress, speed=speed,
+                       blend=character['impression'])
+    elif character.get('performer'):
         source = output.with_name(output.stem + '-performance.wav')
         try:
             engines.preset('kokoro', character['performer'], source, text, on_progress=on_progress, speed=speed)
@@ -1290,6 +1345,11 @@ def preview_recipe(key):
             reference = None
             ref_text = build_instruction(active['description'], active['characteristics'])
         choice = settings.load()[mode]
+    elif key.startswith('character:') and (characters.get(key[10:]) or {}).get('impression'):
+        # An impression is Kokoro alone: preview it the way narration renders it.
+        record = characters.get(key[10:])
+        mode, reference, ref_text = 'impression', None, None
+        choice = {'engine': 'kokoro', 'model': kokoro_source(record['source_key']), 'blend': record['impression']}
     else:
         reference, ref_text = resolve_voice_key(key)
         mode = 'preset' if reference is None else 'clone'
@@ -1326,6 +1386,9 @@ def generate_library_preview(job_id, mode, choice, reference, ref_text, digest, 
                 engines.preset(choice['engine'], choice['model'], temp, VOICE_PREVIEW_TEXT, on_progress=progress)
             elif mode == 'design':
                 engines.design(choice, temp, VOICE_PREVIEW_TEXT, ref_text, on_progress=progress)
+            elif mode == 'impression':
+                engines.preset('kokoro', choice['model'], temp, VOICE_PREVIEW_TEXT, on_progress=progress,
+                               blend=choice['blend'])
             else:
                 engines.clone(choice, temp, VOICE_PREVIEW_TEXT, reference, ref_text, on_progress=progress)
                 if refinement:refine_wav(temp,refinement)
@@ -1406,7 +1469,8 @@ def require_voice_selection(key: str) -> None:
     if key.startswith('character:'):
         character = characters.get(key[10:])
         # A Kokoro/OpenVoice performance from a Free voice is basic editing.
-        if character and character.get('performer') and character.get('source_key', '').startswith('preset:'):
+        if character and (character.get('performer') or character.get('impression')) \
+                and character.get('source_key', '').startswith('preset:'):
             return
     entitlements.require('voice.personal_cloning')
 
@@ -1511,7 +1575,8 @@ def run_multi(job_id, request, references):
                         # natively; others are time-stretched afterwards, which can sound less clean.
                         stretch=block.speed
                         if block.voice_key.startswith('character:'):
-                            performed=bool((characters.get(block.voice_key[10:]) or {}).get('performer'))
+                            record=characters.get(block.voice_key[10:]) or {}
+                            performed=bool(record.get('performer') or record.get('impression'))
                             render_character(block.voice_key[10:], narration_text, temp, on_progress=progress,speed=block.speed if performed else 1.0)
                             if performed: stretch=1.0
                         elif reference is None:
@@ -1653,9 +1718,12 @@ def create_narration(request: MultiNarrationRequest):
     # Accent characters are Kokoro + the converter; designed-performance characters are cloned.
     performed={b.voice_key for b in request.blocks if b.voice_key.startswith('character:')
                and (characters.get(b.voice_key[10:]) or {}).get('performer')}
+    # Impressions are Kokoro alone: no converter and no cloning engine.
+    impressions={b.voice_key for b in request.blocks if b.voice_key.startswith('character:')
+                 and (characters.get(b.voice_key[10:]) or {}).get('impression')}
     if performed:
         require_converter()
-    if any(reference is not None and b.voice_key not in performed for b,(reference, _) in zip(request.blocks,references)):
+    if any(reference is not None and b.voice_key not in performed|impressions for b,(reference, _) in zip(request.blocks,references)):
         require_engine('clone')
     job_id=uuid4().hex
     jobs[job_id]={'job_id':job_id,'kind':'narration','status':'queued','progress':0,'message':'Waiting for narration engine'}

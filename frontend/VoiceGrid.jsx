@@ -150,7 +150,7 @@ export default function VoiceGrid({items,onCreate,previewDisabled=false,onPrevie
        <span>{previewDisabled&&onPreviewVoice?'Use in Narration Studio':on?'Stop playback':working?'Generating…':(v.method==='uploaded'||v.method==='recorded'||v.method==='edited')?v.method==='builtin-humperdinck'?'Play voice sample':'Play original':'Play voice sample'}</span>
       </button>
       {on&&<span className="voice-playback-indicator" aria-label="Playing"><i/><i/><i/><i/><i/></span>}
-      {onCharacters&&characterCounts&&v.voiceKey in characterCounts&&<button type="button" className="voice-characters-button" title="Characters: this voice with accents and ways of talking"
+      {onCharacters&&characterCounts&&v.voiceKey in characterCounts&&<button type="button" className="voice-characters-button" title="Characters: this voice doing impressions and ways of talking"
        aria-label={`${v.name} characters (${characterCounts[v.voiceKey]})`} onClick={e=>{e.stopPropagation();onCharacters(v.voiceKey)}} onKeyDown={e=>e.stopPropagation()}>
        <i className="fa-solid fa-masks-theater" aria-hidden="true"/><span>{characterCounts[v.voiceKey]||'Characters'}</span></button>}
      </div>
