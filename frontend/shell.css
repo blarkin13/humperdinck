@@ -1,0 +1,62 @@
+/* App shell: a sidebar app rather than a stacked web page.
+   Loaded after every other stylesheet, so it sets layout and finish for all
+   four looks (Vintage / Modern × dark / light) while each theme keeps its colors. */
+:root{--canvas:#0c161c;--surface:#122128;--surface-2:#182b33;--hairline:#ffffff14;--hairline-strong:#ffffff24;--radius:14px}
+:root[data-theme="modern"]{--canvas:#070707;--surface:#101010;--surface-2:#171717;--hairline:#ffffff12;--hairline-strong:#ffffff22}
+:root[data-mode="light"][data-theme="vintage"]{--canvas:#efe8da;--surface:#fffcf6;--surface-2:#f6f0e4;--hairline:#3a2c1418;--hairline-strong:#3a2c142a}
+:root[data-mode="light"][data-theme="modern"]{--canvas:#ededed;--surface:#fff;--surface-2:#f6f6f6;--hairline:#00000014;--hairline-strong:#00000024}
+
+:root body{background:var(--canvas)!important}
+:root main.app-shell{display:grid;grid-template-columns:244px minmax(0,1fr);max-width:none;min-height:100vh;margin:0;padding:0}
+.app-shell>.public-app-banner{grid-column:1/-1}
+
+/* Sidebar */
+.app-shell .sidebar{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px;padding:18px 12px;background:var(--canvas);border-right:1px solid var(--hairline);overflow-y:auto}
+.app-shell .sidebar .brand{gap:11px;padding:2px 8px 20px;align-items:center}
+.app-shell .sidebar .brand-mark{width:38px;height:38px;filter:none}
+.app-shell .sidebar h1{font-size:20px;line-height:1.1;margin:0;letter-spacing:-.2px}
+.app-shell .sidebar .brand small{display:block;margin-top:3px;font-family:inherit;font-size:11px;line-height:1.35;letter-spacing:0;text-transform:none;color:var(--muted)}
+:root .app-shell .sidebar nav{display:flex;flex-direction:column;flex-wrap:nowrap;gap:2px;margin:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none}
+:root .app-shell .sidebar nav button{display:flex;align-items:center;justify-content:flex-start;gap:12px;width:100%;margin:0;padding:10px 12px;border:0;border-radius:10px;background:none;box-shadow:none;font-family:inherit;font-size:14px;font-weight:500;letter-spacing:0;text-transform:none;text-align:left;color:var(--muted);transition:background .15s,color .15s}
+:root .app-shell .sidebar nav button i{width:18px;margin:0;text-align:center;font-size:14px;opacity:.75}
+:root .app-shell .sidebar nav button:hover:not(:disabled){background:var(--hairline);color:var(--ivory)}
+:root .app-shell .sidebar nav button.active{background:var(--surface-2);color:var(--ivory);box-shadow:inset 3px 0 0 var(--brass),0 0 0 1px var(--hairline)}
+:root .app-shell .sidebar nav button.active i{opacity:1;color:var(--brass)}
+.app-shell .sidebar-foot{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:auto;padding:14px 8px 2px;border-top:1px solid var(--hairline)}
+.app-shell .sidebar-foot .tag,.app-shell .sidebar-foot .local{display:inline-flex;align-items:center;padding:5px 10px;font-size:10px;letter-spacing:1.4px;border-radius:999px}
+
+/* Workspace and top bar */
+.app-shell .workspace{min-width:0;padding:0 36px 64px}
+.app-shell .workspace>*:not(.topbar){max-width:1200px;margin-left:auto;margin-right:auto}
+.app-shell .topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:flex-end;gap:12px;margin:0 -36px 26px;padding:12px 36px;background:color-mix(in srgb,var(--canvas) 82%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--hairline)}
+.app-shell .topbar .header-actions{gap:8px}
+.app-shell .topbar button,.app-shell .topbar .theme-trigger{min-height:36px;border-radius:10px}
+
+/* Pages: one clean card, soft inner cards, no double boxes */
+:root .app-shell .workspace section{background:var(--surface);border:1px solid var(--hairline);border-radius:18px;box-shadow:0 1px 2px #0000000f,0 12px 32px #00000014;padding:30px 34px;-webkit-backdrop-filter:none;backdrop-filter:none}
+:root .app-shell .workspace section::before{display:none}
+:root .app-shell .workspace section h2{font-size:28px;margin:0 0 4px}
+:root .app-shell .workspace .heading{margin-bottom:6px}
+:root .app-shell .workspace :is(.panel,.editor,.engine,.candidate,.version,.script-block,.job,.notice,.starter-voice-pack){background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius);box-shadow:none}
+:root .app-shell .workspace .voice-card{border-radius:var(--radius);border-color:var(--hairline-strong)}
+
+/* Controls: flatter and rounder */
+:root .app-shell button{border-radius:10px}
+:root[data-theme="vintage"]:not([data-mode="light"]) .app-shell button:not(.primary):not(.active):not(.play):not(.download):not(.link){background:var(--surface-2);box-shadow:none}
+:root .app-shell :is(input:not([type=range]):not([type=radio]):not([type=checkbox]),textarea,select){border-radius:10px;box-shadow:none}
+:root .app-shell :is(input,textarea,select):focus-visible{outline:2px solid color-mix(in srgb,var(--brass) 55%,transparent);outline-offset:1px}
+
+/* Narrow windows: the sidebar folds into a top strip */
+@media(max-width:900px){
+ :root main.app-shell{grid-template-columns:1fr}
+ .app-shell .sidebar{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 16px;border-right:0;border-bottom:1px solid var(--hairline)}
+ .app-shell .sidebar .brand{padding:0;flex:1}
+ .app-shell .sidebar .brand small{display:none}
+ :root .app-shell .sidebar nav{order:3;flex-direction:row;width:100%;overflow-x:auto;scrollbar-width:none}
+ :root .app-shell .sidebar nav button{width:auto;flex:none;padding:8px 12px;font-size:13px}
+ .app-shell .sidebar-foot{flex-direction:row;margin:0;padding:0;border:0}
+ .app-shell .sidebar-foot .local{display:none}
+ .app-shell .workspace{padding:0 16px 48px}
+ .app-shell .topbar{margin:0 -16px 18px;padding:10px 16px}
+ :root .app-shell .workspace section{padding:20px 18px;border-radius:14px}
+}

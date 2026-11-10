@@ -83,11 +83,18 @@ def main():
     if not (frontend / "index.html").is_file():
         parser.error("build React first: npm run build --prefix frontend")
 
-    if not args.builtin_voices_pack.is_file():
-        parser.error("Built-In Humperdinck Voices are required: run python scripts/prepare_native_voice_pack.py")
-    from prepare_native_voice_pack import validate as validate_builtin_voices
-    builtin_count = validate_builtin_voices(args.builtin_voices_pack.read_bytes())
-    print(f"Bundling {builtin_count} checksum-pinned Built-In Humperdinck Voices (rights approval separate)")
+    sys.path.insert(0, str(ROOT))
+    from backend import voice_packs
+    voice_data = []
+    if voice_packs.ENABLED:
+        if not args.builtin_voices_pack.is_file():
+            parser.error("Built-In Humperdinck Voices are required: run python scripts/prepare_native_voice_pack.py")
+        from prepare_native_voice_pack import validate as validate_builtin_voices
+        builtin_count = validate_builtin_voices(args.builtin_voices_pack.read_bytes())
+        print(f"Bundling {builtin_count} checksum-pinned Built-In Humperdinck Voices (rights approval separate)")
+        voice_data = ["--add-data", f"{args.builtin_voices_pack.resolve()}{os.pathsep}voice-packs"]
+    else:
+        print("Built-In Humperdinck Voices are switched off (backend/voice_packs.py): bundling none")
 
     if not args.builtin_sounds_pack.is_file():
         parser.error("Approved Humperdinck Sound Effects are required: run python scripts/prepare_native_sound_pack.py")
@@ -112,7 +119,7 @@ def main():
         "--specpath", str(TEMP),
         "--paths", str(ROOT),
         "--add-data", f"{frontend}{os.pathsep}frontend/dist",
-        "--add-data", f"{args.builtin_voices_pack.resolve()}{os.pathsep}voice-packs",
+        *voice_data,
         "--add-data", f"{args.builtin_sounds_pack.resolve()}{os.pathsep}sound-packs",
         "--add-data", f"{ROOT / 'website' / 'THIRD_PARTY_NOTICES.txt'}{os.pathsep}third-party-notices",
         "--collect-submodules", "uvicorn",

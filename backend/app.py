@@ -25,6 +25,7 @@ from backend import updater
 from backend.audio_edit import AudioEdit, render
 from backend.jobs import JobStore
 from backend import catalog
+from backend import voice_packs
 from backend import media_tools
 from backend import native_models
 from backend.voice_picker import VoicePicker
@@ -183,7 +184,7 @@ def health():
             'models':choice, 'design_ready':engines.installed(choice['design']['engine']),
             'clone_ready':engines.installed(choice['clone']['engine']),
             'ffmpeg':bool(shutil.which('ffmpeg')), 'resident_engine':engines.pool.status(),
-            'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1'}
+            'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') == '1','voice_packs':voice_packs.ENABLED}
 
 class ServerSettingsInput(BaseModel):
     port: int = Field(default=0, ge=0, le=65535)
@@ -329,6 +330,8 @@ def save_pronunciations(request: PronunciationList):
 
 @app.get('/api/voice-catalog')
 def voice_catalog():
+    if not voice_packs.ENABLED:
+        return {'voices':[],'disabled':True}
     from backend import voice_catalog as gallery
     try:
         return {'voices':gallery.listing(DATA)}
@@ -338,6 +341,8 @@ def voice_catalog():
 @app.post('/api/voice-catalog/{voice_id}/download')
 def download_catalog_voice(voice_id:str):
     entitlements.require('voice.gallery_download')
+    if not voice_packs.ENABLED:
+        raise HTTPException(404,'The voice gallery is not available in this version')
     from backend import voice_catalog as gallery
     try:
         return gallery.download(DATA,voice_id)
@@ -360,7 +365,7 @@ def publish_starter_voices():
 @app.post('/api/builtin-voices/check')
 def check_builtin_voices():
     """Native app: pick up voices added, changed or removed since the last check."""
-    if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE')!='1':
+    if os.environ.get('HUMPERDINCK_NATIVE_PACKAGE')!='1' or not voice_packs.ENABLED:
         return {'changed':False,'skipped':True}
     from backend import builtin_voice_updates, voice_catalog as gallery
     try:
