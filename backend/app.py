@@ -1437,16 +1437,24 @@ def resolve_voice_key(key):
         raise HTTPException(400,'Voice needs an approved reference recording')
     return path, text
 
+class NarrationCancelled(Exception):
+    """Cooperative stop at narration section boundaries (no engine process kill)."""
+
+
 def run_multi(job_id, request, references):
     job = jobs[job_id]
     try:
         import soundfile as sf
         import numpy as np
         with engine_lock:
+            if job.get('cancel_requested'):
+                raise NarrationCancelled()
             job.update(status='running',message='Generating narration')
             sections=[]; section_cues=[]; target_rate=24000
             choice=settings.load()['clone']
             for index,(block,(reference,ref_text)) in enumerate(zip(request.blocks,references)):
+                if job.get('cancel_requested'):
+                    raise NarrationCancelled()
                 temp=DATA/'outputs'/f'{job_id}-{index}.wav'
                 try:
                     def progress(done, total):
@@ -1482,6 +1490,8 @@ def run_multi(job_id, request, references):
                             stretch=1.0
                         else:
                             engines.clone(choice, temp, narration_text, reference, ref_text, on_progress=progress)
+                        if job.get('cancel_requested'):
+                            raise NarrationCancelled()
                         audio,rate=sf.read(temp,dtype='float32',always_2d=False)
                         if audio.ndim==2: audio=audio.mean(axis=1)
                         if rate!=target_rate:
@@ -1545,7 +1555,10 @@ def run_multi(job_id, request, references):
                     sections.append((effect_clips('before'),audio,effect_clips('after'),delay))
                     section_cues.append(layers)
                 finally: temp.unlink(missing_ok=True)
-                job.update(progress=round((index+1)/len(references)*95),message=f'Generated block {index+1}/{len(references)}')
+                if not job.get('cancel_requested'):
+                    job.update(progress=round((index+1)/len(references)*95),message=f'Generated block {index+1}/{len(references)}')
+            if job.get('cancel_requested'):
+                raise NarrationCancelled()
             ambience_audio=None
             ambience=request.ambience
             if ambience is not None:
@@ -1565,10 +1578,18 @@ def run_multi(job_id, request, references):
                 mixed=mix_ambience(mixed,ambience_audio,np.array(dry_masks,dtype=bool),
                     sample_rate=target_rate,volume=ambience.volume,ducking=ambience.ducking,
                     fade_in=ambience.fade_in,fade_out=ambience.fade_out)
+            if job.get('cancel_requested'):
+                raise NarrationCancelled()
             wav=DATA/'outputs'/f'{job_id}.wav'
             sf.write(wav,mixed,target_rate,subtype='PCM_16')
             if request.format=='mp3': export_mp3(wav,DATA/'outputs'/f'{job_id}.mp3')
+            if job.get('cancel_requested'):
+                (DATA/'outputs'/f'{job_id}.{request.format}').unlink(missing_ok=True)
+                wav.unlink(missing_ok=True)
+                raise NarrationCancelled()
             job.update(status='complete',progress=100,download_url=f'/api/outputs/{job_id}.{request.format}',message='Narration ready')
+    except NarrationCancelled:
+        job.update(status='cancelled',message='Narration cancelled; generated preset sections can be reused on retry')
     except Exception as exc:
         job.update(status='failed',message=f'{type(exc).__name__}: {exc}')
 
@@ -1602,9 +1623,20 @@ def create_narration(request: MultiNarrationRequest):
     if any(reference is not None and b.voice_key not in performed for b,(reference, _) in zip(request.blocks,references)):
         require_engine('clone')
     job_id=uuid4().hex
-    jobs[job_id]={'job_id':job_id,'status':'queued','progress':0,'message':'Waiting for narration engine'}
+    jobs[job_id]={'job_id':job_id,'kind':'narration','status':'queued','progress':0,'message':'Waiting for narration engine'}
     Thread(target=run_multi,args=(job_id,request,references),daemon=True).start()
     return jobs[job_id]
+
+@app.post('/api/narrations/{job_id}/cancel')
+def cancel_narration(job_id: str):
+    """Request a safe stop; in-progress engine calls finish before cancellation."""
+    job = jobs.get(job_id)
+    if job is None or job.get('kind') != 'narration':
+        raise HTTPException(404, 'Narration job not found')
+    if job.get('status') in ('complete', 'failed', 'cancelled'):
+        raise HTTPException(409, 'Narration job has already finished')
+    job.update(cancel_requested=True, message='Stopping after the current voice segment')
+    return job
 
 class VideoRenderRequest(BaseModel):
     video_id: str
