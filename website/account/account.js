@@ -225,6 +225,40 @@ async function refresh(){
  renderConnections(account);
  renderRecovery(account);
 }
+
+async function refreshOwnerAnalytics(){
+ const status=q('analytics-status');
+ if(!status)return;
+ status.textContent='Refreshing analytics…';
+ try{
+  const days=q('analytics-range').value;
+  const info=await request('/dashboard/analytics?days='+encodeURIComponent(days));
+  q('owner-analytics').hidden=false;
+  q('owner-analytics-link').hidden=false;
+  const display=x=>Number.isFinite(Number(x))?Number(x).toLocaleString():'—';
+  const events=info.events||{},github=info.github||{};
+  q('analytics-views').textContent=events.available?display(events.page_views):'—';
+  const clicks=events.download_clicks||{};
+  q('analytics-clicks').textContent=events.available?display(Object.values(clicks).reduce((a,b)=>a+Number(b||0),0)):'—';
+  for(const platform of ['windows','macos','linux']){
+   q('analytics-click-'+platform).textContent=events.available?display(clicks[platform]):'—';
+   q('analytics-download-'+platform).textContent=github.available?display(github.counts?.[platform]):'—';
+  }
+  q('analytics-downloads').textContent=github.available?display(Object.values(github.counts||{}).reduce((a,b)=>a+Number(b||0),0)):'—';
+  const messages=[];
+  if(!events.available)messages.push('Cloudflare events: '+(events.reason||'unavailable'));
+  if(!github.available)messages.push('GitHub download counts: '+(github.reason||'unavailable'));
+  status.textContent=messages.length?messages.join(' · '):'Live aggregate counts loaded. GitHub totals cover published assets, all time.';
+ }catch(error){
+  // The owner-only route returns 404 for everyone else: never show an admin panel.
+  if(/Not found|Sign in required/.test(error.message)){
+   q('owner-analytics').hidden=true;q('owner-analytics-link').hidden=true;
+  }else{
+   status.textContent='Analytics unavailable: '+error.message;
+  }
+ }
+}
+
 async function load(){
  try{
   state.config=await request('/config');
@@ -248,6 +282,7 @@ async function load(){
     q('approve').focus({preventScroll:true});
    }
    try{await refresh()}catch(error){notice('Account dashboard could not load: '+error.message,true)}
+   await refreshOwnerAnalytics();
    if(params.get('recovered')==='1')notice('Recovery code accepted. Link another sign-in method and generate a fresh recovery kit.');
    awaitTestPurchase();
    return;
@@ -384,4 +419,6 @@ q('download-recovery').addEventListener('click',()=>{
  downloadJson('humperdinck-account-recovery.json',state.recoveryKit);
  notice('Recovery kit downloaded. Anyone holding this file can recover your account; protect it like a password.');
 });
+q('analytics-refresh').addEventListener('click',refreshOwnerAnalytics);
+q('analytics-range').addEventListener('change',refreshOwnerAnalytics);
 load();
