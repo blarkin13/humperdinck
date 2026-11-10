@@ -17,9 +17,9 @@ jobs:
         run: python -m compileall -q backend scripts tests
       - name: Verify beta feedback D1 schema and deletion foreign keys
         run: python -m unittest discover -s tests -p 'test_beta_feedback_schema.py' -v
-      - name: Test expiring signed beta Pro certificates
-        run: python -m unittest discover -s tests -p 'test_beta_pro_license.py' -v
       - name: Install API test dependencies
         run: python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+      - name: Test expiring signed beta Pro certificates
+        run: python -m unittest discover -s tests -p 'test_beta_pro_license.py' -v
       - name: Validate Free/Pro API behavior and built-in voice packs
         run: python -m pytest -q tests/test_api.py tests/test_starter_voice_packs.py tests/test_voice_publisher_app.py tests/test_pronunciation.py tests/test_account_client.py tests/test_pro_license.py tests/test_signing_key_backup.py tests/test_complimentary_grants.py tests/test_release_inventory.py tests/test_voice_consent.py tests/test_stage_pro_v2.py tests/test_release_rights.py tests/test_dependency_rights.py tests/test_launch_readiness.py tests/test_privacy_schema.py tests/test_d1_migration_restore_preflight.py tests/test_p0_publish_approval.py tests/test_classify_release.py tests/test_native_models.py tests/test_qwen_reference_identity.py tests/test_qwen_gpu_selection.py tests/test_narration_limits.py tests/test_narration_cache.py
