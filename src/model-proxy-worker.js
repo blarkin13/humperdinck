@@ -30,7 +30,7 @@ export default {
   // Deny-first: no environment flag, secret, checkout callback or static fallback
   // can accidentally expose a live production-commerce endpoint.
   if(isReservedProductionCommercePath(url.pathname))return handleUnreleasedProductionCommerce(request);
-  if(url.pathname.startsWith('/api/beta/admin/invitations')||url.pathname==='/api/beta/invitations/claim'||url.pathname==='/api/beta/admin/test-license/revoke')return handleBetaInvitations(request,env,{session:accountSession});
+  if(url.pathname.startsWith('/api/beta/admin/invitations')||url.pathname.startsWith('/api/beta/invitations/')||url.pathname==='/api/beta/admin/test-license/revoke')return handleBetaInvitations(request,env,{session:accountSession});
   if(url.pathname.startsWith('/api/beta/'))return handleBetaFeedback(request,env,{session:accountSession});
   if(url.pathname.startsWith('/api/account/'))return handleAccount(request,env);
   if(url.pathname.startsWith('/api/commerce/test/'))return handleLemonTest(request,env,{session:accountSession});
