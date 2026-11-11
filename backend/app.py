@@ -33,7 +33,7 @@ from backend import video_projects, audio_fx
 from backend import narration_cache, narration_checkpoints
 from backend.characters import (Characters, TARGET_TEXT, NAMES as CHARACTER_NAMES, accents as character_accents,
                                 performer as character_performer, description as character_description,
-                                impression_targets, IMPRESSION_WEIGHTS, IMPRESSION_STRENGTHS)
+                                impression_targets, IMPRESSION_WEIGHTS, IMPRESSION_STRENGTHS, impression_weights)
 from backend.voice_library import VoiceLibrary, build_instruction, FIELDS, TRAITS
 from backend.sound_effects import SoundEffects
 from backend.curated_sounds import BY_SLUG,public_catalog
@@ -1077,7 +1077,8 @@ class CharacterTakesInput(BaseModel):
     direction: str = Field(default='', max_length=400)
     gender: str = Field(default='female', pattern='^(female|male|neutral)$')
     text: str = Field(min_length=1, max_length=300)
-    impression: str = Field(default='', max_length=40)  # Kokoro voice to impersonate
+    impression: str = Field(default='', max_length=150)  # voice key to impersonate
+    strength: float | None = Field(default=None, ge=0.1, le=0.6)  # Mix slider
 
 
 class CharacterInput(BaseModel):
@@ -1221,8 +1222,9 @@ def run_impression_takes(job_id, request):
             if not voice:
                 reference, _ = resolve_voice_key(request.source_key)
                 target = impression_reference(request.impression)
-            for i, weight in enumerate(IMPRESSION_WEIGHTS):
-                job.update(message=f'{IMPRESSION_STRENGTHS[i]} take', progress=round(i / len(IMPRESSION_WEIGHTS) * 100))
+            weights, labels = impression_weights(request.strength)
+            for i, weight in enumerate(weights):
+                job.update(message=f'{labels[i]} take', progress=round(i / len(weights) * 100))
                 blend = {'voice': request.impression, 'weight': weight}
                 text = pronunciations.apply(request.text)
                 if voice:
@@ -1232,8 +1234,8 @@ def run_impression_takes(job_id, request):
                                   blend={'reference': target, 'weight': weight})
                 name = names.get(request.impression, 'another voice')
                 job['takes'][i] = {'status': 'complete', 'url': f'/api/characters/takes/{job_id}-{i}.wav',
-                                   'impression': blend, 'label': IMPRESSION_STRENGTHS[i],
-                                   'summary': f'Impersonating {name} · {IMPRESSION_STRENGTHS[i].lower()}'}
+                                   'impression': blend, 'label': labels[i],
+                                   'summary': f'Impersonating {name} · {labels[i].lower()}'}
         job.update(status='complete', progress=100, message='Takes ready')
     except Exception as exc:
         job.update(status='failed', message=f'{type(exc).__name__}: {exc}' if not isinstance(exc, HTTPException) else exc.detail)
@@ -1252,7 +1254,7 @@ def create_character_takes(request: CharacterTakesInput):
         characters.prune_takes()
         job_id = uuid4().hex
         jobs[job_id] = {'job_id': job_id, 'status': 'queued', 'progress': 0, 'message': 'Waiting for the voice engine',
-                        'text': request.text, 'takes': [{'status': 'pending'} for _ in IMPRESSION_WEIGHTS]}
+                        'text': request.text, 'takes': [{'status': 'pending'} for _ in impression_weights(request.strength)[0]]}
         Thread(target=run_impression_takes, args=(job_id, request), daemon=True).start()
         return jobs[job_id]
     if not request.direction.strip():
