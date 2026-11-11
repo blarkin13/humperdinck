@@ -47,6 +47,18 @@ test('changing a narrator respects later explicitly chosen speakers',()=>{
  const updated=assignSectionSpeaker(blocks,1,'af_heart');
  assert.deepEqual(updated.map(b=>b.voice_key),['af_heart','af_heart','bm_daniel','']);
 });
+test('changing a narrator updates sections that inherited the old one',()=>{
+ const blocks=[
+  {id:1,text:'One',voice_key:'af_heart'},
+  {id:2,text:'Two',voice_key:'af_heart'},
+  {id:3,text:'Three',voice_key:''},
+  {id:4,text:'Four',voice_key:'bm_daniel'},
+  {id:5,text:'Five',voice_key:'af_heart'}
+ ];
+ const updated=assignSectionSpeaker(blocks,1,'am_michael');
+ assert.deepEqual(updated.map(b=>b.voice_key),['am_michael','am_michael','am_michael','bm_daniel','af_heart']);
+ assert.deepEqual(assignSectionSpeaker(blocks,2,'am_michael').map(b=>b.voice_key),['af_heart','am_michael','am_michael','bm_daniel','af_heart']);
+});
 test('manual insert between voiced sections adopts preceding narrator',()=>{
  const blocks=[{id:1,text:'One',voice_key:'af_heart'},{id:2,text:'Two',voice_key:'bm_daniel'}];
  const inserted=insertSection(blocks,0);

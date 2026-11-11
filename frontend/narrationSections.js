@@ -42,16 +42,19 @@ export function insertSection(blocks,index){
 }
 
 /**
- * Assign a speaker to one section. Sections created by a previous paste with no
- * speaker inherit it until the next explicitly assigned section. Never override
- * speakers already chosen for later dialogue.
+ * Assign a speaker to one section. Following sections with no speaker, or
+ * that inherited this section's previous speaker, follow the change until the
+ * next section with a different speaker. Never override other speakers chosen
+ * for later dialogue.
  */
 export function assignSectionSpeaker(blocks,id,voice_key){
  const index=blocks.findIndex(b=>b.id===id);
  if(index<0)return blocks;
+ const previous=blocks[index].voice_key||'';
+ const follows=b=>!b.voice_key||b.voice_key===previous;
  return blocks.map((block,i)=>{
   if(i===index)return {...block,voice_key};
-  if(i>index&&blocks.slice(index+1,i+1).every(b=>!b.voice_key))return {...block,voice_key};
+  if(i>index&&blocks.slice(index+1,i+1).every(follows))return {...block,voice_key};
   return block;
  });
 }

@@ -25,7 +25,7 @@ import VoiceCatalog from './VoiceCatalog.jsx';
 import NarratorPicker from './NarratorPicker.jsx';
 import CharactersPanel from './CharactersPanel.jsx';
 import VideoStudio from './VideoStudio.jsx';
-import SoundDesk,{DEFAULT_DESK,useDeskPreview} from './SoundDesk.jsx';
+import SoundDesk,{DEFAULT_DESK,useDeskPreview,levelOnlyDesk} from './SoundDesk.jsx';
 import {SECTION_LIMIT,makeSection,replaceSectionText,insertSection,assignSectionSpeaker,moveSection,sectionDelay,DIRECTION_TAGS,spokenText,audioSignature,audioResultIsCurrent,wholeNarrationSignature,suggestSpeechDirections} from './narrationSections.js';
 import {NotificationProvider,useNotifications} from './Notifications.jsx';
 import './shell.css'; // last: app layout and finish over every theme
@@ -297,7 +297,7 @@ function App(){
   pendingSignature.current={sectionId:block.id,signature};
   if(PUBLIC_STUDIO){setActivePreview(block.id);setPlaySectionRequest({id:++playSequence.current,sectionId:block.id,text:block.text,voice:block.voice_key});return}
   try{
-   const result=await api('narrations',json('POST',{blocks:[{text:clean,voice_key:block.voice_key,delay_after:0}],format:'wav'}));
+   const result=await api('narrations',json('POST',{blocks:[{text:clean,voice_key:block.voice_key,delay_after:0}],format:'wav',desk:levelOnlyDesk(desk)}));
    setSectionJob({...result,sectionId:block.id,signature});
   }catch(e){setSectionPlayingId(null);setSectionPlayError({id:block.id,message:e.message})}
  }
