@@ -1,15 +1,23 @@
 {
-  "format": "humperdinck-release-rights-v1",
+  "format": "humperdinck-release-rights-v2",
   "status": "BLOCKED",
   "version": null,
   "reviewed_commit": null,
   "reviewer": null,
   "reviewed_utc": null,
   "bundled_voices_pack_sha256": "15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49",
-  "voice_permissions": [],
   "sound_sources_archived_and_verified": false,
   "all_frozen_dependencies_and_notices_verified": false,
   "ffmpeg_bundled": false,
   "ffmpeg_exact_build_reviewed": false,
-  "notes": "Engineering review incomplete. Never mark CLEARED without independently stored signed voice releases, copyright grants, and exact native binary and sound evidence."
+  "notes": "Owner reports all seven voices derive from his recordings blended with Qwen. No self-signed performer release needed. Remains BLOCKED pending exact seven-sample hash matching, verification of any third-party sources, sound/installer dependency notices, and exact release review.",
+  "voice_provenance": {
+    "source": "owner_recorded_voice_with_qwen",
+    "owner_voice_confirmed": true,
+    "source_recordings_owned_or_licensed": false,
+    "no_unlicensed_third_party_source_audio": false,
+    "samples_verified_against_pack": false,
+    "qwen_model_terms_reviewed": false,
+    "sample_sha256": []
+  }
 }

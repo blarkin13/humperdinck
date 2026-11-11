@@ -58,8 +58,7 @@ def inspect(raw: bytes, expected_pack_sha256: str = EXPECTED_PACK_SHA256) -> dic
                 "sample_bytes": len(sample),
                 "source_audio_copyright_owner": "OWNER TO VERIFY PRIVATELY",
                 "source_voice_performer": "OWNER REPORTED SELF, NOT INDEPENDENTLY VERIFIED",
-                "signed_owner_declaration_sha256": None,
-                "recording_rights_document_sha256": None,
+                "first_party_owner_source": "OWNER REPORTED — requires operator review",
                 "review_status": "NOT APPROVED",
             })
     return {
@@ -71,7 +70,7 @@ def inspect(raw: bytes, expected_pack_sha256: str = EXPECTED_PACK_SHA256) -> dic
         "owner_reported_source": "Owner's own recorded voice blended with Qwen",
         "samples": evidence,
         "release_rights_approved": False,
-        "caveat": "This is a technical hash inventory only, not evidence that any consent was signed.",
+        "caveat": "This inventory verifies hashes, not creator identity or third-party rights. The owner need not sign a release to himself.",
     }
 
 

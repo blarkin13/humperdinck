@@ -15,7 +15,7 @@ and `scripts/build_native_sidecar.py` **without** `--ffmpeg-dir`.
 | `kokoro-onnx` Python runtime | https://github.com/thewh1teagle/kokoro-onnx | Upstream runtime MIT; Kokoro model Apache-2.0 | **Yes** via PyInstaller dependency | Include corresponding MIT text and inspect wheel/native dependencies |
 | Piper runtime / voices | Optional runtime catalog, no pinned voice model shipped by this native workflow | Piper runtime repo MIT (https://github.com/rhasspy/piper); separately trained voice models may use **different** licenses | No Piper voice weights by default | **DO NOT claim all Piper voices are commercially redistributable.** Resolve each selected voice dataset/license separately |
 | FFmpeg / ffprobe | Optional `--ffmpeg-dir` is **not used** by current native CI; `imageio-ffmpeg` is used only to generate WAVs at build time | LGPL-2.1+ by default; GPL or nonfree configurations change obligations: https://ffmpeg.org/legal.html | **No explicit runtime FFmpeg binary** in current default installer build; inspect frozen packages for accidental inclusion | No separate runtime FFmpeg redistribution clearance assumed. Any future bundle needs exact build flags, SHA, matching source, linked libraries and notices |
-| Seven built-in reference voices | `humperdinck-builtin-voices-v1.zip`; GitHub release asset SHA-256 `15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49`; 1,391,515 bytes | **No speaker grants or source-audio commercial redistribution agreements in the repository evidence** | **Yes: seven reference clips** | **BLOCKER**: signed performer consent + recording copyright rights + redistribution/sublicensing scope per exact sample |
+| Seven built-in reference voices | `humperdinck-builtin-voices-v1.zip`; GitHub release asset SHA-256 `15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49`; 1,391,515 bytes | **Owner confirms seven samples derive from his own voice recordings blended with Qwen (Nov 10); no third-party performer identified** | **Yes: seven reference clips** | **PENDING:** match exact seven sample SHA-256 values, record Qwen model terms and verify no other unlicensed audio. No self-signed performer releases required |
 | Nine nature sound originals / processed native WAVs | `humperdinck-cc0-nature-pack.zip` SHA-256 `37c94fa9f2c27df851899d9ac8ed3c8076e0476ea313de838db590a6304c17a7`; 72,548,903 bytes; normalized WAV pack generated in CI | Source pages currently declare CC0; CC0 permits commercial reuse: https://creativecommons.org/publicdomain/zero/1.0/ | **Yes: nine normalized sounds** | Source links reviewed; archive date-stamped source-specific license pages, creator evidence, original/proc hashes before public sale |
 | Python/Node/Rust dependencies | Build-specific PyInstaller/Tauri and frontend dependency trees | Mixed open-source licenses | **Yes** | Need per-platform SBOM and corresponding LICENSE/NOTICE verification; locked dependencies should be captured from release jobs |
 
@@ -39,13 +39,8 @@ license a recognizable person’s voice or eliminate publicity rights.
 
 ## Before public release (release-acceptance gates)
 
-1. **Voice evidence:** For EACH of seven bundled reference clips, identify speaker,
-   original recording copyright owner, record SHA, signed voice replication
-   permission, explicit distribution/sublicense of the reference asset and
-   commercial use, and any expiry/territory/withdrawal restrictions.
-   Keep actual signed forms **private**, but publish a checksum-based operator
-   review ledger with a qualified reviewer. Until complete, do not ship the pack
-   in commercial public releases.
+1. **Owner-derived voice provenance:** Brian confirmed on November 10 that all seven reference clips were derived from recordings of his own voice blended with Qwen. No signature granting oneself permission is required. Run the local pack inspector to verify all seven SHA-256 sample hashes match the pinned ZIP; record any Qwen model details available and confirm whether third-party audio sources were used. Audit permission only for any outside voices actually used. The first-party provenance record is not a license for third-party recordings.
+
 2. **Runtime license manifests:** Collect exact `pip freeze`, Python wheel
    metadata licenses, npm lockfile, Cargo lockfile and the actual frozen
    executable contents. Respect MIT/Apache/CC-BY/LGPL and codec dependencies.
@@ -61,7 +56,5 @@ license a recognizable person’s voice or eliminate publicity rights.
    hash, legal review and evidence pack. An engineering test pass does NOT
    constitute clearance or verify a document signature.
 
-**Status:** Model/runtime source license families reviewed. Sound source pages
-identified. **Commercial release remains blocked by unproven built-in
-reference-voice rights and incomplete exact-binary dependency review.**
+**Status:** Owner-reported first-party voice provenance recorded; no self-signed voice authorization is required. Sound license pages identified. **Commercial release remains blocked by incomplete exact sound/source archives, Qwen revision notices and frozen binary dependency review.**
 No Community Voice Exchange is planned.
