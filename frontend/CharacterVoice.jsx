@@ -63,10 +63,10 @@ export default function CharacterVoice({api,source,onClose,onCreated,onOpenModel
     {canImpress?<><label>Impersonating<select value={impression} onChange={e=>setImpression(e.target.value)}>
      {[...new Set(impressions.map(t=>t.group))].map(g=><optgroup key={g} label={g}>{impressions.filter(t=>t.group===g).map(t=><option key={t.voice} value={t.voice}>{t.name}</option>)}</optgroup>)}
     </select></label>
-    <label>Mix <span className="hint">{mix}%</span><input type="range" min="10" max="80" step="5" value={mix} onChange={e=>setMix(Number(e.target.value))} aria-valuetext={`${mix} percent toward ${target?.name||'the other voice'}`}/></label></>
+    <label>Mix <span className="hint">{mix}%</span><input type="range" min="10" max="60" step="5" value={mix} onChange={e=>setMix(Number(e.target.value))} aria-valuetext={`${mix} percent toward ${target?.name||'the other voice'}`}/></label></>
     :<label>How they talk<textarea rows={2} maxLength={400} value={direction} onChange={e=>setDirection(e.target.value)} placeholder="e.g. old and slow, gravelly, whispering, excited"/></label>}
     {!canImpress&&!source.gender&&<label>The original voice is<select value={gender} onChange={e=>setGender(e.target.value)}><option value="female">Female</option><option value="male">Male</option><option value="neutral">Neither / unsure</option></select></label>}
-    <p className="hint">{canImpress?`${source.label} impersonates ${target?.name||'another voice'}: still ${source.label}, pushed toward their voice. Mix sets how far: raise it for deep or very distinctive voices. You get three takes around it.`
+    <p className="hint">{canImpress?`${source.label} impersonates ${target?.name||'another voice'}: still ${source.label}, pushed toward their voice. Mix sets how far: try more for deep voices. You get three takes around it.`
      :`The voice designer performs the line from your description, then it's turned into ${source.label}'s voice.`}</p>
     {needsDesigner&&options&&!options.design_ready&&<div className="notice">This needs the voice designer. Install it in Models.</div>}
     <label>Preview line<input value={text} maxLength={300} onChange={e=>setText(e.target.value)}/></label>

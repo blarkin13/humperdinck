@@ -122,6 +122,6 @@ def test_mix_slider_makes_three_takes_around_the_chosen_strength():
     assert ch.impression_weights(None) == (list(ch.IMPRESSION_WEIGHTS), list(ch.IMPRESSION_STRENGTHS))
     assert ch.impression_weights(0.5) == ([0.4, 0.5, 0.6], ['40% mix', '50% mix', '60% mix'])
     # Clamped at both ends; duplicates collapse instead of rendering the same take twice.
-    assert ch.impression_weights(0.8)[0] == [0.7, 0.8]
+    assert ch.impression_weights(0.6)[0] == [0.5, 0.6]
     assert ch.impression_weights(0.1)[0] == [0.1, 0.2]
-    assert ch.impression_weights(5)[0] == [0.7, 0.8]
+    assert ch.impression_weights(5)[0] == [0.5, 0.6]

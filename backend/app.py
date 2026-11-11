@@ -1078,7 +1078,7 @@ class CharacterTakesInput(BaseModel):
     gender: str = Field(default='female', pattern='^(female|male|neutral)$')
     text: str = Field(min_length=1, max_length=300)
     impression: str = Field(default='', max_length=150)  # voice key to impersonate
-    strength: float | None = Field(default=None, ge=0.1, le=0.8)  # Mix slider
+    strength: float | None = Field(default=None, ge=0.1, le=0.6)  # Mix slider
 
 
 class CharacterInput(BaseModel):

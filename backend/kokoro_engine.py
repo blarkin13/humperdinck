@@ -30,7 +30,7 @@ class KokoroEngine:
             # An impression: this voice's style moved part of the way toward another
             # voice. The source voice keeps its language and most of its identity.
             other, weight = blend.get('voice'), float(blend.get('weight', 0))
-            if other not in PRESET_VOICES['kokoro'] or not 0 < weight <= 0.8:
+            if other not in PRESET_VOICES['kokoro'] or not 0 < weight <= 0.6:
                 raise ValueError('Invalid impression blend')
             style = (1 - weight) * model.get_voice_style(voice) + weight * model.get_voice_style(other)
         audio, rate = [], None

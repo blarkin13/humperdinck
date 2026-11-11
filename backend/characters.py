@@ -24,7 +24,7 @@ IMPRESSION_WEIGHTS = (0.2, 0.35, 0.5)
 IMPRESSION_STRENGTHS = ('Subtle', 'Medium', 'Strong')
 # The Mix slider: how far the voice moves toward the impersonated voice.
 # Deep or very distinctive voices may need more than the default to be heard.
-IMPRESSION_MAX = 0.8
+IMPRESSION_MAX = 0.6
 IMPRESSION_MIN = 0.1
 
 

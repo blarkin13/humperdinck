@@ -382,7 +382,7 @@ def preset(engine, voice, output, text, on_progress=None, speed=1.0, blend=None)
     if engine != 'kokoro' or voice not in catalog.PRESET_VOICES[engine]:
         raise ValueError('Unknown preset voice')
     if blend is not None and (blend.get('voice') not in catalog.PRESET_VOICES[engine]
-                              or not 0 < float(blend.get('weight', 0)) <= 0.8):
+                              or not 0 < float(blend.get('weight', 0)) <= 0.6):
         raise ValueError('Invalid impression blend')
     extra = {'speed': speed} if speed != 1 else {}
     if blend is not None:
