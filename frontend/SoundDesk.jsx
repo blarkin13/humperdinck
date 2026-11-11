@@ -31,6 +31,13 @@ export function deskSummary(desk){
 }
 
 // Route <audio>/<video> elements through Web Audio filters that mirror the desk.
+// Section previews get only the desk's level match from the server; the
+// live preview graph adds the tone, so it is not applied twice.
+export function levelOnlyDesk(desk){
+ const d={...DEFAULT_DESK,...desk};
+ return {enabled:true,preset:d.preset,level_match:Boolean(d.enabled&&d.level_match),cleanup:false,eq:FLAT,compress:'off'};
+}
+
 export function useDeskPreview(desk){
  const graph=useRef(null);
  function build(){
