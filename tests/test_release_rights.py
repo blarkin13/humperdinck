@@ -103,7 +103,7 @@ def test_owner_provenance_rejects_unmatched_or_duplicate_samples():
     assert any("seven owner-derived" in issue for issue in gate.check(r,"0.2.1","a"*40))
     r=owner_record()
     r["voice_provenance"]["sample_sha256"][1]=r["voice_provenance"]["sample_sha256"][0]
-    assert any("seven owner-derived" in issue for issue in gate.check(r,"0.2.1","a"*40))
+    assert any("Duplicate owner-derived" in issue for issue in gate.check(r,"0.2.1","a"*40))
     r=owner_record()
     r["voice_provenance"]["sample_sha256"][2]="not-hash"
     assert any("Invalid owner-derived" in issue for issue in gate.check(r,"0.2.1","a"*40))
