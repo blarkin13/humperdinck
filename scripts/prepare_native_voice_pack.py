@@ -20,10 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from release_download import fetch  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-NAME = "humperdinck-builtin-voices-v1.zip"
-URL = "https://github.com/blarkin13/humperdinck/releases/download/builtin-humperdinck-voices-v1/" + NAME
-SHA256 = "15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49"
-EXPECTED_VOICES = 7
+NAME = "humperdinck-builtin-voices-launch-four-v1.zip"
+URL = "https://github.com/blarkin13/humperdinck/releases/download/builtin-humperdinck-voices-launch-four-v1/" + NAME
+SHA256 = "6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"
+EXPECTED_VOICES = 4
 DESTINATION = ROOT / "assets" / "voice-packs" / NAME
 
 
