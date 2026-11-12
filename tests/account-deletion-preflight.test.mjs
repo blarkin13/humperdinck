@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {inspectAccountDeletionForReview} from '../src/account-deletion-preflight.js';
 const uid='63a4cf69-678f-4788-a61d-8401cc309b72';
-function fixture({pending=true,openDisputes=0}={}){
+function fixture({pending=true,openDisputes=0,unsettledIntents=0,betaInvites=0,betaGrants=0,betaReports=0}={}){
  let writes=0,reads=0;
  const env={AUTH_DB:{prepare(sql){reads++;
   return {bind(id){assert.equal(id,uid);return {async first(){
@@ -11,6 +11,10 @@ function fixture({pending=true,openDisputes=0}={}){
    if(sql.includes('FROM auth_privacy_requests'))return pending?{id:'review1'}:null;
    if(sql.includes('FROM commerce_live_disputes'))return {n:openDisputes};
    if(sql.includes('FROM commerce_live_orders'))return {n:2};
+   if(sql.includes('FROM commerce_live_intents'))return {n:unsettledIntents};
+   if(sql.includes('FROM beta_invitations'))return {n:betaInvites};
+   if(sql.includes('FROM beta_pro_grants'))return {n:betaGrants};
+   if(sql.includes('FROM beta_reports'))return {n:betaReports};
    throw Error('Unexpected query');
   }}}};
  }}};
@@ -50,4 +54,16 @@ test('unapplied live ledger blocks review; invalid account scope is refused',asy
  assert.equal((await inspectAccountDeletionForReview(f.env,'not-a-uuid',opts)).decision,'blocked');
  const env={AUTH_DB:{prepare(){throw Error('table not yet migrated')}}};
  assert.equal((await inspectAccountDeletionForReview(env,uid,opts)).decision,'blocked');
+});
+
+test('active checkout and linked beta records block deletion until reviewed',async()=>{
+ for(const setup of [
+  {unsettledIntents:1},{betaInvites:1},{betaGrants:1},{betaReports:1}
+ ]){
+  const f=fixture(setup);
+  const result=await inspectAccountDeletionForReview(f.env,uid,opts);
+  assert.equal(result.decision,'blocked');
+  assert.equal(result.mayDelete,false);
+  assert.equal(f.usage().writes,0);
+ }
 });
