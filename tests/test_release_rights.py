@@ -74,7 +74,7 @@ def owner_record():
         "no_unlicensed_third_party_source_audio":True,
         "samples_verified_against_pack":True,
         "qwen_model_terms_reviewed":True,
-        "sample_sha256":[hex(i)[2:].rjust(64,"0") for i in range(4)],
+        "sample_sha256":sorted(gate.OWNER_SAMPLES),
     }
     return r
 
