@@ -24,6 +24,14 @@ NAME = "humperdinck-builtin-voices-launch-four-v1.zip"
 URL = "https://github.com/blarkin13/humperdinck/releases/download/builtin-humperdinck-voices-launch-four-v1/" + NAME
 SHA256 = "6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"
 EXPECTED_VOICES = 4
+EXPECTED_NAMES = {"Sarah", "Jason", "Kenny", "Jerry"}
+EXPECTED_SAMPLES = {
+    "Sarah": "02739b572307f147d833029e5d2dc2be00e0b8f7d4011ef6727493d2365712ef",
+    "Jason": "a2778333d4b14b909c8c03e1170c384ec68aeca33ed12530edfa70767faffd68",
+    "Kenny": "806cbe1774b052f395b1980e7f8283b06cef2f0a2b9988f77c3a332844ca31c1",
+    "Jerry": "f862f358145c9dfd82830fc5ce3393545b68d0ce566f7093b845606890becf72",
+}
+
 DESTINATION = ROOT / "assets" / "voice-packs" / NAME
 
 
@@ -41,9 +49,14 @@ def validate(raw: bytes) -> int:
                 f"Published voice pack has {len(voices)} voices; expected {EXPECTED_VOICES}. "
                 "Update the approved release asset before distributing this build."
             )
+        if {entry.get("name") for entry in voices} != EXPECTED_NAMES:
+            raise RuntimeError("The launch pack must contain Sarah, Jason, Kenny, Jerry only")
+        if manifest.get("revision") != 2:
+            raise RuntimeError("The four-voice launch pack requires revision 2 for old-voice removal")
         for entry in voices:
             sample = archive.read(entry["sample_file"])
-            if hashlib.sha256(sample).hexdigest() != entry["sha256"]:
+            digest = hashlib.sha256(sample).hexdigest()
+            if digest != entry["sha256"] or digest != EXPECTED_SAMPLES[entry["name"]]:
                 raise RuntimeError(f"Reference sample checksum mismatch for {entry.get('name')}")
         return len(voices)
 
