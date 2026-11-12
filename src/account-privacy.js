@@ -37,6 +37,8 @@ export async function handleAccountPrivacy(request,env,{user,sameOrigin}){
   if(env.ACCOUNT_DELETION_CONFIRMATION_ENABLED!=='true')
    return error(404,'Account deletion confirmation is not currently available');
   if(!sameOrigin(request))return error(403,'Invalid request origin');
+  if(!Number.isFinite(Number(user.created_at))||when()-Number(user.created_at)>600||Number(user.created_at)>when()+60)
+   return error(403,'Sign out and sign in again before final deletion confirmation');
   const data=await limitedJson(request,2048);
   if(data.confirmation!=='DELETE MY HUMPERDINCK ACCOUNT'||
      data.forfeitureAcknowledged!==true||data.offlineCertificatesAcknowledged!==true||
