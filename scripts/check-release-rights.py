@@ -15,6 +15,13 @@ import sys
 HASH = re.compile(r"^[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 PACK = "6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"
+OWNER_SAMPLES = {
+    "02739b572307f147d833029e5d2dc2be00e0b8f7d4011ef6727493d2365712ef",  # Sarah
+    "a2778333d4b14b909c8c03e1170c384ec68aeca33ed12530edfa70767faffd68",  # Jason
+    "806cbe1774b052f395b1980e7f8283b06cef2f0a2b9988f77c3a332844ca31c1",  # Kenny in WAV
+    "f862f358145c9dfd82830fc5ce3393545b68d0ce566f7093b845606890becf72",  # Jerry
+}
+
 
 
 def check(record: dict, version: str, commit: str) -> list[str]:
@@ -57,8 +64,10 @@ def check(record: dict, version: str, commit: str) -> list[str]:
                 problems.append("All four owner-derived samples must be inventoried")
             elif any(not isinstance(sample, str) or not HASH.fullmatch(sample) for sample in samples):
                 problems.append("Invalid owner-derived sample SHA256")
-            elif len(set(samples)) != 7:
+            elif len(set(samples)) != 4:
                 problems.append("Duplicate owner-derived sample SHA256")
+            elif set(samples) != OWNER_SAMPLES:
+                problems.append("Owner-derived sample hashes do not match the four approved launch samples")
     elif format_version == "humperdinck-release-rights-v1":
         # Retain prior external-performer rights checks for older controlled
         # approval records; never interpret missing third-party grants as OK.
