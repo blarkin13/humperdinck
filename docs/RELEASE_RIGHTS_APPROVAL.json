@@ -5,12 +5,12 @@
   "reviewed_commit": null,
   "reviewer": null,
   "reviewed_utc": null,
-  "bundled_voices_pack_sha256": "15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49",
+  "bundled_voices_pack_sha256": "6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f",
   "sound_sources_archived_and_verified": false,
   "all_frozen_dependencies_and_notices_verified": false,
   "ffmpeg_bundled": false,
   "ffmpeg_exact_build_reviewed": false,
-  "notes": "Owner reports all seven voices derive from his recordings blended with Qwen. No self-signed performer release needed. Remains BLOCKED pending exact seven-sample hash matching, verification of any third-party sources, sound/installer dependency notices, and exact release review.",
+  "notes": "Owner confirmed Nov 12, 2026 that exactly four built-in voices (Sarah, Jason, Kenny, Jerry) are the sole launch scope; additional voices deferred until well after full launch. Four user-supplied audio files were used to build a local four-voice release-candidate ZIP; Kenny MP3 was converted to 24kHz mono WAV. The actual GitHub release asset is not yet published/verified. Rights stay BLOCKED pending release-asset matching, model/CC0/source licenses and frozen installer review. No self-signed performer declaration required.",
   "voice_provenance": {
     "source": "owner_recorded_voice_with_qwen",
     "owner_voice_confirmed": true,
@@ -18,6 +18,11 @@
     "no_unlicensed_third_party_source_audio": false,
     "samples_verified_against_pack": false,
     "qwen_model_terms_reviewed": false,
-    "sample_sha256": []
+    "sample_sha256": [
+      "02739b572307f147d833029e5d2dc2be00e0b8f7d4011ef6727493d2365712ef",
+      "a2778333d4b14b909c8c03e1170c384ec68aeca33ed12530edfa70767faffd68",
+      "806cbe1774b052f395b1980e7f8283b06cef2f0a2b9988f77c3a332844ca31c1",
+      "f862f358145c9dfd82830fc5ce3393545b68d0ce566f7093b845606890becf72"
+    ]
   }
 }
