@@ -16,7 +16,7 @@ import json
 import soundfile as sf
 
 SENTENCE="The old lighthouse stood quietly above the waves, waiting for the next storm."
-PACK_NAME="humperdinck-builtin-voices-v1.zip"
+PACK_NAME="humperdinck-builtin-voices-launch-four-v1.zip"
 MAX_SAMPLE_BYTES=16*1024*1024
 MAX_PACK_BYTES=120*1024*1024
 CHANNELS=("builtin","catalog")
