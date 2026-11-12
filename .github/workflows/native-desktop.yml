@@ -412,14 +412,17 @@ jobs:
           if [ "$RUNNER_OS" = Windows ]; then
             FILE="$(find desktop/src-tauri/target/release/bundle/nsis -maxdepth 1 -name '*.exe' -print -quit)"
             powershell -NoProfile -Command "Start-Process -FilePath '$(cygpath -w "$FILE")' -ArgumentList '/S' -Wait"
+            # Users install FFmpeg themselves (the app offers winget); do the same here.
+            choco install ffmpeg -y --no-progress >/dev/null
+            export PATH="/c/ProgramData/chocolatey/bin:$PATH"
             SERVER="$(find "$(cygpath -u "$LOCALAPPDATA")/Humperdinck" "/c/Program Files/Humperdinck" -name 'humperdinck-server.exe' -print -quit 2>/dev/null || true)"
           else
             FILE="$(find desktop/src-tauri/target/release/bundle/deb -maxdepth 1 -name '*.deb' -print -quit)"
-            sudo apt-get install -y "./$FILE"
+            sudo apt-get install -y "./$FILE" ffmpeg
             SERVER="$(dpkg -L "$(dpkg-deb -f "$FILE" Package)" | grep '/humperdinck-server$' | head -1)"
           fi
           test -n "$SERVER" || { echo "Installed humperdinck-server not found"; exit 1; }
-          python scripts/smoke_installed_export.py --binary "$SERVER"
+          python scripts/smoke_installed_export.py --binary "$SERVER" --require-mp3
 
       - name: Capture exact installer digests and dependency snapshot for rights audit
         if: success()

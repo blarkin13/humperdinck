@@ -78,6 +78,7 @@ def check_mp3(raw, label):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--binary', type=Path, required=True, help='Installed humperdinck-server executable')
+    parser.add_argument('--require-mp3', action='store_true', help='FFmpeg is installed, so MP3 export must work')
     args = parser.parse_args()
     binary = args.binary.resolve()
     if not binary.is_file():
@@ -112,9 +113,18 @@ def main():
 
                 wav = wait_job(base, call(base, '/api/narrations', {'blocks': BLOCKS, 'format': 'wav'}), 600)
                 seconds = check_wav(download(base, wav), 'WAV export')
-                mp3 = wait_job(base, call(base, '/api/narrations', {'blocks': BLOCKS, 'format': 'mp3'}), 600)
-                size = check_mp3(download(base, mp3), 'MP3 export')
-                print(f'PASS: WAV export {seconds:.1f}s, MP3 export {size} bytes')
+                print(f'PASS: WAV export {seconds:.1f}s')
+                # MP3 needs the user's own FFmpeg (not bundled for licensing).
+                # Without it the app must refuse clearly instead of failing late.
+                try:
+                    mp3 = wait_job(base, call(base, '/api/narrations', {'blocks': BLOCKS, 'format': 'mp3'}), 600)
+                except HTTPError as error:
+                    detail = error.read().decode('utf-8', 'replace')
+                    if error.code != 503 or 'FFmpeg' not in detail or args.require_mp3:
+                        raise RuntimeError(f'MP3 export failed: HTTP {error.code} {detail}') from error
+                    print('PASS: without FFmpeg, MP3 export is refused with: ' + detail)
+                else:
+                    print(f"PASS: MP3 export {check_mp3(download(base, mp3), 'MP3 export')} bytes")
 
                 # Cancel then Try again, the packaged path of the render pipeline.
                 blocks = [dict(b, text=b['text'] + ' Once more, for the cancel test.') for b in BLOCKS]
