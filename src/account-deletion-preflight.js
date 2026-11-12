@@ -13,7 +13,7 @@ export async function inspectAccountDeletionForReview(env,userId,{
   return block('Operator approval and commerce retention policy are required');
  if(!env?.AUTH_DB||!uuid(userId))return block('Invalid account scope');
  try{
-  const [user,license,pending,orders,disputes,inflight,betaInvites,betaGrants,betaReports]=await Promise.all([
+  const [user,license,pending,orders,disputes,inflight,betaInvites,betaGrants,betaReports,holds]=await Promise.all([
    env.AUTH_DB.prepare('SELECT id FROM auth_users WHERE id=?').bind(userId).first(),
    env.AUTH_DB.prepare('SELECT id,status FROM pro_licenses WHERE user_id=?').bind(userId).first(),
    env.AUTH_DB.prepare("SELECT id FROM auth_privacy_requests WHERE user_id=? AND kind='deletion' AND status='pending'").bind(userId).first(),
@@ -22,11 +22,13 @@ export async function inspectAccountDeletionForReview(env,userId,{
    env.AUTH_DB.prepare("SELECT COUNT(*) AS n FROM commerce_live_intents WHERE user_id=? AND status='started'").bind(userId).first(),
    env.AUTH_DB.prepare('SELECT COUNT(*) AS n FROM beta_invitations WHERE accepted_user_id=?').bind(userId).first(),
    env.AUTH_DB.prepare('SELECT COUNT(*) AS n FROM beta_pro_grants WHERE user_id=?').bind(userId).first(),
-   env.AUTH_DB.prepare('SELECT COUNT(*) AS n FROM beta_reports WHERE user_id=?').bind(userId).first()
+   env.AUTH_DB.prepare('SELECT COUNT(*) AS n FROM beta_reports WHERE user_id=?').bind(userId).first(),
+   env.AUTH_DB.prepare('SELECT COUNT(*) AS n FROM auth_deletion_holds WHERE user_id=? AND released_at IS NULL').bind(userId).first()
   ]);
   if(!user)return block('Account not found');
   if(!pending)return block('No authenticated deletion review request exists');
   if((disputes?.n||0)>0)return block('Open merchant dispute requires review before account deletion');
+  if(Number(holds?.n||0)>0)return block('Active legal or privacy preservation hold requires review');
   if(Number(inflight?.n||0)>0)return block('Unsettled checkout intent requires review before deletion');
   if(Number(betaInvites?.n||0)+Number(betaGrants?.n||0)+Number(betaReports?.n||0)>0)
    return block('Linked beta records and screenshot objects require reviewed cleanup before deletion');
