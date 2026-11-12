@@ -42,7 +42,7 @@ def report(root: Path, commit: str) -> dict:
                     "note":"Inspect the matching GitHub workflow run and its actual artifacts."},
         "release_rights_ledger":{"status":rights.get("status","UNKNOWN"),
                                  "matches_required_voice_zip":rights.get("bundled_voices_pack_sha256")
-                                  =="6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"},
+                                  =="59086a4e9b53eec23f7d33b3acd6a10d1e5a1328ee80eaf93b59218f29038d38"},
         "gates":controls,
         "commercial_release_decision":"NOT READY",
         "owner_sensitive_data_collected":False,

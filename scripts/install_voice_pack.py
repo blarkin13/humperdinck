@@ -18,7 +18,7 @@ ASSET="humperdinck-builtin-voices-launch-four-v1.zip"
 RELEASE_TAG="builtin-humperdinck-voices-launch-four-v1"
 URL=f"https://github.com/blarkin13/humperdinck/releases/download/{RELEASE_TAG}/{ASSET}"
 MAX_BYTES=120*1024*1024
-EXPECTED_SHA256="6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"
+EXPECTED_SHA256="59086a4e9b53eec23f7d33b3acd6a10d1e5a1328ee80eaf93b59218f29038d38"
 MARKER=".builtin-humperdinck-voices-v1-installed"
 
 

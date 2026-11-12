@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from zipfile import ZipFile
 
-EXPECTED_PACK_SHA256 = "6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"
+EXPECTED_PACK_SHA256 = "59086a4e9b53eec23f7d33b3acd6a10d1e5a1328ee80eaf93b59218f29038d38"
 
 
 def sha256(raw: bytes) -> str:

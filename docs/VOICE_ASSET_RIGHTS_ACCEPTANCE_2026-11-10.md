@@ -9,7 +9,7 @@
 
 Brian confirmed that all **four Built-In Humperdinck Voices** were made by blending **recordings of his own voice** with Qwen. No four separate performers were identified. **Do not require Brian to sign a grant to himself.** Do not invent speaker releases, source-ownership certificates or per-voice consent agreements. This is an owner-reported source statement, not an independent verification of the audio.
 
-The reference pack is `humperdinck-builtin-voices-launch-four-v1.zip` with SHA-256 `6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f`. Its exact four sample hashes can be extracted with `scripts/inspect-owner-voice-pack-rights.py` on the operator's machine, without uploading recordings. The original owner declaration draft is OPTIONAL and should not be treated as a launch acceptance gate.
+The reference pack is `humperdinck-builtin-voices-launch-four-v1.zip` with SHA-256 `59086a4e9b53eec23f7d33b3acd6a10d1e5a1328ee80eaf93b59218f29038d38`. Its exact four sample hashes can be extracted with `scripts/inspect-owner-voice-pack-rights.py` on the operator's machine, without uploading recordings. The original owner declaration draft is OPTIONAL and should not be treated as a launch acceptance gate.
 
 A practical source note for the release ledger is:
 

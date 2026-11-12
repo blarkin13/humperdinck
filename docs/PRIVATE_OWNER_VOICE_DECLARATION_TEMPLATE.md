@@ -8,7 +8,7 @@
 **Owner-reported statement (Brian, November 10, 2026):** Four Built-In Humperdinck Voices (Sarah, Jason, Kenny, Jerry) were generated from recordings of his own voice blended with Qwen. No four separate outside performers were identified.
 
 Pack: `humperdinck-builtin-voices-launch-four-v1.zip`
-Pack SHA-256: `6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f`
+Pack SHA-256: `59086a4e9b53eec23f7d33b3acd6a10d1e5a1328ee80eaf93b59218f29038d38`
 
 If helpful, record:
 - The four **actual** sample hashes from `scripts/inspect-owner-voice-pack-rights.py`; don't guess or publish private source recordings.
