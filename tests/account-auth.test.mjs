@@ -247,7 +247,7 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
   let login=new URL(started.headers.get('location'));
   expectedNonce=login.searchParams.get('nonce');
   const state=login.searchParams.get('state');
-  assert.match(db.oauthFlows.get(sha(state)).return_path,/^__age18_v1__\\|/);
+  assert.equal(db.oauthFlows.get(sha(state)).return_path,'__age18_v1__|/account/');
   const csrfCookie=started.headers.get('set-cookie').split(';')[0];
   assert.match(csrfCookie,/^__Host-humperdinck_oauth_[A-Za-z0-9_-]{16}=/);
   assert.match(started.headers.get('set-cookie'),/SameSite=Lax/);
