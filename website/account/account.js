@@ -7,7 +7,7 @@ const params=new URLSearchParams(location.search);
 const device=params.get('device');
 const validDevice=typeof device==='string'&&/^[A-Z2-7]{10}$/.test(device);
 const returnTo=validDevice?'/account/?device='+device:'/account/';
-const state={config:null,dashboard:null,license:null,recoveryKit:null};
+const state={config:null,dashboard:null,license:null,recoveryKit:null,pendingDeletionRequestId:null};
 const fmt=seconds=>{
  if(!Number.isFinite(Number(seconds))||Number(seconds)<=0)return '—';
  return new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'numeric'}).format(new Date(Number(seconds)*1000));
@@ -397,11 +397,38 @@ q('submit-privacy-request').addEventListener('click',async()=>{
   if(record.status!=='pending'||!record.request_id)throw Error('Privacy request was not recorded.');
   q('privacy-request-status').textContent=
    'Request '+record.request_id+' is pending review.'+(record.duplicate?' An existing request was found.':'');
+  if(kind==='deletion'){
+   state.pendingDeletionRequestId=record.request_id;
+   q('deletion-final-confirmation').hidden=!state.config?.deletion_confirmation_enabled;
+  }
   notice('Privacy request recorded for manual review. Your Pro license has not changed.');
  }catch(error){
   q('privacy-request-status').textContent='Request unavailable. Contact privacy@humperdinck.studio.';
   notice(error.message,true);
  }finally{button.disabled=false}
+});
+q('submit-deletion-final').addEventListener('click',async()=>{
+ const message=q('deletion-final-status'),button=q('submit-deletion-final');
+ if(!state.config?.deletion_confirmation_enabled||!state.pendingDeletionRequestId){
+  message.textContent='Final deletion confirmation is not available.';return;
+ }
+ if(q('deletion-confirm-phrase').value.trim()!=='DELETE MY HUMPERDINCK ACCOUNT'||
+   !q('deletion-forfeiture').checked||!q('deletion-offline').checked){
+  message.textContent='Type the exact phrase and acknowledge both consequences.';return;
+ }
+ if(!confirm('Record your final account-deletion consent for review? This action cannot by itself delete an account; processing is separately verified.'))return;
+ button.disabled=true;
+ try{
+  const result=await request('/privacy/deletion/final-confirm',{
+   method:'POST',data:{requestId:state.pendingDeletionRequestId,
+    policyVersion:'deletion-draft-v1',confirmation:'DELETE MY HUMPERDINCK ACCOUNT',
+    forfeitureAcknowledged:true,offlineCertificatesAcknowledged:true}
+  });
+  message.textContent=result.status==='confirmed-for-review'
+   ?'Final confirmation recorded. No account or license has been deleted. A verified operator review is still required.'
+   :'Confirmation could not be recorded.';
+ }catch(error){message.textContent='Final confirmation unavailable: '+error.message}
+ finally{button.disabled=false}
 });
 q('download-license').addEventListener('click',async()=>{
  const button=q('download-license');button.disabled=true;
