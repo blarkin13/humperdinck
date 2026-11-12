@@ -13,8 +13,8 @@ import sys
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
-ASSET="humperdinck-builtin-voices-v1.zip"
-RELEASE_TAG="builtin-humperdinck-voices-v1"
+ASSET="humperdinck-builtin-voices-launch-four-v1.zip"
+RELEASE_TAG="builtin-humperdinck-voices-launch-four-v1"
 URL=f"https://github.com/blarkin13/humperdinck/releases/download/{RELEASE_TAG}/{ASSET}"
 MAX_BYTES=120*1024*1024
 MARKER=".builtin-humperdinck-voices-v1-installed"
