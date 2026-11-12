@@ -28,7 +28,7 @@ def record():
              "ai_voice_recreation_allowed":True,
              "commercial_redistribution_allowed":True,
              "reference_file_sublicensing_allowed":True}
-            for i in range(7)
+            for i in range(4)
         ]
     }
 
@@ -74,7 +74,7 @@ def owner_record():
         "no_unlicensed_third_party_source_audio":True,
         "samples_verified_against_pack":True,
         "qwen_model_terms_reviewed":True,
-        "sample_sha256":[hex(i)[2:].rjust(64,"0") for i in range(7)],
+        "sample_sha256":sorted(gate.OWNER_SAMPLES),
     }
     return r
 
@@ -100,7 +100,7 @@ def test_owner_provenance_cannot_bypass_sound_or_dependency_reviews():
 def test_owner_provenance_rejects_unmatched_or_duplicate_samples():
     r=owner_record()
     r["voice_provenance"]["sample_sha256"].pop()
-    assert any("seven owner-derived" in issue for issue in gate.check(r,"0.2.1","a"*40))
+    assert any("four owner-derived" in issue for issue in gate.check(r,"0.2.1","a"*40))
     r=owner_record()
     r["voice_provenance"]["sample_sha256"][1]=r["voice_provenance"]["sample_sha256"][0]
     assert any("Duplicate owner-derived" in issue for issue in gate.check(r,"0.2.1","a"*40))

@@ -15,14 +15,14 @@ spec.loader.exec_module(tool)
 
 
 def make_zip(corrupt_sample=False, missing_voice=False):
-    samples = [f"owner-speech-{index}".encode() for index in range(7)]
+    samples = [f"owner-speech-{index}".encode() for index in range(4)]
     manifest = {
         "format": "humperdinck-starter-voices",
         "version": 1,
         "voices": [
             {"name": f"Sample {i+1}", "sample_file": f"voices/{i+1}.wav",
              "sha256": hashlib.sha256(data).hexdigest()}
-            for i, data in enumerate(samples[:6] if missing_voice else samples)
+            for i, data in enumerate(samples[:3] if missing_voice else samples)
         ],
     }
     out = BytesIO()
@@ -34,12 +34,12 @@ def make_zip(corrupt_sample=False, missing_voice=False):
 
 
 class OwnerVoiceEvidenceTests(unittest.TestCase):
-    def test_seven_matching_sha256_reports_remain_unapproved(self):
+    def test_four_matching_sha256_reports_remain_unapproved(self):
         raw = make_zip()
         result = tool.inspect(raw, hashlib.sha256(raw).hexdigest())
-        self.assertEqual(result["sample_count"], 7)
+        self.assertEqual(result["sample_count"], 4)
         self.assertFalse(result["release_rights_approved"])
-        self.assertEqual(len({entry["sample_sha256"] for entry in result["samples"]}), 7)
+        self.assertEqual(len({entry["sample_sha256"] for entry in result["samples"]}), 4)
         self.assertTrue(all(entry["review_status"] == "NOT APPROVED" for entry in result["samples"]))
         self.assertNotIn("owner-speech", json.dumps(result))
 
@@ -52,9 +52,9 @@ class OwnerVoiceEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "does not match"):
             tool.inspect(raw, hashlib.sha256(raw).hexdigest())
 
-    def test_missing_voice_fails(self):
+    def test_missing_fourth_voice_fails(self):
         raw = make_zip(missing_voice=True)
-        with self.assertRaisesRegex(ValueError, "exactly seven"):
+        with self.assertRaisesRegex(ValueError, "exactly four"):
             tool.inspect(raw, hashlib.sha256(raw).hexdigest())
 
 

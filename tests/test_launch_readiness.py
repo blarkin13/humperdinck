@@ -22,7 +22,7 @@ def test_fake_approved_rights_cannot_silently_override_human_gates(tmp_path):
     folder.mkdir(parents=True)
     (folder/"RELEASE_RIGHTS_APPROVAL.json").write_text(json.dumps({
        "status":"CLEARED",
-       "bundled_voices_pack_sha256":"15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49"
+       "bundled_voices_pack_sha256":"6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"
     }))
     result=module.report(tmp_path,"abcdef0123456789")
     assert result["commercial_release_decision"]=="NOT READY"

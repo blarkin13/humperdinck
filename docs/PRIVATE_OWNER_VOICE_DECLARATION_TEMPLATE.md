@@ -1,14 +1,17 @@
 # Optional first-party voice provenance note — no self-signature required
 
+> **CURRENT LAUNCH SCOPE — November 12, 2026:** There are exactly **four** Built-In Humperdinck Voices: **Sarah, Jason, Kenny and Jerry**. No additions until **well after the full launch**. Earlier four-voice inventory/rights statements below are superseded by [the four-voice launch record](BUILTIN_LAUNCH_FOUR_2026-11-12.md). Commercial approval remains BLOCKED pending exact artifact, source/license and installer acceptance; no self-signed owner release is needed.
+
+
 **NOT A RELEASE GATE.** The prior draft asking the developer to sign a grant to himself was withdrawn on November 10, 2026. This note is optional historical documentation, not a legal permission form.
 
-**Owner-reported statement (Brian, November 10, 2026):** Seven Built-In Humperdinck Voices were generated from recordings of his own voice blended with Qwen. No seven separate outside performers were identified.
+**Owner-reported statement (Brian, November 10, 2026):** Four Built-In Humperdinck Voices (Sarah, Jason, Kenny, Jerry) were generated from recordings of his own voice blended with Qwen. No four separate outside performers were identified.
 
-Pack: `humperdinck-builtin-voices-v1.zip`
-Pack SHA-256: `15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49`
+Pack: `humperdinck-builtin-voices-launch-four-v1.zip`
+Pack SHA-256: `6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f`
 
 If helpful, record:
-- The seven **actual** sample hashes from `scripts/inspect-owner-voice-pack-rights.py`; don't guess or publish private source recordings.
+- The four **actual** sample hashes from `scripts/inspect-owner-voice-pack-rights.py`; don't guess or publish private source recordings.
 - The Qwen model IDs/revisions actually known, not a presumed VoiceDesign version.
 - Whether any other outside human voice/recording was used.
 - Any restrictions in third-party materials; these require independent permission or replacement.

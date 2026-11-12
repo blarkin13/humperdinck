@@ -134,11 +134,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            assets/voice-packs/humperdinck-builtin-voices-v1.zip
+            assets/voice-packs/humperdinck-builtin-voices-launch-four-v1.zip
             assets/sound-packs/humperdinck-cc0-nature-pack.zip
           key: release-packs-${{ hashFiles('scripts/prepare_native_voice_pack.py', 'scripts/prepare_native_sound_pack.py') }}
 
-      - name: Download and SHA-verify seven Built-In Humperdinck Voice files (rights review separate)
+      - name: Download and SHA-verify four approved Built-In Humperdinck Voice files (rights review separate)
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/prepare_native_voice_pack.py
