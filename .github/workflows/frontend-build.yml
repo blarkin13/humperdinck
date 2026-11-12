@@ -63,6 +63,12 @@ jobs:
           node --test tests/lemon-live-webhook-adapter.test.mjs
           node --test tests/lemon-live-operator-summary.test.mjs
           node --test tests/account-deletion-preflight.test.mjs
+          node --check src/account-deletion-operator.js
+          node --test tests/account-deletion-operator.test.mjs
+          node --check src/account-retention-scheduled.js
+          node --test tests/account-retention-scheduled.test.mjs
+          node --check src/account-deletion-beta-cleanup.js
+          node --test tests/account-deletion-beta-cleanup.test.mjs
           node --test tests/legal-signed-consent.test.mjs
           node --test tests/legal-retention-contract.test.mjs
           node --check website/account/account.js

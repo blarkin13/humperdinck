@@ -10,7 +10,8 @@ function fixture(){
  const db=new DatabaseSync(':memory:');
  db.exec('PRAGMA foreign_keys=ON');
  for(const file of ['0001_accounts.sql','0002_pro_licenses.sql',
-  '0006_lemon_live_ledger.sql','0007_live_disputes.sql']){
+  '0006_lemon_live_ledger.sql','0007_live_disputes.sql',
+  '9997_beta_invitations.sql','9998_beta_pro_grants.sql','9999_beta_feedback.sql']){
   db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
  }
  db.prepare('INSERT INTO auth_users(id,created_at) VALUES (?,?)').run(user,100);
@@ -45,5 +46,28 @@ test('failed or rolled-back deletion never removes any online entitlements or pu
   db.exec('ROLLBACK');
   for(const table of ['auth_users','pro_licenses','pro_devices','commerce_live_orders','commerce_live_webhook_events'])
    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM '+table).get().n,1,table);
+ }finally{db.close()}
+});
+
+test('linked beta grant prevents an unreviewed account deletion and preserves all records',()=>{
+ const db=fixture();
+ try{
+  db.prepare('INSERT INTO beta_pro_grants(id,user_id,issued_at,expires_at,created_at) VALUES (?,?,100,200,100)')
+    .run('beta-grant',user);
+  assert.throws(()=>db.prepare('DELETE FROM auth_users WHERE id=?').run(user),/FOREIGN KEY constraint failed/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM auth_users').get().n,1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM pro_licenses').get().n,1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM commerce_live_orders').get().n,1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM beta_pro_grants').get().n,1);
+ }finally{db.close()}
+});
+test('beta feedback screenshots require separate R2 lifecycle and block ad hoc deletion',()=>{
+ const db=fixture();
+ try{
+  db.prepare("INSERT INTO beta_reports (id,user_id,category,platform,area,summary,details,created_at,updated_at) VALUES ('report',?,'bug','macos','account','Deletion test','Linked screenshot evidence',100,100)").run(user);
+  db.prepare("INSERT INTO beta_screenshots (id,report_id,object_key,width,height,created_at) VALUES ('pic','report','private/test.png',100,100,100)").run();
+  assert.throws(()=>db.prepare('DELETE FROM auth_users WHERE id=?').run(user),/FOREIGN KEY constraint failed/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM beta_screenshots').get().n,1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM commerce_live_orders').get().n,1);
  }finally{db.close()}
 });

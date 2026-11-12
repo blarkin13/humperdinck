@@ -61,3 +61,30 @@ See [DATA_RETENTION_REGISTER.md](DATA_RETENTION_REGISTER.md) for the verified so
 - [ ] Obtain explicit release approval before making deletion available.
 
 Nothing in this runbook enables destructive requests.
+
+## November 12 staged engineering implementation (PR #221)
+
+- `src/account-deletion-operator.js` adds a **non-routed**, explicitly gated operator-only executor. It does not create any website/API deletion endpoint. `ACCOUNT_DELETION_EXECUTION_ENABLED` is **absent/off by default**, and must not be enabled without separate owner and legal signoff.
+- Before any destructive attempt it demands a reviewed customer request ID, an independently verified final customer consent and 18+ policy/terms handling where relevant, explicit online Pro forfeiture and offline-certificate acknowledgments, an operator identity, approved retention policy version and confirmation that merchant evidence is preserved.
+- Read-only preflight also blocks active legal/privacy holds, unresolved chargebacks, unsettled checkout intents, and linked beta invitations/grants/reports. This is intentional: database deletion alone cannot remove beta screenshot objects from R2. Accounts with beta records require a separate audited R2 and D1 cleanup plan.
+- Staged migration 0009 creates an independent deletion audit and preservation-hold table, **not** a live deletion job. Both remain unapplied until change approval.
+- In the isolated operator executor, D1.batch deletes a user and inserts a minimal non-cascading audit in one transaction; a failed audit is designed to roll back deletion. The user’s online Pro license, sessions, connection and recovery records cascade; commerce orders, refunds, webhook evidence and dispute ledgers do not.
+- Synthetic integration tests in `tests/account-deletion-operator.test.mjs` cover explicit fail-closed settings, valid consent, cross-account boundaries, duplicate attempts, beta/chargeback/checkout/hold blockers, merchant survival and audited rollback. CI and runtime results must be checked before treating these as passed.
+- **Retention values remain working targets** in `docs/RETENTION_SCHEDULE_IMPLEMENTATION_PROPOSAL_2026-11-12.md`, not a statutory determination or published policy.
+- Before activating: confirm a reproducible *independent* final customer consent mechanism (not merely an operator boolean), account and merchant/legal hold reconciliation, actual D1 migration backup and restore, support access, customer notifications, beta R2 cleanup, full live-site privacy verification, production rollout/rollback, counsel review and separate explicit owner approval. No automatic account deletion or expiration purge is enabled.
+
+## November 12 completion candidate — signed-in final consent and scheduled cleanup
+
+- Migration 0010 stages `auth_deletion_confirmations`: one final signed-in account statement per pending review request, fixed policy version, confirmation/expiry time (10 minutes), foreign-key cascade. It stores no speech samples, secrets or date of birth.
+- `POST /api/account/privacy/deletion/final-confirm` is available **only if** `ACCOUNT_DELETION_CONFIRMATION_ENABLED=true`; otherwise it returns 404. It requires a current web session created within the previous 10 minutes (sign in again if necessary), same-origin request, exact typed warning phrase, both Pro/offline consequences, a pending request ID owned by the same account and a policy version. The Account dashboard's additional consent panel is also hidden unless the flag is enabled. A confirmation alone **does not delete anything**.
+- The operator executor cross-checks the exact request ID, user ID, policy version and nonexpired final consent **in D1 before and inside the transactional DELETE predicate**. Operator-supplied flags alone can no longer authorize deletion. Audit insertion is part of the same transaction; failure rolls back.
+- `runScheduledAuthRetention` is connected to the existing daily Worker cron but **disabled** without `ACCOUNT_RETENTION_CLEANUP_ENABLED=true`. It only removes expired sessions after a seven-day grace period; expired OAuth, device and link challenges after one day; rate-limit hashes after seven days; expired final confirmations after one day. Each table is bounded to 500 rows per execution. No accounts, Pro entitlements, orders/refunds/disputes, privacy review cases or customer uploads are touched.
+- No general account, commerce, merchant, support or backup deletion has been scheduled. Those require qualified legal/accounting retention determinations and processor-specific evidence.
+- Before flag activation: apply migrations 0009/0010 to isolated and production D1 with backup/restore drill; verify the live account site and flows with a synthetic new account; ensure beta R2 screenshot cleanup and support review; test one end-to-end deletion on isolated D1; obtain qualified counsel review and a separate production release approval.
+
+## November 12 final engineering acceptance — beta records
+
+- `src/account-deletion-beta-cleanup.js` is a **non-routed, default-disabled** operator-only pre-deletion cleanup controlled by `ACCOUNT_DELETION_BETA_CLEANUP_ENABLED=true`. It separately verifies the same pending request, fresh final customer consent, approved policy, operator authorization and absence of preservation holds, unresolved disputes or checkout intents.
+- It inventories up to 500 linked screenshot keys, deletes their private R2 objects, then atomically removes the linked beta screenshot rows, reports, temporary grants and accepted invitations in D1. If R2 deletion fails, D1 records remain for reconciliation; a rerun is designed to be idempotent. R2 and D1 are not a single transaction, so partial R2 deletion is a documented recovery boundary.
+- Destructive beta cleanup is **not** enabled by applying migrations or merging this code. A real dry run/restore drill, independent support review and qualified legal approval remain required.
+- This removes the previously unresolved beta foreign-key/R2 blocker from *staged engineering design*, not from production acceptance.
