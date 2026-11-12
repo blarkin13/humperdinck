@@ -11,11 +11,15 @@ function fixture(){
  for(const name of ['0001_accounts.sql','0002_pro_licenses.sql','0003_account_dashboard.sql',
   '0004_lemon_squeezy_test.sql','0005_account_privacy.sql','0006_lemon_live_ledger.sql',
   '0007_live_disputes.sql','0009_account_deletion_controls.sql',
+  '0010_deletion_customer_confirmation.sql',
   '9997_beta_invitations.sql','9998_beta_pro_grants.sql','9999_beta_feedback.sql']){
   db.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
  }
  db.prepare('INSERT INTO auth_users(id,created_at) VALUES (?,100),(?,100)').run(u,other);
  db.prepare("INSERT INTO auth_privacy_requests(id,user_id,kind,status,created_at) VALUES (?,?,'deletion','pending',100)").run(requestId,u);
+ const issued=Math.floor(Date.now()/1000);
+ db.prepare('INSERT INTO auth_deletion_confirmations(request_id,user_id,policy_version,confirmed_at,expires_at) VALUES (?,?,?,?,?)')
+  .run(requestId,u,'deletion-draft-v1',issued,issued+600);
  db.prepare("INSERT INTO auth_sessions(token_hash,user_id,kind,created_at,expires_at) VALUES ('session-test',?,'web',100,999)").run(u);
  db.prepare("INSERT INTO pro_licenses(id,user_id,status,issued_at,provider,purchase_ref) VALUES ('license',?,'active',100,'lemonsqueezy','lslive:12345')").run(u);
  db.prepare("INSERT INTO pro_devices(id,license_id,installation_id,label,activated_at,last_seen_at) VALUES ('device','license','installation-random','Test',100,100)").run();
@@ -113,4 +117,20 @@ test('request ID mismatch cannot destroy another user or issue an audit',async()
   assert.equal(f.count('auth_users'),2);
   assert.equal(f.count('auth_deletion_audit'),0);
  }finally{f.close()}
+});
+
+test('missing or expired independent customer confirmation always blocks deletion',async()=>{
+ for(const scenario of ['missing','expired','wrong-policy']){
+  const f=fixture();try{
+   f.env.ACCOUNT_DELETION_EXECUTION_ENABLED='true';
+   if(scenario==='missing')f.db.prepare('DELETE FROM auth_deletion_confirmations WHERE request_id=?').run(requestId);
+   if(scenario==='expired')f.db.prepare('UPDATE auth_deletion_confirmations SET confirmed_at=100,expires_at=700 WHERE request_id=?').run(requestId);
+   if(scenario==='wrong-policy')f.db.prepare("UPDATE auth_deletion_confirmations SET policy_version='another-policy' WHERE request_id=?").run(requestId);
+   const result=await performReviewedAccountDeletion(f.env,u,{...approved,dryRun:false});
+   assert.equal(result.deleted,false,scenario);
+   assert.equal(f.count('auth_users'),2);
+   assert.equal(f.count('pro_licenses'),1);
+   assert.equal(f.count('auth_deletion_audit'),0);
+  }finally{f.close()}
+ }
 });
