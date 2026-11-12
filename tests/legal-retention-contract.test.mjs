@@ -44,3 +44,22 @@ test('retention register distinguishes implemented expiries from approved erasur
  assert.match(register,/UNSET/);
  assert.match(register,/Account deletion and live checkout remain disabled/);
 });
+
+test('adult eligibility is server enforced and minimized across migration, notice, and account UI',()=>{
+ const auth=read('src/account-auth.js');
+ const migration=read('migrations/0008_account_age_attestations.sql');
+ const account=read('website/account/index.html');
+ const script=read('website/account/account.js');
+ const privacy=read('website/privacy/index.html');
+ const cookies=read('website/cookies/index.html');
+ assert.match(auth,/AGE_POLICY = 'age18-v1'/);
+ assert.match(auth,/if\(!flow.return_path.startsWith\(AGE_FLOW_PREFIX\)\)return fail\('age_required'\)/);
+ assert.match(auth,/auth_age_attestations/);
+ assert.match(auth,/if\(!sameOrigin\(request\)\)return problem\(403/);
+ assert.match(account,/id="age18-confirm"/);
+ assert.match(script,/eligibility\/confirm/);
+ assert.match(migration,/policy_version TEXT NOT NULL/);
+ assert.doesNotMatch(migration,/(?:date_of_birth|passport|id_document)/);
+ assert.match(privacy,/policy version and time/);
+ assert.match(cookies,/__Host-humperdinck_age18/);
+});
