@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 
 GATES = [
- ("commercial_voice_rights", "Commercial redistribution approval for all seven built-in reference voices", "manual"),
+ ("commercial_voice_rights", "Commercial redistribution approval for the four approved built-in reference voices", "manual"),
  ("frozen_dependency_rights", "Release-specific third-party model, library, audio and FFmpeg compliance review", "manual"),
  ("voice_consent_legal", "Independent legal review of signed-speaker authorization and privacy policy", "manual"),
  ("signing_v2_cloudflare", "Owner-staged v2 private signing key, recovery and verified activation", "owner"),
@@ -42,7 +42,7 @@ def report(root: Path, commit: str) -> dict:
                     "note":"Inspect the matching GitHub workflow run and its actual artifacts."},
         "release_rights_ledger":{"status":rights.get("status","UNKNOWN"),
                                  "matches_required_voice_zip":rights.get("bundled_voices_pack_sha256")
-                                  =="15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49"},
+                                  =="6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"},
         "gates":controls,
         "commercial_release_decision":"NOT READY",
         "owner_sensitive_data_collected":False,
