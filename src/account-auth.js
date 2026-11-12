@@ -33,7 +33,7 @@ async function signAgeToken(env,payload){
 async function ageProofValid(request,env){
   const token=readCookie(request,AGE_COOKIE);
   const parts=token.split('.');
-  if(parts.length!==3||!/^\\d{10}$/.test(parts[0])||!validId(parts[1])||!/^[A-Za-z0-9_-]{43}$/.test(parts[2]))return false;
+  if(parts.length!==3||!/^\d{10}$/.test(parts[0])||!validId(parts[1])||!/^[A-Za-z0-9_-]{43}$/.test(parts[2]))return false;
   const expiry=Number(parts[0]);
   if(expiry<=now()||expiry>now()+FLOW_TTL)return false;
   const signature=await signAgeToken(env,parts[0]+'.'+parts[1]+'.'+AGE_POLICY);
