@@ -2,6 +2,10 @@
 
 **Status:** Source-code and policy audit completed November 9, 2026. **NOT a legally approved retention schedule or a production data-deletion authorization.** Account deletion and live checkout remain disabled. Do not represent unapproved durations as promises, enable background deletion, or destroy purchase/consent records based on this register.
 
+## Owner retention decision — November 12, 2026
+
+The owner **approved the retention operating targets** in `docs/RETENTION_SCHEDULE_IMPLEMENTATION_PROPOSAL_2026-11-12.md` **subject to qualified legal and accounting review before enforcement**. This closes the owner-selection step but does **not** approve an exact statutory duration in every jurisdiction, authorize deletion, apply migrations, enable retention jobs, or establish that the technical erasure guarantees are implemented. The `UNSET` values in the observed schema inventory below remain historical implementation/legal-verification gaps, not a rejection of the approved targets. Do not close the P0 legal/deletion tasks until the remaining gates pass.
+
 ## Evidence and boundaries
 
 - Reviewed `migrations/0001_accounts.sql` through `0007_live_disputes.sql`, `src/account-auth.js`, `src/account-dashboard.js`, `src/account-privacy.js`, `src/account-deletion-preflight.js`, and `src/site-analytics.js`.
