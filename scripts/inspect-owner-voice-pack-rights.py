@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from zipfile import ZipFile
 
-EXPECTED_PACK_SHA256 = "15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49"
+EXPECTED_PACK_SHA256 = "6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"
 
 
 def sha256(raw: bytes) -> str:
@@ -31,8 +31,8 @@ def inspect(raw: bytes, expected_pack_sha256: str = EXPECTED_PACK_SHA256) -> dic
         if manifest.get("format") != "humperdinck-starter-voices" or manifest.get("version") != 1:
             raise ValueError("Unexpected voice-pack manifest format/version")
         voices = manifest.get("voices")
-        if not isinstance(voices, list) or len(voices) != 7:
-            raise ValueError("Expected exactly seven voice samples")
+        if not isinstance(voices, list) or len(voices) != 4:
+            raise ValueError("Expected exactly four voice samples")
         identities = set()
         evidence = []
         for number, voice in enumerate(voices, 1):
