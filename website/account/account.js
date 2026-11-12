@@ -8,6 +8,29 @@ const device=params.get('device');
 const validDevice=typeof device==='string'&&/^[A-Z2-7]{10}$/.test(device);
 const returnTo=validDevice?'/account/?device='+device:'/account/';
 const state={config:null,dashboard:null,license:null,recoveryKit:null,pendingDeletionRequestId:null};
+for(const provider of ['google','apple']){
+ const link=q(provider+'-login');
+ link.addEventListener('click',async event=>{
+  event.preventDefault();
+  const error=q('age18-error');
+  error.textContent='';
+  if(!q('age18-confirm').checked){
+   error.textContent='Confirm you are at least 18 before continuing.';
+   q('age18-confirm').focus();
+   return;
+  }
+  link.setAttribute('aria-disabled','true');
+  try{
+   await request('/eligibility/confirm',{method:'POST',
+    data:{age18:true,policy_version:'age18-v1'}});
+   location.assign(link.href);
+  }catch(e){
+   error.textContent=e.message||'Unable to confirm eligibility.';
+   link.removeAttribute('aria-disabled');
+  }
+ });
+}
+
 const fmt=seconds=>{
  if(!Number.isFinite(Number(seconds))||Number(seconds)<=0)return '—';
  return new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'numeric'}).format(new Date(Number(seconds)*1000));
@@ -304,6 +327,7 @@ async function load(){
    'Access your purchases, connected computers, license backups and recovery settings.');
   const configured=Object.values(state.config.providers||{}).some(Boolean);
   q('providers').hidden=!configured;
+  q('age-attestation').hidden=!configured;
   for(const provider of ['google','apple']){
    const link=q(provider+'-login');
    link.hidden=!state.config.providers?.[provider];
