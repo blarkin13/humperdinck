@@ -4,7 +4,7 @@ import {webcrypto} from 'node:crypto';
 import {handleAccountPrivacy} from '../src/account-privacy.js';
 globalThis.crypto ||= webcrypto;
 const base='https://humperdinck.studio',account='a2649b57-cb1b-40b9-b2cf-18ff0e9c68b2';
-const owner={id:account,kind:'web'},desktop={id:account,kind:'desktop'};
+const owner={id:account,kind:'web',created_at:Math.floor(Date.now()/1000)},desktop={id:account,kind:'desktop',created_at:Math.floor(Date.now()/1000)};
 class DB{
  constructor(){this.requests=[];this.confirmations=[];this.calls=[];this.account={id:account,email:'owner@example.invalid',display_name:'Owner',created_at:42};}
  prepare(sql){this.calls.push(sql);const db=this;return {bind(...args){return {
@@ -99,6 +99,7 @@ test('final deletion consent is disabled by default and requires exact authentic
  assert.equal((await invoke(db,endpoint,{method:'POST',data:payload})).status,404);
  db.ACCOUNT_DELETION_CONFIRMATION_ENABLED='true';
  assert.equal((await invoke(db,endpoint,{method:'POST',data:payload,user:desktop})).status,403);
+ assert.equal((await invoke(db,endpoint,{method:'POST',data:payload,user:{...owner,created_at:100}})).status,403);
  assert.equal((await invoke(db,endpoint,{method:'POST',data:payload,origin:'https://invalid.example'})).status,403);
  assert.equal((await invoke(db,endpoint,{method:'POST',data:{...payload,confirmation:'OK'}})).status,422);
  assert.equal((await invoke(db,endpoint,{method:'POST',data:{...payload,offlineCertificatesAcknowledged:false}})).status,422);
