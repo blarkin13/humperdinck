@@ -30,6 +30,32 @@ export async function handleAccountPrivacy(request,env,{user,sameOrigin}){
    registered_devices:devices.results||[],privacy_requests:requests.results||[],
    note:'Payment receipts and transaction records held by the merchant of record are not included. Contact privacy@humperdinck.studio for assisted access or deletion.'});
  }
+ // Final consent is a separate action after an existing deletion REVIEW;
+ // requires an authenticated web session, same-origin proof and a typed phrase.
+ // The endpoint is OFF unless separately enabled for an approved rollout.
+ if(path==='/api/account/privacy/deletion/final-confirm'&&request.method==='POST'){
+  if(env.ACCOUNT_DELETION_CONFIRMATION_ENABLED!=='true')
+   return error(404,'Account deletion confirmation is not currently available');
+  if(!sameOrigin(request))return error(403,'Invalid request origin');
+  const data=await limitedJson(request,2048);
+  if(data.confirmation!=='DELETE MY HUMPERDINCK ACCOUNT'||
+     data.forfeitureAcknowledged!==true||data.offlineCertificatesAcknowledged!==true||
+     typeof data.policyVersion!=='string'||!/^[a-zA-Z0-9._-]{3,80}$/.test(data.policyVersion)||
+     typeof data.requestId!=='string'||!/^[a-f0-9-]{36}$/i.test(data.requestId))
+   return error(422,'A verified final deletion confirmation is required');
+  const pending=await env.AUTH_DB.prepare(
+   "SELECT id FROM auth_privacy_requests WHERE id=? AND user_id=? AND kind='deletion' AND status='pending'"
+  ).bind(data.requestId,user.id).first();
+  if(!pending)return error(404,'Pending deletion request not found');
+  const confirmed=when();
+  const result=await env.AUTH_DB.prepare(
+   'INSERT INTO auth_deletion_confirmations (request_id,user_id,policy_version,confirmed_at,expires_at) VALUES (?,?,?,?,?) ON CONFLICT(request_id) DO UPDATE SET policy_version=excluded.policy_version,confirmed_at=excluded.confirmed_at,expires_at=excluded.expires_at WHERE user_id=excluded.user_id'
+  ).bind(data.requestId,user.id,data.policyVersion,confirmed,confirmed+600).run();
+  if(result.meta?.changes!==1)return error(409,'Confirmation was not accepted');
+  return response({status:'confirmed-for-review',request_id:data.requestId,
+   expires_at:confirmed+600,
+   message:'Final deletion confirmation recorded for 10 minutes. No account, online Pro license or purchase record has been deleted.'},202);
+ }
  if(path==='/api/account/privacy/requests'&&request.method==='POST'){
   if(!sameOrigin(request))return error(403,'Invalid request origin');
   const data=await limitedJson(request,4096);
