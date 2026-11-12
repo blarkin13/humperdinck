@@ -6,6 +6,7 @@ and are never retrieved by this installer.
 """
 from __future__ import annotations
 from pathlib import Path
+from hashlib import sha256
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 import os
@@ -17,12 +18,17 @@ ASSET="humperdinck-builtin-voices-launch-four-v1.zip"
 RELEASE_TAG="builtin-humperdinck-voices-launch-four-v1"
 URL=f"https://github.com/blarkin13/humperdinck/releases/download/{RELEASE_TAG}/{ASSET}"
 MAX_BYTES=120*1024*1024
+EXPECTED_SHA256="6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"
 MARKER=".builtin-humperdinck-voices-v1-installed"
 
 
 def find_pack():
     bundled=ROOT/"assets"/"voice-packs"/ASSET
-    if bundled.is_file():return bundled.read_bytes()
+    if bundled.is_file():
+        raw=bundled.read_bytes()
+        if sha256(raw).hexdigest()!=EXPECTED_SHA256:
+            raise ValueError("Bundled four-voice pack checksum mismatch")
+        return raw
     request=Request(URL,headers={"User-Agent":"Humperdinck-Installer/1.0"})
     try:
         with urlopen(request,timeout=60) as response:
@@ -32,6 +38,8 @@ def find_pack():
             print("Built-In Humperdinck Voices pack has not been published yet; skipping.")
             return None
         raise
+    if sha256(raw).hexdigest()!=EXPECTED_SHA256:
+        raise ValueError("Published four-voice pack checksum mismatch")
     return raw
 
 
