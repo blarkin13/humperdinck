@@ -49,6 +49,7 @@ on:
       - 'scripts/release_download.py'
       - 'scripts/prepare_tauri_nsis.py'
       - 'scripts/smoke_native_server.py'
+      - 'scripts/smoke_installed_export.py'
       - 'backend/**'
       - 'frontend/**'
       - '.github/workflows/native-desktop.yml'
@@ -400,6 +401,29 @@ jobs:
               python scripts/check_native_installer_artifact.py --platform linux --file "$FILE"
               ;;
           esac
+      # Install the real Windows/Linux package and export narration from the
+      # installed copy: models API, WAV and MP3 export, cancel and Try again.
+      - name: Install package and export narration from the installed app
+        if: runner.os == 'Windows' || runner.os == 'Linux'
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = Windows ]; then
+            FILE="$(find desktop/src-tauri/target/release/bundle/nsis -maxdepth 1 -name '*.exe' -print -quit)"
+            powershell -NoProfile -Command "Start-Process -FilePath '$(cygpath -w "$FILE")' -ArgumentList '/S' -Wait"
+            # Users install FFmpeg themselves (the app offers winget); do the same here.
+            choco install ffmpeg -y --no-progress >/dev/null
+            export PATH="/c/ProgramData/chocolatey/bin:$PATH"
+            SERVER="$(find "$(cygpath -u "$LOCALAPPDATA")/Humperdinck" "/c/Program Files/Humperdinck" -name 'humperdinck-server.exe' -print -quit 2>/dev/null || true)"
+          else
+            FILE="$(find desktop/src-tauri/target/release/bundle/deb -maxdepth 1 -name '*.deb' -print -quit)"
+            sudo apt-get install -y "./$FILE" ffmpeg
+            SERVER="$(dpkg -L "$(dpkg-deb -f "$FILE" Package)" | grep '/humperdinck-server$' | head -1)"
+          fi
+          test -n "$SERVER" || { echo "Installed humperdinck-server not found"; exit 1; }
+          python scripts/smoke_installed_export.py --binary "$SERVER" --require-mp3
+
       - name: Capture exact installer digests and dependency snapshot for rights audit
         if: success()
         shell: bash
