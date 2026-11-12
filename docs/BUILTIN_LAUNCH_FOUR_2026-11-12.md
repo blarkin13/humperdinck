@@ -17,7 +17,7 @@ For Kenny, the supplied 24 kHz mono MP3 was decoded into **24 kHz, mono 16-bit P
 
 **Local release-candidate ZIP:** `humperdinck-builtin-voices-launch-four-v1.zip`, 615,819 bytes, SHA-256 `59086a4e9b53eec23f7d33b3acd6a10d1e5a1328ee80eaf93b59218f29038d38`.
 
-**Manifest:** format `humperdinck-starter-voices`, version 1, **revision 2**, four names above, and four sample WAV files at stable `samples/<uuid>.wav` paths. Revision 2 is deliberate: the installer can remove previous built-in samples no longer included while preserving personal voices. The reference text is the existing launcher default sentence, "The old lighthouse stood quietly above the waves, waiting for the next storm." **The actual spoken transcript of each uploaded clip has not been verified.** Before publishing, listen and verify that each sample actually says the manifest reference text, or correct the pack source and repin the asset.
+**Manifest:** format `humperdinck-starter-voices`, version 1, **revision 2**, four names above, and four sample WAV files at stable `samples/<uuid>.wav` paths. Revision 2 is deliberate: the installer can remove previous built-in samples no longer included while preserving personal voices. The reference text is the existing launcher default sentence, "The old lighthouse stood quietly above the waves, waiting for the next storm." **Transcripts verified:** on November 12, 2026 the owner confirmed that each of the four samples says the manifest reference text.
 
 ## Release distribution — outstanding deployment step
 
@@ -37,4 +37,4 @@ The owner previously confirmed that the launch voices were generated from his ow
 
 ## Repin (November 12, 2026, Claude, owner-approved)
 
-The original release-candidate ZIP was not available on the operator Mac, so the pack was rebuilt reproducibly from the owner's four source files (all four source SHA-256 values above matched) with `scripts/build_launch_four_voice_pack.py`: fixed ZIP timestamps and order, voice IDs `uuid5("humperdinck:starter-voice:launch-four:<name>")`, revision 2, and Kenny decoded with FFmpeg bit-exact flags. Two builds gave identical bytes. The pinned values above are updated to the rebuilt pack (615,819 bytes; Kenny WAV `b72fde26…`). Transcript listening check still pending.
+The original release-candidate ZIP was not available on the operator Mac, so the pack was rebuilt reproducibly from the owner's four source files (all four source SHA-256 values above matched) with `scripts/build_launch_four_voice_pack.py`: fixed ZIP timestamps and order, voice IDs `uuid5("humperdinck:starter-voice:launch-four:<name>")`, revision 2, and Kenny decoded with FFmpeg bit-exact flags. Two builds gave identical bytes. The pinned values above are updated to the rebuilt pack (615,819 bytes; Kenny WAV `b72fde26…`). Owner confirmed the four transcripts the same day.
