@@ -32,6 +32,13 @@ The owner has explicitly set this workflow. Follow it on **every** task update.
 - Never append a free-floating multi-paragraph report to the end of the document without associating it with the matching task. Do not rewrite or discard the owner's preserved evidence when improving navigation and headings.
 - For cross-cutting updates, reference the relevant existing tasks; create a new task only when truly outside the present scope and approved. Keep the Google Sheet concise and avoid contradicting its single Pending on owner.
 
+## Built-in voice scope — binding owner decision (November 12, 2026)
+
+- Exactly four launch built-in voices: **Sarah, Jason, Kenny, Jerry**. Do NOT reintroduce or demand seven voices, and do not add more until well after the full public launch and a new owner decision.
+- Use `docs/BUILTIN_LAUNCH_FOUR_2026-11-12.md` and the new pinned four-voice release candidate rather than the superseded seven-voice ZIP.
+- If the new four-voice GitHub Release asset has not been uploaded and verified, report that as an explicit deployment blocker; never fall back to seven.
+- Preserve Brian's own-voice/Qwen provenance without self-signed consent paperwork; concentrate commercial-rights validation on actual third-party inputs and bundled license notices.
+
 ## First-party voice rights (owner decision, November 10)
 
 Brian confirms the seven built-in Humperdinck reference voices were made from his own recordings blended with Qwen. **Do not ask him to sign a release giving himself permission to use his own voice.** Record his first-party provenance statement and technical sample hashes, check any genuinely third-party sources and exact model/license terms, and leave legal advice to counsel if needed. A draft self-signature form was retired; it is not a launch gate. Continue to enforce commercial-release approval for actual third-party sound archives, frozen native dependencies, NOTICE obligations and any outside speaker recordings. Keep P0 status truthful until those remaining gates are verified.
