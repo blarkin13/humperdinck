@@ -70,7 +70,7 @@ async function session(request,env){
     || readCookie(request,COOKIE);
   if(!validId(raw))return null;
   const row=await env.AUTH_DB.prepare(
-    'SELECT u.id, u.display_name, u.email, s.token_hash, s.kind, s.expires_at FROM auth_sessions s JOIN auth_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?'
+    'SELECT u.id, u.display_name, u.email, s.token_hash, s.kind, s.created_at, s.expires_at FROM auth_sessions s JOIN auth_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?'
   ).bind(await hash(raw),now()).first();
   return row||null;
 }
@@ -272,7 +272,7 @@ export async function handleAccount(request,env){
       &&url.origin!==new URL(host(env)).origin)
     return go(host(env)+path+url.search);
   if(path==='/api/account/config'&&request.method==='GET')
-    return json({available:configured(env),providers:providers(env),desktop_connection:Object.values(providers(env)).some(Boolean)});
+    return json({available:configured(env),providers:providers(env),desktop_connection:Object.values(providers(env)).some(Boolean),deletion_confirmation_enabled:env.ACCOUNT_DELETION_CONFIRMATION_ENABLED==='true'});
   if(!configured(env))return problem(503,'Customer accounts are not configured yet');
   try{
     if(path==='/api/account/license'||path.startsWith('/api/account/license/'))
