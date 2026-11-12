@@ -80,7 +80,7 @@ test('Google/Apple stay disabled without actual provider secrets',async()=>{
  const env={AUTH_DB:new MockDB(),AUTH_RATE_SECRET:'development-only-test-pepper'};
  const c=await (await call('/api/account/config',{},env)).json();
  assert.deepEqual(c.providers,{google:false,apple:false});
- assert.equal((await startAdult()).status,503);
+ assert.equal((await call('/api/account/start/google',{},env)).status,503);
  assert.equal((await call('/api/account/start/apple',{},env)).status,503);
 });
 test('desktop flow requires a secret verifier, web sign-in, and explicit same-origin approval',async()=>{
@@ -247,6 +247,7 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
   let login=new URL(started.headers.get('location'));
   expectedNonce=login.searchParams.get('nonce');
   const state=login.searchParams.get('state');
+  assert.match(db.oauthFlows.get(sha(state)).return_path,/^__age18_v1__\\|/);
   const csrfCookie=started.headers.get('set-cookie').split(';')[0];
   assert.match(csrfCookie,/^__Host-humperdinck_oauth_[A-Za-z0-9_-]{16}=/);
   assert.match(started.headers.get('set-cookie'),/SameSite=Lax/);
