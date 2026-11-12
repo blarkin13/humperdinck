@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {inspectAccountDeletionForReview} from '../src/account-deletion-preflight.js';
 const uid='63a4cf69-678f-4788-a61d-8401cc309b72';
-function fixture({pending=true,openDisputes=0,unsettledIntents=0,betaInvites=0,betaGrants=0,betaReports=0}={}){
+function fixture({pending=true,openDisputes=0,unsettledIntents=0,betaInvites=0,betaGrants=0,betaReports=0,legalHolds=0}={}){
  let writes=0,reads=0;
  const env={AUTH_DB:{prepare(sql){reads++;
   return {bind(id){assert.equal(id,uid);return {async first(){
@@ -15,6 +15,7 @@ function fixture({pending=true,openDisputes=0,unsettledIntents=0,betaInvites=0,b
    if(sql.includes('FROM beta_invitations'))return {n:betaInvites};
    if(sql.includes('FROM beta_pro_grants'))return {n:betaGrants};
    if(sql.includes('FROM beta_reports'))return {n:betaReports};
+   if(sql.includes('FROM auth_deletion_holds'))return {n:legalHolds};
    throw Error('Unexpected query');
   }}}};
  }}};
@@ -58,7 +59,7 @@ test('unapplied live ledger blocks review; invalid account scope is refused',asy
 
 test('active checkout and linked beta records block deletion until reviewed',async()=>{
  for(const setup of [
-  {unsettledIntents:1},{betaInvites:1},{betaGrants:1},{betaReports:1}
+  {unsettledIntents:1},{betaInvites:1},{betaGrants:1},{betaReports:1},{legalHolds:1}
  ]){
   const f=fixture(setup);
   const result=await inspectAccountDeletionForReview(f.env,uid,opts);
