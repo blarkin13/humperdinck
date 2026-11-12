@@ -8,7 +8,7 @@ The owner **approved the retention operating targets** in `docs/RETENTION_SCHEDU
 
 ## Evidence and boundaries
 
-- Reviewed `migrations/0001_accounts.sql` through `0007_live_disputes.sql`, `src/account-auth.js`, `src/account-dashboard.js`, `src/account-privacy.js`, `src/account-deletion-preflight.js`, and `src/site-analytics.js`.
+- Reviewed `migrations/0001_accounts.sql` through `0007_live_disputes.sql` and proposed `0008_account_age_attestations.sql`, `src/account-auth.js`, `src/account-dashboard.js`, `src/account-privacy.js`, `src/account-deletion-preflight.js`, and `src/site-analytics.js`.
 - The account Worker uses random IDs and hashed session/recovery material. Public Studio and optional third-party model/CDN connections still require a real browser/network review; code review alone cannot identify every storage item or processor.
 - In authentication code, web sessions expire after **30 days**, desktop sessions after **90 days**, OAuth/device flows after **10 minutes**, and rate-limit buckets use a **10-minute** sliding window. These are functional expiry rules, **not** proof of complete historical erasure: cleanup runs opportunistically during relevant requests, and expired rows can persist when those requests do not occur.
 - Analytics Engine's app event writer in `src/site-analytics.js` records enumerated event type, platform and source without user-submitted text, user-agent or IP at the application level. Cloudflare's platform-level processing and retention require separate confirmation.
@@ -18,6 +18,7 @@ The owner **approved the retention operating targets** in `docs/RETENTION_SCHEDU
 
 | Record class / tables or local artifact | Observed purpose and present behavior | Approved duration | Action required before P0 closure |
 | --- | --- | --- | --- |
+| Adult eligibility confirmation / `auth_age_attestations` (migration 0008, staged) | Policy version, timestamp and account ID for an expressly affirmed 18+ signup; no date of birth or ID document; signup flow proof cookie expires after 10 minutes | **UNSET** | Agree minimum evidence retention with qualified counsel; on verified deletion consider removing with account unless legal hold applies; verify production migration before gated signup |
 | Account profile / `auth_users`, `auth_identities` | Google account identity, name/email, profile and linked provider; no automatic deletion route | **UNSET** | Choose active-account retention, verified-request review and identity reconciliation; implement audited deletion only after approval |
 | Browser and desktop sessions / `auth_sessions`, `auth_connected_desktops` | Hash of bearer token and optional installation label/ID. 30-day browser and 90-day desktop session validity; expiration rejection and opportunistic cleanup | **UNSET for storage after expiry** | Decide expired-record cleanup cadence and verify linked desktop cascading; preserve revocation audit only when necessary |
 | OAuth/link/device challenges / `auth_flows`, `auth_device_flows`, `auth_link_intents` | Ten-minute OAuth/device validity; link-intent expiry enforced and opportunistically purged | **UNSET for storage after expiry** | Add safe independent cleanup or scheduled lifecycle once approved; test concurrency, replay and rollbacks |
