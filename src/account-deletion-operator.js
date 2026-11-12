@@ -33,6 +33,12 @@ export async function performReviewedAccountDeletion(env,userId,{
    "SELECT id FROM auth_privacy_requests WHERE id=? AND user_id=? AND kind='deletion' AND status='pending'"
   ).bind(requestId,userId).first();
   if(!pending)return blocked('Exact pending deletion review request not found');
+  // Operator assertions are insufficient: independently require the exact
+  // authenticated customer's short-lived final confirmation in D1.
+  const fresh=await env.AUTH_DB.prepare(
+   'SELECT request_id FROM auth_deletion_confirmations WHERE request_id=? AND user_id=? AND policy_version=? AND expires_at>?'
+  ).bind(requestId,userId,policyVersion,Math.floor(Date.now()/1000)).first();
+  if(!fresh)return blocked('Fresh independent customer final confirmation is required');
   if(dryRun!==false)return {
    decision:'dry-run-only',deleted:false,customerId:userId,
    requestId,onlineProWouldBeForfeited:review.hasOnlinePro,
@@ -46,6 +52,7 @@ export async function performReviewedAccountDeletion(env,userId,{
   const deletionSql=`DELETE FROM auth_users WHERE id=?
     AND EXISTS (SELECT 1 FROM auth_privacy_requests
       WHERE id=? AND user_id=? AND kind='deletion' AND status='pending')
+    AND EXISTS (SELECT 1 FROM auth_deletion_confirmations WHERE request_id=? AND user_id=? AND policy_version=? AND expires_at>?)
     AND NOT EXISTS (SELECT 1 FROM auth_deletion_holds WHERE user_id=? AND released_at IS NULL)
     AND NOT EXISTS (SELECT 1 FROM commerce_live_intents WHERE user_id=? AND status='started')
     AND NOT EXISTS (SELECT 1 FROM commerce_live_disputes d
@@ -62,8 +69,8 @@ export async function performReviewedAccountDeletion(env,userId,{
      online_pro_forfeiture_acknowledged,offline_certificate_limitation_acknowledged)
     VALUES (?,?,?,CASE WHEN changes()=1 THEN ? ELSE NULL END,?,1,1)`;
   const statements=[
-   env.AUTH_DB.prepare(deletionSql).bind(userId,requestId,userId,userId,
-     userId,userId,userId,userId,userId),
+   env.AUTH_DB.prepare(deletionSql).bind(userId,requestId,userId,requestId,userId,policyVersion,
+     Math.floor(Date.now()/1000),userId,userId,userId,userId,userId,userId),
    env.AUTH_DB.prepare(auditSql).bind(requestId,userId,policyVersion,operatorId,
      Math.floor(Date.now()/1000))
   ];
