@@ -14,7 +14,7 @@ import sys
 
 HASH = re.compile(r"^[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
-PACK = "15542ed7f3f23708ed57e0cb9e1dc99cc1d6c1bb5194d56c22394b2bcb00cd49"
+PACK = "6cc0ec3b6e6f85561532514795897036b86d3a601a43403f21c0570a03dc245f"
 
 
 def check(record: dict, version: str, commit: str) -> list[str]:
@@ -53,8 +53,8 @@ def check(record: dict, version: str, commit: str) -> list[str]:
                 if provenance.get(field) is not True:
                     problems.append(f"Owner-voice provenance not accepted: {field}")
             samples = provenance.get("sample_sha256")
-            if not isinstance(samples, list) or len(samples) != 7:
-                problems.append("All seven owner-derived samples must be inventoried")
+            if not isinstance(samples, list) or len(samples) != 4:
+                problems.append("All four owner-derived samples must be inventoried")
             elif any(not isinstance(sample, str) or not HASH.fullmatch(sample) for sample in samples):
                 problems.append("Invalid owner-derived sample SHA256")
             elif len(set(samples)) != 7:
@@ -63,8 +63,8 @@ def check(record: dict, version: str, commit: str) -> list[str]:
         # Retain prior external-performer rights checks for older controlled
         # approval records; never interpret missing third-party grants as OK.
         voices=record.get("voice_permissions")
-        if not isinstance(voices,list) or len(voices)!=7:
-            problems.append("All seven shipped voices need independent recorded permission evidence")
+        if not isinstance(voices,list) or len(voices)!=4:
+            problems.append("All four shipped voices need independent recorded permission evidence")
         else:
             samples=set()
             for entry in voices:
