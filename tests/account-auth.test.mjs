@@ -128,10 +128,14 @@ test('desktop flow requires a secret verifier, web sign-in, and explicit same-or
 });
 
 class OAuthDB extends MockDB {
- constructor(){super();this.oauthFlows=new Map();this.identities=new Map();this.linkIntents=new Map();}
+ constructor(){super();this.oauthFlows=new Map();this.identities=new Map();this.linkIntents=new Map();this.ageAttestations=new Map();}
+ async batch(stmts){
+  // Fake D1 transaction: execute statements in order for registration test.
+  return Promise.all(stmts.map(stmt=>stmt.run()));
+ }
  prepare(sql){
   const db=this;
-  if(sql.includes('auth_flows')||sql.includes('auth_identities')||sql.includes('auth_link_intents')||sql.startsWith('INSERT INTO auth_users')||sql.startsWith('UPDATE auth_users')){
+  if(sql.includes('auth_flows')||sql.includes('auth_identities')||sql.includes('auth_age_attestations')||sql.includes('auth_link_intents')||sql.startsWith('INSERT INTO auth_users')||sql.startsWith('UPDATE auth_users')){
    return {bind(...args){return {
     async first(){
      if(sql.includes('SELECT * FROM auth_flows')){
@@ -176,6 +180,10 @@ class OAuthDB extends MockDB {
       db.identities.set(args[0]+'|'+args[1],args[2]);
       return {meta:{changes:1}};
      }
+     if(sql.startsWith('INSERT INTO auth_age_attestations')){
+      db.ageAttestations.set(args[0],{policy_version:args[1],attested_at:args[2]});
+      return {meta:{changes:1}};
+     }
      if(sql.startsWith('DELETE FROM auth_link_intents WHERE expires_at')){
       for(const [key,found] of db.linkIntents)if(found.expires_at<args[0])db.linkIntents.delete(key);
       return {meta:{changes:0}};
@@ -204,6 +212,13 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
  const jwk=await crypto.subtle.exportKey('jwk',keyPair.publicKey);
  jwk.kid='test-kid';jwk.alg='RS256';
  const originalFetch=globalThis.fetch;
+ const startAdult=async()=>{
+  const consent=await call('/api/account/eligibility/confirm',{
+   method:'POST',origin:base,data:{age18:true,policy_version:'age18-v1'}},env);
+  assert.equal(consent.status,200);
+  const cookie=consent.headers.get('set-cookie').split(';')[0];
+  return call('/api/account/start/google',{cookie},env);
+ };
  let expectedNonce='';
  let claimModifier=null;
  globalThis.fetch=async(url,opts)=>{
@@ -227,11 +242,12 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
   throw Error('Unexpected upstream request '+url);
  };
  try{
-  let started=await call('/api/account/start/google',{},env);
+  let started=await startAdult();
   assert.equal(started.status,303);
   let login=new URL(started.headers.get('location'));
   expectedNonce=login.searchParams.get('nonce');
   const state=login.searchParams.get('state');
+  assert.equal(db.oauthFlows.get(sha(state)).return_path,'__age18_v1__|/account/');
   const csrfCookie=started.headers.get('set-cookie').split(';')[0];
   assert.match(csrfCookie,/^__Host-humperdinck_oauth_[A-Za-z0-9_-]{16}=/);
   assert.match(started.headers.get('set-cookie'),/SameSite=Lax/);
@@ -246,14 +262,15 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
   assert.equal(account.authenticated,true);
   assert.equal(account.user.email,'valid@example.com');
   assert.deepEqual(account.user.providers,['google']);
+  assert.equal(db.ageAttestations.get(account.user.id)?.policy_version,'age18-v1');
   const replay=await call('/api/account/callback/google?code=once&state='+state,{cookie:csrfCookie},env);
   assert.equal(replay.status,303);
   assert.equal(replay.headers.get('location'),base+'/account/?error=signin_expired');
   assert.match(callback.headers.get('set-cookie'),/Max-Age=0/);
 
   // Starting a second login must not invalidate a still-pending first login.
-  const firstPending=await call('/api/account/start/google',{},env);
-  const secondPending=await call('/api/account/start/google',{},env);
+  const firstPending=await startAdult();
+  const secondPending=await startAdult();
   const firstURL=new URL(firstPending.headers.get('location'));
   const secondURL=new URL(secondPending.headers.get('location'));
   const firstCookie=firstPending.headers.get('set-cookie').split(';')[0];
@@ -270,7 +287,7 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
   assert.equal(secondResult.status,303);
 
   // Invalid/missing cookie should render an account retry, never raw JSON.
-  const expiredStart=await call('/api/account/start/google',{},env);
+  const expiredStart=await startAdult();
   const expiredState=new URL(expiredStart.headers.get('location')).searchParams.get('state');
   const expiredResponse=await call('/api/account/callback/google?code=unauthorized&state='+expiredState,{},env);
   assert.equal(expiredResponse.status,303);
@@ -309,7 +326,7 @@ test('Google OIDC callback validates signed ID token, audience, nonce, and one-t
   assert.equal(blocked.headers.get('location'),base+'/account/?error=login_failed');
   assert.equal(db.identities.get('google|already-used-elsewhere'),'someone-else');
 
-  started=await call('/api/account/start/google',{},env);
+  started=await startAdult();
   login=new URL(started.headers.get('location'));
   expectedNonce=login.searchParams.get('nonce');
   claimModifier=payload=>{payload.aud='incorrect-audience'};
@@ -349,4 +366,29 @@ test('device pairing rate limit atomically caps burst requests at ten per IP',as
  assert.equal(results.filter(x=>x.status===200).length,10);
  assert.equal(results.filter(x=>x.status===429).length,10);
  assert.equal(db.rate.length,10);
+});
+
+test('adult confirmation is server checked and new registrations are fail closed',async()=>{
+ const env={AUTH_DB:new OAuthDB(),AUTH_RATE_SECRET:'test-key',
+   GOOGLE_CLIENT_ID:'google',GOOGLE_CLIENT_SECRET:'secret'};
+ assert.equal((await call('/api/account/eligibility/confirm',{
+   method:'POST',origin:'https://untrusted.example',data:{age18:true,policy_version:'age18-v1'}},env)).status,403);
+ assert.equal((await call('/api/account/eligibility/confirm',{
+   method:'POST',origin:base,data:{age18:false,policy_version:'age18-v1'}},env)).status,422);
+ assert.equal((await call('/api/account/eligibility/confirm',{
+   method:'POST',origin:base,data:{age18:true,policy_version:'age18-v0'}},env)).status,422);
+ const without=await call('/api/account/start/google',{},env);
+ assert.equal(without.status,303);
+ const state= new URL(without.headers.get('location')).searchParams.get('state');
+ const flow=env.AUTH_DB.oauthFlows.get(sha(state));
+ assert.equal(flow.return_path,'/account/');
+ const valid=await call('/api/account/eligibility/confirm',{
+   method:'POST',origin:base,data:{age18:true,policy_version:'age18-v1'}},env);
+ const proof=valid.headers.get('set-cookie').split(';')[0];
+ const began=await call('/api/account/start/google',{cookie:proof},env);
+ const approvedState=new URL(began.headers.get('location')).searchParams.get('state');
+ assert.match(env.AUTH_DB.oauthFlows.get(sha(approvedState)).return_path,/^__age18_v1__\\|/);
+ const tampered=await call('/api/account/start/google',{cookie:proof.slice(0,-1)+'x'},env);
+ const tamperedState=new URL(tampered.headers.get('location')).searchParams.get('state');
+ assert.equal(env.AUTH_DB.oauthFlows.get(sha(tamperedState)).return_path,'/account/');
 });

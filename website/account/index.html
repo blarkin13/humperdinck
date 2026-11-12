@@ -53,6 +53,12 @@
   <section id="account-gate" class="account-gate" aria-live="polite">
     <div class="account-gate-heading"><div><span class="account-kicker">ACCOUNT ACCESS</span><h2 id="account-title">Loading your account</h2></div><span id="account-state" class="account-status">Checking</span></div>
     <p id="account-message" class="account-muted">Checking secure sign-in availability…</p>
+    <div id="age-attestation" class="account-fine-print" hidden>
+      <label for="age18-confirm"><input type="checkbox" id="age18-confirm" required>
+      I confirm that I am at least 18 years old and agree to the
+      <a href="/terms/">Terms of Service</a> and <a href="/privacy/">Privacy Policy</a>.</label>
+      <p id="age18-error" role="alert" aria-live="polite"></p>
+    </div>
     <div id="providers" class="account-providers" hidden>
       <a id="google-login" class="account-provider" href="/api/account/start/google" hidden><span class="account-provider-content"><i class="fa-brands fa-google" aria-hidden="true"></i>Continue with Google</span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
       <a id="apple-login" class="account-provider" href="/api/account/start/apple" hidden><span class="account-provider-content"><i class="fa-brands fa-apple" aria-hidden="true"></i>Continue with Apple</span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>

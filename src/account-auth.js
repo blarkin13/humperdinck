@@ -8,6 +8,9 @@ import {handleAccountDashboard,createLinkIntent,readLinkIntent} from './account-
 const ORIGIN = 'https://humperdinck.studio';
 const COOKIE = '__Host-humperdinck_session';
 const FLOW_COOKIE = '__Host-humperdinck_oauth';
+const AGE_COOKIE = '__Host-humperdinck_age18';
+const AGE_POLICY = 'age18-v1';
+const AGE_FLOW_PREFIX = '__age18_v1__|';
 // Each pending OAuth attempt gets its own HttpOnly cookie. A second tab or a
 // retry must not overwrite the state of an earlier in-flight sign-in.
 const flowCookieName = state => FLOW_COOKIE+'_'+state.slice(0,16);
@@ -23,6 +26,23 @@ const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+
 const unb64 = str => Uint8Array.from(atob(str.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-str.length%4)%4)),c=>c.charCodeAt(0));
 const random = (bytes=32) => b64(crypto.getRandomValues(new Uint8Array(bytes)));
 const hash = async s => b64(await crypto.subtle.digest('SHA-256',enc.encode(s)));
+async function signAgeToken(env,payload){
+  const key=await crypto.subtle.importKey('raw',enc.encode(env.AUTH_RATE_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  return b64(await crypto.subtle.sign('HMAC',key,enc.encode(payload)));
+}
+async function ageProofValid(request,env){
+  const token=readCookie(request,AGE_COOKIE);
+  const parts=token.split('.');
+  if(parts.length!==3||!/^\d{10}$/.test(parts[0])||!validId(parts[1])||!/^[A-Za-z0-9_-]{43}$/.test(parts[2]))return false;
+  const expiry=Number(parts[0]);
+  if(expiry<=now()||expiry>now()+FLOW_TTL)return false;
+  const signature=await signAgeToken(env,parts[0]+'.'+parts[1]+'.'+AGE_POLICY);
+  // The verification compares decoded fixed-length MACs without an early exit.
+  const actual=unb64(parts[2]),expected=unb64(signature);
+  if(actual.length!==expected.length)return false;
+  let difference=0;for(let i=0;i<actual.length;i++)difference|=actual[i]^expected[i];
+  return difference===0;
+}
 const sameOrigin = request => request.headers.get('Origin') === new URL(request.url).origin;
 const configured = env => Boolean(env.AUTH_DB && env.AUTH_RATE_SECRET);
 const providers = env => ({
@@ -130,10 +150,13 @@ async function oauthStart(request,env,provider,linkUser=null){
   if(!await rateLimit(request,env,'oauth',20))return problem(429,'Too many sign-in attempts');
   const url=new URL(request.url), returnPath=linkUser?'__link__':safeReturn(url.searchParams.get('return_to'));
   const state=random(),nonce=random(),verifier=random(),challenge=await hash(verifier);
+  // An attestation is bound to this one-time OAuth flow in D1. Existing
+  // identities may still sign in; new identities cannot be created without it.
+  const ageConfirmed=!linkUser&&await ageProofValid(request,env);
   await env.AUTH_DB.prepare('DELETE FROM auth_flows WHERE expires_at < ?').bind(now()).run();
   const stateHash=await hash(state);
   await env.AUTH_DB.prepare('INSERT INTO auth_flows (state_hash,provider,nonce,verifier,return_path,expires_at) VALUES (?,?,?,?,?,?)')
-    .bind(stateHash,provider,nonce,verifier,returnPath,now()+FLOW_TTL).run();
+    .bind(stateHash,provider,nonce,verifier,ageConfirmed?AGE_FLOW_PREFIX+returnPath:returnPath,now()+FLOW_TTL).run();
   if(linkUser)await createLinkIntent(env,stateHash,linkUser);
   const redirect=host(env)+'/api/account/callback/'+provider;
   const p=new URLSearchParams({client_id:env[provider==='google'?'GOOGLE_CLIENT_ID':'APPLE_CLIENT_ID'],
@@ -204,18 +227,25 @@ async function oauthCallback(request,env,provider){
     const email=(claim.email_verified===true||claim.email_verified==='true')
       &&typeof claim.email==='string'?claim.email.slice(0,320):null;
     if(!userId){
+      if(!flow.return_path.startsWith(AGE_FLOW_PREFIX))return fail('age_required');
       userId=crypto.randomUUID();
-      await env.AUTH_DB.prepare('INSERT INTO auth_users (id,display_name,email,created_at) VALUES (?,?,?,?)')
-        .bind(userId,displayName||null,email,now()).run();
-      // Never silently link different identity providers by a matching email.
-      await env.AUTH_DB.prepare('INSERT INTO auth_identities (provider,subject,user_id,created_at) VALUES (?,?,?,?)')
-        .bind(provider,claim.sub,userId,now()).run();
+      const created=now();
+      // Atomic signup ensures a newly created account has durable minimum
+      // age-eligibility evidence, or no account/identity is created at all.
+      await env.AUTH_DB.batch([
+        env.AUTH_DB.prepare('INSERT INTO auth_users (id,display_name,email,created_at) VALUES (?,?,?,?)')
+          .bind(userId,displayName||null,email,created),
+        env.AUTH_DB.prepare('INSERT INTO auth_identities (provider,subject,user_id,created_at) VALUES (?,?,?,?)')
+          .bind(provider,claim.sub,userId,created),
+        env.AUTH_DB.prepare('INSERT INTO auth_age_attestations (user_id,policy_version,attested_at) VALUES (?,?,?)')
+          .bind(userId,AGE_POLICY,created)
+      ]);
     }else{
       await env.AUTH_DB.prepare('UPDATE auth_users SET display_name=COALESCE(display_name,?),email=COALESCE(email,?) WHERE id=?')
         .bind(displayName||null,email,userId).run();
     }
     const saved=await saveSession(env,userId,'web');
-    return go(host(env)+safeReturn(flow.return_path),[cookie(COOKIE,saved.token,WEB_TTL),clearFlow]);
+    return go(host(env)+safeReturn(flow.return_path.startsWith(AGE_FLOW_PREFIX)?flow.return_path.slice(AGE_FLOW_PREFIX.length):flow.return_path),[cookie(COOKIE,saved.token,WEB_TTL),clearFlow]);
   }catch(error){
     console.error('Humperdinck identity callback failed:',error.message);
     return go(host(env)+'/account/?error=login_failed',clearFlow);
@@ -275,6 +305,17 @@ export async function handleAccount(request,env){
     return json({available:configured(env),providers:providers(env),desktop_connection:Object.values(providers(env)).some(Boolean),deletion_confirmation_enabled:env.ACCOUNT_DELETION_CONFIRMATION_ENABLED==='true'});
   if(!configured(env))return problem(503,'Customer accounts are not configured yet');
   try{
+    if(path==='/api/account/eligibility/confirm'&&request.method==='POST'){
+      if(!sameOrigin(request))return problem(403,'Invalid request origin');
+      if(!await rateLimit(request,env,'age-attestation',15))return problem(429,'Too many attempts');
+      const data=await body(request);
+      if(data.age18!==true||data.policy_version!==AGE_POLICY)
+        return problem(422,'Confirm that you are at least 18 years old');
+      const expiry=now()+FLOW_TTL,nonce=random();
+      const payload=expiry+'.'+nonce;
+      const signature=await signAgeToken(env,payload+'.'+AGE_POLICY);
+      return json({confirmed:true,expires_at:expiry},200,{'Set-Cookie':cookie(AGE_COOKIE,payload+'.'+signature,FLOW_TTL)});
+    }
     if(path==='/api/account/license'||path.startsWith('/api/account/license/'))
       return handleProLicense(request,env,{session,sameOrigin});
     if(path.startsWith('/api/account/privacy/')||path==='/api/account/dashboard'||path.startsWith('/api/account/dashboard/')||
