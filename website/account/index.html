@@ -166,6 +166,16 @@
           </select>
           <button id="submit-privacy-request" type="button" class="account-action account-action-outline"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Submit privacy request</button>
           <p id="privacy-request-status" class="account-fine-print" role="status" aria-live="polite">This requires a signed-in account. No files or entitlements are deleted automatically.</p>
+          <div id="deletion-final-confirmation" class="account-detail-card" hidden>
+            <h3>Final deletion confirmation</h3>
+            <p>Your entire online account and lifetime Pro activations may be permanently lost. Future device activation and online license recovery will be unavailable. Previously exported offline licenses may still work, and required financial records will be retained.</p>
+            <label class="account-privacy-label" for="deletion-confirm-phrase">Type DELETE MY HUMPERDINCK ACCOUNT to authorize a final review</label>
+            <input id="deletion-confirm-phrase" class="account-privacy-select" type="text" autocomplete="off" spellcheck="false">
+            <label class="account-fine-print" for="deletion-forfeiture"><input id="deletion-forfeiture" type="checkbox"> I understand that online Pro access, activations and recovery may be permanently forfeited.</label>
+            <label class="account-fine-print" for="deletion-offline"><input id="deletion-offline" type="checkbox"> I understand previously downloaded offline licenses may continue working.</label>
+            <button id="submit-deletion-final" type="button" class="account-action account-action-outline">Record final deletion consent</button>
+            <p id="deletion-final-status" class="account-fine-print" role="status" aria-live="polite">For an eligible deletion request only. This confirmation does not delete your account automatically.</p>
+          </div>
           <p class="account-fine-print">Lifetime Pro certificates already downloaded to a device cannot be remotely erased. Legally necessary purchase records may need to be retained. <a href="/privacy/">Privacy Policy</a>.</p>
         </div>
       </div>
