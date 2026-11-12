@@ -61,3 +61,14 @@ See [DATA_RETENTION_REGISTER.md](DATA_RETENTION_REGISTER.md) for the verified so
 - [ ] Obtain explicit release approval before making deletion available.
 
 Nothing in this runbook enables destructive requests.
+
+## November 12 staged engineering implementation (PR #221)
+
+- `src/account-deletion-operator.js` adds a **non-routed**, explicitly gated operator-only executor. It does not create any website/API deletion endpoint. `ACCOUNT_DELETION_EXECUTION_ENABLED` is **absent/off by default**, and must not be enabled without separate owner and legal signoff.
+- Before any destructive attempt it demands a reviewed customer request ID, an independently verified final customer consent and 18+ policy/terms handling where relevant, explicit online Pro forfeiture and offline-certificate acknowledgments, an operator identity, approved retention policy version and confirmation that merchant evidence is preserved.
+- Read-only preflight also blocks active legal/privacy holds, unresolved chargebacks, unsettled checkout intents, and linked beta invitations/grants/reports. This is intentional: database deletion alone cannot remove beta screenshot objects from R2. Accounts with beta records require a separate audited R2 and D1 cleanup plan.
+- Staged migration 0009 creates an independent deletion audit and preservation-hold table, **not** a live deletion job. Both remain unapplied until change approval.
+- In the isolated operator executor, D1.batch deletes a user and inserts a minimal non-cascading audit in one transaction; a failed audit is designed to roll back deletion. The user’s online Pro license, sessions, connection and recovery records cascade; commerce orders, refunds, webhook evidence and dispute ledgers do not.
+- Synthetic integration tests in `tests/account-deletion-operator.test.mjs` cover explicit fail-closed settings, valid consent, cross-account boundaries, duplicate attempts, beta/chargeback/checkout/hold blockers, merchant survival and audited rollback. CI and runtime results must be checked before treating these as passed.
+- **Retention values remain working targets** in `docs/RETENTION_SCHEDULE_IMPLEMENTATION_PROPOSAL_2026-11-12.md`, not a statutory determination or published policy.
+- Before activating: confirm a reproducible *independent* final customer consent mechanism (not merely an operator boolean), account and merchant/legal hold reconciliation, actual D1 migration backup and restore, support access, customer notifications, beta R2 cleanup, full live-site privacy verification, production rollout/rollback, counsel review and separate explicit owner approval. No automatic account deletion or expiration purge is enabled.
