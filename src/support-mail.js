@@ -160,6 +160,10 @@ export async function receiveSupportMail(message,env){
   const raw=new Uint8Array(await new Response(message.raw).arrayBuffer());
   if(raw.byteLength>5*1024*1024)return;
   const db=env.AUTH_DB;
+  // Cap the private archive independently of Cloudflare's free storage quota.
+  // Mail still reaches Gmail when this optional archive is full.
+  const occupied=await db.prepare("SELECT COALESCE(SUM(raw_size),0) AS bytes FROM support_mail_messages WHERE direction='incoming'").first();
+  if(Number(occupied?.bytes||0)+raw.byteLength>200*1024*1024)return;
   if(headerId){
    const duplicate=await db.prepare("SELECT id FROM support_mail_messages WHERE recipient=? AND message_id=? AND direction='incoming'")
     .bind(alias,headerId).first();
