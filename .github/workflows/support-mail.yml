@@ -1,0 +1,39 @@
+name: Support Mail acceptance
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  private-mail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify private mail code syntax
+        run: |
+          node --check src/support-mail.js
+          node --check src/support-mail-mime.js
+          node --check website/mail/mail.js
+          node --check src/model-proxy-worker.js
+      - name: Test MIME parsing, owner-only access and forwarding safety
+        run: node --test tests/support-mail.test.mjs
+      - name: Check additive D1 schema with foreign keys enabled
+        run: |
+          python3 - <<'PY'
+          import sqlite3, pathlib
+          db=sqlite3.connect(':memory:')
+          db.execute('PRAGMA foreign_keys=ON')
+          db.executescript(pathlib.Path('migrations/0011_support_mail.sql').read_text())
+          tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          assert {'support_mail_threads','support_mail_messages'} <= tables
+          print('PASS: support mail D1 tables and indexes compile')
+          PY
+      - name: Confirm private owner page and no front-end secrets
+        run: |
+          test -s website/mail/index.html
+          test -s website/mail/mail.css
+          grep -q 'noindex,nofollow' website/mail/index.html
+          ! grep -q 'RESEND_API_KEY' website/mail/mail.js
+          ! grep -q 'onerror=' website/mail/mail.js

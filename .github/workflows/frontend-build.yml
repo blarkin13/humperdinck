@@ -88,6 +88,10 @@ jobs:
           node --test tests/download-mobile-layout.test.mjs
           node --test tests/site-analytics-optout.test.mjs
           node --test tests/support-contact-links.test.mjs
+          node --check src/support-mail.js
+          node --check src/support-mail-mime.js
+          node --check website/mail/mail.js
+          node --test tests/support-mail.test.mjs
       - name: Validate public website SEO metadata and sitemap
         run: python3 scripts/check-website-seo.py
       - name: Check browser Kokoro worker syntax

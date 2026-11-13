@@ -2,10 +2,39 @@
   "name": "humperdinck",
   "main": "src/model-proxy-worker.js",
   "compatibility_date": "2026-11-03",
-  "triggers": {"crons": ["17 3 * * *"]},
-  "analytics_engine_datasets": [{"binding":"ANALYTICS","dataset":"humperdinck_site_events"}],
-  "r2_buckets": [{"binding":"MODEL_BUCKET","bucket_name":"humperdinck-models"}, {"binding":"BETA_SCREENSHOTS","bucket_name":"humperdinck-beta-private"}],
-  "d1_databases": [{"binding":"AUTH_DB","database_name":"humperdinck-accounts","database_id":"0ccfa326-04a9-4043-9a20-6780d27d622a","migrations_dir":"migrations"}],
+  "triggers": {
+    "crons": [
+      "17 3 * * *"
+    ]
+  },
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS",
+      "dataset": "humperdinck_site_events"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MODEL_BUCKET",
+      "bucket_name": "humperdinck-models"
+    },
+    {
+      "binding": "BETA_SCREENSHOTS",
+      "bucket_name": "humperdinck-beta-private"
+    },
+    {
+      "binding": "MAIL_MESSAGES",
+      "bucket_name": "humperdinck-mail-private"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "AUTH_DB",
+      "database_name": "humperdinck-accounts",
+      "database_id": "0ccfa326-04a9-4043-9a20-6780d27d622a",
+      "migrations_dir": "migrations"
+    }
+  ],
   "assets": {
     "directory": "./website",
     "binding": "ASSETS",
@@ -24,7 +53,8 @@
       "/api/commerce/live*",
       "/api/commerce/production*",
       "/api/commerce/checkout",
-      "/api/commerce/webhook"
+      "/api/commerce/webhook",
+      "/api/support-mail/*"
     ]
   }
 }
