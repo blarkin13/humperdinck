@@ -18,7 +18,7 @@ jobs:
           node --check website/mail/mail.js
           node --check src/model-proxy-worker.js
       - name: Test MIME parsing, owner-only access and forwarding safety
-        run: node --test tests/support-mail.test.mjs
+        run: node --test tests/support-mail.test.mjs tests/support-mail-layout.test.mjs
       - name: Check additive D1 schema with foreign keys enabled
         run: |
           python3 - <<'PY'
