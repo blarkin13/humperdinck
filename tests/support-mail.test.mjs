@@ -15,7 +15,7 @@ const r2=()=>{const values=new Map();return {
  delete:async k=>{values.delete(k)}
 }};
 const db=()=>{const threads=[],messages=[];return {
- threads,messages,async batch(items){for(const item of items)await item.run();return items.map(()=>({success:true}));},prepare(sql){return {async all(){if(sql.includes('FROM support_mail_threads t'))return {results:threads};throw Error('Unmocked unbound all '+sql);},bind(...a){return {
+ threads,messages,async batch(items){for(const item of items)await item.run();return items.map(()=>({success:true}));},prepare(sql){return {async first(){if(sql.includes('COALESCE(SUM(raw_size),0)'))return {bytes:messages.filter(m=>m.direction==='incoming').reduce((n,m)=>n+(m.raw_size||0),0)};throw Error('Unmocked unbound first '+sql);},async all(){if(sql.includes('FROM support_mail_threads t'))return {results:threads};throw Error('Unmocked unbound all '+sql);},bind(...a){return {
   async first(){
    if(sql.includes('FROM support_mail_threads WHERE id=?'))return threads.find(t=>t.id===a[0])||null;
    if(sql.includes('WHERE recipient=? AND message_id=?'))return messages.find(m=>m.recipient===a[0]&&m.message_id===a[1])||null;
