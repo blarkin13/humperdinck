@@ -15,7 +15,7 @@ const r2=()=>{const values=new Map();return {
  delete:async k=>{values.delete(k)}
 }};
 const db=()=>{const threads=[],messages=[];return {
- threads,messages,prepare(sql){return {async all(){if(sql.includes('FROM support_mail_threads t'))return {results:threads};throw Error('Unmocked unbound all '+sql);},bind(...a){return {
+ threads,messages,async batch(items){for(const item of items)await item.run();return items.map(()=>({success:true}));},prepare(sql){return {async all(){if(sql.includes('FROM support_mail_threads t'))return {results:threads};throw Error('Unmocked unbound all '+sql);},bind(...a){return {
   async first(){
    if(sql.includes('FROM support_mail_threads WHERE id=?'))return threads.find(t=>t.id===a[0])||null;
    if(sql.includes('WHERE recipient=? AND message_id=?'))return messages.find(m=>m.recipient===a[0]&&m.message_id===a[1])||null;
@@ -93,4 +93,19 @@ test('feature off still forwards to Gmail but does not store private data',async
   SUPPORT_MAIL_FORWARD_TO:'backup@example.com',AUTH_DB:database,MAIL_MESSAGES:storage
  });
  assert.equal(forwarded,true);assert.equal(database.threads.length,0);assert.equal(storage.values.size,0);
+});
+
+test('archive storage failure after forwarding cannot make email forward twice',async()=>{
+ let forwards=0;
+ const env={SUPPORT_MAIL_INBOX_ENABLED:'true',SUPPORT_MAIL_FORWARD_TO:'backup@example.com',
+  MAIL_MESSAGES:{async put(){throw Error('R2 unavailable')}},
+  AUTH_DB:db()};
+ const original=console.error;console.error=()=>{};
+ try{
+  const payload='Subject: Help\r\nMessage-ID: <id@example.com>\r\n\r\nPlease assist';
+  await receiveSupportMail({to:'support@humperdinck.studio',from:'client@example.com',
+   headers:new Headers({'Subject':'Help','Message-ID':'<id@example.com>'}),raw:new Response(payload).body,
+   rawSize:payload.length,async forward(){forwards++}},env);
+ }finally{console.error=original}
+ assert.equal(forwards,1);
 });
