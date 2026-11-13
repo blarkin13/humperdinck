@@ -1,5 +1,10 @@
 :root{color-scheme:dark;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;background:#090909;color:#eee}
-*{box-sizing:border-box}body{margin:0;min-height:100vh}a{color:inherit}button,input,select,textarea{font:inherit}
+*{box-sizing:border-box}
+/* Author display rules otherwise override the user-agent hidden attribute.
+ * Without this, the placeholder takes up a full panel after a thread opens.
+ */
+[hidden]{display:none!important}
+body{margin:0;min-height:100vh}a{color:inherit}button,input,select,textarea{font:inherit}
 button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
 :focus-visible{outline:2px solid #f5f5f5;outline-offset:3px}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 .skip{position:absolute;left:-9999px}.skip:focus{left:16px;top:16px;background:white;color:black;padding:10px;z-index:100}
