@@ -69,6 +69,8 @@ async function openThread(id){
   const data=await api('threads/'+id);
   const t=data.thread;
   $('empty').hidden=true;$('thread-view').hidden=false;
+  // If the user previously scrolled to the end of the pane, show its header.
+  document.querySelector('.conversation').scrollTop=0;
   $('thread-address').textContent=t.alias+' · '+t.status;
   $('thread-subject').textContent=t.subject;
   $('thread-contact').textContent=t.contact_email;
@@ -94,7 +96,15 @@ async function openThread(id){
    }
    $('messages').append(article);
   }
- }catch(error){notice(error.message,true)}
+ }catch(error){
+  // The global status line may be off-screen. Show errors where the thread
+  // should have opened so a failed click is never mistaken for a dead button.
+  $('thread-view').hidden=true;
+  $('empty').hidden=false;
+  $('empty').textContent='Unable to open this conversation: '+error.message;
+  $('empty').setAttribute('role','alert');
+  notice(error.message,true);
+ }
 }
 $('reply-form').addEventListener('submit',async event=>{
  event.preventDefault();
