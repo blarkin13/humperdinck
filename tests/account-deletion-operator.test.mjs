@@ -181,3 +181,19 @@ test('two complete synthetic customers: delete only the authorized account and p
   assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);
  }finally{f.close()}
 });
+
+test('refunded merchant order and refund event remain immutable evidence after account deletion',async()=>{
+ const f=fixture();try{
+  f.db.prepare("UPDATE commerce_live_orders SET status='refunded' WHERE provider_order_id='order'").run();
+  f.db.prepare("UPDATE commerce_live_intents SET status='refunded' WHERE id='intent'").run();
+  f.db.prepare("INSERT INTO commerce_live_webhook_events(body_sha256,provider_order_id,event_name,processed_at) VALUES (?,'order','order_refunded',200)").run('d'.repeat(64));
+  f.env.ACCOUNT_DELETION_EXECUTION_ENABLED='true';
+  const result=await performReviewedAccountDeletion(f.env,u,{...approved,dryRun:false});
+  assert.equal(result.decision,'deleted');
+  assert.equal(f.db.prepare("SELECT status FROM commerce_live_orders WHERE provider_order_id='order'").get().status,'refunded');
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM commerce_live_webhook_events WHERE provider_order_id='order'").get().n,2);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM commerce_live_disputes WHERE provider_order_id='order'").get().n,1);
+  assert.equal(f.count('auth_users'),1);
+  assert.equal(f.count('auth_deletion_audit'),1);
+ }finally{f.close()}
+});
