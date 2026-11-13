@@ -143,44 +143,61 @@ export async function receiveSupportMail(message,env){
  const alias=String(message.to||'').toLowerCase().trim();
  const forward=env.SUPPORT_MAIL_FORWARD_TO;
  if(!forward||!emailOnly(forward))throw Error('Mail forwarding destination is not configured');
+ // A forwarding failure must reach Cloudflare so the SMTP sender gets a
+ // retry/bounce. Storage failures after forwarding must NOT cause re-forwarding.
  await message.forward(forward);
  if(!ALIASES.has(alias)||env.SUPPORT_MAIL_INBOX_ENABLED!=='true'||!storeConfigured(env))return;
- if(!Number.isFinite(message.rawSize)||message.rawSize>5*1024*1024)return;
- const sender=emailOnly(message.headers.get('reply-to'))||emailOnly(message.from);
- if(!sender||ALIASES.has(sender))return;
- const headerId=messageId(message.headers.get('message-id'));
- const candidate=inReplyTo(message.headers.get('in-reply-to'))||
-  inReplyTo(message.headers.get('references'));
- const subject=cleanSubject(message.headers.get('subject'));
- const raw=new Uint8Array(await new Response(message.raw).arrayBuffer());
- if(raw.byteLength>5*1024*1024)return;
- const db=env.AUTH_DB;
- // Some providers deliver a duplicated Message-ID. Avoid duplicate conversations.
- if(headerId){
-  const dup=await db.prepare('SELECT id FROM support_mail_messages WHERE recipient=? AND message_id=? AND direction=\'incoming\'').bind(alias,headerId).first();
-  if(dup)return;
- }
- let existing=null;
- if(candidate){
-  existing=await db.prepare(
-   "SELECT t.id,t.contact_email FROM support_mail_messages m JOIN support_mail_threads t ON t.id=m.thread_id WHERE m.message_id=? AND t.alias=? LIMIT 1"
-  ).bind(candidate,alias).first();
- }
- // A reference to a different sender's thread must never disclose that thread.
- const id=crypto.randomUUID(),threadId=existing?.contact_email===sender?existing.id:crypto.randomUUID(),ts=now();
- const key='inbound/'+id+'.eml';
- await env.MAIL_MESSAGES.put(key,raw,{httpMetadata:{contentType:'message/rfc822'},customMetadata:{kind:'support-original-v1'}});
  try{
-  if(threadId!==existing?.id){
-   await db.prepare('INSERT INTO support_mail_threads (id,alias,contact_email,subject,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?)')
-    .bind(threadId,alias,sender,subject,'open',ts,ts).run();
+  if(!Number.isFinite(message.rawSize)||message.rawSize>5*1024*1024)return;
+  const sender=emailOnly(message.headers.get('reply-to'))||emailOnly(message.from);
+  if(!sender||ALIASES.has(sender))return;
+  const headerId=messageId(message.headers.get('message-id'));
+  const referenceIds=[...new Set([
+    ...(safeMailHeader(message.headers.get('in-reply-to')).match(/<[^<>\s]+>/g)||[]),
+    ...(safeMailHeader(message.headers.get('references')).match(/<[^<>\s]+>/g)||[])
+  ].map(messageId).filter(Boolean))].slice(-20).reverse();
+  const subject=cleanSubject(message.headers.get('subject'));
+  const raw=new Uint8Array(await new Response(message.raw).arrayBuffer());
+  if(raw.byteLength>5*1024*1024)return;
+  const db=env.AUTH_DB;
+  if(headerId){
+   const duplicate=await db.prepare("SELECT id FROM support_mail_messages WHERE recipient=? AND message_id=? AND direction='incoming'")
+    .bind(alias,headerId).first();
+   if(duplicate)return;
   }
-  await db.prepare(
-   'INSERT INTO support_mail_messages (id,thread_id,direction,sender,recipient,subject,body_text,message_id,in_reply_to,provider_id,raw_key,raw_size,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-  ).bind(id,threadId,'incoming',sender,alias,subject,mimeText(raw),headerId,candidate,null,key,raw.length,'received',ts,ts).run();
-  await db.prepare('UPDATE support_mail_threads SET updated_at=? WHERE id=?').bind(ts,threadId).run();
- }catch(error){
-  await env.MAIL_MESSAGES.delete(key).catch(()=>{});
-  throw error;
+  let existing=null,candidate=null;
+  for(const id of referenceIds){
+   const match=await db.prepare(
+    "SELECT t.id,t.contact_email FROM support_mail_messages m JOIN support_mail_threads t ON t.id=m.thread_id WHERE m.message_id=? AND t.alias=? LIMIT 1"
+   ).bind(id,alias).first();
+   // Do not allow an attacker to join another customer's conversation by
+   // supplying that conversation's Message-ID in References.
+   if(match?.contact_email===sender){existing=match;candidate=id;break;}
+  }
+  const id=crypto.randomUUID(),threadId=existing?.id||crypto.randomUUID(),ts=now();
+  const key='inbound/'+id+'.eml';
+  await env.MAIL_MESSAGES.put(key,raw,{httpMetadata:{contentType:'message/rfc822'},customMetadata:{kind:'support-original-v1'}});
+  try{
+   const statements=[];
+   if(!existing){
+    statements.push(db.prepare(
+     'INSERT INTO support_mail_threads (id,alias,contact_email,subject,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?)'
+    ).bind(threadId,alias,sender,subject,'open',ts,ts));
+   }
+   statements.push(db.prepare(
+    'INSERT INTO support_mail_messages (id,thread_id,direction,sender,recipient,subject,body_text,message_id,in_reply_to,provider_id,raw_key,raw_size,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+   ).bind(id,threadId,'incoming',sender,alias,subject,mimeText(raw),headerId,candidate,null,key,raw.length,'received',ts,ts));
+   statements.push(db.prepare('UPDATE support_mail_threads SET updated_at=?,status=\'open\' WHERE id=?').bind(ts,threadId));
+   // Cloudflare D1.batch is a transaction; no partial empty thread rows.
+   await db.batch(statements);
+  }catch(error){
+   await env.MAIL_MESSAGES.delete(key).catch(()=>{});
+   throw error;
+  }
+ }catch{
+  // The original message was already forwarded. Do not throw here: that can
+  // prompt a delivery retry and forward duplicate Gmail copies to the owner.
+  // Operational acceptance must test and alert on this failure mode.
+  console.error('Humperdinck Mail: private archive failed after forwarding');
  }
 }
