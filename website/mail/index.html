@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<title>Humperdinck Mail — Private Support Inbox</title>
+<link rel="icon" href="/assets/humperdinck-favicon.ico">
+<link rel="stylesheet" href="/mail/mail.css">
+<script defer src="/mail/mail.js"></script>
+</head>
+<body>
+<a href="#main" class="skip">Skip to content</a>
+<header class="top">
+ <a href="/" class="brand">humperdinck<span class="dot">.</span></a>
+ <span class="tag">PRIVATE MAIL</span>
+ <a href="/account/" class="account">My account</a>
+</header>
+<main id="main" class="page">
+ <div class="intro">
+  <div><p class="eyebrow">OWNER WORKSPACE</p><h1>Mail<span class="dot">.</span></h1>
+  <p class="sub">Customer conversations for support, billing, privacy and legal.</p></div>
+  <button id="refresh" class="secondary" type="button">Refresh inbox</button>
+ </div>
+ <p id="notice" role="status" aria-live="polite">Checking owner access…</p>
+ <div id="mail-workspace" class="workspace" hidden>
+  <section class="sidebar" aria-label="Inbox conversations">
+   <div class="sidebar-top"><h2>Inbox</h2><span id="count" class="count"></span></div>
+   <label for="search" class="sr-only">Filter loaded conversations</label>
+   <input type="search" id="search" placeholder="Search loaded conversations" autocomplete="off">
+   <label for="alias-filter" class="sr-only">Filter by address</label>
+   <select id="alias-filter">
+    <option value="">All addresses</option>
+    <option value="support@humperdinck.studio">Support</option>
+    <option value="billing@humperdinck.studio">Billing</option>
+    <option value="privacy@humperdinck.studio">Privacy</option>
+    <option value="legal@humperdinck.studio">Legal</option>
+   </select>
+   <div id="threads" class="threads" role="list" aria-label="Support threads"></div>
+  </section>
+  <section class="conversation" aria-label="Selected conversation">
+   <div id="empty" class="empty">Select a conversation to read and reply.</div>
+   <div id="thread-view" hidden>
+    <div class="conversation-header">
+     <div><p id="thread-address" class="eyebrow"></p><h2 id="thread-subject"></h2><p id="thread-contact" class="sub"></p></div>
+     <button class="secondary" id="close-thread" type="button">Close thread</button>
+    </div>
+    <div id="messages" class="messages" aria-live="polite"></div>
+    <form id="reply-form">
+     <label for="reply">Reply from <strong id="reply-from"></strong></label>
+     <textarea id="reply" rows="6" maxlength="8000" placeholder="Write a reply…" required></textarea>
+     <div class="reply-actions">
+      <span id="reply-help" class="sub">Replies use the original Humperdinck address.</span>
+      <button type="submit" id="send" disabled>Send reply</button>
+     </div>
+    </form>
+   </div>
+  </section>
+ </div>
+ <p class="footnote">Private correspondence. Original emails are downloadable for the owner; attachments are never rendered inline. Customer mail remains forwarded to the existing Gmail inbox.</p>
+</main>
+</body>
+</html>
