@@ -179,3 +179,19 @@
 .owner-analytics-grid h3{font-variant-numeric:tabular-nums;font-size:clamp(24px,3vw,36px);margin:12px 0}
 .owner-analytics-grid p{overflow-wrap:anywhere}
 @media(max-width:800px){.owner-analytics-grid{grid-template-columns:1fr}}
+
+/* Account deletion review: accessible, high-contrast native modal. */
+#deletion-consent-modal:not([open]){display:none}
+.deletion-consent-modal{border:1px solid #666;border-radius:15px;background:#171717;color:#f6f6f6;
+ width:min(530px,calc(100vw - 32px));max-height:min(88dvh,720px);overflow-y:auto;
+ padding:0;box-shadow:0 25px 90px rgba(0,0,0,.8)}
+.deletion-consent-modal::backdrop{background:rgba(0,0,0,.82)}
+.deletion-consent-body{padding:clamp(20px,4vw,32px)}
+.deletion-consent-body h2{font-family:'Space Grotesk',sans-serif;font-size:clamp(22px,4vw,29px);
+ line-height:1.2;letter-spacing:-.03em;margin:12px 0 20px}
+.deletion-consent-body p{line-height:1.65;font-size:14px;color:#ddd}
+.deletion-consent-body #deletion-consent-warning{color:#fff;font-weight:550}
+.deletion-consent-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-top:26px}
+.deletion-consent-actions .account-action{min-width:116px;min-height:44px}
+.deletion-consent-actions button:focus-visible{outline:2px solid #fff;outline-offset:3px}
+@media(max-width:440px){.deletion-consent-actions button{flex:1 1 130px}}

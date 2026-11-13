@@ -1,0 +1,25 @@
+name: Account deletion safety acceptance
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  synthetic-deletion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and accessible modal
+        run: |
+          node --check website/account/account.js
+          node --check src/account-deletion-operator.js
+          node --check src/account-deletion-beta-cleanup.js
+          node --test tests/account-deletion-modal.test.mjs
+          node --test tests/account-privacy-ui.test.mjs
+      - name: Independent user, Pro, merchant ledgers and rollback
+        run: |
+          node --test tests/account-deletion-operator.test.mjs
+          node --test tests/account-deletion-beta-cleanup.test.mjs
+          node --test tests/account-privacy.test.mjs

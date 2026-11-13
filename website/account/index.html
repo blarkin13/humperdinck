@@ -14,8 +14,8 @@
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 <link rel="stylesheet" href="/footer-unified.css?v=20261108">
-<link rel="stylesheet" href="/account/account.css?v=20261110-owner-analytics">
-<script src="/account/account.js?v=20261110-owner-analytics" defer></script>
+<link rel="stylesheet" href="/account/account.css?v=20261113-deletion-dialog">
+<script src="/account/account.js?v=20261113-deletion-dialog" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -208,4 +208,17 @@
   <div class="account-bottom-notes"><div><strong>Local by default.</strong><p>Your models, projects and recordings stay on your computer unless you explicitly share them.</p></div><div><strong>No subscriptions.</strong><p>Humperdinck Free needs no account. Pro is designed as a one-time lifetime purchase.</p></div></div>
 </main>
 <footer class="site-unified-footer"><div class="site-unified-footer-main"><a class="site-unified-footer-brand" href="/"><img src="/assets/brand-modern.png" alt="" width="36" height="36"><span>humperdinck<span class="site-unified-footer-dot">.</span></span></a><span class="site-unified-footer-tagline">A local-first voice studio.</span></div><nav class="site-unified-footer-links" aria-label="Footer navigation"><a href="/#features">features</a><a href="/studio/">studio preview</a><a href="/#download">download</a><a href="/privacy/">privacy</a><a href="/terms/">terms</a><a href="/license/">software license</a><a href="/voice-policy/">ai voice</a><a href="/refunds/">refunds</a><a href="/cookies/">cookies</a><a href="/copyright/">copyright</a><a href="/licenses/">licenses</a><a href="/help/">help &amp; FAQ</a></nav><small class="site-unified-footer-copyright">© 2026 Humperdinck</small></footer>
-</div></body></html>
+</div><dialog id="deletion-consent-modal" class="deletion-consent-modal" aria-labelledby="deletion-consent-title" aria-describedby="deletion-consent-warning">
+  <div class="deletion-consent-body">
+    <span class="account-kicker">ACCOUNT DELETION — IMPORTANT</span>
+    <h2 id="deletion-consent-title">You will forfeit online Pro access.</h2>
+    <p id="deletion-consent-warning">If your account is deleted, your lifetime Pro account entitlement, registered devices, future online activations, and account-based license recovery will be permanently lost. Previously exported signed offline licenses may still work and cannot be remotely revoked.</p>
+    <p>Required purchase, payment, refund, dispute, and tax records will be preserved separately for applicable legal and accounting obligations. Other eligible account information will be deleted after review.</p>
+    <p id="deletion-consent-scope" class="account-fine-print">Accept submits a deletion review request only. It does not delete your account immediately.</p>
+    <div class="deletion-consent-actions">
+      <button type="button" id="deletion-consent-cancel" class="account-action account-action-outline">Cancel</button>
+      <button type="button" id="deletion-consent-accept" class="account-action account-action-solid">Accept</button>
+    </div>
+  </div>
+</dialog>
+</body></html>

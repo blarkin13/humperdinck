@@ -8,6 +8,36 @@ const device=params.get('device');
 const validDevice=typeof device==='string'&&/^[A-Z2-7]{10}$/.test(device);
 const returnTo=validDevice?'/account/?device='+device:'/account/';
 const state={config:null,dashboard:null,license:null,recoveryKit:null,pendingDeletionRequestId:null};
+// An accessible, explicit Accept/Cancel dialog is required for deletion
+// acknowledgments. Neither action triggers deletion: both are review stages.
+function deletionConsentDialog(stage){
+ const dialog=q('deletion-consent-modal');
+ const accept=q('deletion-consent-accept');
+ const cancel=q('deletion-consent-cancel');
+ const scope=q('deletion-consent-scope');
+ if(!dialog||!accept||!cancel||typeof dialog.showModal!=='function')
+  throw new Error('Deletion consent dialog is unavailable in this browser.');
+ scope.textContent=stage==='final'
+  ?'Accept records your final, time-limited consent for an independently reviewed account deletion. It does not delete your account now.'
+  :'Accept submits a request to review account deletion. It does not delete your account now.';
+ return new Promise(resolve=>{
+  dialog.returnValue='';
+  const onAccept=()=>dialog.close('accept');
+  const onCancel=()=>dialog.close('cancel');
+  const onClose=()=>{
+   accept.removeEventListener('click',onAccept);
+   cancel.removeEventListener('click',onCancel);
+   dialog.removeEventListener('close',onClose);
+   resolve(dialog.returnValue==='accept');
+  };
+  accept.addEventListener('click',onAccept);
+  cancel.addEventListener('click',onCancel);
+  dialog.addEventListener('close',onClose);
+  dialog.showModal();
+  cancel.focus();
+ });
+}
+
 for(const provider of ['google','apple']){
  const link=q(provider+'-login');
  link.addEventListener('click',async event=>{
@@ -402,13 +432,9 @@ q('download-account-data').addEventListener('click',async()=>{
 q('submit-privacy-request').addEventListener('click',async()=>{
  const kind=q('privacy-request-kind').value;
  if(!['access','correction','deletion'].includes(kind))return;
- const description=kind==='deletion'?
-  'Submit an account deletion REVIEW request? If actual deletion is later approved, you may permanently lose online Pro access, device activation, and account-based license recovery. Previously exported offline certificates may continue to work and cannot necessarily be revoked. No data or license will be deleted by this request.':
-  'Submit your '+kind+' request for manual review?';
- if(!confirm(description))return;
- if(kind==='deletion'&&!confirm(
-  'Acknowledge potential permanent forfeiture of online Pro activation and recovery if you later complete deletion. This is only a review request; no deletion occurs now.'
- ))return;
+ if(kind==='deletion'){
+  if(!await deletionConsentDialog('review'))return;
+ }else if(!confirm('Submit your '+kind+' request for manual review?'))return;
  const button=q('submit-privacy-request');button.disabled=true;
  try{
   const record=await request('/privacy/requests',{
@@ -440,7 +466,7 @@ q('submit-deletion-final').addEventListener('click',async()=>{
    !q('deletion-forfeiture').checked||!q('deletion-offline').checked){
   message.textContent='Type the exact phrase and acknowledge both consequences.';return;
  }
- if(!confirm('Record your final account-deletion consent for review? This action cannot by itself delete an account; processing is separately verified.'))return;
+ if(!await deletionConsentDialog('final'))return;
  button.disabled=true;
  try{
   const result=await request('/privacy/deletion/final-confirm',{

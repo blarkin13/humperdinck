@@ -81,3 +81,23 @@ test('legal hold blocks R2 deletion as well as D1 cleanup',async()=>{
   assert.equal(count(f.db,'beta_reports'),1);
  }finally{f.close()}
 });
+
+test('R2 cleanup deletes only the consenting account files and preserves a second customer’s files',async()=>{
+ const f=setup();try{
+  const control='8ee6f64e-eacf-45dd-91b8-53d126b2dc3b';
+  f.db.prepare('INSERT INTO auth_users(id,created_at) VALUES (?,100)').run(control);
+  f.db.prepare("INSERT INTO beta_reports(id,user_id,category,platform,area,summary,details,created_at,updated_at) VALUES ('control-report',?,'bug','macos','account','Control report','Unrelated user details',100,100)").run(control);
+  f.db.prepare("INSERT INTO beta_screenshots(id,report_id,object_key,width,height,created_at) VALUES('control-pic','control-report','private/control.png',10,10,100)").run();
+  f.keys.add('private/control.png');
+  f.env.ACCOUNT_DELETION_BETA_CLEANUP_ENABLED='true';
+  const cleaned=await prepareAccountBetaDataForDeletion(f.env,uid,{...approval,dryRun:false});
+  assert.equal(cleaned.status,'cleaned');
+  assert.equal(cleaned.screenshotCount,1);
+  assert.equal(f.keys.has('private/report.png'),false);
+  assert.equal(f.keys.has('private/control.png'),true);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM beta_reports WHERE user_id=?").get(control).n,1);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM beta_screenshots WHERE report_id='control-report'").get().n,1);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM beta_reports WHERE user_id=?").get(uid).n,0);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM auth_users WHERE id=?").get(control).n,1);
+ }finally{f.close()}
+});
