@@ -134,3 +134,50 @@ test('missing or expired independent customer confirmation always blocks deletio
   }finally{f.close()}
  }
 });
+
+test('two complete synthetic customers: delete only the authorized account and preserve both merchants’ durable records',async()=>{
+ const f=fixture();try{
+  // Seed independent control user with active Pro, a device, session and
+  // independently retained payment/dispute records, exactly as a live system.
+  f.db.prepare("INSERT INTO auth_sessions(token_hash,user_id,kind,created_at,expires_at) VALUES('control-session',?,'web',100,999)").run(other);
+  f.db.prepare("INSERT INTO pro_licenses(id,user_id,status,issued_at,provider,purchase_ref) VALUES('control-license',?,'active',100,'lemonsqueezy','control-purchase')").run(other);
+  f.db.prepare("INSERT INTO pro_devices(id,license_id,installation_id,label,activated_at,last_seen_at) VALUES ('control-device','control-license','control-install','Control',100,100)").run();
+  f.db.prepare("INSERT INTO commerce_live_intents(id,user_id,store_id,variant_id,amount_cents,currency,created_at,expires_at,status) VALUES ('control-intent',?,'45','789',4900,'USD',100,999,'paid')").run(other);
+  f.db.prepare("INSERT INTO commerce_live_orders(provider_order_id,intent_id,user_id,amount_cents,currency,status,created_at,updated_at) VALUES ('control-order','control-intent',?,4900,'USD','paid',100,100)").run(other);
+  f.db.prepare("INSERT INTO commerce_live_webhook_events(body_sha256,provider_order_id,event_name,processed_at) VALUES (?,'control-order','order_created',100)").run('c'.repeat(64));
+  f.db.prepare("INSERT INTO commerce_live_disputes(provider_case_id,provider_order_id,status,evidence_source,evidence_reference,operator_id,observed_at,created_at,updated_at) VALUES('control-case','control-order','won','merchant_dashboard','control-ref','operator',100,100,100)").run();
+  f.db.prepare("INSERT INTO commerce_live_dispute_events(provider_case_id,status,observed_at) VALUES('control-case','won',100)").run();
+  f.db.prepare("INSERT INTO commerce_live_dispute_events(provider_case_id,status,observed_at) VALUES('case','won',100)").run();
+  const baseline=f.db.prepare('SELECT COUNT(*) AS n FROM commerce_live_orders').get().n;
+  assert.equal(baseline,2);
+  assert.equal(f.count('pro_licenses'),2);
+  assert.equal(f.count('pro_devices'),2);
+  const beforeControl={
+   user:f.db.prepare('SELECT * FROM auth_users WHERE id=?').get(other),
+   license:f.db.prepare('SELECT * FROM pro_licenses WHERE user_id=?').get(other),
+   device:f.db.prepare("SELECT * FROM pro_devices WHERE id='control-device'").get(),
+   order:f.db.prepare("SELECT * FROM commerce_live_orders WHERE provider_order_id='control-order'").get(),
+   dispute:f.db.prepare("SELECT * FROM commerce_live_disputes WHERE provider_case_id='control-case'").get()
+  };
+  f.env.ACCOUNT_DELETION_EXECUTION_ENABLED='true'; // isolated SQLite fixture only!
+  const done=await performReviewedAccountDeletion(f.env,u,{...approved,dryRun:false});
+  assert.equal(done.decision,'deleted');
+  for(const table of ['pro_licenses','auth_sessions']){
+   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM '+table+' WHERE user_id=?').get(u).n,0,table);
+  }
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM auth_users WHERE id=?').get(u).n,0);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM pro_devices WHERE id='device'").get().n,0);
+  assert.deepEqual(f.db.prepare('SELECT * FROM auth_users WHERE id=?').get(other),beforeControl.user);
+  assert.deepEqual(f.db.prepare('SELECT * FROM pro_licenses WHERE user_id=?').get(other),beforeControl.license);
+  assert.deepEqual(f.db.prepare("SELECT * FROM pro_devices WHERE id='control-device'").get(),beforeControl.device);
+  assert.deepEqual(f.db.prepare("SELECT * FROM commerce_live_orders WHERE provider_order_id='control-order'").get(),beforeControl.order);
+  assert.deepEqual(f.db.prepare("SELECT * FROM commerce_live_disputes WHERE provider_case_id='control-case'").get(),beforeControl.dispute);
+  assert.equal(f.count('commerce_live_orders'),2);
+  assert.equal(f.count('commerce_live_webhook_events'),2);
+  assert.equal(f.count('commerce_live_disputes'),2);
+  assert.equal(f.count('commerce_live_dispute_events'),2);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM commerce_live_orders WHERE provider_order_id='order' AND user_id=?").get(u).n,1);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM auth_deletion_audit WHERE user_id=? AND online_pro_forfeiture_acknowledged=1 AND offline_certificate_limitation_acknowledged=1").get(u).n,1);
+  assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);
+ }finally{f.close()}
+});
