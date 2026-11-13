@@ -1,6 +1,6 @@
 # Humperdinck Mail — gated owner inbox rollout
 
-**Status: staged code, not enabled in production.** No Cloudflare Email Routing rule was changed and no real customer messages were copied. The site already forwards support@, billing@, privacy@ and legal@ to the owner's Gmail inbox. Keep that forwarding working until all steps below pass.
+**Status: staged code, not enabled in production (November 13, 2026).** No Cloudflare Email Routing rule was changed and no real customer messages were copied. The empty private R2 bucket and additive D1 schema were provisioned; both support mail tables have zero records. All feature flags are OFF. The site already forwards support@, billing@, privacy@ and legal@ to the owner's Gmail inbox. Keep that forwarding working until all steps below pass.
 
 ## Purpose
 
@@ -19,8 +19,8 @@ The existing 4 inbound addresses remain in place. Once accepted, route each alia
 
 ## Cloudflare preparation (safe, no routing change)
 
-1. Ensure the private R2 bucket `humperdinck-mail-private` exists and is bound to the production Worker as `MAIL_MESSAGES` (see `wrangler.jsonc`).
-2. Apply `migrations/0011_support_mail.sql` **through the repository's migration workflow**; verify tables and migration bookkeeping, and take a D1 restore bookmark first. Never rerun automatic migration blindly after manual SQL.
+1. **DONE storage provision**: private R2 bucket `humperdinck-mail-private` exists with r2.dev disabled and zero custom domains; the `MAIL_MESSAGES` Worker binding is committed in `wrangler.jsonc`. Verify the binding on the next deployed Worker version.
+2. **DONE D1 objects, bookkeeping follow-up**: additive `migrations/0011_support_mail.sql` was applied through Cloudflare D1 Query API on Nov 13 after Time Travel bookmark `00000075-00000000-00005122-6328e3b08a133854913f4c04284f1790`. Six objects (two tables, four indexes) were verified, both tables empty. Check Wrangler's migration bookkeeping before a future automated migration; do not blindly reapply or mark migration bookkeeping as verified.
 3. Provision `SUPPORT_MAIL_FORWARD_TO` as a **secret** with the already verified Gmail destination. Verify `ANALYTICS_OWNER_ACCOUNT_ID` is still configured.
 4. Leave both inbox and sending flags OFF until owner authentication, D1/R2, MIME, forwarding and privacy tests pass.
 5. Deploy the reviewed Worker build, verify the public site and account behavior did not regress. Owner login `/mail/` should display "not enabled" until activation. Non-owner users must see no mailbox content.
