@@ -65,6 +65,7 @@ jobs:
           node --test tests/account-deletion-preflight.test.mjs
           node --check src/account-deletion-operator.js
           node --test tests/account-deletion-operator.test.mjs
+          node --test tests/account-deletion-modal.test.mjs
           node --check src/account-retention-scheduled.js
           node --test tests/account-retention-scheduled.test.mjs
           node --check src/account-deletion-beta-cleanup.js
