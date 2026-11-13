@@ -15,7 +15,7 @@ const r2=()=>{const values=new Map();return {
  delete:async k=>{values.delete(k)}
 }};
 const db=()=>{const threads=[],messages=[];return {
- threads,messages,prepare(sql){return {bind(...a){return {
+ threads,messages,prepare(sql){return {async all(){if(sql.includes('FROM support_mail_threads t'))return {results:threads};throw Error('Unmocked unbound all '+sql);},bind(...a){return {
   async first(){
    if(sql.includes('FROM support_mail_threads WHERE id=?'))return threads.find(t=>t.id===a[0])||null;
    if(sql.includes('WHERE recipient=? AND message_id=?'))return messages.find(m=>m.recipient===a[0]&&m.message_id===a[1])||null;
