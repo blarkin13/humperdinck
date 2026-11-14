@@ -22,9 +22,9 @@ test('published account privacy terms do not promise automatic deletion or remot
  const terms=read('website/terms/index.html');
  const ops=read('docs/ACCOUNT_PRIVACY_REQUEST_OPERATIONS.md');
  const preflight=read('src/account-deletion-preflight.js');
- assert.match(privacy,/may lose online Pro device activation and account-based license recovery/);
- assert.match(privacy,/offline certificate may continue to function/);
- assert.match(terms,/cannot be remotely revoked/);
+ assert.match(privacy,/online Pro entitlements, device-hash activation records and ability to activate another or reinstalled computer may be lost/);
+ assert.match(privacy,/previously issued legacy portable certificates also remain usable until migrated/);
+ assert.match(terms,/existing issued certificates remain usable under their original terms until migrated/i);
  assert.match(ops,/Actual account\s+deletion remains disabled/);
  assert.match(preflight,/mayDelete:false/);
  assert.doesNotMatch(privacy,/account deletion is immediate/i);
@@ -42,7 +42,7 @@ test('retention register distinguishes implemented expiries from approved erasur
  assert.match(register,/opportunistically/);
  assert.match(register,/NOT a legally approved retention schedule/);
  assert.match(register,/UNSET/);
- assert.match(register,/Account deletion and live checkout remain disabled/);
+ assert.match(register,/Account deletion remains separately release-gated/);
 });
 
 test('adult eligibility is server enforced and minimized across migration, notice, and account UI',()=>{
