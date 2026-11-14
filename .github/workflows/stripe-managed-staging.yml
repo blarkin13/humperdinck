@@ -1,0 +1,32 @@
+name: Stripe Managed Payments staged acceptance
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  stripe-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check src/stripe-managed-staging-checkout.js
+          node --check src/stripe-managed-staging-webhook.js
+          node --check tests/stripe-managed-staging.test.mjs
+      - name: Run Stripe and release-gate tests
+        run: node --test tests/stripe-managed-staging.test.mjs tests/live-commerce-release-gate.test.mjs
+      - name: Verify isolated Stripe ledger migration
+        run: |
+          python3 - <<'PY'
+          import sqlite3, pathlib
+          db=sqlite3.connect(':memory:')
+          db.execute('PRAGMA foreign_keys=ON')
+          db.executescript('CREATE TABLE auth_users(id TEXT PRIMARY KEY);')
+          db.executescript(pathlib.Path('migrations/0012_stripe_managed_staging.sql').read_text())
+          tables={row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          assert {'commerce_stripe_intents','commerce_stripe_orders','commerce_stripe_webhook_events'} <= tables
+          print('PASS: isolated Stripe migration compiles')
+          PY
