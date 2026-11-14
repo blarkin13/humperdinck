@@ -43,9 +43,10 @@ export async function prepareStripeLiveCheckout(env,user,{
   if(!price?.active||price.livemode!==true||price.type!=='one_time'||price.recurring||
      price.unit_amount!==4900||price.currency!=='usd'||price.product!==env.STRIPE_LIVE_PRODUCT_ID)
    return deny('Configured Stripe product must be the $49.00 one-time live price');
+  // Stripe's 30-minute minimum starts at its session-creation time, not ours.
   const written=await env.AUTH_DB.prepare(
    "INSERT INTO commerce_stripe_live_intents(id,user_id,price_id,amount_cents,currency,status,created_at,expires_at) SELECT ?,?, ?,4900,'USD','started',?,? WHERE EXISTS (SELECT 1 FROM auth_users WHERE id=?) AND NOT EXISTS (SELECT 1 FROM pro_licenses WHERE user_id=? AND status='active')"
-  ).bind(intentId,user.id,env.STRIPE_LIVE_PRICE_ID,now,now+1800,user.id,user.id).run();
+  ).bind(intentId,user.id,env.STRIPE_LIVE_PRICE_ID,now,now+2700,user.id,user.id).run();
   if(written?.meta?.changes!==1)return deny('Account unavailable or already has Pro');
   const result=await stripeApi(env,fetcher,'/checkout/sessions','POST',{
    mode:'payment','line_items[0][price]':env.STRIPE_LIVE_PRICE_ID,
@@ -53,7 +54,7 @@ export async function prepareStripeLiveCheckout(env,user,{
    client_reference_id:intentId,'metadata[intent_id]':intentId,
    success_url:'https://humperdinck.studio/account/?stripe=return',
    cancel_url:'https://humperdinck.studio/account/?stripe=cancel',
-   expires_at:now+1800
+   expires_at:now+2700
   },'humperdinck-stripe-live-'+intentId);
   const u=new URL(result.url||'https://invalid.invalid');
   if(!SID.test(result.id||'')||result.livemode!==true||

@@ -39,6 +39,8 @@ test('test-mode $49.00 Managed Payments checkout is pinned and bound to account'
  assert.match(api.calls[1].opts.body,/line_items%5B0%5D%5Bprice%5D=price_12345678/);
  assert.match(api.calls[1].opts.body,/mode=payment/);
  assert.match(api.calls[1].opts.body,/client_reference_id=22222222/);
+ assert.equal(Number(new URLSearchParams(api.calls[1].opts.body).get('expires_at')),now+2700);
+
  assert.match(api.calls[1].opts.headers['Idempotency-Key'],/humperdinck-stripe-test/);
  assert.doesNotMatch(api.calls[1].opts.body,/subscription|4900|secret_key/);
 });
