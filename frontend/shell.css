@@ -13,7 +13,12 @@
 /* Sidebar */
 .app-shell .sidebar{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px;padding:18px 12px;background:var(--canvas);border-right:1px solid var(--hairline);overflow-y:auto}
 .app-shell .sidebar .brand{gap:11px;padding:2px 8px 20px;align-items:center}
-.app-shell .sidebar .brand-mark{width:38px;height:38px;filter:none}
+.app-shell .sidebar .brand-mark{width:60px;height:60px;filter:none}
+.app-shell .sidebar .brand-text{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0}
+:root .app-shell .sidebar h1.brand-wordmark{font-family:'Space Grotesk',Inter,ui-sans-serif,system-ui,sans-serif;font-weight:700;font-size:23px;letter-spacing:-.05em;line-height:1;text-transform:none;white-space:nowrap}
+.app-shell .brand-dot{color:#777}
+.app-shell .sidebar .brand-local{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;font-size:9px;letter-spacing:1.4px;border-radius:999px;white-space:nowrap}
+.update-version{margin-left:6px;font-size:12px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
 .app-shell .sidebar h1{font-size:20px;line-height:1.1;margin:0;letter-spacing:-.2px}
 .app-shell .sidebar .brand small{display:block;margin-top:3px;font-family:inherit;font-size:11px;line-height:1.35;letter-spacing:0;text-transform:none;color:var(--muted)}
 :root .app-shell .sidebar nav{display:flex;flex-direction:column;flex-wrap:nowrap;gap:2px;margin:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none}
@@ -55,7 +60,8 @@
  :root .app-shell .sidebar nav{order:3;flex-direction:row;width:100%;overflow-x:auto;scrollbar-width:none}
  :root .app-shell .sidebar nav button{width:auto;flex:none;padding:8px 12px;font-size:13px}
  .app-shell .sidebar-foot{flex-direction:row;margin:0;padding:0;border:0}
- .app-shell .sidebar-foot .local{display:none}
+ .app-shell .sidebar .brand-local{display:none}
+ :root .app-shell .sidebar .brand-mark{width:44px;height:44px}
  .app-shell .workspace{padding:0 16px 48px}
  .app-shell .topbar{margin:0 -16px 18px;padding:10px 16px}
  :root .app-shell .workspace section{padding:20px 18px;border-radius:14px}
