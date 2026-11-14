@@ -6,6 +6,7 @@ import {handleLemonTest} from './lemon-test-commerce.js';
 import {runScheduledAuthRetention} from './account-retention-scheduled.js';
 import {handleSupportMail,receiveSupportMail} from './support-mail.js';
 import {isReservedProductionCommercePath,handleUnreleasedProductionCommerce} from './live-commerce-release-gate.js';
+import {handleStripeSandbox} from './stripe-managed-sandbox-routes.js';
 import {publicRelease} from './public-releases.js';
 import {WORKER_SOURCE_GIT_SHA} from './deployment-provenance.js';
 import {handleNativeModel,ROUTE as NATIVE_MODEL_ROUTE} from './native-model-mirror.js';
@@ -31,6 +32,8 @@ export default {
   }
   // Deny-first: no environment flag, secret, checkout callback or static fallback
   // can accidentally expose a live production-commerce endpoint.
+  // Explicitly TEST-only, credential-gated. Never bypass the production commerce interlock.
+  if(url.pathname.startsWith('/api/commerce/sandbox/'))return handleStripeSandbox(request,env,{session:accountSession});
   if(isReservedProductionCommercePath(url.pathname))return handleUnreleasedProductionCommerce(request);
   if(url.pathname.startsWith('/api/support-mail/'))return handleSupportMail(request,env,{session:accountSession});
   if(url.pathname.startsWith('/api/beta/admin/invitations')||url.pathname.startsWith('/api/beta/invitations/')||url.pathname==='/api/beta/admin/test-license/revoke')return handleBetaInvitations(request,env,{session:accountSession});

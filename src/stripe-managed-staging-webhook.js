@@ -7,6 +7,7 @@ const SID=/^cs_test_[A-Za-z0-9_]+$/;
 const EVENT=/^evt_[A-Za-z0-9]+$/;
 const HEX=/^[a-f0-9]{64}$/i;
 const enc=new TextEncoder();
+const verifiedPaidEvents=new WeakSet();
 const deny=reason=>({decision:'rejected',reason,granted:false});
 const hex=buf=>Array.from(new Uint8Array(buf),b=>b.toString(16).padStart(2,'0')).join('');
 const same=(a,b)=>{
@@ -46,13 +47,15 @@ export async function inspectStripeManagedEvent(raw,header,secret,{clock=Math.fl
  if(s.payment_status!=='paid')return {decision:'ignored-unpaid',granted:false};
  if(!Number.isSafeInteger(event.created)||event.created<=0)return deny('Invalid event time');
  const bodyHash=hex(await crypto.subtle.digest('SHA-256',enc.encode(raw)));
- return {decision:'verified-test-payment',eventId:event.id,eventType:event.type,
+ const verified={decision:'verified-test-payment',eventId:event.id,eventType:event.type,
   sessionId:s.id,intentId:s.client_reference_id,paymentIntentId:typeof s.payment_intent==='string'?s.payment_intent:null,
   paidAt:event.created,bodyHash,granted:false};
+ verifiedPaidEvents.add(verified);
+ return verified;
 }
 export async function settleStripeTestPayment(env,verified,{clock=Math.floor(Date.now()/1000),licenseId=crypto.randomUUID()}={}){
  if(!env?.AUTH_DB||env.STRIPE_STAGING_ENABLED!=='true'||
-   verified?.decision!=='verified-test-payment'||!EVENT.test(verified.eventId)||
+   !verified||!verifiedPaidEvents.has(verified)||verified.decision!=='verified-test-payment'||!EVENT.test(verified.eventId)||
    !SID.test(verified.sessionId)||!UUID.test(verified.intentId)||
    !HEX.test(verified.bodyHash)||!UUID.test(licenseId)||
    !Number.isSafeInteger(clock)||clock<=0)return deny('Unverified or unavailable staged settlement');
@@ -72,13 +75,13 @@ export async function settleStripeTestPayment(env,verified,{clock=Math.floor(Dat
   const account=await db.prepare('SELECT email FROM auth_users WHERE id=?').bind(intent.user_id).first();
   if(!account)return deny('Authenticated account no longer exists');
   const previous=await db.prepare(
-   "SELECT id,status FROM pro_licenses WHERE user_id=?"
+   "SELECT id,status FROM pro_licenses WHERE user_id=? AND status='active' LIMIT 1"
   ).bind(intent.user_id).first();
   // Test grants ONLY to an exact, configured owner test-email allowlist.
   const allow=(env.STRIPE_TEST_GRANT_EMAILS||'').split(',').map(x=>x.trim().toLowerCase());
   const mayGrant=env.STRIPE_TEST_GRANTS_ENABLED==='true' &&
     allow.includes((account.email||'').toLowerCase()) && !previous;
-  if(previous&&previous.status!=='active')return deny('Existing entitlement requires reconciliation');
+  // Archived refunded/void grants do not prevent a new verified purchase.
   const ops=[
    db.prepare("INSERT INTO commerce_stripe_orders (stripe_session_id,stripe_payment_intent_id,stripe_event_id,intent_id,user_id,amount_cents,currency,status,paid_at,updated_at) SELECT ?,?,?,id,user_id,4900,'USD','paid',?,? FROM commerce_stripe_intents WHERE id=? AND stripe_session_id=? AND status='started' AND mode='test' AND amount_cents=4900 AND currency='USD'")
     .bind(verified.sessionId,verified.paymentIntentId,verified.eventId,verified.paidAt,clock,verified.intentId,verified.sessionId),
