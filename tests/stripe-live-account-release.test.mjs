@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {handleStripeLiveUnrouted} from '../src/stripe-managed-live-routes-unrouted.js';
-const js=readFileSync(new URL('../website/account/account-live-20261114.js',import.meta.url),'utf8');
+const js=readFileSync(new URL('../website/account/account-production-20261114.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../website/account/index.html',import.meta.url),'utf8');
 const dashboard=readFileSync(new URL('../src/account-dashboard.js',import.meta.url),'utf8');
 test('buy action displays only when server returns enabled live checkout',()=>{
@@ -13,7 +13,7 @@ test('buy action displays only when server returns enabled live checkout',()=>{
  assert.match(html,/Buy Humperdinck Pro — \$49/);
 });
 test('live checkout POST cannot inject amount or redirect to arbitrary origin',()=>{
- const handler=js.slice(js.indexOf('async function startLiveCheckout()'),js.indexOf('async function startTestCheckout()'));
+ const handler=js.slice(js.indexOf('async function startLiveCheckout()'),js.indexOf('// The Stripe webhook'));
  assert.match(handler,/fetch\('\/api\/commerce\/stripe\/checkout'/);
  assert.doesNotMatch(handler,/body\s*:/);
  assert.match(handler,/target\.hostname!=='checkout\.stripe\.com'/);
