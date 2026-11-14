@@ -388,7 +388,9 @@ test('adult confirmation is server checked and new registrations are fail closed
  const began=await call('/api/account/start/google',{cookie:proof},env);
  const approvedState=new URL(began.headers.get('location')).searchParams.get('state');
  assert.match(env.AUTH_DB.oauthFlows.get(sha(approvedState)).return_path,/^__age18_v1__\\|/);
- const tampered=await call('/api/account/start/google',{cookie:proof.slice(0,-1)+'x'},env);
+ const dot=proof.lastIndexOf('.');
+ const tamperedProof=proof.slice(0,dot+1)+(proof[dot+1]==='A'?'B':'A')+proof.slice(dot+2);
+ const tampered=await call('/api/account/start/google',{cookie:tamperedProof},env);
  const tamperedState=new URL(tampered.headers.get('location')).searchParams.get('state');
  assert.equal(env.AUTH_DB.oauthFlows.get(sha(tamperedState)).return_path,'/account/');
 });

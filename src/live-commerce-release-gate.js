@@ -4,7 +4,7 @@
  * Changing this code requires a separate reviewed launch PR and rollout QA.
  */
 export const LIVE_COMMERCE_CODE_APPROVED=false;
-const reservedPrefixes=['/api/commerce/live','/api/commerce/production'];
+const reservedPrefixes=['/api/commerce/live','/api/commerce/production','/api/commerce/stripe'];
 const reservedExact=new Set(['/api/commerce/checkout','/api/commerce/webhook']);
 export function isReservedProductionCommercePath(path){
  return typeof path==='string'&&(

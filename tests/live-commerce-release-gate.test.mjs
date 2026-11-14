@@ -12,6 +12,9 @@ const reserved=[
  '/api/commerce/live/webhook',
  '/api/commerce/live/fulfill',
  '/api/commerce/live/license',
+ '/api/commerce/stripe',
+ '/api/commerce/stripe/checkout',
+ '/api/commerce/stripe/webhook',
  '/api/commerce/production',
  '/api/commerce/production/checkout',
  '/api/commerce/production/webhook',
@@ -61,7 +64,7 @@ test('all production checkout, webhook and fulfillment HTTP methods fail closed,
 test('deployment config sends reserved routes to the Worker, never static assets',()=>{
  const config=JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
  const routes=config.assets.run_worker_first;
- for(const prefix of ['/api/commerce/live*','/api/commerce/production*',
+ for(const prefix of ['/api/commerce/live*','/api/commerce/production*','/api/commerce/stripe*',
   '/api/commerce/checkout','/api/commerce/webhook'])
    assert.equal(routes.includes(prefix),true,prefix);
  assert.equal(config.main,'src/model-proxy-worker.js');

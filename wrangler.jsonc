@@ -52,6 +52,7 @@
       "/api/commerce/test/*",
       "/api/commerce/live*",
       "/api/commerce/production*",
+      "/api/commerce/stripe*",
       "/api/commerce/checkout",
       "/api/commerce/webhook",
       "/api/support-mail/*"
