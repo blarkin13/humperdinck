@@ -235,7 +235,7 @@ function renderRecovery(info){
 async function renderTestCheckout(active){
  const box=q('test-checkout-box');
  box.hidden=true;
- if(active)return;
+ if(active||state.dashboard?.purchase?.checkout_available)return;
  try{
   const response=await fetch('/api/commerce/sandbox/status',{
    credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}
@@ -247,6 +247,26 @@ async function renderTestCheckout(active){
    'Stripe Testing only — $49.00 one-time Humperdinck Pro. Use Stripe test card 4242 4242 4242 4242, a future expiry and any CVC. No real money is charged.';
   box.hidden=false;
  }catch{}
+}
+function renderLiveCheckout(account){
+ const ready=account.purchase?.checkout_available===true&&account.purchase?.status!=='active';
+ q('live-checkout-box').hidden=!ready;
+ if(ready)q('purchase-footnote').textContent='Secure $49 one-time Pro checkout is available. Taxes calculated by Stripe. No recurring subscription.';
+}
+async function startLiveCheckout(){
+ const button=q('live-checkout');button.disabled=true;
+ try{
+  const response=await fetch('/api/commerce/stripe/checkout',{
+   method:'POST',credentials:'same-origin',cache:'no-store',
+   headers:{'Accept':'application/json'}
+  });
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(result.error||'Stripe checkout is unavailable.');
+  const target=new URL(result.checkout_url);
+  if(target.protocol!=='https:'||target.hostname!=='checkout.stripe.com')
+   throw Error('Unexpected checkout provider.');
+  location.assign(target.href);
+ }catch(error){notice(error.message,true);button.disabled=false;}
 }
 async function startTestCheckout(){
  const button=q('test-checkout');button.disabled=true;
@@ -269,11 +289,11 @@ async function startTestCheckout(){
 async function awaitTestPurchase(){
  if(params.get('stripe')!=='return')return;
  history.replaceState(null,'',location.pathname+location.hash);
- notice('Checking your Stripe test purchase and Pro activation…');
+ notice('Checking your Stripe purchase and Pro activation…');
  for(let i=0;i<10;i++){
   try{await refresh()}catch{}
   if(state.dashboard?.purchase?.status==='active'){
-   notice('Stripe test purchase verified: Pro is active on this account. To test desktop activation, use My Account in the desktop app.');
+   notice('Stripe purchase verified: Pro is active on this account. Activate the existing purchase from My Account in the desktop app.');
    return;
   }
   await new Promise(resolve=>setTimeout(resolve,3000));
@@ -283,6 +303,7 @@ async function awaitTestPurchase(){
 async function refresh(){
  const [account,license]=await Promise.all([request('/dashboard'),request('/license')]);
  state.dashboard=account;state.license=license;
+ renderLiveCheckout(account);
  renderTestCheckout(account.purchase?.status==='active');
  const profile=account.account||{};
  q('welcome-account').textContent=profile.email||profile.display_name||'Signed in securely';
@@ -403,6 +424,7 @@ q('recovery-login').addEventListener('submit',async event=>{
  }catch(error){q('recover-result').textContent=error.message;button.disabled=false}
 });
 q('test-checkout').addEventListener('click',startTestCheckout);
+q('live-checkout').addEventListener('click',startLiveCheckout);
 q('logout').addEventListener('click',async()=>{
  const button=q('logout');button.disabled=true;
  try{await request('/logout',{method:'POST'});location.assign('/account/')}
