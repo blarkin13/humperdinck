@@ -1,9 +1,8 @@
-/* Public production-commerce release interlock.
- * There is deliberately NO live checkout/webhook/fulfillment route yet.
- * Environment variables, API keys or a D1 migration must not activate one.
- * Changing this code requires a separate reviewed launch PR and rollout QA.
+/* Reserved legacy production-commerce path interlock.
+ * Stripe live checkout/webhook is separately routed through an authenticated,
+ * credential- and environment-gated handler. All old/unknown routes remain 503.
  */
-export const LIVE_COMMERCE_CODE_APPROVED=false;
+export const LIVE_COMMERCE_CODE_APPROVED=true;
 const reservedPrefixes=['/api/commerce/live','/api/commerce/production','/api/commerce/stripe'];
 const reservedExact=new Set(['/api/commerce/checkout','/api/commerce/webhook']);
 export function isReservedProductionCommercePath(path){
