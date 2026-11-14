@@ -27,6 +27,20 @@
       "bucket_name": "humperdinck-mail-private"
     }
   ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "STUDIO_RELAY",
+        "class_name": "StudioRelay"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "studio-relay-v1",
+      "new_sqlite_classes": ["StudioRelay"]
+    }
+  ],
   "d1_databases": [
     {
       "binding": "AUTH_DB",
@@ -49,6 +63,8 @@
       "/updates/latest.json",
       "/voices/*",
       "/api/account/*",
+      "/api/relay/*",
+      "/r/*",
       "/api/commerce/test/*",
       "/api/commerce/sandbox/*",
       "/api/commerce/live*",

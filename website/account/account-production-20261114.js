@@ -6,7 +6,7 @@ const q=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
 const device=params.get('device');
 const validDevice=typeof device==='string'&&/^[A-Z2-7]{10}$/.test(device);
-const returnTo=validDevice?'/account/?device='+device:'/account/';
+const returnTo=validDevice?'/account/?device='+device:new URLSearchParams(location.search).get('return')==='/connect/'?'/connect/':'/account/';
 const state={config:null,dashboard:null,license:null,recoveryKit:null,pendingDeletionRequestId:null};
 // An accessible, explicit Accept/Cancel dialog is required for deletion
 // acknowledgments. Neither action triggers deletion: both are review stages.

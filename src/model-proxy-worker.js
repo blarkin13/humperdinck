@@ -10,6 +10,8 @@ import {handleStripeSandbox} from './stripe-managed-sandbox-routes.js';
 import {handleStripeLiveUnrouted} from './stripe-managed-live-routes-unrouted.js';
 import {publicRelease} from './public-releases.js';
 import {WORKER_SOURCE_GIT_SHA} from './deployment-provenance.js';
+import {handleRelay} from './studio-relay.js';
+export {StudioRelay} from './studio-relay.js';
 import {handleNativeModel,ROUTE as NATIVE_MODEL_ROUTE} from './native-model-mirror.js';
 // Model files only: browser synthesis remains local; this Worker performs no inference.
 // Restrict paths to the single public model to prevent an arbitrary URL proxy.
@@ -41,6 +43,7 @@ export default {
   if(url.pathname.startsWith('/api/support-mail/'))return handleSupportMail(request,env,{session:accountSession});
   if(url.pathname.startsWith('/api/beta/admin/invitations')||url.pathname.startsWith('/api/beta/invitations/')||url.pathname==='/api/beta/admin/test-license/revoke')return handleBetaInvitations(request,env,{session:accountSession});
   if(url.pathname.startsWith('/api/beta/'))return handleBetaFeedback(request,env,{session:accountSession});
+  if(url.pathname.startsWith('/api/relay/')||url.pathname.startsWith('/r/'))return handleRelay(request,env,{session:accountSession});
   if(url.pathname.startsWith('/api/account/'))return handleAccount(request,env);
   // Once Stripe sandbox QA is enabled, never allow a cached legacy Account
   // script to open a Lemon Squeezy test checkout.

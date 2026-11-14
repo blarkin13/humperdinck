@@ -34,3 +34,12 @@ def test_bearer_token_and_config(tmp_path):
     assert config['network_enabled'] is False and config['network_port'] == net.DEFAULT_PORT
     assert len(config['network_token']) >= 16
     assert net.network_config(tmp_path / 's.json')['network_token'] == config['network_token']
+
+
+def test_relay_blocks_settings_and_account_routes():
+    from backend import studio_relay
+    for path in ('/api/server/relay', '/api/account', '/api/account/disconnect?x=1',
+                 '/api/license/export', '/api/updates/install', '/api/engine/unload'):
+        assert studio_relay.blocked(path), path
+    for path in ('/api/health', '/api/voices', '/', '/assets/app.js', '/api/serverless'):
+        assert not studio_relay.blocked(path), path

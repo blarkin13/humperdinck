@@ -67,7 +67,7 @@ function validCode(code){return typeof code==='string'&&/^[A-Z2-7]{10}$/.test(co
 function validId(id){return typeof id==='string'&&/^[A-Za-z0-9_-]{43}$/.test(id)}
 function safeReturn(value){
   if(typeof value!=='string')return '/account/';
-  if(value==='/account/')return value;
+  if(value==='/account/'||value==='/connect/')return value;
   if(/^\/account\/\?device=[A-Z2-7]{10}$/.test(value))return value;
   return '/account/';
 }
