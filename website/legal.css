@@ -17,7 +17,7 @@
 .legal-lede{max-width:680px;color:#b9b9b9;font-size:clamp(16px,1.7vw,21px);line-height:1.6;margin:0 0 20px}
 .legal-meta{font-size:12px;color:#888;letter-spacing:.04em}
 .legal-columns{display:flex;align-items:stretch;gap:clamp(26px,4vw,72px);padding-top:45px;min-width:0;width:100%}
-.legal-sidebar{position:sticky;top:20px;align-self:flex-start;flex:0 0 clamp(190px,21%,245px);width:clamp(190px,21%,245px);height:max-content;min-width:0;overflow:visible}
+.legal-sidebar{position:sticky;top:124px;align-self:flex-start;flex:0 0 clamp(190px,21%,245px);width:clamp(190px,21%,245px);height:max-content;min-width:0;overflow:visible}
 .legal-sidebar p{font-size:12px;font-weight:700;line-height:1.5;letter-spacing:.13em;color:#bcbcbc;margin:0 0 14px}
 .legal-sidebar nav{display:flex;flex-direction:column;align-items:stretch;gap:2px;overflow:visible;max-height:none}
 .legal-sidebar a{display:block;font-size:16px;line-height:1.35;color:#aaa;padding:11px 14px;border-left:2px solid transparent;transition:color .2s,border-color .2s,background .2s}
@@ -65,7 +65,7 @@
 }
 @media(max-width:720px){
   .legal-columns{display:block;padding-top:25px}
-  .legal-sidebar{position:sticky;top:0;z-index:5;display:block;width:100%;height:auto;margin:0 0 28px;padding:12px 0 8px;background:#090909;border-bottom:1px solid #333}
+  .legal-sidebar{position:sticky;top:90px;z-index:5;display:block;width:100%;height:auto;margin:0 0 28px;padding:12px 0 8px;background:#090909;border-bottom:1px solid #333}
   .legal-sidebar p{font-size:11px;margin-bottom:8px}
   .legal-sidebar nav{display:flex;flex-direction:row;gap:5px;max-width:100%;overflow-x:auto;overflow-y:hidden;padding-bottom:7px;overscroll-behavior-x:contain;scrollbar-width:thin}
   .legal-sidebar a{font-size:15px;white-space:nowrap;border-left:0;border-bottom:2px solid transparent;padding:9px 12px}
@@ -75,12 +75,13 @@
   .legal-section p{font-size:14px}
 }
 @media(max-width:560px){
-  .legal-header{height:66px;padding-inline:20px;gap:10px}
+  .legal-header{height:66px;min-height:66px;padding-inline:20px;gap:10px}
   .legal-header .brand{font-size:18px}
   .legal-header .brand img{width:34px;height:34px}
   .legal-header .header-account-link{padding:10px}
   .legal-header .header-account-link span{display:none}
   .legal-header .mobile-cta{font-size:11px;padding:0 11px;min-height:36px}
+  .legal-sidebar{top:76px}
   .legal-main{padding:35px 20px 50px}
   .legal-intro h1{font-size:clamp(38px,10vw,56px)}
   .legal-consent-warning{margin-top:24px;padding:23px 19px}
@@ -88,3 +89,10 @@
   .legal-consent-warning p{font-size:13px}
 }
 @media(prefers-reduced-motion:reduce){.legal-sidebar a{transition:none}}
+
+/* Homepage header is sticky (104px on desktop). Keep the entire legal
+   navigation below it rather than letting the first links slide underneath. */
+@media(min-width:801px){.legal-header{min-height:104px}.legal-sidebar{top:124px}}
+@media(min-width:721px) and (max-width:800px){.legal-header{min-height:82px}.legal-sidebar{top:102px}}
+@media(max-width:720px) and (min-width:561px){.legal-header{min-height:82px}.legal-sidebar{top:90px}}
+@media(max-width:560px){.legal-header{min-height:66px}.legal-sidebar{top:76px}}
