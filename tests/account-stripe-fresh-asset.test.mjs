@@ -5,7 +5,7 @@ import worker from '../src/model-proxy-worker.js';
 const load=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('Account loads an entirely new Stripe-only script path and does not cache checkout logic',()=>{
  const html=load('website/account/index.html'),js=load('website/account/account-live-20261114.js'),headers=load('website/_headers');
- assert.match(html,/src="\/account\/account-stripe-20261114\.js"/);
+ assert.match(html,/src="\/account\/account-live-20261114\.js"/);
  assert.doesNotMatch(html,/<script src="\/account\/account\.js/);
  assert.match(js,/\/api\/commerce\/sandbox\/checkout/);
  assert.match(js,/\/api\/commerce\/stripe\/checkout/);
