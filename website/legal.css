@@ -51,3 +51,32 @@
 .legal-section strong{color:#f5f5f5}
 @media(max-width:720px){.legal-consent-warning{margin-top:24px;padding:23px 19px}
   .legal-consent-warning h2{font-size:24px}.legal-consent-warning p{font-size:13px}}
+
+
+/* Legal pages: allow position:sticky to follow the viewport instead of a
+   non-scrolling overflow:hidden ancestor. Keep horizontal clipping. */
+.legal-shell{overflow:clip}
+.legal-header{height:92px}
+.legal-sidebar{position:sticky;top:24px;max-height:calc(100dvh - 48px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.legal-sidebar:focus-within{scroll-behavior:auto}
+/* Keep the homepage header controls and responsive breakpoints on legal pages. */
+.legal-header .nav{display:flex}
+.legal-header .header-studio-cta{display:inline-flex}
+.legal-header .mobile-cta{display:none}
+@media(max-width:950px){
+  .legal-header .nav,.legal-header .header-studio-cta{display:none}
+  .legal-header .mobile-cta{display:inline-flex}
+}
+@media(max-width:720px){
+  .legal-sidebar{position:sticky;top:0;z-index:5;max-height:none;overflow:visible;
+    margin:0 0 30px;padding:12px 0 7px;background:#090909;
+    border-bottom:1px solid #333}
+  .legal-sidebar p{margin-bottom:7px}
+  .legal-sidebar nav{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+  .legal-columns{padding-top:20px}
+  .legal-header .brand img{width:clamp(48px,4vw,60px);height:clamp(48px,4vw,60px)}
+}
+@media(max-width:560px){
+  .legal-header{height:66px}
+  .legal-header .brand img{width:34px;height:34px}
+}
