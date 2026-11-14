@@ -90,3 +90,30 @@
  :root .app-shell summary{min-height:44px}
  :root .app-shell button{min-height:40px}
 }
+
+/* Phones (including the remote studio at humperdinck.studio/connect):
+   header icons share the brand row, tabs scroll in one line, headings stack. */
+@media(max-width:640px){
+ :root main.app-shell{position:relative;grid-template-rows:auto 1fr;align-content:start}
+ .app-shell .sidebar{padding:10px 12px 8px;gap:6px;min-height:0!important;align-content:flex-start}
+ .app-shell .sidebar .brand{gap:8px;min-height:44px;padding-right:164px!important;min-width:0}
+ .app-shell .sidebar .brand .brand-mark{width:36px!important;height:36px!important}
+ .app-shell .sidebar .brand h1{font-size:18px;margin:0;white-space:nowrap}
+ .app-shell .sidebar-foot{display:none}
+ .app-shell .topbar{position:absolute;top:10px;right:12px;margin:0!important;padding:0!important;border:0!important;background:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;z-index:5}
+ .app-shell .topbar .header-actions{gap:6px;flex-wrap:nowrap}
+ .app-shell .topbar .header-actions>button,.app-shell .topbar .header-actions .update-btn,.app-shell .topbar .theme-trigger{width:36px;height:36px;min-width:36px;min-height:36px;padding:0;display:grid;place-items:center}
+ .app-shell .voice-playback-row{flex-wrap:wrap;gap:6px}
+ .app-shell .voice-playback-row button{padding:8px 10px;font-size:13px}
+ :root .app-shell section .panel,:root .app-shell section .model-row,:root .app-shell section section{padding:12px}
+ .app-shell .model-row code,.app-shell .model-row small code{word-break:break-all}
+ :root .app-shell .sidebar nav{margin:0 -12px;padding:0 12px;scroll-snap-type:x proximity;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent)}
+ :root .app-shell .sidebar nav button{scroll-snap-align:start;min-height:40px}
+ .app-shell .workspace{padding:14px 12px 40px}
+ :root .app-shell .workspace section{padding:18px 14px}
+ .app-shell .heading{flex-direction:column;align-items:stretch;gap:12px}
+ .app-shell .heading>*:not(div){align-self:flex-start}
+ .app-shell .heading>button{flex-direction:row;gap:8px}
+ .app-shell .theme-popover,.app-shell .updates-control .update-panel{position:fixed!important;top:60px!important;left:12px!important;right:12px!important;width:auto!important;max-width:none!important;max-height:calc(100vh - 76px);overflow:auto;transform:none!important}
+ .toast-stack{left:12px!important;right:12px!important;width:auto!important;max-width:none!important}
+}
