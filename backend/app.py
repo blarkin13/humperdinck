@@ -295,6 +295,52 @@ def new_network_code():
     net.save(path,data)
     return _network_state()
 
+def _relay_state():
+    from backend import studio_relay, network_server as net
+    data=net.load(server_settings_path())
+    state=studio_relay.relay.status()
+    state['enabled']=data.get('relay_enabled') is True
+    state['signed_in']=account_client.status(DATA).get('connected',False)
+    state['connect_url']=account_client._origin()+'/connect/'
+    return state
+
+def _start_relay(port):
+    from backend import studio_relay, network_server as net
+    path=server_settings_path()
+    data=net.load(path)
+    data['relay_computer_id']=studio_relay.computer_id(data)
+    data['relay_enabled']=True
+    net.save(path,data)
+    studio_relay.relay.start(DATA,port,data['relay_computer_id'],studio_relay.computer_name())
+
+def start_relay_if_enabled(port):
+    """Called by the desktop launcher with its loopback port."""
+    from backend import network_server as net
+    if net.load(server_settings_path()).get('relay_enabled') is True:
+        _start_relay(port)
+
+@app.get('/api/server/relay')
+def relay_status():
+    return _relay_state()
+
+@app.post('/api/server/relay/start')
+def relay_start(request: Request):
+    from urllib.parse import urlsplit
+    if not account_client.status(DATA).get('connected'):
+        raise HTTPException(409,'Sign in to your Humperdinck account on this computer first')
+    _start_relay(urlsplit(str(request.base_url)).port)
+    return _relay_state()
+
+@app.post('/api/server/relay/stop')
+def relay_stop():
+    from backend import studio_relay, network_server as net
+    studio_relay.relay.stop()
+    path=server_settings_path()
+    data=net.load(path)
+    data['relay_enabled']=False
+    net.save(path,data)
+    return _relay_state()
+
 @app.get('/api/server/status')
 def server_status(request: Request):
     """Report the loopback service for this desktop UI plus the optional network server."""
