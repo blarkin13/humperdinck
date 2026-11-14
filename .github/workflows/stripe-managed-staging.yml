@@ -21,8 +21,11 @@ jobs:
           node --check src/stripe-managed-reversals.js
           node --check tests/stripe-managed-reversals.test.mjs
           node --check tests/pro-license-repurchase-migration.test.mjs
+          node --check src/stripe-managed-sandbox-routes.js
+          node --check src/stripe-managed-sandbox-refund.js
+          node --check tests/stripe-managed-sandbox-routes.test.mjs
       - name: Run Stripe and release-gate tests
-        run: node --test tests/stripe-managed-staging.test.mjs tests/stripe-managed-live-prelaunch.test.mjs tests/stripe-managed-reversals.test.mjs tests/pro-license-repurchase-migration.test.mjs tests/live-commerce-release-gate.test.mjs
+        run: node --test tests/stripe-managed-staging.test.mjs tests/stripe-managed-live-prelaunch.test.mjs tests/stripe-managed-reversals.test.mjs tests/pro-license-repurchase-migration.test.mjs tests/stripe-managed-sandbox-routes.test.mjs tests/live-commerce-release-gate.test.mjs
       - name: Verify isolated Stripe ledger migration
         run: |
           python3 - <<'PY'
