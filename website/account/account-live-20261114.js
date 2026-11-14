@@ -149,8 +149,9 @@ function renderPurchase(info,license){
   'Your Free studios, built-in voices and exports remain available without signing in or entering payment details.';
  q('purchase-status').textContent=beta?'Temporary beta access':details[purchase.status]||'Not available';
  q('purchase-date').textContent=active?fmt(purchase.issued_at):'—';
- q('purchase-provider').textContent=purchase.provider||'Not connected';
+ q('purchase-provider').textContent=purchase.provider==='stripe-managed-test'?'Stripe (refunded test purchase)':purchase.provider||'Not connected';
  q('purchase-reference').textContent=purchase.reference||'—';
+ q('purchase-reference').title=purchase.reference||'';
  q('stat-edition').textContent=label;
  q('stat-edition-note').textContent=active?'Permanent Pro access':beta?'Expires '+fmt(license.expires_at):'Your local studio';
  q('purchase-footnote').textContent=active?
@@ -303,7 +304,6 @@ async function awaitTestPurchase(){
 async function refresh(){
  const [account,license]=await Promise.all([request('/dashboard'),request('/license')]);
  state.dashboard=account;state.license=license;
- renderLiveCheckout(account);
  renderTestCheckout(account.purchase?.status==='active');
  const profile=account.account||{};
  q('welcome-account').textContent=profile.email||profile.display_name||'Signed in securely';
@@ -311,6 +311,7 @@ async function refresh(){
  q('account-display-email').textContent=profile.email||'Private email';
  q('account-id-value').textContent=profile.id||'—';
  renderPurchase(account,license);
+ renderLiveCheckout(account);
  renderConnections(account);
  renderRecovery(account);
 }
