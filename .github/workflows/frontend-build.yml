@@ -28,6 +28,8 @@ jobs:
         run: npm run build
       - name: Build public Cloudflare studio preview
         run: bash scripts/build-public-studio.sh
+      - name: Verify four bundled font licenses and third-party notice artifacts
+        run: node --test tests/font-ofl-notices.test.mjs
       - name: Test public desktop release catalog and Worker routes
         run: |
           node --check src/public-releases.js
