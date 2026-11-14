@@ -50,6 +50,7 @@
       "/voices/*",
       "/api/account/*",
       "/api/commerce/test/*",
+      "/api/commerce/sandbox/*",
       "/api/commerce/live*",
       "/api/commerce/production*",
       "/api/commerce/stripe*",
