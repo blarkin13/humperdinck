@@ -111,6 +111,9 @@ test('isolated live settlement grants Pro once with 10 devices and preserves mer
  const raw=payment(),sig=await signed(raw);
  const verified=await inspectStripeLiveWebhook(raw,sig.header,{STRIPE_LIVE_WEBHOOK_SECRET:sig.secret},{clock:now});
  const env={...opts,AUTH_DB:database.AUTH_DB};
+ const forged=await settleStripeLivePayment(env,{...verified},{clock:now,licenseId});
+ assert.equal(forged.decision,'blocked');
+ assert.equal(database.sqlite.prepare('SELECT COUNT(*) AS count FROM pro_licenses').get().count,0);
  const first=await settleStripeLivePayment(env,verified,{clock:now,licenseId});
  assert.equal(first.decision,'settled-live-Pro');
  assert.equal(first.granted,true);
