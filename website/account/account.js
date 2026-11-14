@@ -230,45 +230,55 @@ function renderRecovery(info){
  q('link-google').hidden=!state.config?.providers?.google;
  q('link-apple').hidden=!state.config?.providers?.apple;
 }
-// Sandbox checkout appears only when the Worker's Lemon Squeezy test mode is configured.
+// Stripe Testing checkout is offered only when the server confirms this
+// signed-in web account is on its private testing allowlist. No public Buy Pro.
 async function renderTestCheckout(active){
- const box=q('test-checkout-box');box.hidden=true;
+ const box=q('test-checkout-box');
+ box.hidden=true;
  if(active)return;
  try{
-  const response=await fetch('/api/commerce/test/status',{credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}});
+  const response=await fetch('/api/commerce/sandbox/status',{
+   credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}
+  });
   if(!response.ok)return;
   const status=await response.json();
-  q('test-checkout-note').textContent=status.test_grants_pro?
-   'Sandbox checkout: use a Lemon Squeezy test card. This account is on the test allowlist, so a test order grants Pro.':
-   'Sandbox checkout: use a Lemon Squeezy test card. Test orders are recorded but do not grant Pro for this account.';
+  if(status.mode!=='test')return;
+  q('test-checkout-note').textContent=
+   'Stripe Testing only — $49.00 one-time Humperdinck Pro. Use Stripe test card 4242 4242 4242 4242, a future expiry and any CVC. No real money is charged.';
   box.hidden=false;
  }catch{}
 }
 async function startTestCheckout(){
  const button=q('test-checkout');button.disabled=true;
  try{
-  const response=await fetch('/api/commerce/test/checkout',{method:'POST',credentials:'same-origin',cache:'no-store',
-   headers:{'Accept':'application/json','Content-Type':'application/json'},body:'{}'});
+  // The sandbox endpoint intentionally accepts no request body. Keep the
+  // checkout in this tab to avoid browser pop-up blockers.
+  const response=await fetch('/api/commerce/sandbox/checkout',{
+   method:'POST',credentials:'same-origin',cache:'no-store',
+   headers:{'Accept':'application/json'}
+  });
   const result=await response.json().catch(()=>({}));
-  if(!response.ok)throw Error(result.error||'Test checkout is unavailable.');
+  if(!response.ok)throw Error(result.error||'Stripe test checkout is unavailable.');
   const target=new URL(result.checkout_url);
-  if(target.protocol!=='https:'||!target.hostname.endsWith('.lemonsqueezy.com'))throw Error('Unexpected checkout address.');
+  if(target.protocol!=='https:'||target.hostname!=='checkout.stripe.com')
+   throw Error('Unexpected Stripe checkout address.');
   location.assign(target.href);
- }catch(error){notice(error.message,true);button.disabled=false}
+ }catch(error){notice(error.message,true);button.disabled=false;}
 }
-// After returning from checkout the webhook can lag a few seconds behind.
+// The Stripe webhook can arrive after Checkout redirects to the account.
 async function awaitTestPurchase(){
- if(new URLSearchParams(location.search).get('purchase')!=='test')return;
+ if(params.get('stripe')!=='return')return;
  history.replaceState(null,'',location.pathname+location.hash);
- notice('Checking for your test purchase…');
+ notice('Checking your Stripe test purchase and Pro activation…');
  for(let i=0;i<10;i++){
-  await new Promise(r=>setTimeout(r,3000));
-  try{await refresh()}catch{continue}
-  if(state.license?.plan==='pro'||state.dashboard?.purchase?.status==='active'){
-   notice('Pro is active on this account. In the desktop app, open My account and choose Activate an existing Pro purchase.');return;
+  try{await refresh()}catch{}
+  if(state.dashboard?.purchase?.status==='active'){
+   notice('Stripe test purchase verified: Pro is active on this account. To test desktop activation, use My Account in the desktop app.');
+   return;
   }
+  await new Promise(resolve=>setTimeout(resolve,3000));
  }
- notice('Your test order was received but Pro was not granted. Check that this account is on the test allowlist.',true);
+ notice('The Stripe checkout returned, but Pro activation has not been confirmed. We need to inspect webhook delivery before trying again.',true);
 }
 async function refresh(){
  const [account,license]=await Promise.all([request('/dashboard'),request('/license')]);
