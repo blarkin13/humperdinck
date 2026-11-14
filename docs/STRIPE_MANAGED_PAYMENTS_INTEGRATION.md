@@ -73,3 +73,33 @@ The connected Humperdinck Stripe account has one active live Product and Price. 
 - Account-wide Managed Payments is marked Ready to use by the owner, but no successful Managed Payments transaction has been verified.
 
 Configure `STRIPE_LIVE_PRICE_ID` and `STRIPE_LIVE_PRODUCT_ID` with the above verified IDs when preparing the **disabled** production integration. Do not insert API keys in the repository; prefer separate minimally scoped restricted `rk_live_`/`rk_test_` keys in Cloudflare secrets. The source supports either restricted or standard secret keys and uses Stripe API version 2026-09-30.endive. The connected Stripe plugin currently exposes **live mode only**; a separate sandbox/test mode account must be connected before using it for test transactions. No checkout sessions or charges were created during catalog verification.
+
+## Isolated sandbox HTTP acceptance path (prepared, OFF by default)
+
+The owner-initiated November 13 Stripe Testing purchase succeeded for the named test email, $49.00 subtotal plus $4.04 tax, and the test refund succeeded for the full $53.04. That standalone session had no owner-created D1 intent, so it **cannot** prove app purchase-to-license webhook fulfillment. No real payment was taken.
+
+New files stage an isolated, nonindexed browser test page at `/stripe-test/` and HTTP endpoints at `/api/commerce/sandbox/checkout`, `/api/commerce/sandbox/status`, and `/api/commerce/sandbox/webhook`. They are **disabled by default**. The checkout is same-origin POST, requires a current web account, validates exact test-email allowlist, rate-limits attempts and creates only a test-mode Stripe Checkout Session. A successful browser return never grants Pro; the signed payment webhook must match a D1 owner-created intent. Signed test refunds reconcile the ledger and void a test-only Pro grant when no devices were registered. Historical void licenses remain auditable.
+
+**Required private test-only configuration** (never paste credentials into GitHub or chat):
+
+- `STRIPE_STAGING_ENABLED=true` and `STRIPE_SANDBOX_HTTP_ENABLED=true` for isolated sandbox testing only.
+- `STRIPE_SECRET_KEY`: restricted `rk_test_` Stripe key granting read Price and create Checkout Session, generated in Stripe Testing and installed with Wrangler secrets. No live keys accepted.
+- `STRIPE_PRICE_ID=price_1UbXjGIYFiMNwrqMvN4IsDp6`: the verified $49 one-time price in Stripe Testing; matching product ID `prod_VcnJzaoCXPGZ32`.
+- `STRIPE_WEBHOOK_SECRET`: the `whsec_` value shown *once* after creating a Stripe TEST webhook destination pointing to `https://humperdinck.studio/api/commerce/sandbox/webhook`. Subscribe to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `charge.refunded`.
+- `STRIPE_TEST_GRANT_EMAILS`: exact list of test accounts, initially the named authorized tester. Server-side allowlist is enforced for every browser checkout. Do not set from public request fields.
+- `STRIPE_TEST_GRANTS_ENABLED=true` only after checking the migration, testing ledger-only processing, and accepting disposable test Pro issuance. Default OFF.
+- Isolated D1 migration `0012_stripe_managed_staging.sql` and `0014_pro_license_repurchase.sql` only after backed-up schema verification and a reviewed migration run. Migration 0014 changes the one-license-ever uniqueness to one-*active*-license-per-user and retains historical void/refunded grants and existing device registrations.
+
+From an authenticated local Wrangler environment at the repository root, enter each *value* at its private prompt (do not commit or print it):
+
+```sh
+npx wrangler secret put STRIPE_SECRET_KEY
+npx wrangler secret put STRIPE_WEBHOOK_SECRET
+npx wrangler secret put STRIPE_STAGING_ENABLED
+npx wrangler secret put STRIPE_SANDBOX_HTTP_ENABLED
+npx wrangler secret put STRIPE_PRICE_ID
+npx wrangler secret put STRIPE_TEST_GRANT_EMAILS
+# Leave STRIPE_TEST_GRANTS_ENABLED absent/OFF initially.
+```
+
+**Before enabling a route:** verify source deploy and associated database backup, apply migrations in the same isolated deployment review, create a dedicated sandbox webhook destination, run paid/unpaid/replay/late refund QA, then test with the signed-in authorized account at the unlisted page. Do not submit a real credit card to this page. **Live /api/commerce/stripe/* remains HTTP 503**, even if all test secrets are configured. Never copy test credentials into production Stripe live key names.
