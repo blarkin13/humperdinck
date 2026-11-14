@@ -1,46 +1,31 @@
-# Free/Pro access — implemented entitlement layer, pre-commercial QA
+# Humperdinck Free and Pro — entitlement contract
 
-Status reconciled November 8, 2026. Existing accounts, signed lifetime Pro licenses and 10-slot online device controls are implemented in source; this document is not proof of real-device testing or live purchases. Business Plan section 22 and Development Status are the current work register.
+**Updated November 14, 2026.** This is the new product entitlement policy. The account/computer binding is under implementation by Claude Code; the older portable-license implementation may still be present until merged and deployed.
 
-## Current policy
+## Free
 
-- **Free by default; no account or internet sign-in required for local use.**
-- Narration Studio, Video Studio, the sound library, Kokoro, the official bundled Humperdinck reference voices, playback, ordinary audio editing, exports and the model manager remain Free.
-- **Pro** will unlock personal Qwen VoiceDesign, uploading and cloning a person's reference recording, saving new custom Qwen voice identities, and using those identities in narration. The existing official publisher-curated gallery is separate from any user-submitted community voice library. No Community Voice Exchange or downloadable user-submitted cloned voices are planned.
-- Do **not** gate the Qwen model globally. The seven curated Built-In Humperdinck Voices run through the restricted Free Qwen Base reference path.
+- Local Free functions remain usable without an account or internet connection, subject to installed model availability.
+- Free includes ordinary Narration Studio and Video Studio use, available preset/built-in voices, local playback, supported exports, model management and ordinary audio editing.
+- Exactly **four** publisher-curated built-in Humperdinck voices are planned at launch: Sarah, Jason, Kenny and Jerry. The user-submitted Community Voice Exchange and downloadable cloned-voice library are not part of the roadmap.
 
-## What is implemented in this branch
+## Pro
 
-- `backend/entitlements.py` centralizes feature capabilities; `GET /api/entitlements` reports them for desktop UI.
-- Backend routes enforce Pro for creating custom voices, voice uploads, text-prompt design, custom Qwen generation, unapproved cloning references, narration with non-curated references, and gallery downloads.
-- Official built-in sample installation records a checksum. Existing pre-checksum installed packs retain access through their installer delivery-history ID and fixed reference transcript. This backward-compatible path is **not** cryptographic provenance.
-- Voice Creator explains unavailable Pro functionality; everything else, including all studios, is accessible in Free. Gallery previews remain visible and playable.
-- Integration tests cover anonymous Free use, unauthorized direct API calls, curated Qwen narration, prior custom voice storage, and packaged build guardrails.
+- Pro is a **$49 USD one-time lifetime purchase** attached to a Humperdinck account, with **up to ten activated computers**.
+- Pro includes personal voice design, authorized upload/voice cloning, saving custom voice identities and using them in narration (subject to signed speaker consent).
+- **Activation requires signing into the purchasing account on each computer.** The computer is represented by a salted hash of the macOS hardware UUID, Windows `MachineGuid`, or Linux `/etc/machine-id`; no raw ID is transmitted.
+- Once activated, that computer continues to use Pro **fully offline with no periodic checks**. Another account or another computer cannot use a copied license to unlock Pro.
+- New computers and operating-system reinstalls require another sign-in. The ten-device cap is enforced during activation; free unused slots in the Account page. If the online service closes, already-activated computers remain Pro offline but no new activation is possible.
+- Already-issued portable certificates continue working and migrate to bound certificates at the next sign-in on the computer; owner/counsel must confirm the notice and grandfathering commitments.
 
-## Development-only Pro preview
+## Security and feature gating
 
-From the **source checkout only**, set both environment variables before launching:
+- `backend/entitlements.py` is the desktop feature gate and must enforce the **cryptographic account/computer binding**, not simply account metadata or UI state.
+- Native packages must not honor development-only Pro preview toggles. Test anonymous Free, Pro, forged/tampered/mismatched signed licenses, ten-slot race conditions, offline persistence, and reinstall/new computer behavior on macOS, Windows and Linux.
+- Keep the signed voice-consent requirements for recognizable real-person voices. No automatic cloud upload of locally created voice files or scripts.
+- Device hashes are account-linked identifiers. Retain only for documented activation administration and subject them to privacy export, deletion, security and backup reviews.
 
-```sh
-HUMPERDINCK_ENABLE_DEV_ENTITLEMENTS=1 HUMPERDINCK_DEV_PRO=1 bash start.sh
-```
+## Implementation boundaries
 
-For Windows CMD:
+**Claude Code owns** `src/pro-license.js`, desktop license validation, migrations and activation/device registration integration. Old source/fixtures that call certificates `portable-offline-backup`, promise arbitrary restoration after the service shuts down or permit cross-device certificate imports must be replaced or explicitly grandfathered. See [PRO_LIFETIME_LICENSING.md](PRO_LIFETIME_LICENSING.md).
 
-```cmd
-set HUMPERDINCK_ENABLE_DEV_ENTITLEMENTS=1
-set HUMPERDINCK_DEV_PRO=1
-start.cmd
-```
-
-The preview is automatically disabled in native desktop packages (`HUMPERDINCK_NATIVE_PACKAGE=1`). The temporary flags **are not proof of purchase**. Do not sell access or claim this foundation is a secure licensing system.
-
-## Before commercial launch
-
-1. COMPLETED IN CODE: signed exportable and restorable Ed25519 perpetual offline licenses; verify tamper rejection and restoration again on each native packaged operating system. Versioned key backup/rotation still needs real disaster recovery tests.
-2. Establish trusted, signed curated-voice manifests and signed updates. Existing `names.json`, checksums and delivery-history metadata are all locally editable, and thus cannot enforce commercial restrictions against tampering.
-3. COMPLETED IN CODE / DEPLOYED ACCOUNT ROUTES: optional Google sign-in, account dashboard, online ten-device registration and self-service deactivation; run fresh-install, 8/10/11-slot, reuse, race, logout and permanent-offline restoration acceptance tests.
-4. TEST-ONLY: Lemon Squeezy sandbox webhook signature checks and isolated transaction ledger exist, but require test credentials. Live paid-order verification, production entitlement issuance, receipts, refund/chargeback handling and product eligibility are NOT complete.
-5. Test Free, Pro, and offline shutdown restoration in Windows, macOS and Linux release packages.
-
-The repository DOES implement accounts and license activation, plus a DISABLED-BY-DEFAULT test-only checkout route. It does NOT implement approved production checkout or payment-to-license issuance. Do not describe these separate statuses as equivalent.
+**Do not treat a documentation update as licensing-code acceptance.** The live Stripe checkout/payment-to-entitlement path and account deletion/payment review are separate. Complete implementation, regression and backward-compatibility validation before describing bound activation as deployed.
