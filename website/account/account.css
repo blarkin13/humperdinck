@@ -169,6 +169,7 @@
 
 /* Sandbox (test-mode) checkout */
 .account-test-checkout{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:18px}
+.account-test-checkout[hidden]{display:none}
 .account-test-checkout .account-fine-print{margin:0;flex:1 1 260px}
 
 /* Owner-only aggregate metrics, responsive to mobile dashboard widths. */

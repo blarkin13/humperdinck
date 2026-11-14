@@ -45,3 +45,6 @@
 
 /account/account-live-20261114.js
   Cache-Control: no-store, max-age=0
+
+/account/account-production-20261114.js
+  Cache-Control: no-store, max-age=0
