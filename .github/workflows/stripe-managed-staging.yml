@@ -16,8 +16,10 @@ jobs:
           node --check src/stripe-managed-staging-checkout.js
           node --check src/stripe-managed-staging-webhook.js
           node --check tests/stripe-managed-staging.test.mjs
+          node --check src/stripe-managed-live-prelaunch.js
+          node --check tests/stripe-managed-live-prelaunch.test.mjs
       - name: Run Stripe and release-gate tests
-        run: node --test tests/stripe-managed-staging.test.mjs tests/live-commerce-release-gate.test.mjs
+        run: node --test tests/stripe-managed-staging.test.mjs tests/stripe-managed-live-prelaunch.test.mjs tests/live-commerce-release-gate.test.mjs
       - name: Verify isolated Stripe ledger migration
         run: |
           python3 - <<'PY'
@@ -28,5 +30,8 @@ jobs:
           db.executescript(pathlib.Path('migrations/0012_stripe_managed_staging.sql').read_text())
           tables={row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
           assert {'commerce_stripe_intents','commerce_stripe_orders','commerce_stripe_webhook_events'} <= tables
-          print('PASS: isolated Stripe migration compiles')
+          db.executescript(pathlib.Path('migrations/0013_stripe_managed_live_ledger.sql').read_text())
+          tables={row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          assert {'commerce_stripe_live_intents','commerce_stripe_live_orders','commerce_stripe_live_events'} <= tables
+          print('PASS: isolated Stripe test and live migrations compile')
           PY
