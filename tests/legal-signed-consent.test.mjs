@@ -42,5 +42,5 @@ test('published prelaunch privacy and refund notices reflect account deletion an
  assert.match(privacy,/(?:necessary|minimum) purchase, refund, dispute and tax records may still be retained/i);
  assert.match(refund,/Stripe Managed Payments/);
  assert.doesNotMatch(refund,/Certain commercial, account and community features/);
- assert.match(terms,/no live checkout is approved or enabled/);
+ assert.match(terms,/Pro checkout uses Stripe Managed Payments/);
 });
