@@ -29,13 +29,14 @@ jobs:
           node --check website/account/account-production-20261114.js
           node --check tests/stripe-live-account-release.test.mjs
           node --check tests/account-live-footnote.test.mjs
+          node --check tests/account-purchase-layout.test.mjs
           node --check tests/account-production-no-test-checkout.test.mjs
           node --check website/account/account.js
           node --check tests/account-stripe-sandbox-inline.test.mjs
           node --check website/account/account-stripe-20261114.js
           node --check tests/account-stripe-fresh-asset.test.mjs
       - name: Run Stripe and release-gate tests
-        run: node --test tests/stripe-managed-staging.test.mjs tests/stripe-managed-live-prelaunch.test.mjs tests/stripe-managed-reversals.test.mjs tests/pro-license-repurchase-migration.test.mjs tests/stripe-managed-sandbox-routes.test.mjs tests/stripe-live-unrouted.test.mjs tests/stripe-live-account-release.test.mjs tests/account-live-footnote.test.mjs tests/account-production-no-test-checkout.test.mjs tests/account-stripe-sandbox-inline.test.mjs tests/account-stripe-fresh-asset.test.mjs tests/live-commerce-release-gate.test.mjs
+        run: node --test tests/stripe-managed-staging.test.mjs tests/stripe-managed-live-prelaunch.test.mjs tests/stripe-managed-reversals.test.mjs tests/pro-license-repurchase-migration.test.mjs tests/stripe-managed-sandbox-routes.test.mjs tests/stripe-live-unrouted.test.mjs tests/stripe-live-account-release.test.mjs tests/account-live-footnote.test.mjs tests/account-purchase-layout.test.mjs tests/account-production-no-test-checkout.test.mjs tests/account-stripe-sandbox-inline.test.mjs tests/account-stripe-fresh-asset.test.mjs tests/live-commerce-release-gate.test.mjs
       - name: Verify isolated Stripe ledger migration
         run: |
           python3 - <<'PY'

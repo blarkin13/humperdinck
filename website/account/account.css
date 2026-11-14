@@ -74,7 +74,22 @@
 .purchase-facts div{display:flex;justify-content:space-between;align-items:baseline;gap:22px}
 .purchase-facts dt{font-size:11px;color:#888}
 .purchase-facts dd{font-size:12px;color:#dedede;margin:0;text-align:right;overflow-wrap:anywhere;max-width:60%}
-#purchase-reference{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+#purchase-reference{display:block;max-width:100%;overflow-wrap:anywhere;word-break:break-word;text-align:left;font:500 11px/1.5 'DM Sans',sans-serif}
+.purchase-history{min-width:0;margin-top:20px;border-top:1px solid #333;padding-top:12px}
+.purchase-history[hidden],.purchase-offer[hidden],.account-section-footnote[hidden]{display:none!important}
+.purchase-history>summary{cursor:pointer;color:#b4b4b4;font-size:12px;font-weight:600;padding:4px 0;list-style-position:inside}
+.purchase-history>summary:hover{color:#fff}
+.purchase-history>summary:focus-visible{outline:2px solid #fff;outline-offset:4px}
+.purchase-history-facts{margin-top:14px}
+.purchase-history-facts div{display:grid;grid-template-columns:minmax(120px,38%) minmax(0,1fr);align-items:start;gap:14px}
+.purchase-history-facts dd{max-width:100%;text-align:left;min-width:0}
+.purchase-offer{margin-top:22px;border:1px solid #414141;background:linear-gradient(120deg,#1b1b1b,#101010);border-radius:10px;padding:clamp(18px,2.5vw,26px);display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:22px}
+.purchase-offer-copy{display:grid;gap:5px;min-width:0;flex:1 1 240px}
+.purchase-offer-copy>strong{font:600 clamp(20px,2.3vw,27px)/1.2 'Space Grotesk',sans-serif;letter-spacing:-.04em;color:#fafafa}
+.purchase-offer-copy>p{margin:2px 0 0;color:#aaa;font-size:12px;line-height:1.6}
+.purchase-offer .account-action{flex-shrink:0}
+@media(max-width:520px){.purchase-offer .account-action{width:100%;justify-content:center}.purchase-history-facts div{grid-template-columns:1fr;gap:2px}}
+
 .account-detail-card>h3#account-display-name{margin:16px 0 5px}
 .account-detail-facts{display:grid;gap:18px}
 .account-detail-facts>div{display:grid;gap:8px}

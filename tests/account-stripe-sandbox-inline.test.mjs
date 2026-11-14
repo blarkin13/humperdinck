@@ -11,7 +11,7 @@ test('account purchase card uses only account-authenticated Stripe test API',()=
  assert.doesNotMatch(source,/\.lemonsqueezy\.com/);
  assert.match(source,/if\(!response\.ok\)return;[\s\S]*?if\(status\.mode!=='test'\)return;/);
  assert.doesNotMatch(markup,/test-checkout-box|Test \$49 Pro checkout with Stripe/);
- assert.match(markup,/Buy Humperdinck Pro — \$49/);
+ assert.match(markup,/Buy Pro — \$49/);
 });
 test('Stripe redirects in current tab, no popup; no checkout body is sent',()=>{
  const start=source.indexOf('async function startTestCheckout()');

@@ -9,6 +9,6 @@ test('purchase footnote is populated after normal purchase renderer',()=>{
  assert.ok(refresh.indexOf('renderLiveCheckout(account)')>refresh.indexOf('renderPurchase(account,license)'));
 });
 test('refunded test provider is explicitly labeled as historical test',()=>{
- assert.match(js,/purchase\.provider==='stripe-managed-test'\?'Stripe \(refunded test purchase\)'/);
- assert.match(js,/q\('purchase-reference'\)\.title=purchase\.reference/);
+ assert.match(js,/purchase\.provider==='stripe-managed-test'\?'Stripe \(test purchase\)'/);
+ assert.match(js,/reference\.title=purchase\.reference/);
 });

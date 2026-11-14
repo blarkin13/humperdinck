@@ -10,7 +10,7 @@ test('buy action displays only when server returns enabled live checkout',()=>{
  assert.match(js,/account.purchase\?\.checkout_available===true/);
  assert.match(js,/q\('live-checkout-box'\)\.hidden=!ready/);
  assert.match(html,/id="live-checkout-box"[^>]*hidden/);
- assert.match(html,/Buy Humperdinck Pro — \$49/);
+ assert.match(html,/Buy Pro — \$49/);
 });
 test('live checkout POST cannot inject amount or redirect to arbitrary origin',()=>{
  const handler=js.slice(js.indexOf('async function startLiveCheckout()'),js.indexOf('// The Stripe webhook'));

@@ -149,9 +149,15 @@ function renderPurchase(info,license){
   'Your Free studios, built-in voices and exports remain available without signing in or entering payment details.';
  q('purchase-status').textContent=beta?'Temporary beta access':details[purchase.status]||'Not available';
  q('purchase-date').textContent=active?fmt(purchase.issued_at):'—';
- q('purchase-provider').textContent=purchase.provider==='stripe-managed-test'?'Stripe (refunded test purchase)':purchase.provider||'Not connected';
- q('purchase-reference').textContent=purchase.reference||'—';
- q('purchase-reference').title=purchase.reference||'';
+ const historical=purchase.status==='refunded'||purchase.status==='void';
+ const history=q('purchase-history');
+ history.hidden=!purchase.provider&&!purchase.reference;
+ history.querySelector('summary').textContent=historical?'Previous purchase details':'Purchase details';
+ q('purchase-provider').textContent=purchase.provider==='stripe-managed-test'?'Stripe (test purchase)':purchase.provider==='lemonsqueezy-test'?'Lemon Squeezy (test purchase)':purchase.provider||'Not connected';
+ // Never render a long Stripe ID across the Account card; keep full ID selectable.
+ const reference=q('purchase-reference');
+ reference.textContent=purchase.reference||'—';
+ reference.title=purchase.reference||'';
  q('stat-edition').textContent=label;
  q('stat-edition-note').textContent=active?'Permanent Pro access':beta?'Expires '+fmt(license.expires_at):'Your local studio';
  q('purchase-footnote').textContent=active?
@@ -236,7 +242,7 @@ function renderRecovery(info){
 function renderLiveCheckout(account){
  const ready=account.purchase?.checkout_available===true&&account.purchase?.status!=='active';
  q('live-checkout-box').hidden=!ready;
- if(ready)q('purchase-footnote').textContent='Secure $49 one-time Pro checkout is available. Taxes calculated by Stripe. No recurring subscription.';
+ q('purchase-footnote').hidden=ready;
 }
 async function startLiveCheckout(){
  const button=q('live-checkout');button.disabled=true;
