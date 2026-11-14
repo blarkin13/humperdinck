@@ -142,10 +142,10 @@ function renderPurchase(info,license){
  q('purchase-badge').textContent=active?'Lifetime Pro':beta?'Temporary beta Pro':purchase.status==='refunded'?'Refunded':purchase.status==='void'?'Cancelled':'Free edition';
  q('purchase-name').textContent=active?'Humperdinck Pro':beta?'Humperdinck Pro Beta':'Humperdinck Free';
  q('purchase-message').textContent=active?
-  'Your lifetime Pro entitlement is associated with this account. There are no renewals or mandatory online checks for an installed signed license.':
+  'Your Pro purchase belongs to this account. Sign in to activate each computer; once activated, it works offline without periodic checks. New computers and OS reinstalls require reactivation.':
   beta?'Your temporary beta Pro access expires '+fmt(license.expires_at)+'. It is not a purchase or a lifetime license; connect your desktop account and activate Pro to start testing.':
   purchase.status==='refunded'||purchase.status==='void'?
-  'No active Pro entitlement is associated with this account. Previously exported offline licenses cannot be remotely revoked.':
+  'No active Pro entitlement is associated with this account. Older issued offline licenses and already-activated computers may continue working under their existing terms.':
   'Your Free studios, built-in voices and exports remain available without signing in or entering payment details.';
  q('purchase-status').textContent=beta?'Temporary beta access':details[purchase.status]||'Not available';
  q('purchase-date').textContent=active?fmt(purchase.issued_at):'—';
@@ -174,9 +174,9 @@ function renderPurchase(info,license){
   const name=item.label||'Humperdinck installation';
   list.append(deviceRow(name,(item.active?'Active':'Deactivated')+' · Registered '+fmt(item.activated_at),
    item.active?'Deactivate':null,async()=>{
-    if(!confirm('Deactivate this online Pro slot? An offline license already exported to this computer remains valid.'))return;
+    if(!confirm('Release this computer\'s activation slot? Already-activated Pro may continue working while offline; it may need to sign in again to reactivate.'))return;
     await request('/license/devices/'+encodeURIComponent(item.id)+'/deactivate',{method:'POST'});
-    notice('Online Pro slot released. Offline license files are unaffected.');
+    notice('Activation slot released. This computer may require sign-in again to activate Pro.');
     await refresh();
    }));
  }
@@ -184,12 +184,12 @@ function renderPurchase(info,license){
  q('download-license').hidden=!canDownload;
  q('license-title').textContent=active?'Your signed lifetime Pro license':beta?'Your temporary Pro trial':'Your Free edition needs no license';
  q('license-description').textContent=active?
-  'Export your permanent Pro license as a signed JSON backup. You can restore it from the desktop app without an internet connection.':
+  'Your signed Pro license is bound to this account and computer. It works offline here after activation, but a copied file cannot activate another computer. Reinstalling your OS requires signing in again.':
   beta?'Sign in from your desktop app and choose Activate Pro. Temporary beta certificates are bound to that installation, expire automatically, and cannot be backed up as lifetime licenses.':
   'All Free features work without a license file or an internet connection.';
- q('license-missing').textContent=active&&!canDownload?'License download is temporarily unavailable. Your installed offline backup remains valid.':beta?
+ q('license-missing').textContent=active&&!canDownload?'License download is temporarily unavailable. An already-activated computer can continue working offline.':beta?
   'Beta Pro is temporary; export of a permanent offline license is unavailable.':
-  'Pro license downloads become available after a verified purchase.';
+  'Pro activation is available after a verified purchase and sign-in on this computer.';
  q('license-missing').hidden=canDownload;
 }
 function renderConnections(info){
@@ -203,7 +203,7 @@ function renderConnections(info){
  for(const item of connected){
   list.append(deviceRow(item.label||'Humperdinck desktop','Connected '+fmt(item.connected_at)+' · Expires '+fmt(item.expires_at),
    'Sign out',async()=>{
-    if(!confirm('Sign this computer out of its online account? Saved offline Pro licenses and local projects will stay on it.'))return;
+    if(!confirm('Sign this computer out of its online account? Projects remain local. The activated license can continue working offline on this computer, but will not activate another computer.'))return;
     await request('/dashboard/connections/'+encodeURIComponent(item.id)+'/revoke',{method:'POST'});
     notice('Desktop session signed out remotely.');
     await refresh();
@@ -358,7 +358,7 @@ async function load(){
    return;
   }
   accountMessage('Sign in','Your Humperdinck account',
-   'Access your purchases, connected computers, license backups and recovery settings.');
+   'Access purchases, activated computers, license details and account recovery settings.');
   const configured=Object.values(state.config.providers||{}).some(Boolean);
   q('providers').hidden=!configured;
   q('age-attestation').hidden=!configured;
@@ -415,7 +415,7 @@ q('approve').addEventListener('click',async()=>{
  }catch(error){q('pair-result').textContent=error.message;button.disabled=false}
 });
 q('disconnect-all').addEventListener('click',async()=>{
- if(!confirm('Sign out every desktop session connected to this account? Offline Pro licenses and local files will continue to work.'))return;
+ if(!confirm('Sign out every desktop session connected to this account? Activated computers may continue working offline, while projects and local files remain untouched.'))return;
  const button=q('disconnect-all');button.disabled=true;
  try{
   const result=await request('/dashboard/connections/revoke-all',{method:'POST'});
@@ -489,7 +489,7 @@ q('download-license').addEventListener('click',async()=>{
  try{
   const backup=await request('/license/backup');
   downloadJson('humperdinck-pro-license.json',{format:backup.format,license:backup.license});
-  notice('Permanent offline license backup downloaded. Store it securely.');
+  notice('License file saved. It does not activate a different computer or account.');
  }catch(error){notice(error.message,true)}finally{button.disabled=false}
 });
 q('generate-recovery').addEventListener('click',async()=>{

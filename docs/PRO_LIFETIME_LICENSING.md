@@ -1,70 +1,46 @@
-# Humperdinck Pro: permanent offline licensing and device registration
+# Humperdinck Pro — account- and computer-bound lifetime licensing
 
-**Status (November 2026):** Architecture and account/device features implemented. **Not commercially live.** No payment processor, checkout, verified order webhook, or public license issuance exists. A Google account alone does **not** unlock Pro. Customer voice generation and Free app features remain local.
+**Owner decision (November 14, 2026):** Replace portable offline Pro licenses with signed licenses bound to the purchasing Humperdinck account and an activated computer. **Implementation is being built by Claude Code; this document states the target contract, not verified deployed behavior.** Never mark the migration complete until the Worker, desktop verifier, schema, and Windows/macOS/Linux acceptance tests pass.
 
-## What is implemented
+## Customer contract
 
-- Ed25519 asymmetric **perpetual owner certificate** issued by the Worker for a verified `pro_licenses` row.
-- Signing private key is stored only as the **Cloudflare Worker secret** `PRO_LICENSE_ED25519_PRIVATE`; the matching pinned public key is embedded in `backend/pro_license.py`. Never place the private key in GitHub, desktop bundles or browser scripts.
-- `migrations/0002_pro_licenses.sql`: one currently active owner license per account; purchase metadata and an online installation register.
-- Account website: plan, active device count, up to **10 concurrent online registrations**, deactivation and portable backup export.
-- Desktop application: random installation ID (no serial/fingerprint/hostname), activation on sign-in for a purchased account, automatic signed-entitlement detection, persistent local Pro access after sign-out or network outages, import/export of `humperdinck-pro-license.json`.
-- Existing feature policy in `backend/entitlements.py` automatically reads the signed license. Free studios and built-in Qwen voices continue to work anonymously.
-- Tests verify signature integrity, offline restoration, device cap, local-import rejection of altered certificates and account authorization.
+- A $49 one-time Pro purchase belongs to the customer's account, with **up to ten activated computers**. There is no recurring software-license fee or periodic online entitlement check.
+- First activation on each computer requires signing into that account. The desktop derives a **salted hash** from the macOS hardware UUID, Windows `MachineGuid`, or Linux `/etc/machine-id`; **the raw ID is never sent**. The bound signed license identifies its account and hashed computer identity.
+- Once activated, that computer can use all licensed Pro features **fully offline**, without recurring sign-in or check-ins.
+- The same license copied onto a second computer, or presented while signed into a different account, grants **Free**, not Pro.
+- A new computer or operating-system reinstall requires a new sign-in and activation. A ten-device cap applies; customers release slots from the Account page.
+- If the service closes, existing activated computers can keep using Pro offline. New or reinstalled computers cannot activate once sign-in/activation services are unavailable.
+- **Grandfathering:** Previously issued licenses keep working as issued. The next sign-in on their computer replaces them with a bound license. A customer-facing transition/notice and legal review are required; do not revoke legacy certificates retrospectively. Existing temporary beta entitlements keep their original expiration and do not become purchased lifetime Pro merely through reactivation.
 
-## Key concept: offline ownership versus device enforcement
+## Security and privacy architecture — Claude Code ownership
 
-**Portable lifetime ownership wins.** The signed owner certificate has no expiry date and is **not bound to a computer**. It can be saved and restored even if Humperdinck stops operating. Pro uses only the embedded public key and local files to verify it. Losing connectivity or signing out never removes features already permanently licensed.
+- Keep Ed25519 private signing keys only in Cloudflare Worker secrets and securely retained signing-key backups; embed the corresponding public key for offline verification in the desktop client. Preserve verification of previously issued certificates and public keys during rotation.
+- Bind signed payloads cryptographically to the authorized account and hashed computer ID. Compare the locally recomputed hash with the signed binding on every local Pro entitlement check. A mismatched account or machine falls back to Free. Avoid trust in only a UI check.
+- Derive/send **only** the salted computer-ID hash, not raw hardware UUID, `MachineGuid`, `machine-id`, serial, MAC address or unredacted identifiers. Salt format, normalization, Windows/Linux identifiers, OS reinstall behavior, and privacy implications require implementation tests.
+- The server stores the account linkage, salted identifier hash, activation status and minimum necessary timestamps. The hash is a persistent device identifier and needs restricted access and an approved retention/deletion lifecycle, including slot release, account deletion, backups and lawful holds.
+- Enforce ten active registrations transactionally, including simultaneous requests, reclaiming the same computer, slot release and reactivation. Online deactivation does **not** magically revoke previously saved offline functionality; align the UI disclosure with actual behavior.
+- Keep account authentication mandatory for issuance and computer reactivation, but never require online checks for continued offline use on the already-activated computer.
+- Existing shipped v1 portable certificates need a verified backward-compatible migration path on the next sign-in and tests proving no involuntary loss of old working licenses.
 
-The ten-device cap is checked **when registering or reactivating an installation online**. The website lists active devices and allows deactivation. Deactivating a device releases its cloud slot but **does not remotely disable a previously exported offline license**. A user who shares their portable backup could use it on more than ten offline installations. With an unrestricted portable backup and no mandatory connectivity, **perfect ten-device enforcement is technically impossible**. Do not promise customers both guaranteed offline ownership and unbreakable global ten-device enforcement.
+## API and desktop migration checklist (implementation owner: Claude Code)
 
-## Server APIs (account auth required)
+The old source `src/pro-license.js` still contains `transfer:'portable-offline-backup'`, unrestricted `/api/account/license/backup`, and random-installation-ID registration. **Those are not the new contract.** Claude Code must update that source, desktop `backend/pro_license.py`, `backend/entitlements.py`, desktop activation/restore UX, server APIs, D1 migrations and tests together.
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/api/account/license` | User plan, active count, registered devices (no certificate). |
-| GET | `/api/account/license/backup` | Portable signed Pro certificate for a verified owner. |
-| POST | `/api/account/license/activate` | Desktop bearer session, random installation ID + generic label; atomically checks 10-slot cap and returns signed certificate. |
-| POST | `/api/account/license/devices/:id/deactivate` | Owner browser (same-origin POST) or connected desktop bearer; releases online slot. |
+Required acceptance:
 
-There is deliberately **no client-facing purchase, upgrade, grant creation, renewal or admin issue endpoint**. The Worker reads `pro_licenses` only; normal authenticated customers cannot create grants.
+1. Sign-in and payment/entitlement checks precede first activation. A forged payment, other account or reused license cannot grant Pro.
+2. Verify correct account + correct computer fully offline after activation. Check no periodic network check-in.
+3. Copy the signed file to another computer; verify Free. Present it under another account; verify Free.
+4. Test tenth and eleventh computer, concurrent activation races, releasing a device, reclaiming the same machine and replacing/reinstalling OSes on all three platforms.
+5. Validate no raw computer ID leaves the desktop in HTTP payloads, logs, diagnostics, support exports or error reporting. Check salted-hash stability and compromise implications.
+6. Test legacy certificates offline before sign-in; after sign-in confirm bound replacement without destroying the former customer's effective access.
+7. With account/activation service unavailable, verify previously activated machines remain Pro offline and new machines cannot activate.
+8. Confirm deletion/revocation notices, retained merchant data, privacy export, account device management, refund/dispute behavior and backups match the binding design.
 
-## Local desktop APIs
+## Pricing and policy boundaries
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/api/license` | Local offline certificate status. |
-| POST | `/api/license/activate` | Activate an already purchased Pro license through the current connected account. |
-| GET | `/api/license/export` | Export verified portable backup JSON. |
-| POST | `/api/license/import` | Import a portable JSON certificate (Ed25519 verification required). |
-| GET | `/api/entitlements` | Automatically report `Free` or real signed `Pro` capabilities. |
+Free local use does not require a sign-in. Pro is a one-time lifetime **account-and-computer-bound** license for ten activations, not a transferable/offline-restorable license for arbitrary new computers. A lifetime purchase includes Pro software updates subject to published platform compatibility limits, not an indefinite promise that Humperdinck's online activation service will remain running.
 
-The local data directory stores `installation.json` and `pro-license.json`. They are user-scoped, private when supported, and do not contain original voice recordings. The token-like certificate is not a server session credential, but sharing it conveys offline Pro access; customers should store it securely.
+Published Terms, Privacy, Software License, Refund Policy and legal review packet must disclose these constraints. The voluntary refund policy remains unchanged; statutory remedies and pre-existing customer/beta promises require counsel review.
 
-## Before receiving real customer payments
-
-1. Select Stripe/Paddle/Lemon Squeezy or another provider; design one-time lifetime ownership rather than renewal-based entitlement.
-2. Add a separately authenticated **verified payment webhook** that issues `pro_licenses` records transactionally using provider order IDs (unique `purchase_ref`) and prevents duplicate or fraudulent license issuance. Purchase claims from browsers must never grant Pro.
-3. Complete refund/chargeback handling and confirm the offline license policy transparently: a backup already exported cannot be revoked.
-4. Implement owner account recovery/export/deletion, including license persistence. Do not accidentally destroy a lifetime purchase through routine account deletion.
-5. Make a **secure disaster-recovery backup of the signing private key prior to first sale**. The key currently lives in Cloudflare's secret store; Cloudflare deliberately cannot show secret values again. If a backup cannot be established, rotate to a securely backed-up signing key and update the public key before issuing the **first** customer grant. Once grants exist, old public keys must be retained across rotations.
-6. Test actual end-to-end checkout, Google login, 10-device transfer, offline restore, reinstall, signed packaged desktop builds on macOS/Windows/Linux. Finish applicable legal policies and disclosure of offline-device enforcement limits.
-7. Do not label Pro as purchased until a real record exists in D1. Accounts alone are Free.
-
-## Operations
-
-The existing Worker is `humperdinck`, attached to D1 `humperdinck-accounts`. Migration `0002_pro_licenses.sql` must be applied to the remote D1 database **before** deploying code that reads `pro_licenses`. `PRO_LICENSE_ED25519_PRIVATE` is a Worker runtime secret, not a Cloudflare build environment variable.
-
-To confirm that setup safely:
-
-```bash
-npx wrangler d1 execute humperdinck-accounts --remote --command "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'pro_%';"
-```
-
-Run tests from the project root:
-
-```bash
-node --test tests/account-auth.test.mjs tests/pro-license.test.mjs
-python -m pytest -q tests/test_pro_license.py tests/test_account_client.py tests/test_api.py
-npm run build --prefix frontend
-```
+**Status:** Contract documented; implementation/rollout, actual privacy data handling, backward compatibility and cross-platform tests remain Claude Code acceptance work. Do not treat this file as proof that the new licensing protocol has shipped.

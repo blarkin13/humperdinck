@@ -131,8 +131,8 @@ def check_page(slug):
     if not parser.schemas:
         issues.append("missing structured data")
     if not slug:
-        # Only the publicly downloadable Free edition is available now.
-        # A planned paid upgrade must not be marked up as a live offer.
+        # Keep the structured SoftwareApplication Offer scoped to the
+        # publicly downloadable Free edition; paid Pro uses account checkout.
         schema_nodes = []
         for schema in parser.schemas:
             if isinstance(schema, list):
@@ -175,8 +175,8 @@ def check_page(slug):
                     issues.append(f"Free pricing card missing confirmed feature: {phrase}")
             if "$0" not in free:
                 issues.append("Free pricing card missing $0")
-            if "$49" not in pro or "coming soon" not in section:
-                issues.append("Pro card must show planned $49 and coming-soon status")
+            if "$49" not in pro or "pro available" not in section:
+                issues.append("Pro card must show active $49 one-time availability")
             if "export finished audio" in pro:
                 issues.append("ordinary audio exports must not be presented as Pro-only")
             for forbidden in ("qwen", "kokoro", "microphone recording"):

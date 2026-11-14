@@ -32,7 +32,7 @@ test('account export never writes private data to browser storage',()=>{
 
 test('deletion review UI discloses online Pro forfeiture and requires separate acknowledgment',()=>{
  assert.match(html,/online Pro access/);
- assert.match(html,/offline licenses may still work/);
+ assert.match(html,/Already-activated computers|previously issued portable certificates|previously activated computers/i);
  assert.match(js,/deletionConsentDialog\('review'\)/);
  assert.match(js,/forfeitureAcknowledgment:'I UNDERSTAND ACCOUNT DELETION MAY FORFEIT PRO'/);
  assert.match(js,/offlineCertificateAcknowledged:true/);
