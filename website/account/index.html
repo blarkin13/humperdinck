@@ -116,13 +116,21 @@
           <dl class="purchase-facts">
             <div><dt>Purchase status</dt><dd id="purchase-status">No purchase on file</dd></div>
             <div><dt>Purchase date</dt><dd id="purchase-date">—</dd></div>
-            <div><dt>Payment provider</dt><dd id="purchase-provider">Not configured</dd></div>
-            <div><dt>Order reference</dt><dd id="purchase-reference">—</dd></div>
           </dl>
+          <details id="purchase-history" class="purchase-history" hidden>
+            <summary>Previous purchase details</summary>
+            <dl class="purchase-facts purchase-history-facts">
+              <div><dt>Payment provider</dt><dd id="purchase-provider">—</dd></div>
+              <div><dt>Order reference</dt><dd id="purchase-reference">—</dd></div>
+            </dl>
+          </details>
         </div>
         <div class="account-detail-card"><span class="account-card-label">YOUR ACCOUNT</span><h3 id="account-display-name">Humperdinck user</h3><p id="account-display-email">Signed in securely</p><div class="account-card-divider"></div><div class="account-detail-facts"><div><span>Account ID</span><code id="account-id-value">—</code></div><div><span>Sign-in methods</span><strong id="linked-providers">Google</strong></div></div><p class="account-fine-print">Keep your account ID in your recovery kit. It is not a password or proof of ownership by itself.</p></div>
       </div>
-      <div id="live-checkout-box" class="account-test-checkout" hidden><button id="live-checkout" type="button" class="account-action account-action-solid"><i class="fa-solid fa-credit-card" aria-hidden="true"></i>Buy Humperdinck Pro — $49</button><p class="account-fine-print">One-time lifetime purchase, up to 10 devices. Secure checkout by Stripe Managed Payments. Taxes calculated at checkout.</p></div>
+      <div id="live-checkout-box" class="purchase-offer" hidden>
+        <div class="purchase-offer-copy"><span class="account-card-label">UPGRADE TO PRO</span><strong>Lifetime Pro. One payment.</strong><p>10 device activations · $49 USD · Taxes calculated at checkout</p></div>
+        <button id="live-checkout" type="button" class="account-action account-action-solid"><i class="fa-solid fa-credit-card" aria-hidden="true"></i>Buy Pro — $49</button>
+      </div>
 
       <p id="purchase-footnote" class="account-section-footnote">Sign in to purchase Humperdinck Pro for $49, one time. Applicable tax is calculated at checkout.</p>
     </section>
