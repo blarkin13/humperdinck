@@ -168,7 +168,9 @@ test('explicitly allowlisted disposable test account can receive one labeled non
  assert.equal(result.decision,'settled-test-grant');
  assert.equal(result.granted,true);
  const license=database.prepare('SELECT provider,max_devices,purchase_ref FROM pro_licenses').get();
- assert.deepEqual(license,{provider:'stripe-managed-test',max_devices:10,purchase_ref:'stripe-test:cs_test_valid123'});
+ assert.equal(license.provider,'stripe-managed-test');
+ assert.equal(license.max_devices,10);
+ assert.equal(license.purchase_ref,'stripe-test:cs_test_valid123');
  const again=await settleStripeTestPayment({...settings,AUTH_DB:D1,STRIPE_TEST_GRANTS_ENABLED:'true',
   STRIPE_TEST_GRANT_EMAILS:'test@example.com'},verified,{clock:now});
  assert.equal(again.decision,'already-recorded');
