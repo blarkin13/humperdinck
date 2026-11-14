@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 <link rel="stylesheet" href="/footer-unified.css?v=20261108">
-<link rel="stylesheet" href="/account/account.css?v=20261113-deletion-dialog">
+<link rel="stylesheet" href="/account/account.css?v=20261114-device-scroll">
 <script src="/account/account-production-20261114.js" defer></script>
 </head>
 <body>
@@ -138,8 +138,8 @@
     <section id="computers" class="dashboard-section">
       <div class="dashboard-section-title"><div><span class="account-kicker">02 / DEVICES</span><h2>Your computers<span>.</span></h2><p>Manage online account access and Pro slots separately.</p></div></div>
       <div class="dashboard-two-column">
-        <div class="account-detail-card"><div class="account-card-heading"><h3><i class="fa-solid fa-laptop" aria-hidden="true"></i>Connected desktops</h3><span id="connected-count" class="account-counter">0 connected</span></div><p>Computers signed in to your Humperdinck account. Signing one out revokes its online access.</p><div id="connected-list" class="account-device-list"></div><p id="legacy-notice" class="account-fine-print" hidden></p><button id="disconnect-all" type="button" class="account-action account-action-outline" hidden><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Sign out all desktops</button></div>
-        <div class="account-detail-card"><div class="account-card-heading"><h3><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Pro activations</h3><span id="pro-count" class="account-counter">0 / 10</span></div><p>One-time lifetime Pro includes up to ten account-bound computer activations. Each computer needs a sign-in for activation; release unused slots here.</p><div id="pro-list" class="account-device-list"></div><p class="account-fine-print">A released slot can be used to activate another computer. Already-activated computers work offline without periodic checks; a released computer may require reactivation when it next signs in. Previously issued portable certificates retain their existing behavior until migration.</p></div>
+        <div class="account-detail-card"><div class="account-card-heading"><h3><i class="fa-solid fa-laptop" aria-hidden="true"></i>Connected desktops</h3><span id="connected-count" class="account-counter">0 connected</span></div><p>Computers signed in to your Humperdinck account. Signing one out revokes its online access.</p><div id="connected-list" class="account-device-list" tabindex="0" role="region" aria-label="Connected desktops"></div><p id="legacy-notice" class="account-fine-print" hidden></p><button id="disconnect-all" type="button" class="account-action account-action-outline" hidden><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Sign out all desktops</button></div>
+        <div class="account-detail-card"><div class="account-card-heading"><h3><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Pro activations</h3><span id="pro-count" class="account-counter">0 / 10</span></div><p>One-time lifetime Pro includes up to ten account-bound computer activations. Each computer needs a sign-in for activation; release unused slots here.</p><div id="pro-list" class="account-device-list" tabindex="0" role="region" aria-label="Pro activations"></div><p class="account-fine-print">A released slot can be used to activate another computer. Already-activated computers work offline without periodic checks; a released computer may require reactivation when it next signs in. Previously issued portable certificates retain their existing behavior until migration.</p></div>
       </div>
     </section>
 
