@@ -212,3 +212,7 @@
 .deletion-consent-actions .account-action{min-width:116px;min-height:44px}
 .deletion-consent-actions button:focus-visible{outline:2px solid #fff;outline-offset:3px}
 @media(max-width:440px){.deletion-consent-actions button{flex:1 1 130px}}
+
+/* Long device lists scroll inside their card instead of stretching the page. */
+.account-device-list{max-height:360px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}
+.account-device-list:focus-visible{outline:2px solid currentColor;outline-offset:4px}

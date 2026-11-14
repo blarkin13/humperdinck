@@ -20,6 +20,8 @@ class MockDB {
    async first(){
     if(sql.startsWith('SELECT id,user_id,status,issued_at,max_devices FROM pro_licenses'))
      return db.paid&&args[0]===license.user_id?license:null;
+    if(sql.startsWith('SELECT id FROM pro_devices WHERE license_id=? AND installation_id=? AND deactivated_at IS NULL'))
+     return db.devices.find(x=>x.license_id===args[0]&&x.installation_id===args[1]&&x.deactivated_at===null)||null;
     if(sql.startsWith('SELECT id,deactivated_at FROM pro_devices'))
      return db.devices.find(x=>x.license_id===args[0]&&x.installation_id===args[1])||null;
     throw Error('Unexpected SELECT: '+sql);
@@ -33,6 +35,11 @@ class MockDB {
     if(sql.startsWith('UPDATE pro_devices SET label=')){
      const target=db.devices.find(x=>x.id===args[2]&&x.license_id===args[3]);
      if(target){target.label=args[0];target.last_seen_at=args[1]}
+     return {meta:{changes:target?1:0}};
+    }
+    if(sql.startsWith('UPDATE pro_devices SET deactivated_at=NULL WHERE id=?')){
+     const target=db.devices.find(x=>x.id===args[0]&&x.license_id===args[1]);
+     if(target)target.deactivated_at=null;
      return {meta:{changes:target?1:0}};
     }
     if(sql.startsWith('UPDATE pro_devices SET deactivated_at=NULL')){
@@ -248,4 +255,30 @@ test('malformed private key rejects issuance BEFORE registering a device',async(
  assert.equal((await send('/api/account/license/activate',{method:'POST',bearer:true,
    data:{installation_id:createId(555),label:'Wrong key'}},env,desktop)).status,503);
  assert.equal(env.AUTH_DB.devices.length,0);
+});
+
+test('moving to the per-computer slot releases the old installation slot, even when all ten are used',async()=>{
+ const {env}=await setup();
+ for(let i=1;i<=10;i++)
+   assert.equal((await send('/api/account/license/activate',{method:'POST',bearer:true,
+     data:{installation_id:createId(i),label:'PC '+i}},env,desktop)).status,200);
+ const moved=await activate(env,{installation_id:createId(900),replaces_installation_id:createId(1)});
+ assert.equal(moved.status,200);
+ const view=await (await send('/api/account/license',{},env)).json();
+ assert.equal(view.active_devices,10);
+ assert.equal(view.devices.find(d=>d.label==='PC 1').active,false);
+ // Signing in again on the same computer reuses its slot.
+ assert.equal((await activate(env,{installation_id:createId(900),replaces_installation_id:createId(1)})).status,200);
+ assert.equal((await (await send('/api/account/license',{},env)).json()).active_devices,10);
+});
+
+test('a refused move keeps the old slot active',async()=>{
+ const {env}=await setup();
+ for(let i=1;i<=10;i++)
+   await send('/api/account/license/activate',{method:'POST',bearer:true,
+     data:{installation_id:createId(i),label:'PC '+i}},env,desktop);
+ // The named old slot belongs to nothing on this license: nothing is freed, so the limit applies.
+ assert.equal((await activate(env,{installation_id:createId(901),replaces_installation_id:createId(77)})).status,409);
+ assert.equal((await (await send('/api/account/license',{},env)).json()).active_devices,10);
+ assert.equal((await activate(env,{replaces_installation_id:'nope'})).status,400);
 });

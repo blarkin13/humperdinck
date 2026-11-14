@@ -230,9 +230,12 @@ def _connected_token(data: Path) -> str:
 
 
 def _activate_with_token(data: Path, token: str) -> dict:
+    # One slot per computer; the slot this installation used before
+    # computer-bound licenses is released in the same request.
     info = {'installation_id': pro_license.device_installation_id(data),
-            'label': pro_license.installation(data)['label'],
-            'device_hash': pro_license.device_hash(data)}
+            'label': pro_license.device_label(data),
+            'device_hash': pro_license.device_hash(data),
+            'replaces_installation_id': pro_license.installation(data)['installation_id']}
     result = _call('license/activate', info, token=token)
     certificate = result.get('license')
     if not isinstance(certificate, str):
