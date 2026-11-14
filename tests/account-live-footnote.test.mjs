@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const js=readFileSync(new URL('../website/account/account-live-20261114.js',import.meta.url),'utf8');
+const js=readFileSync(new URL('../website/account/account-production-20261114.js',import.meta.url),'utf8');
 test('purchase footnote is populated after normal purchase renderer',()=>{
  const start=js.indexOf('async function refresh(){'),end=js.indexOf('async function refreshOwnerAnalytics',start);
  const refresh=js.slice(start,end);
