@@ -1,128 +1,78 @@
-/* Humperdinck legal pages: shared monochrome editorial layout. */
-.legal-shell{min-height:100vh}
-.legal-header{height:92px}
-.legal-topnav{display:flex;align-items:center;gap:clamp(16px,3vw,38px);color:#aaa;font-size:12px}
-.legal-topnav a:hover{color:#fff}
-.legal-main{min-height:65vh;padding:clamp(50px,7vw,105px) clamp(24px,5vw,82px) 90px}
-.legal-intro{border-bottom:1px solid #303030;padding-bottom:clamp(36px,6vw,82px);max-width:1150px}
-.legal-kicker{font-size:11px;letter-spacing:.19em;color:#888;font-weight:700;margin:0 0 28px}
-.legal-intro h1{font-family:'Space Grotesk',sans-serif;font-weight:600;letter-spacing:-.065em;font-size:clamp(48px,7.8vw,112px);line-height:1.02;margin:0 0 26px}
+/* Humperdinck legal pages — compact, readable layout.
+   Keep ancestors of sticky navigation free of scroll/overflow containers. */
+.site-shell.legal-shell{width:100%;max-width:1700px;min-height:100vh;overflow:visible}
+.legal-shell,.legal-shell *{box-sizing:border-box}
+.legal-header{height:92px;min-width:0;width:100%;padding-inline:clamp(20px,3vw,45px);gap:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap}
+.legal-header .brand{flex:0 0 auto;font-size:clamp(21px,1.8vw,27px);white-space:nowrap}
+.legal-header .brand img{width:clamp(46px,4vw,60px);height:clamp(46px,4vw,60px)}
+.legal-header .nav{display:flex;align-items:center;gap:clamp(15px,2vw,26px);margin-left:auto;min-width:0;white-space:nowrap;font-size:13px}
+.legal-header .header-account-link,.legal-header .header-studio-cta{flex:0 0 auto}
+.legal-header .header-studio-cta{display:inline-flex;align-items:center;justify-content:center}
+.legal-header .mobile-cta{display:none}
+.legal-main{width:100%;min-width:0;min-height:65vh;padding:clamp(42px,6vw,80px) clamp(20px,5vw,82px) 90px}
+.legal-intro{max-width:1150px;border-bottom:1px solid #303030;padding-bottom:clamp(28px,4vw,60px)}
+.legal-kicker{font-size:11px;letter-spacing:.19em;color:#aaa;font-weight:700;margin:0 0 22px}
+.legal-intro h1{font-family:'Space Grotesk',sans-serif;font-weight:600;letter-spacing:-.06em;font-size:clamp(42px,6vw,88px);line-height:1.07;margin:0 0 25px;overflow-wrap:anywhere}
 .legal-intro h1 span{color:#6d6d6d}
-.legal-lede{max-width:680px;color:#b9b9b9;font-size:clamp(16px,1.7vw,21px);line-height:1.6;margin:0 0 24px}
-.legal-meta{font-size:11px;color:#777;letter-spacing:.04em}
-.legal-columns{display:grid;grid-template-columns:minmax(170px,240px) minmax(0,800px);column-gap:clamp(25px,6vw,110px);padding-top:60px;align-items:start}
-.legal-sidebar{position:sticky;top:20px}
-.legal-sidebar p{color:#777;font-size:10px;letter-spacing:.17em;margin:0 0 18px}
-.legal-sidebar nav{display:flex;flex-direction:column;align-items:stretch;gap:2px}
-.legal-sidebar a{font-size:13px;color:#999;padding:11px 13px;border-left:2px solid transparent;transition:color .2s,border-color .2s,background .2s}
+.legal-lede{max-width:680px;color:#b9b9b9;font-size:clamp(16px,1.7vw,21px);line-height:1.6;margin:0 0 20px}
+.legal-meta{font-size:12px;color:#888;letter-spacing:.04em}
+.legal-columns{display:flex;align-items:stretch;gap:clamp(26px,4vw,72px);padding-top:45px;min-width:0;width:100%}
+.legal-sidebar{position:sticky;top:20px;align-self:flex-start;flex:0 0 clamp(190px,21%,245px);width:clamp(190px,21%,245px);height:max-content;min-width:0;overflow:visible}
+.legal-sidebar p{font-size:12px;font-weight:700;line-height:1.5;letter-spacing:.13em;color:#bcbcbc;margin:0 0 14px}
+.legal-sidebar nav{display:flex;flex-direction:column;align-items:stretch;gap:2px;overflow:visible;max-height:none}
+.legal-sidebar a{display:block;font-size:16px;line-height:1.35;color:#aaa;padding:11px 14px;border-left:2px solid transparent;transition:color .2s,border-color .2s,background .2s}
 .legal-sidebar a[aria-current=page]{color:#fff;border-left-color:#eee;background:#ffffff0b}
 .legal-sidebar a:hover{color:#fff;background:#ffffff0a}
-.legal-review{border:1px solid #555;background:#171717;color:#bbb;font-size:13px;line-height:1.75;padding:18px 22px;margin-bottom:28px}
+.legal-article{flex:1 1 0;min-width:0;max-width:850px;overflow-wrap:break-word}
+.legal-article a{overflow-wrap:anywhere}
+.legal-review{border:1px solid #555;background:#171717;color:#bbb;font-size:14px;line-height:1.75;padding:18px 22px;margin-bottom:28px}
 .legal-review strong{color:#f0f0f0}
-.legal-section{display:grid;grid-template-columns:40px minmax(0,1fr);gap:20px;border-top:1px solid #282828;padding:35px 0}
-.legal-section-index{color:#777;font:600 12px 'Space Grotesk',sans-serif;padding-top:5px}
-.legal-section h2{font:600 clamp(19px,2.1vw,25px) 'Space Grotesk',sans-serif;letter-spacing:-.025em;margin:0 0 14px}
-.legal-section p{margin:0;line-height:1.85;color:#aeb0b4;font-size:14px;max-width:720px}
+.legal-section{display:grid;grid-template-columns:32px minmax(0,1fr);gap:18px;border-top:1px solid #282828;padding:32px 0;min-width:0}
+.legal-section-index{color:#888;font:600 12px 'Space Grotesk',sans-serif;padding-top:5px}
+.legal-section h2{font:600 clamp(20px,2.1vw,26px) 'Space Grotesk',sans-serif;letter-spacing:-.025em;line-height:1.25;margin:0 0 14px}
+.legal-section p{margin:0;line-height:1.8;color:#bcbec2;font-size:15px;max-width:720px;overflow-wrap:break-word}
 .legal-section p a,.legal-bottom a{text-decoration:underline;text-underline-offset:4px;color:#fff}
-.legal-bottom{border-top:1px solid #282828;padding:26px 0;color:#888;font-size:12px}
-.legal-footer{border-top:1px solid #242424;align-items:center}
-.footer .legal-footer-links{display:flex;flex-wrap:wrap;gap:12px 18px;max-width:770px}
-.footer .legal-footer-links a{font-size:11px;color:#aaa}
-.footer .legal-footer-links a:hover{color:#fff}
-@media(max-width:720px){.legal-topnav{gap:14px}.legal-topnav a{font-size:11px}.legal-header .brand{font-size:21px}.legal-header .brand img{width:44px;height:44px}.legal-main{padding-top:52px;padding-bottom:55px}.legal-columns{display:block;padding-top:30px}.legal-sidebar{position:static;margin-bottom:40px}.legal-sidebar nav{display:flex;flex-direction:row;gap:5px;overflow-x:auto;padding-bottom:8px}.legal-sidebar a{white-space:nowrap;border-left:0;border-bottom:2px solid transparent;padding:9px 12px}.legal-sidebar a[aria-current=page]{border-left:0;border-bottom-color:#eee}.legal-section{grid-template-columns:28px minmax(0,1fr);gap:14px;padding:28px 0}.legal-section p{font-size:13px}.legal-footer{gap:18px}}
-@media(max-width:390px){.legal-topnav a:nth-child(2){display:none}}
-@media(prefers-reduced-motion:reduce){.legal-sidebar a{transition:none}}
-
-/* Conspicuous contractual consent warning, intentionally monochrome. */
-.legal-consent-warning{
-  width:min(100%,1150px);margin:36px 0 0;padding:clamp(23px,3.5vw,37px);
-  border:2px solid #d6d6d6;border-radius:10px;background:#171717;
-  box-shadow:inset 0 0 0 1px #373737;
-}
-.legal-consent-eyebrow{display:block;margin-bottom:14px;color:#e2e2e2;font-size:10px;
-  font-weight:800;letter-spacing:.19em;text-transform:uppercase;line-height:1.6}
-.legal-consent-warning h2{font:600 clamp(23px,3.1vw,35px)/1.22 'Space Grotesk',sans-serif;
-  letter-spacing:-.045em;color:#fff;margin:0 0 17px;max-width:870px}
-.legal-consent-warning p{max-width:960px;color:#c9c9c9;font-size:clamp(13px,1.2vw,15px);
-  line-height:1.82;margin:0}
+.legal-section[id]{scroll-margin-top:110px}
+.legal-section strong{color:#f5f5f5}
+.legal-bottom{border-top:1px solid #282828;padding:26px 0;color:#999;font-size:13px}
+.legal-consent-warning{width:100%;max-width:1150px;margin:36px 0 0;padding:clamp(23px,3.5vw,37px);border:2px solid #d6d6d6;border-radius:10px;background:#171717;box-shadow:inset 0 0 0 1px #373737}
+.legal-consent-eyebrow{display:block;margin-bottom:14px;color:#e2e2e2;font-size:10px;font-weight:800;letter-spacing:.19em;text-transform:uppercase;line-height:1.6}
+.legal-consent-warning h2{font:600 clamp(23px,3.1vw,35px)/1.22 'Space Grotesk',sans-serif;letter-spacing:-.045em;color:#fff;margin:0 0 17px;max-width:870px}
+.legal-consent-warning p{max-width:960px;color:#c9c9c9;font-size:clamp(13px,1.2vw,15px);line-height:1.82;margin:0}
 .legal-consent-warning strong{color:#fff}
 .legal-consent-warning a{color:#fff;text-decoration:underline;text-underline-offset:4px}
-.legal-section[id]{scroll-margin-top:120px}
-.legal-section strong{color:#f5f5f5}
-@media(max-width:720px){.legal-consent-warning{margin-top:24px;padding:23px 19px}
-  .legal-consent-warning h2{font-size:24px}.legal-consent-warning p{font-size:13px}}
-
-
-/* Keep every ancestor of the sticky sidebar non-scrolling. In particular,
-   Safari can treat overflow:clip as a sticky containment boundary. */
-.site-shell.legal-shell{overflow:visible}
-.legal-header{height:92px}
-.legal-columns{align-items:stretch}
-.legal-sidebar{
-  position:sticky;top:16px;align-self:start;
-  display:flex;flex-direction:column;
-  max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);
-  overflow:visible;
-}
-.legal-sidebar p{flex:none;margin:0 0 12px;font-size:12px;font-weight:700;line-height:1.5;color:#bcbcbc}
-.legal-sidebar nav{
-  flex:0 1 auto;min-height:0;max-height:calc(100vh - 80px);
-  max-height:calc(100dvh - 80px);overflow-y:auto;
-  overscroll-behavior:contain;scrollbar-width:thin;
-}
-.legal-sidebar a{font-size:16px;line-height:1.4;padding:12px 14px}
-.legal-sidebar:focus-within{scroll-behavior:auto}
-/* Keep the homepage header controls and responsive breakpoints on legal pages. */
-.legal-header .nav{display:flex}
-.legal-header .header-studio-cta{display:inline-flex}
-.legal-header .mobile-cta{display:none}
-@media(max-width:950px){
-  .legal-header .nav,.legal-header .header-studio-cta{display:none}
-  .legal-header .mobile-cta{display:inline-flex}
+@media(max-width:1100px){.legal-header .nav{display:none}}
+@media(max-width:800px){
+  .legal-header{height:82px}
+  .legal-main{padding-top:45px}
+  .legal-columns{gap:24px}
+  .legal-sidebar{flex-basis:185px;width:185px}
+  .legal-sidebar a{font-size:15px;padding:11px 10px}
+  .legal-header .header-studio-cta{display:none}
+  .legal-header .mobile-cta{display:inline-flex;flex:0 0 auto}
 }
 @media(max-width:720px){
-  .legal-sidebar{position:sticky;top:0;z-index:5;max-height:none;overflow:visible;
-    display:block;margin:0 0 30px;padding:12px 0 7px;background:#090909;
-    border-bottom:1px solid #333}
-  .legal-sidebar p{margin-bottom:7px}
-  .legal-sidebar nav{max-height:none;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin}
-  .legal-columns{padding-top:20px}
-  .legal-header .brand img{width:clamp(48px,4vw,60px);height:clamp(48px,4vw,60px)}
+  .legal-columns{display:block;padding-top:25px}
+  .legal-sidebar{position:sticky;top:0;z-index:5;display:block;width:100%;height:auto;margin:0 0 28px;padding:12px 0 8px;background:#090909;border-bottom:1px solid #333}
+  .legal-sidebar p{font-size:11px;margin-bottom:8px}
+  .legal-sidebar nav{display:flex;flex-direction:row;gap:5px;max-width:100%;overflow-x:auto;overflow-y:hidden;padding-bottom:7px;overscroll-behavior-x:contain;scrollbar-width:thin}
+  .legal-sidebar a{font-size:15px;white-space:nowrap;border-left:0;border-bottom:2px solid transparent;padding:9px 12px}
+  .legal-sidebar a[aria-current=page]{border-left:0;border-bottom-color:#eee}
+  .legal-article{max-width:100%}
+  .legal-section{grid-template-columns:25px minmax(0,1fr);gap:12px;padding:25px 0}
+  .legal-section p{font-size:14px}
 }
 @media(max-width:560px){
-  .legal-header{height:66px}
+  .legal-header{height:66px;padding-inline:20px;gap:10px}
+  .legal-header .brand{font-size:18px}
   .legal-header .brand img{width:34px;height:34px}
+  .legal-header .header-account-link{padding:10px}
+  .legal-header .header-account-link span{display:none}
+  .legal-header .mobile-cta{font-size:11px;padding:0 11px;min-height:36px}
+  .legal-main{padding:35px 20px 50px}
+  .legal-intro h1{font-size:clamp(38px,10vw,56px)}
+  .legal-consent-warning{margin-top:24px;padding:23px 19px}
+  .legal-consent-warning h2{font-size:24px}
+  .legal-consent-warning p{font-size:13px}
 }
-
-@media(max-width:720px){.legal-sidebar a{font-size:15px;padding:11px 14px}.legal-sidebar p{font-size:11px}}
-
-/* Compact legal navigation: prevent the homepage's wide header from
-   pushing the legal layout beyond narrower desktop browser windows. */
-.legal-shell{width:100%;max-width:1700px}
-.legal-header{min-width:0;max-width:100%;gap:12px}
-.legal-main,.legal-columns,.legal-article{min-width:0;max-width:100%}
-.legal-article{overflow-wrap:break-word}
-.legal-header .brand{flex:none}
-.legal-header .header-account-link{flex:none}
-.legal-header .header-studio-cta{flex:none}
-@media(max-width:1450px){
-  .legal-header .nav{display:none}
-  .legal-header .header-studio-cta{display:inline-flex}
-}
-@media(max-width:950px){
-  .legal-header .header-studio-cta{display:none}
-  .legal-header .mobile-cta{display:inline-flex}
-}
-/* Do not trap or retain a scroll position inside the sidebar.
-   The whole menu scrolls with the document and stays visible via sticky. */
-@media(min-width:721px){
-  .legal-sidebar{max-height:none;overflow:visible}
-  .legal-sidebar nav{max-height:none;min-height:auto;overflow:visible}
-  .legal-columns{grid-template-columns:minmax(185px,235px) minmax(0,1fr)}
-  .legal-sidebar a{font-size:16px;line-height:1.3;padding:10px 14px}
-}
-@media(max-width:720px){
-  .legal-header{overflow:hidden}
-  .legal-sidebar{top:0}
-  .legal-sidebar nav{max-width:100%}
-}
+@media(prefers-reduced-motion:reduce){.legal-sidebar a{transition:none}}
