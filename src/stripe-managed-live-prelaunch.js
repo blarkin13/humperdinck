@@ -13,6 +13,7 @@ const SID=/^cs_live_[A-Za-z0-9_]+$/;
 const EVENT=/^evt_[A-Za-z0-9]+$/;
 const PI=/^pi_[A-Za-z0-9]+$/;
 const enc=new TextEncoder();
+const verifiedPayments=new WeakSet();
 const deny=reason=>({decision:'blocked',reason,granted:false});
 const hex=buf=>Array.from(new Uint8Array(buf),b=>b.toString(16).padStart(2,'0')).join('');
 const config=env=>env?.AUTH_DB&&env.STRIPE_LIVE_STAGING_ENABLED==='true'&&
@@ -84,14 +85,16 @@ export async function inspectStripeLiveWebhook(raw,signature,env,{clock=Math.flo
   return deny('Incorrect checkout, merchant-of-record mode, or $49.00 subtotal');
  if(s.payment_status!=='paid')return {decision:'unpaid',granted:false};
  if(!Number.isSafeInteger(e.created)||e.created<=0)return deny('Invalid event time');
- return {decision:'verified-live-payment',eventId:e.id,eventType:e.type,
+ const verified={decision:'verified-live-payment',eventId:e.id,eventType:e.type,
   sessionId:s.id,paymentIntentId:s.payment_intent,intentId:s.client_reference_id,
   paidAt:e.created,bodyHash:hex(await crypto.subtle.digest('SHA-256',enc.encode(raw))),granted:false};
+ verifiedPayments.add(verified);
+ return verified;
 }
 export async function settleStripeLivePayment(env,payment,{
  clock=Math.floor(Date.now()/1000),licenseId=crypto.randomUUID()
 }={}){
- if(!config(env)||payment?.decision!=='verified-live-payment'||
+ if(!config(env)||!payment||!verifiedPayments.has(payment)||payment.decision!=='verified-live-payment'||
    !EVENT.test(payment.eventId)||!SID.test(payment.sessionId)||
    !PI.test(payment.paymentIntentId)||!UUID.test(payment.intentId)||
    !/^[0-9a-f]{64}$/.test(payment.bodyHash)||!UUID.test(licenseId)||
