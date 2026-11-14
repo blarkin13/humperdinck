@@ -38,7 +38,7 @@ test('account deletion has a native accessible modal with explicit Accept and Ca
  assert.match(html,/id="deletion-consent-accept"[^>]*>Accept<\/button>/);
  assert.match(html,/online Pro access|online Pro account entitlement/);
  assert.match(html,/purchase, payment, refund, dispute, and tax records/);
- assert.match(html,/offline licenses may still work/);
+ assert.match(html,/Already-activated computers|previously issued portable certificates|previously activated computers/i);
  assert.match(css,/#deletion-consent-modal:not\(\[open\]\)\{display:none\}/);
 });
 
