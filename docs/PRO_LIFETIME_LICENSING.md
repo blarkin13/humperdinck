@@ -10,7 +10,7 @@
 - The same license copied onto a second computer, or presented while signed into a different account, grants **Free**, not Pro.
 - A new computer or operating-system reinstall requires a new sign-in and activation. A ten-device cap applies; customers release slots from the Account page.
 - If the service closes, existing activated computers can keep using Pro offline. New or reinstalled computers cannot activate once sign-in/activation services are unavailable.
-- **Grandfathering:** Previously issued licenses keep working as issued. The next sign-in on their computer replaces them with a bound license. A customer-facing transition/notice and legal review are required; do not revoke legacy certificates retrospectively.
+- **Grandfathering:** Previously issued licenses keep working as issued. The next sign-in on their computer replaces them with a bound license. A customer-facing transition/notice and legal review are required; do not revoke legacy certificates retrospectively. Existing temporary beta entitlements keep their original expiration and do not become purchased lifetime Pro merely through reactivation.
 
 ## Security and privacy architecture — Claude Code ownership
 
