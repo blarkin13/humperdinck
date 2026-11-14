@@ -114,7 +114,7 @@ export async function settleStripeLivePayment(env,payment,{
      intent.currency!=='USD'||payment.paidAt<intent.created_at)
    return deny('Payment has no matching $49 owner-created live intent');
   const existing=await db.prepare(
-   'SELECT id,user_id,status FROM pro_licenses WHERE user_id=? AND status='active' LIMIT 1'
+   "SELECT id,user_id,status FROM pro_licenses WHERE user_id=? AND status='active' LIMIT 1"
   ).bind(intent.user_id).first();
   // Archived void/refunded licenses remain intact and do not block repurchase.
   const preserve=!!existing;
