@@ -24,7 +24,7 @@ const body=req=>limitedJson(req,4096);
 async function overview(env,user){
  const [identities,purchase,desktops,legacy,codes,account]=await Promise.all([
   env.AUTH_DB.prepare('SELECT provider FROM auth_identities WHERE user_id=? ORDER BY provider').bind(user.id).all(),
-  env.AUTH_DB.prepare('SELECT id,status,issued_at,max_devices,provider,purchase_ref FROM pro_licenses WHERE user_id=? ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, issued_at DESC LIMIT 1').bind(user.id).first(),
+  env.AUTH_DB.prepare("SELECT id,status,issued_at,max_devices,provider,purchase_ref FROM pro_licenses WHERE user_id=? ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, issued_at DESC LIMIT 1").bind(user.id).first(),
   env.AUTH_DB.prepare("SELECT c.id,c.label,c.connected_at,c.last_seen_at,s.expires_at FROM auth_connected_desktops c JOIN auth_sessions s ON c.token_hash=s.token_hash WHERE c.user_id=? AND s.kind='desktop' AND s.expires_at>? ORDER BY c.connected_at DESC LIMIT 100").bind(user.id,now()).all(),
   env.AUTH_DB.prepare("SELECT COUNT(*) AS count FROM auth_sessions s LEFT JOIN auth_connected_desktops c ON s.token_hash=c.token_hash WHERE s.user_id=? AND s.kind='desktop' AND s.expires_at>? AND c.id IS NULL").bind(user.id,now()).first(),
   env.AUTH_DB.prepare('SELECT COUNT(*) AS count FROM auth_recovery_codes WHERE user_id=?').bind(user.id).first(),
