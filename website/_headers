@@ -32,3 +32,13 @@
   Cache-Control: no-store, max-age=0
 /seo-pages.css
   Cache-Control: public, max-age=3600
+
+# Account HTML and checkout JavaScript must never use stale provider code.
+/account/
+  Cache-Control: no-store, max-age=0
+/account/index.html
+  Cache-Control: no-store, max-age=0
+/account/account.js
+  Cache-Control: no-store, max-age=0
+/account/account-stripe-20261114.js
+  Cache-Control: no-store, max-age=0
