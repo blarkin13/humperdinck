@@ -48,3 +48,14 @@
 
 /account/account-production-20261114.js
   Cache-Control: no-store, max-age=0
+
+# Ensure copyright names and punctuation in plain-text license notices render as UTF-8.
+/THIRD_PARTY_NOTICES.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: no-store, max-age=0
+/studio/THIRD_PARTY_NOTICES.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: no-store, max-age=0
+/studio/font-licenses/*
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: no-store, max-age=0
