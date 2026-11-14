@@ -22,6 +22,41 @@ Voice avatars (shipped in the Studio and desktop app since 0.1.28):
   Design license: CC0 1.0 (public domain dedication); code: MIT (below)
   Avatars are drawn on the user's own device; nothing is downloaded.
 
+Bundled font software (desktop application and browser Studio):
+  Inter — @fontsource/inter
+    Copyright 2020 The Inter Project Authors
+    https://github.com/rsms/inter
+    SIL Open Font License 1.1 (OFL-1.1)
+    Full upstream copyright and license: /studio/font-licenses/Inter-OFL.txt
+
+  DM Serif Display — @fontsource/dm-serif-display
+    Copyright 2014–2018 Adobe; Copyright 2019 Google LLC
+    Upstream copyright text includes Adobe's Reserved Font Name "Source".
+    https://github.com/google/fonts/tree/main/ofl/dmserifdisplay
+    SIL Open Font License 1.1 (OFL-1.1)
+    Full upstream copyright and license: /studio/font-licenses/DM-Serif-Display-OFL.txt
+
+  Josefin Sans — @fontsource/josefin-sans
+    Copyright 2010 The Josefin Sans Project Authors
+    Upstream copyright notice reserves the name "Josefin Sans".
+    https://github.com/ThomasJockin/JosefinSansFont-master
+    SIL Open Font License 1.1 (OFL-1.1)
+    Full upstream copyright and license: /studio/font-licenses/Josefin-Sans-OFL.txt
+
+  Space Grotesk — @fontsource/space-grotesk
+    Copyright 2020 The Space Grotesk Project Authors
+    https://github.com/floriankarsten/space-grotesk
+    SIL Open Font License 1.1 (OFL-1.1)
+    Full upstream copyright and license: /studio/font-licenses/Space-Grotesk-OFL.txt
+
+  These four complete OFL copyright/license files are copied into the Vite
+  public assets and therefore travel with the font files in the built Studio
+  and Tauri desktop application's bundled frontend. The online notice links
+  are additional to those installer-contained copies, not replacements.
+  The font files remain licensed under OFL-1.1, not Humperdinck's software
+  license. Preserve these notices and original copyright attribution if the
+  font assets are copied, subsetted or repackaged.
+
 The public build also bundles JavaScript runtime dependencies from npm. The
 licenses and copyright notices for those dependencies remain applicable.
 These acknowledgments are kept in a license notice rather than shown under
