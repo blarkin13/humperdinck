@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="robots" content="noindex,nofollow,noarchive">
+ <title>Humperdinck — Stripe Sandbox Acceptance</title>
+ <style>
+ body{font:16px/1.6 system-ui,-apple-system,sans-serif;background:#101726;color:#f2f5fc;margin:0;padding:2rem}
+ main{max-width:680px;margin:4rem auto;background:#1d2940;padding:2rem;border-radius:14px}
+ a{color:#a3cbff}button{border:0;border-radius:8px;padding:.9rem 1.4rem;font-weight:700;background:#8fc6ff;color:#121d30;cursor:pointer}
+ button:disabled{opacity:.5;cursor:not-allowed}
+ #status{white-space:pre-wrap;overflow-wrap:anywhere}
+ small{color:#c0cadd}
+ </style>
+</head>
+<body>
+<main>
+ <h1>Stripe sandbox acceptance only</h1>
+ <p>This page is for authorized Humperdinck QA accounts. It creates a <strong>test-mode</strong> Stripe Managed Payments checkout for a <strong>$49.00 one-time</strong> Pro license. No real money is charged. The production Buy Pro checkout remains disabled.</p>
+ <p>Sign in to your approved Humperdinck account before starting.</p>
+ <p><a href="/account/">Go to your account</a></p>
+ <button id="start" type="button">Start test checkout</button>
+ <button id="refresh" type="button">Refresh test status</button>
+ <p id="status" role="status" aria-live="polite">No test started.</p>
+ <small>Only the payment webhook, not this page or a checkout redirect, may create a test entitlement. Any completed refund should be reconciled before testing again. Existing offline certificates cannot be remotely disabled.</small>
+</main>
+<script>
+'use strict';
+const status=document.getElementById('status'),button=document.getElementById('start');
+document.getElementById('refresh').addEventListener('click',async()=>{
+ try{
+  const r=await fetch('/api/commerce/sandbox/status',{credentials:'same-origin',cache:'no-store'});
+  const data=await r.json();
+  status.textContent=r.ok?JSON.stringify(data.purchases||[],null,2):(data.error||'Sandbox unavailable');
+ }catch{status.textContent='Could not read test status';}
+});
+button.addEventListener('click',async()=>{
+ button.disabled=true;status.textContent='Preparing a test checkout…';
+ try{
+  const r=await fetch('/api/commerce/sandbox/checkout',{
+   method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'}
+  });
+  const data=await r.json();
+  if(!r.ok||!data.checkout_url){status.textContent=data.error||'Sandbox checkout unavailable';return;}
+  const u=new URL(data.checkout_url);
+  if(u.protocol!=='https:'||u.hostname!=='checkout.stripe.com')throw Error('Unexpected checkout location');
+  window.location.assign(u.href);
+ }catch{status.textContent='Checkout could not be prepared';}
+ finally{button.disabled=false;}
+});
+</script>
+</body></html>
