@@ -26,7 +26,7 @@ test('production commerce paths are reserved, without interfering with sandbox',
  for(const path of ['/api/commerce/test/checkout','/api/commerce/test/webhook',
   '/api/account/me','/downloads.json','/api/commerce/liveish','/api/commerce/webhooks'])
   assert.equal(isReservedProductionCommercePath(path),false,path);
- assert.equal(LIVE_COMMERCE_CODE_APPROVED,true);
+ assert.equal(LIVE_COMMERCE_CODE_APPROVED,false);
 });
 test('unknown commerce paths and unconfigured live Stripe always fail closed',async()=>{
  for(const path of reserved){

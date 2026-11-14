@@ -2,7 +2,7 @@
  * Stripe live checkout/webhook is separately routed through an authenticated,
  * credential- and environment-gated handler. All old/unknown routes remain 503.
  */
-export const LIVE_COMMERCE_CODE_APPROVED=true;
+export const LIVE_COMMERCE_CODE_APPROVED=false;
 const reservedPrefixes=['/api/commerce/live','/api/commerce/production','/api/commerce/stripe'];
 const reservedExact=new Set(['/api/commerce/checkout','/api/commerce/webhook']);
 export function isReservedProductionCommercePath(path){

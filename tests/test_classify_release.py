@@ -18,7 +18,6 @@ def test_free_only_when_payments_and_voices_are_off(tmp_path):
     assert mod.classify(make(tmp_path / "c", "false", "True")) == "commercial"
 
 
-def test_current_repository_is_commercial_with_pro_payments_enabled():
-    # Live Stripe routes were intentionally enabled in code. Commercial
-    # release-rights and P0 approval gates remain independently required.
-    assert mod.classify() == "commercial"
+def test_current_repository_is_free_update():
+    # Owner chose to ship 0.1.31 as a free update (payment release flag off).
+    assert mod.classify() == "free"
