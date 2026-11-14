@@ -7,6 +7,7 @@ const SID=/^cs_test_[A-Za-z0-9_]+$/;
 const EVENT=/^evt_[A-Za-z0-9]+$/;
 const HEX=/^[a-f0-9]{64}$/i;
 const enc=new TextEncoder();
+const verifiedPaidEvents=new WeakSet();
 const deny=reason=>({decision:'rejected',reason,granted:false});
 const hex=buf=>Array.from(new Uint8Array(buf),b=>b.toString(16).padStart(2,'0')).join('');
 const same=(a,b)=>{
@@ -46,13 +47,15 @@ export async function inspectStripeManagedEvent(raw,header,secret,{clock=Math.fl
  if(s.payment_status!=='paid')return {decision:'ignored-unpaid',granted:false};
  if(!Number.isSafeInteger(event.created)||event.created<=0)return deny('Invalid event time');
  const bodyHash=hex(await crypto.subtle.digest('SHA-256',enc.encode(raw)));
- return {decision:'verified-test-payment',eventId:event.id,eventType:event.type,
+ const verified={decision:'verified-test-payment',eventId:event.id,eventType:event.type,
   sessionId:s.id,intentId:s.client_reference_id,paymentIntentId:typeof s.payment_intent==='string'?s.payment_intent:null,
   paidAt:event.created,bodyHash,granted:false};
+ verifiedPaidEvents.add(verified);
+ return verified;
 }
 export async function settleStripeTestPayment(env,verified,{clock=Math.floor(Date.now()/1000),licenseId=crypto.randomUUID()}={}){
  if(!env?.AUTH_DB||env.STRIPE_STAGING_ENABLED!=='true'||
-   verified?.decision!=='verified-test-payment'||!EVENT.test(verified.eventId)||
+   !verified||!verifiedPaidEvents.has(verified)||verified.decision!=='verified-test-payment'||!EVENT.test(verified.eventId)||
    !SID.test(verified.sessionId)||!UUID.test(verified.intentId)||
    !HEX.test(verified.bodyHash)||!UUID.test(licenseId)||
    !Number.isSafeInteger(clock)||clock<=0)return deny('Unverified or unavailable staged settlement');
