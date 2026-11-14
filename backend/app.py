@@ -126,10 +126,15 @@ def local_license_activate(request: Request):
 def get_entitlements():
     return entitlements.status()
 
+DEV_ORIGINS = {'http://localhost:5173', 'http://127.0.0.1:5173'}
+
 def require_local_account_origin(request: Request):
     """Block cross-site browser requests against localhost account actions."""
     origin = request.headers.get('origin')
-    if origin and origin != f'{request.url.scheme}://{request.url.netloc}':
+    # The Vite dev server (start.sh) proxies /api from its own origin; the
+    # packaged app is always same-origin.
+    dev = os.environ.get('HUMPERDINCK_NATIVE_PACKAGE') != '1' and origin in DEV_ORIGINS
+    if origin and not dev and origin != f'{request.url.scheme}://{request.url.netloc}':
         raise HTTPException(403, 'Invalid account request origin')
 
 
