@@ -47,3 +47,16 @@ test('migration keeps active licenses, device constraints and purchase reference
  assert.throws(()=>db.prepare("INSERT INTO pro_devices(id,license_id,installation_id,label,activated_at,last_seen_at) VALUES ('broken','not-found','inst','x',1,1)").run());
  db.close();
 });
+
+test('dashboard, export, deletion review resolve active grant after an older void grant',()=>{
+ const db=new DatabaseSync(':memory:');
+ db.exec('PRAGMA foreign_keys=ON;CREATE TABLE auth_users(id TEXT PRIMARY KEY);');
+ db.exec(schema);db.prepare('INSERT INTO auth_users(id) VALUES (?)').run(user);
+ db.prepare("INSERT INTO pro_licenses(id,user_id,status,issued_at) VALUES (?,?,'void',1000)").run(voidId,user);
+ db.exec('BEGIN');db.exec(migration);db.exec('COMMIT');
+ db.prepare("INSERT INTO pro_licenses(id,user_id,status,issued_at) VALUES (?,?,'active',1200)").run(liveId,user);
+ const sql="SELECT id,status FROM pro_licenses WHERE user_id=? ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, issued_at DESC LIMIT 1";
+ const current=db.prepare(sql).get(user);
+ assert.equal(current.id,liveId);assert.equal(current.status,'active');
+ db.close();
+});
