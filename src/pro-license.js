@@ -2,8 +2,11 @@ import {limitedJson} from './limited-json.js';
 /* Humperdinck one-time lifetime Pro license *infrastructure*.
  * A real purchase provider must insert grants through a separately verified,
  * private checkout webhook. NO customer/admin grant-issuance HTTP endpoint here.
- * Portable grants are intentionally NOT machine-locked: offline forever wins
- * over strict remote enforcement of a ten-device cap.
+ * Licenses are bound to the purchasing account and to one computer (a salted
+ * hash of the computer's own ID, never the raw ID). They work offline once
+ * activated; a new computer needs a signed-in activation within the device
+ * limit. Older desktop apps that cannot check the binding still receive the
+ * legacy v1 certificate so existing customers keep Pro until they update.
  */
 const V1_KEY_ID='humperdinck-pro-ed25519-v1';
 const V2_KEY_ID='humperdinck-pro-ed25519-v2';
@@ -19,6 +22,7 @@ const err=(status,message)=>response({error:message},status);
 const clock=()=>Math.floor(Date.now()/1000);
 const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(x);
 const readJson=req=>limitedJson(req,4096);
+const deviceHash=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
 const authorizedMutate=(request,webUser,sameOrigin)=>{
   const bearer=request.headers.get('Authorization')?.startsWith('Bearer ');
   return bearer?webUser?.kind==='desktop':webUser?.kind==='web'&&sameOrigin(request);
@@ -33,7 +37,10 @@ async function devicesFor(env,licenseId){
   return (r.results||[]).map(d=>({id:d.id,label:d.label,activated_at:d.activated_at,
     last_seen_at:d.last_seen_at,active:d.deactivated_at===null}));
 }
-function grantPayload(license,keyId=V1_KEY_ID){
+function grantPayload(license,keyId=V1_KEY_ID,device=null){
+  if(device)return {version:2,type:'humperdinck.pro.perpetual',key_id:keyId,
+    license_id:license.id,subject:license.user_id,issued_at:license.issued_at,features:['pro'],
+    transfer:'account-device-bound',device_hash:device,expires_at:null};
   return {version:1,type:'humperdinck.pro.perpetual',key_id:keyId,
     license_id:license.id,subject:license.user_id,issued_at:license.issued_at,features:['pro'],
     transfer:'portable-offline-backup',expires_at:null};
@@ -60,8 +67,8 @@ async function signer(env){
   }
   return {key:privateKey,keyId:version};
 }
-async function signLicense(license,signerInfo){
-  const data=encoder.encode(JSON.stringify(grantPayload(license,signerInfo.keyId)));
+async function signLicense(license,signerInfo,device=null){
+  const data=encoder.encode(JSON.stringify(grantPayload(license,signerInfo.keyId,device)));
   const signature=await crypto.subtle.sign('Ed25519',signerInfo.key,data);
   return b64url(data)+'.'+b64url(signature);
 }
@@ -94,7 +101,7 @@ async function licenseOverview(env,user){
   }
   const devices=await devicesFor(env,license.id);
   return {plan:'pro',license:{id:license.id,lifetime:true,issued_at:license.issued_at,
-      backup_available:!!(env.PRO_LICENSE_ACTIVE_KEY_ID===V2_KEY_ID?PRO_V2_PUBLIC_KEY_BASE64&&env.PRO_LICENSE_V2_ED25519_PRIVATE:env.PRO_LICENSE_ED25519_PRIVATE)},devices,
+      backup_available:false,activation:'sign-in-per-computer'},devices,
     active_devices:devices.filter(d=>d.active).length,device_limit:license.max_devices,
     checkout_available:false,
     warning:devices.filter(d=>d.active).length>=10?'All ten device slots are in use. Deactivate an unused device before registering another.':(devices.filter(d=>d.active).length>=8?'You are nearing your ten-device limit.':null)};
@@ -109,10 +116,9 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
   if(path==='/api/account/license/backup'&&request.method==='GET'){
     const license=await licenseForUser(env,user.id);
     if(!license)return err(404,'No purchased Pro license is associated with this account');
-    let key;
-    try{key=await signer(env)}catch{return err(503,'License backup service is not ready')}
-    return response({license:await signLicense(license,key),filename:'humperdinck-pro-license.json',
-      format:'humperdinck-offline-v1',portable:true});
+    // Portable license files are no longer issued: Pro is activated by
+    // signing in on each computer.
+    return err(410,'Pro is activated by signing in to Humperdinck on each computer. License files are no longer downloaded.');
   }
 
   if(path==='/api/account/license/activate'&&request.method==='POST'){
@@ -121,6 +127,8 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
     const data=await readJson(request);
     if(!uuid(data.installation_id)||typeof data.label!=='string'||data.label.length>80||!data.label.trim())
       return err(400,'Invalid installation identifier or device label');
+    if(data.device_hash!==undefined&&!deviceHash(data.device_hash))
+      return err(400,'Invalid computer identifier');
     const license=await licenseForUser(env,user.id);
     if(!license){
       const beta=await betaForUser(env,user.id);
@@ -138,7 +146,7 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
     // Mint before any D1 mutation: even a late WebCrypto signing failure must
     // never consume a device slot without a portable certificate.
     let signedToken;
-    try{signedToken=await signLicense(license,key)}catch{return err(503,'License signing failed before device registration')}
+    try{signedToken=await signLicense(license,key,data.device_hash||null)}catch{return err(503,'License signing failed before device registration')}
     const existing=await env.AUTH_DB.prepare(
       'SELECT id,deactivated_at FROM pro_devices WHERE license_id=? AND installation_id=?')
       .bind(license.id,data.installation_id).first();

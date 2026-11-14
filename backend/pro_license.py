@@ -1,8 +1,14 @@
-"""Verify permanent Humperdinck Pro certificates without network, login, or DRM.
+"""Verify permanent Humperdinck Pro certificates offline.
 
-Portable owner certificates intentionally work on a replacement installation
-even when the company is gone. They are not bound to a hardware fingerprint.
-This means a ten-device online-registration cap is not an offline copy lock.
+New certificates (version 2) are bound to the purchasing account and to this
+computer: they carry a salted SHA-256 of the computer's own ID (macOS hardware
+UUID, Windows MachineGuid, Linux machine-id), never the raw ID. Once activated
+they work offline with no sign-in. A copied certificate does nothing on another
+computer, and no certificate unlocks Pro while a different account is signed in.
+
+Older version 1 certificates (issued before binding) keep working on the
+computer that has them, and are replaced by a bound certificate the next time
+this computer is signed in to the owning account.
 """
 from __future__ import annotations
 
@@ -11,7 +17,10 @@ import binascii
 import json
 import os
 from pathlib import Path
+import hashlib
 import secrets
+import subprocess
+import sys
 import time
 from uuid import UUID, uuid4
 
@@ -31,8 +40,87 @@ BETA_LICENSE_TYPE = 'humperdinck.pro.beta'
 BETA_LICENSE_FILE = 'beta-license.json'
 
 
+BOUND_TRANSFER = 'account-device-bound'
+DEVICE_SALT = b'humperdinck-pro-device-v1:'
+
+
 class InvalidLicense(ValueError):
     pass
+
+
+def _is_hash(value) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(c in '0123456789abcdef' for c in value)
+
+
+def _machine_id() -> str | None:
+    """The operating system's own ID for this computer, read locally only."""
+    try:
+        if sys.platform == 'darwin':
+            out = subprocess.run(['/usr/sbin/ioreg', '-rd1', '-c', 'IOPlatformExpertDevice'],
+                                 capture_output=True, text=True, timeout=5).stdout
+            for line in out.splitlines():
+                if 'IOPlatformUUID' in line:
+                    return line.split('=', 1)[1].strip().strip('"')
+        elif sys.platform == 'win32':
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Cryptography', 0,
+                                winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+                return str(winreg.QueryValueEx(key, 'MachineGuid')[0])
+        else:
+            for path in ('/etc/machine-id', '/var/lib/dbus/machine-id'):
+                try:
+                    value = Path(path).read_text().strip()
+                    if value:
+                        return value
+                except OSError:
+                    pass
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+        pass
+    return None
+
+
+_DEVICE_HASH: str | None = None
+
+
+def device_hash(data: Path) -> str:
+    """Salted SHA-256 of this computer's ID; the raw ID never leaves this function.
+
+    If the operating system gives no ID, this installation's random ID is used,
+    so Pro still activates (bound to this installation instead).
+    """
+    global _DEVICE_HASH
+    if _DEVICE_HASH is None:
+        raw = _machine_id()
+        if raw:
+            _DEVICE_HASH = hashlib.sha256(DEVICE_SALT + raw.strip().lower().encode()).hexdigest()
+    if _DEVICE_HASH:
+        return _DEVICE_HASH
+    return hashlib.sha256(DEVICE_SALT + b'installation:' + installation(data)['installation_id'].encode()).hexdigest()
+
+
+def device_installation_id(data: Path) -> str:
+    """Stable per-computer slot ID, so reinstalling reuses the same device slot."""
+    digest = hashlib.sha256(b'humperdinck-pro-slot-v1:' + device_hash(data).encode()).digest()
+    return str(UUID(bytes=digest[:16], version=5))
+
+
+def signed_in_user(data: Path) -> str | None:
+    try:
+        state = json.loads((Path(data) / 'account-session.json').read_text(encoding='utf-8'))
+        user = state.get('user') or {}
+        return user.get('id') if isinstance(user.get('id'), str) else None
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None
+
+
+def binding_problem(data: Path, info: dict) -> str | None:
+    """Why a valid certificate does not unlock Pro here, or None."""
+    if info.get('version') == 2 and info.get('device_hash') != device_hash(data):
+        return 'other_computer'
+    user = signed_in_user(data)
+    if user and user.lower() != str(info.get('subject', '')).lower():
+        return 'other_account'
+    return None
 
 
 def _unbase64url(value: str) -> bytes:
@@ -69,7 +157,10 @@ def verify(token: str) -> dict:
         Ed25519PublicKey.from_public_bytes(public_bytes).verify(signature, encoded)
     except (InvalidSignature, ValueError, TypeError, KeyError, UnicodeError, binascii.Error) as exc:
         raise InvalidLicense('License signature is invalid') from exc
-    if (info.get('version') != 1 or
+    bound = info.get('version') == 2
+    if bound and (info.get('transfer') != BOUND_TRANSFER or not _is_hash(info.get('device_hash'))):
+        raise InvalidLicense('License does not grant perpetual Humperdinck Pro')
+    if (info.get('version') not in (1, 2) or
         info.get('type') != LICENSE_TYPE or info.get('key_id') not in trusted_keys or
         info.get('expires_at', 'missing') is not None or
         info.get('features') != ['pro'] or
@@ -161,21 +252,35 @@ def certificate(data: Path) -> str | None:
 
 def status(data: Path) -> dict:
     token = certificate(data)
-    if token is None:
+    problem = binding_problem(data, verify(token)) if token else None
+    if token is None or problem:
         beta = beta_certificate(data)
+        if beta and binding_problem(data, beta) == 'other_account':
+            beta = None
         if beta:
             return {'plan':'pro','active':True,'offline':True,'beta':True,
                     'lifetime':False,'perpetual':False,'portable_backup':False,
                     'expires_at':beta['expires_at'], 'license_id':beta['license_id']}
-        return {'plan': 'free', 'active': False, 'offline': True}
+        result = {'plan': 'free', 'active': False, 'offline': True}
+        if problem:
+            result['inactive_reason'] = problem
+        return result
     info = verify(token)
     return {'plan': 'pro', 'active': True, 'offline': True, 'lifetime': True,
             'license_id': info['license_id'], 'issued_at': info['issued_at'],
-            'portable_backup': True}
+            'bound': info['version'] == 2, 'portable_backup': info['version'] == 1}
+
+
+def needs_upgrade(data: Path) -> bool:
+    """True when this computer has no bound certificate yet."""
+    token = certificate(data)
+    return token is None or verify(token)['version'] != 2
 
 
 def save(data: Path, token: str) -> dict:
     info = verify(token)
+    if info['version'] == 2 and info['device_hash'] != device_hash(data):
+        raise InvalidLicense('This license was activated for a different computer')
     folder = Path(data)
     folder.mkdir(parents=True, exist_ok=True)
     tmp = folder / ('.pro-license-' + secrets.token_hex(8))

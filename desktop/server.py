@@ -174,6 +174,8 @@ def main() -> None:
     start_network_server_if_enabled()
     from backend.app import start_relay_if_enabled
     start_relay_if_enabled(args.port)
+    from backend.app import upgrade_license_in_background
+    upgrade_license_in_background()
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning", access_log=False)
 
 

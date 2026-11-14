@@ -108,9 +108,11 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{},onAccountCh
    </div>
    <div className="account-panel-license">
     <div className="account-panel-feature"><span>Installed edition</span><b>{pro?'Pro · Lifetime':'Free'}</b></div>
-    {pro?<><p><i className="fa-solid fa-shield-halved"/> Pro verified with an offline digital signature. Your features remain available without signing in.</p>
-      <button type="button" disabled={working} onClick={exportLicense}><i className="fa-solid fa-download"/> Export permanent license backup</button>
-     </>:<><p>All Free studios and exports remain available. Pro is a one-time lifetime purchase; no subscription.</p>
+    {pro?<><p><i className="fa-solid fa-shield-halved"/> Pro is activated on this computer and keeps working offline, even when signed out.</p>
+      {license.portable_backup&&<button type="button" disabled={working} onClick={exportLicense}><i className="fa-solid fa-download"/> Export license backup</button>}
+     </>:<>{license.inactive_reason==='other_account'&&<p className="account-panel-error">Pro on this computer belongs to a different account. Sign in with that account to use it.</p>}
+      {license.inactive_reason==='other_computer'&&<p className="account-panel-error">This Pro license was activated on a different computer. Sign in with the account that owns Pro to activate it here.</p>}
+      <p>All Free studios and exports remain available. Pro is a one-time lifetime purchase; no subscription.</p>
       <button type="button" disabled={working} onClick={e=>openPage(e,'purchase')}><i className="fa-solid fa-arrow-up-right-from-square"/> Get Pro on humperdinck.studio</button>
       {connected&&<button type="button" className="account-panel-secondary" disabled={working} onClick={activate}>Activate an existing Pro purchase</button>}
      </>}
@@ -118,7 +120,7 @@ export default function AccountPanel({onClose,onLicenseChange=()=>{},onAccountCh
     <button type="button" className="account-panel-secondary" disabled={working} onClick={()=>fileRef.current?.click()}>
       <i className="fa-solid fa-file-import"/> Restore offline license backup
     </button>
-    <p className="account-panel-footnote">Portable certificates survive reinstalls and account outages. Online activation tracks up to 10 devices; offline backups cannot be remotely revoked.</p>
+    <p className="account-panel-footnote">Pro is activated per computer by signing in, on up to 10 computers. Once activated it works offline. Free up a computer from your account page.</p>
    </div>
    {error&&<p className="account-panel-error" role="alert">{error}</p>}
    {message&&<p className="account-panel-success" role="status">{message}</p>}

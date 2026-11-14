@@ -230,7 +230,9 @@ def _connected_token(data: Path) -> str:
 
 
 def _activate_with_token(data: Path, token: str) -> dict:
-    info = pro_license.installation(data)
+    info = {'installation_id': pro_license.device_installation_id(data),
+            'label': pro_license.installation(data)['label'],
+            'device_hash': pro_license.device_hash(data)}
     result = _call('license/activate', info, token=token)
     certificate = result.get('license')
     if not isinstance(certificate, str):
@@ -252,3 +254,21 @@ def _activate_with_token(data: Path, token: str) -> dict:
 
 def activate_pro(data: Path) -> dict:
     return _activate_with_token(data, _connected_token(data))
+
+
+def upgrade_license(data: Path) -> bool:
+    """Swap an older unbound certificate for one bound to this account and computer.
+
+    Runs quietly at startup while signed in. Offline or failed attempts change
+    nothing: the existing certificate keeps working until the swap succeeds.
+    """
+    try:
+        token = _connected_token(data)
+        if not pro_license.needs_upgrade(data):
+            return False
+        if _call('license', token=token).get('plan') != 'pro':
+            return False
+        _activate_with_token(data, token)
+        return True
+    except (HTTPException, OSError, ValueError):
+        return False
