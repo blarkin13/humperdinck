@@ -1,6 +1,7 @@
-/* Non-routed Stripe Managed Payments refund/dispute reconciliation.
- * A signed Stripe event may update purchase evidence only. No refunds are
- * initiated and no Pro/offline certificate is remotely revoked.
+/* Signed Stripe Managed Payments refund/dispute reconciliation.
+ * Full refunds/disputes void the matching online Pro entitlement; historical
+ * device records and previously exported offline certificate remain intact.
+ * Never create a refund or automatically restore a disputed license.
  */
 import {verifyStripeWebhook} from './stripe-managed-staging-webhook.js';
 const enc=new TextEncoder();
@@ -61,17 +62,26 @@ export async function reconcileStripeLiveReversal(env,verified,{clock=Math.floor
   if(order.status==='disputed')status='disputed';
   else if(order.status==='refunded')status='refunded'; // no downgrade
   else status=verified.status;
+  const shouldVoid=status==='refunded'||status==='disputed';
+  const grant=shouldVoid?await db.prepare(
+   "SELECT id FROM pro_licenses WHERE user_id=? AND provider='stripe-managed' AND purchase_ref=? AND status='active'"
+  ).bind(order.user_id,'stripe:'+order.stripe_session_id).first():null;
   const actions=[
    db.prepare(
     "UPDATE commerce_stripe_live_orders SET status=?,updated_at=? WHERE stripe_session_id=? AND stripe_payment_intent_id=? AND status IN ('paid','partially_refunded','refunded','disputed')"
    ).bind(status,clock,order.stripe_session_id,verified.paymentIntentId),
+   ...(grant?[db.prepare(
+    "UPDATE pro_licenses SET status='void' WHERE id=? AND provider='stripe-managed' AND status='active'"
+   ).bind(grant.id)]:[]),
    db.prepare(
     'INSERT INTO commerce_stripe_live_events(stripe_event_id,stripe_session_id,event_type,body_sha256,processed_at) VALUES (?,?,?,?,?)'
    ).bind(verified.eventId,order.stripe_session_id,verified.type,verified.bodyHash,clock)
   ];
   const result=await db.batch(actions);
-  if(!Array.isArray(result)||result.length!==2||result.some(x=>x?.meta?.changes!==1))
+  if(!Array.isArray(result)||result.length!==actions.length||result.some(x=>x?.meta?.changes!==1))
    return no('retryable-error','Reversal receipt requires reconciliation');
-  return no('recorded-for-review','Order evidence updated; entitlement unchanged');
+  return {decision:'recorded-for-review',reason:grant?
+   'Matching online Pro entitlement void; offline certificates require manual review':
+   'Order evidence updated; no active matching grant',entitlementChanged:!!grant};
  }catch{return no('retryable-error','Atomic reversal transaction failed');}
 }
