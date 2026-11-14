@@ -103,3 +103,75 @@ test('settlement cannot mint Pro from an unsigned, disabled or unverified event'
    intentId:iid,bodyHash:'0'.repeat(64)})).decision,'rejected');
  assert.equal(accesses,0);
 });
+
+test('isolated SQLite settlement records paid test order once and never grants ordinary buyers',async()=>{
+ const {DatabaseSync}=await import('node:sqlite');
+ const {readFileSync}=await import('node:fs');
+ const database=new DatabaseSync(':memory:');
+ database.exec('PRAGMA foreign_keys=ON');
+ database.exec('CREATE TABLE auth_users(id TEXT PRIMARY KEY,email TEXT)');
+ database.exec('CREATE TABLE pro_licenses(id TEXT PRIMARY KEY,user_id TEXT UNIQUE REFERENCES auth_users(id),status TEXT NOT NULL,issued_at INTEGER,max_devices INTEGER,provider TEXT,purchase_ref TEXT UNIQUE)');
+ database.exec(readFileSync(new URL('../migrations/0012_stripe_managed_staging.sql',import.meta.url),'utf8'));
+ database.prepare('INSERT INTO auth_users(id,email) VALUES (?,?)').run(uid,'test@example.com');
+ database.prepare("INSERT INTO commerce_stripe_intents(id,user_id,stripe_session_id,price_id,amount_cents,currency,mode,status,created_at,expires_at) VALUES (?,?,?,'price_12345678',4900,'USD','test','started',?,?)").run(iid,uid,'cs_test_valid123',now-30,now+1800);
+ const D1={
+  prepare(sql){return {bind(...args){const statement=database.prepare(sql);return {
+   async first(){return statement.get(...args)||null},
+   async run(){const result=statement.run(...args);return {meta:{changes:result.changes}}}
+  }}}},
+  async batch(statements){
+   database.exec('BEGIN');
+   try{
+    const results=[];
+    for(const statement of statements)results.push(await statement.run());
+    database.exec('COMMIT');return results;
+   }catch(err){database.exec('ROLLBACK');throw err}
+  }
+ };
+ const raw=event(),sig=await signed(raw);
+ const verified=await inspectStripeManagedEvent(raw,sig.header,sig.secret,{clock:now});
+ const first=await settleStripeTestPayment({...settings,AUTH_DB:D1},verified,{clock:now,licenseId:'33333333-3333-4333-8333-333333333333'});
+ assert.equal(first.decision,'settled-test-ledger');
+ assert.equal(first.granted,false);
+ assert.equal(database.prepare('SELECT COUNT(*) AS n FROM commerce_stripe_orders').get().n,1);
+ assert.equal(database.prepare('SELECT COUNT(*) AS n FROM pro_licenses').get().n,0);
+ assert.equal(database.prepare("SELECT status FROM commerce_stripe_intents WHERE id=?").get(iid).status,'paid');
+ const second=await settleStripeTestPayment({...settings,AUTH_DB:D1},verified,{clock:now});
+ assert.equal(second.decision,'already-recorded');
+ assert.equal(database.prepare('SELECT COUNT(*) AS n FROM commerce_stripe_webhook_events').get().n,1);
+ database.close();
+});
+test('explicitly allowlisted disposable test account can receive one labeled noncommercial grant',async()=>{
+ const {DatabaseSync}=await import('node:sqlite');
+ const {readFileSync}=await import('node:fs');
+ const database=new DatabaseSync(':memory:');
+ database.exec('PRAGMA foreign_keys=ON');
+ database.exec('CREATE TABLE auth_users(id TEXT PRIMARY KEY,email TEXT)');
+ database.exec('CREATE TABLE pro_licenses(id TEXT PRIMARY KEY,user_id TEXT UNIQUE REFERENCES auth_users(id),status TEXT NOT NULL,issued_at INTEGER,max_devices INTEGER,provider TEXT,purchase_ref TEXT UNIQUE)');
+ database.exec(readFileSync(new URL('../migrations/0012_stripe_managed_staging.sql',import.meta.url),'utf8'));
+ database.prepare('INSERT INTO auth_users(id,email) VALUES (?,?)').run(uid,'test@example.com');
+ database.prepare("INSERT INTO commerce_stripe_intents(id,user_id,stripe_session_id,price_id,amount_cents,currency,mode,status,created_at,expires_at) VALUES (?,?,?,'price_12345678',4900,'USD','test','started',?,?)").run(iid,uid,'cs_test_valid123',now-30,now+1800);
+ const D1={
+  prepare(sql){return {bind(...args){const statement=database.prepare(sql);return {
+   async first(){return statement.get(...args)||null},
+   async run(){const result=statement.run(...args);return {meta:{changes:result.changes}}}
+  }}}},
+  async batch(statements){
+   database.exec('BEGIN');
+   try{const results=[];for(const s of statements)results.push(await s.run());database.exec('COMMIT');return results}
+   catch(e){database.exec('ROLLBACK');throw e}
+  }
+ };
+ const raw=event(),sig=await signed(raw),verified=await inspectStripeManagedEvent(raw,sig.header,sig.secret,{clock:now});
+ const result=await settleStripeTestPayment({...settings,AUTH_DB:D1,STRIPE_TEST_GRANTS_ENABLED:'true',
+  STRIPE_TEST_GRANT_EMAILS:'test@example.com'},verified,{clock:now,licenseId:'33333333-3333-4333-8333-333333333333'});
+ assert.equal(result.decision,'settled-test-grant');
+ assert.equal(result.granted,true);
+ const license=database.prepare('SELECT provider,max_devices,purchase_ref FROM pro_licenses').get();
+ assert.deepEqual(license,{provider:'stripe-managed-test',max_devices:10,purchase_ref:'stripe-test:cs_test_valid123'});
+ const again=await settleStripeTestPayment({...settings,AUTH_DB:D1,STRIPE_TEST_GRANTS_ENABLED:'true',
+  STRIPE_TEST_GRANT_EMAILS:'test@example.com'},verified,{clock:now});
+ assert.equal(again.decision,'already-recorded');
+ assert.equal(database.prepare('SELECT COUNT(*) AS n FROM pro_licenses').get().n,1);
+ database.close();
+});
