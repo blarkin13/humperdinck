@@ -192,42 +192,118 @@ def health():
 
 class ServerSettingsInput(BaseModel):
     port: int = Field(default=0, ge=0, le=65535)
+    network_port: int | None = Field(default=None, ge=1024, le=65535)
 
 def server_settings_path():
     return DATA / 'server-settings.json'
 
+def _preferred_port(configured):
+    port=configured.get('port',0)
+    return port if isinstance(port,int) and (port==0 or 1024<=port<=65535) else 0
+
+def _network_state():
+    from backend import network_server as net
+    config=net.network_config(server_settings_path())
+    running=net.server.running
+    port=net.server.port if running else config['network_port']
+    token=config['network_token']
+    links=net.addresses(port)
+    for link in links:
+        link['pair_url']=link['url']+'?access='+token
+    return {'enabled':config['network_enabled'],'running':running,'port':port,
+            'access_code':token,'addresses':links,'error':net.server.error,
+            'tailscale':any(link['kind']=='remote' for link in links)}
+
+def _network_token():
+    from backend import network_server as net
+    return net.load(server_settings_path()).get('network_token','')
+
+def start_network_server_if_enabled():
+    """Called by the desktop launcher once the app (with its static files) is ready."""
+    from backend import network_server as net
+    config=net.network_config(server_settings_path())
+    if config['network_enabled']:
+        try:
+            net.server.start(app,config['network_port'],_network_token)
+        except RuntimeError:
+            pass
+
 @app.get('/api/server/settings')
 def get_server_settings():
-    path=server_settings_path()
-    try:
-        configured=json.loads(path.read_text()) if path.is_file() else {}
-    except (OSError, ValueError):
-        configured={}
-    port=configured.get('port',0)
-    if not isinstance(port,int) or (port!=0 and not (1024<=port<=65535)):
-        port=0
-    return {'preferred_port':port,'mode':'local',
-            'restart_required_after_change':True,'remote_access_enabled':False}
+    configured=network_server_load()
+    return {'preferred_port':_preferred_port(configured),'mode':'local',
+            'restart_required_after_change':True,'network':_network_state()}
+
+def network_server_load():
+    from backend import network_server as net
+    return net.load(server_settings_path())
 
 @app.put('/api/server/settings')
 def save_server_settings(change: ServerSettingsInput):
+    from backend import network_server as net
     if change.port!=0 and change.port<1024:
         raise HTTPException(422,'Choose Auto (0) or a port between 1024 and 65535')
     path=server_settings_path()
-    temporary=path.with_suffix('.tmp')
-    temporary.write_text(json.dumps({'port':change.port,'mode':'local'}))
-    temporary.replace(path)
-    return {'preferred_port':change.port,'saved':True,
-            'message':'Saved. Restart the desktop application to change the listening port.'}
+    data=net.network_config(path)
+    data['port']=change.port
+    data['mode']='local'
+    restart_network=False
+    if change.network_port is not None and change.network_port!=data['network_port']:
+        if change.network_port==change.port:
+            raise HTTPException(422,'The network port must differ from the local port')
+        data['network_port']=change.network_port
+        restart_network=net.server.running
+    net.save(path,data)
+    if restart_network:
+        try:
+            net.server.start(app,data['network_port'],_network_token)
+        except RuntimeError as error:
+            raise HTTPException(409,str(error))
+    return {'preferred_port':change.port,'saved':True,'network':_network_state(),
+            'message':'Saved. Restart the desktop application to change the local port.'}
+
+@app.post('/api/server/network/start')
+def start_network_server():
+    from backend import network_server as net
+    path=server_settings_path()
+    data=net.network_config(path)
+    try:
+        net.server.start(app,data['network_port'],_network_token)
+    except RuntimeError as error:
+        raise HTTPException(409,str(error))
+    data['network_enabled']=True
+    net.save(path,data)
+    return _network_state()
+
+@app.post('/api/server/network/stop')
+def stop_network_server():
+    from backend import network_server as net
+    path=server_settings_path()
+    data=net.network_config(path)
+    net.server.stop()
+    data['network_enabled']=False
+    net.save(path,data)
+    return _network_state()
+
+@app.post('/api/server/network/new-code')
+def new_network_code():
+    """Replace the access code; every paired device must pair again."""
+    from backend import network_server as net
+    path=server_settings_path()
+    data=net.network_config(path)
+    data['network_token']=net.new_token()
+    net.save(path,data)
+    return _network_state()
 
 @app.get('/api/server/status')
 def server_status(request: Request):
-    """Report only the loopback service that serves this specific desktop UI."""
+    """Report the loopback service for this desktop UI plus the optional network server."""
     from urllib.parse import urlsplit
     parsed=urlsplit(str(request.base_url))
-    return {'status':'running', 'mode':'local', 'url':str(request.base_url).rstrip('/'),
-            'port':parsed.port, 'host':'127.0.0.1',
-            'remote_access_enabled':False,
+    network=_network_state()
+    return {'status':'running', 'mode':'network' if network['running'] else 'local',
+            'url':str(request.base_url).rstrip('/'), 'port':parsed.port, 'host':'127.0.0.1',
+            'remote_access_enabled':network['running'], 'network':network,
             'native_package':os.environ.get('HUMPERDINCK_NATIVE_PACKAGE')=='1'}
 
 @app.post('/api/engine/unload')
