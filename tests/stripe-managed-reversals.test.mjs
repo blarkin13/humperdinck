@@ -97,16 +97,16 @@ test('no forged event object can be submitted to reconciliation',async()=>{
 
 test('partial refund leaves active Pro; signed dispute blocks future online Pro activation',async()=>{
  const partial=setup();
- const a=await process(partial.env,msg('charge.refunded','evt_partial_only',{amount_refunded:1000}));
+ const a=await process(partial.env,msg('charge.refunded','evt_partialonly',{amount_refunded:1000}));
  assert.equal(a.entitlementChanged,false);
  assert.equal(partial.sqlite.prepare('SELECT status FROM pro_licenses').get().status,'active');
  partial.sqlite.close();
  const disputed=setup();
- const b=await process(disputed.env,msg('charge.dispute.created','evt_dispute_full'));
+ const b=await process(disputed.env,msg('charge.dispute.created','evt_disputefull'));
  assert.equal(b.entitlementChanged,true);
  assert.equal(disputed.sqlite.prepare('SELECT status FROM pro_licenses').get().status,'void');
  assert.equal(disputed.sqlite.prepare('SELECT status FROM commerce_stripe_live_orders').get().status,'disputed');
- assert.equal((await process(disputed.env,msg('charge.dispute.closed','evt_dispute_closed'))).decision,'recorded-for-review');
+ assert.equal((await process(disputed.env,msg('charge.dispute.closed','evt_disputeclosed'))).decision,'recorded-for-review');
  assert.equal(disputed.sqlite.prepare('SELECT status FROM pro_licenses').get().status,'void');
  disputed.sqlite.close();
 });
