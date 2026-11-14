@@ -121,6 +121,15 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Verify Fontsource OFL licenses are bundled with the desktop frontend
+        shell: bash
+        run: |
+          test -s frontend/dist/THIRD_PARTY_NOTICES.txt
+          cmp frontend/dist/THIRD_PARTY_NOTICES.txt website/THIRD_PARTY_NOTICES.txt
+          for font in Inter DM-Serif-Display Josefin-Sans Space-Grotesk; do
+            test -s "frontend/dist/font-licenses/${font}-OFL.txt"
+            grep -q 'SIL OPEN FONT LICENSE Version 1.1' "frontend/dist/font-licenses/${font}-OFL.txt"
+          done
       - name: Install backend packaging dependencies
         run: python -m pip install -r backend/requirements.txt "pyinstaller>=6,<7" "kokoro-onnx>=0.6,<1" "espeakng-loader" "certifi>=2025.1" "uv>=0.8,<1" "imageio-ffmpeg>=0.5,<1"
 
