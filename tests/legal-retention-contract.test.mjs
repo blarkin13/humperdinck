@@ -9,10 +9,10 @@ test('the cookie notice discloses actual account cookies without confusing them 
  const html=read('website/cookies/index.html'),auth=read('src/account-auth.js');
  assert.match(auth,/__Host-humperdinck_session/);
  assert.match(auth,/__Host-humperdinck_oauth/);
- assert.match(html,/__Host-humperdinck_session/);
- assert.match(html,/__Host-humperdinck_oauth_/);
+ assert.match(html,/secure cookies to keep your account session active/);
+ assert.match(html,/complete sign-in with Google or Apple/);
  assert.match(html,/Cloudflare Web Analytics/);
- assert.match(html,/Essential account authentication cookies are separate/);
+ assert.match(html,/These cookies support account access and security; they are not used for advertising/);
  assert.doesNotMatch(html,/Certain commercial, account and community features are not yet available/);
  assert.doesNotMatch(html,/\[VERIFY BEFORE LAUNCH:/);
 });
@@ -61,5 +61,6 @@ test('adult eligibility is server enforced and minimized across migration, notic
  assert.match(migration,/policy_version TEXT NOT NULL/);
  assert.doesNotMatch(migration,/(?:date_of_birth|passport|id_document)/);
  assert.match(privacy,/policy version and time/);
- assert.match(cookies,/__Host-humperdinck_age18/);
+ assert.match(auth,/__Host-humperdinck_age18/);
+ assert.match(cookies,/18\+ confirmation needed during account creation/);
 });
