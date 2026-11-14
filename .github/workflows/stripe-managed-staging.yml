@@ -26,7 +26,7 @@ jobs:
           node --check tests/stripe-managed-sandbox-routes.test.mjs
           node --check src/stripe-managed-live-routes-unrouted.js
           node --check tests/stripe-live-unrouted.test.mjs
-          node --check website/account/account-live-20261114.js
+          node --check website/account/account-production-20261114.js
           node --check tests/stripe-live-account-release.test.mjs
           node --check tests/account-live-footnote.test.mjs
           node --check website/account/account.js
