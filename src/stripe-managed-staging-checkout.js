@@ -3,7 +3,7 @@
  * a separate reviewed release. No customer inputs set price or payment mode.
  */
 const API='https://api.stripe.com/v1';
-const VERSION='2025-03-31.basil';
+const VERSION='2026-09-30.endive';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PRICE=/^price_[A-Za-z0-9]{8,}$/;
 const SESSION=/^cs_test_[A-Za-z0-9_]+$/;
@@ -11,7 +11,7 @@ const NOW=()=>Math.floor(Date.now()/1000);
 const failed=reason=>({decision:'blocked',reason});
 const validConfig=env=>env?.AUTH_DB &&
  env.STRIPE_STAGING_ENABLED==='true' &&
- typeof env.STRIPE_SECRET_KEY==='string' && env.STRIPE_SECRET_KEY.startsWith('sk_test_') &&
+ typeof env.STRIPE_SECRET_KEY==='string' && /^(?:sk|rk)_test_/.test(env.STRIPE_SECRET_KEY) &&
  PRICE.test(env.STRIPE_PRICE_ID||'');
 function form(values){
  const p=new URLSearchParams();

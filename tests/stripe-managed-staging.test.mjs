@@ -177,3 +177,10 @@ test('explicitly allowlisted disposable test account can receive one labeled non
  assert.equal(database.prepare('SELECT COUNT(*) AS n FROM pro_licenses').get().n,1);
  database.close();
 });
+
+test('restricted Stripe test key can prepare an account-bound checkout',async()=>{
+ const api=fakeApi();
+ const result=await stageManagedCheckout({...settings,STRIPE_SECRET_KEY:'rk_test_limited',AUTH_DB:db},account,{fetcher:api.fetcher,clock:()=>now,intentId:iid});
+ assert.equal(result.decision,'prepared');
+ assert.equal(api.calls.length,2);
+});

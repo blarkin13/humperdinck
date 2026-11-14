@@ -58,3 +58,18 @@ The live adapter has no public route in model-proxy-worker.js and is still block
 - Validate live Stripe API calls and webhook behavior with an isolated environment; CI synthetic tests do not prove real Stripe API acceptance.
 - Handle signed refunds, chargebacks and disputes, preserve required purchase/tax evidence, and reconcile previously downloaded offline licenses without automatic remote revocation promises.
 - Require the owner to explicitly approve changing release interlock, deploying credentials and exposing Buy Pro. Do not auto-trigger this from code merges.
+
+## Verified live Stripe catalog (Nov 13, 2026)
+
+The connected Humperdinck Stripe account has one active live Product and Price. These identifiers are public configuration IDs, **not API keys**:
+
+- Stripe account ID: acct_1UbWjTIYFiMNwrqM
+- Live product ID: prod_Vcme5juVwAfx2O
+- Live price ID: price_1UbX50IYFiMNwrqMadakKynb
+- Product: Humperdinck Pro — Lifetime License
+- Price: USD 4,900 cents ($49.00), one-time (`recurring=null`), active, live
+- Product tax category: txcd_10202000 (downloadable software for personal use)
+- Price tax_behavior is `unspecified`; check Managed Payments' treatment in an actual test checkout, not assumed to prove a tax configuration defect.
+- Account-wide Managed Payments is marked Ready to use by the owner, but no successful Managed Payments transaction has been verified.
+
+Configure `STRIPE_LIVE_PRICE_ID` and `STRIPE_LIVE_PRODUCT_ID` with the above verified IDs when preparing the **disabled** production integration. Do not insert API keys in the repository; prefer separate minimally scoped restricted `rk_live_`/`rk_test_` keys in Cloudflare secrets. The source supports either restricted or standard secret keys and uses Stripe API version 2026-09-30.endive. The connected Stripe plugin currently exposes **live mode only**; a separate sandbox/test mode account must be connected before using it for test transactions. No checkout sessions or charges were created during catalog verification.

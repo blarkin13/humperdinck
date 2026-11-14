@@ -139,3 +139,10 @@ test('unverified event, wrong account intent and disabled configuration cannot m
  assert.equal(database.sqlite.prepare('SELECT COUNT(*) AS count FROM pro_licenses').get().count,0);
  database.sqlite.close();
 });
+
+test('restricted live key works with an owner-configured price and product',async()=>{
+ const database=db(),api=mockFetch();
+ const result=await prepareStripeLiveCheckout({...opts,STRIPE_LIVE_SECRET_KEY:'rk_live_scoped',AUTH_DB:database.AUTH_DB},{id:userId,kind:'web'},{fetcher:api.fetcher,clock:()=>now,intentId});
+ assert.equal(result.decision,'prepared-live-session');
+ database.sqlite.close();
+});
