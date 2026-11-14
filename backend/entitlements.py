@@ -75,6 +75,7 @@ def status() -> dict:
         "plan": 'pro' if pro else 'free',
         "capabilities": {key: (required == 'free' or pro) for key, required in CAPABILITIES.items()},
         "development_preview": preview,
+        "license_inactive_reason": signed.get('inactive_reason'),
         "license_activated": bool(signed['active']),
         "license_source": ('signed-beta-temporary' if signed.get('beta') else 'signed-offline') if signed['active'] else ('development-preview' if preview else None),
         "perpetual": bool(signed['active'] and not signed.get('beta')),

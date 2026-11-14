@@ -91,19 +91,47 @@ test('anonymous and Free accounts cannot mint a grant',async()=>{
  assert.equal(env.AUTH_DB.devices.length,0);
 });
 
-test('signed perpetual backup uses verified Ed25519 key and cannot be silently modified',async()=>{
+const HASH='a'.repeat(64);
+const payloadOf=token=>JSON.parse(new TextDecoder().decode(decoded(token.split('.')[0])));
+async function activate(env,extra={}){
+ return send('/api/account/license/activate',{method:'POST',bearer:true,
+   data:{installation_id:createId(500),label:'PC',device_hash:HASH,...extra}},env,desktop);
+}
+
+test('activation signs a license bound to the account and this computer',async()=>{
  const {env,key}=await setup();
- const backup=await (await send('/api/account/license/backup',{},env)).json();
- assert.equal(backup.portable,true);
- const [body,signature]=backup.license.split('.');
+ const result=await (await activate(env)).json();
+ const [body,signature]=result.license.split('.');
  const bytes=decoded(body);
  assert.ok(await crypto.subtle.verify('Ed25519',key,decoded(signature),bytes));
  const data=JSON.parse(new TextDecoder().decode(bytes));
+ assert.equal(data.version,2);
  assert.equal(data.type,'humperdinck.pro.perpetual');
+ assert.equal(data.transfer,'account-device-bound');
+ assert.equal(data.device_hash,HASH);
  assert.equal(data.expires_at,null);
  assert.equal(data.subject,user.id);
  assert.equal(data.license_id,license.id);
- assert.equal(data.features[0],'pro');
+ assert.deepEqual(data.features,['pro']);
+});
+
+test('older desktop apps without a computer id still get the legacy certificate',async()=>{
+ const {env}=await setup();
+ const r=await send('/api/account/license/activate',{method:'POST',bearer:true,
+   data:{installation_id:createId(501),label:'Old app'}},env,desktop);
+ const data=payloadOf((await r.json()).license);
+ assert.equal(data.version,1);
+ assert.equal(data.transfer,'portable-offline-backup');
+});
+
+test('malformed computer ids are refused and portable license downloads are gone',async()=>{
+ const {env}=await setup();
+ for(const device_hash of ['A'.repeat(64),'a'.repeat(63),'',123])
+   assert.equal((await activate(env,{device_hash})).status,400);
+ assert.equal(env.AUTH_DB.devices.length,0);
+ assert.equal((await send('/api/account/license/backup',{},env)).status,410);
+ const overview=await (await send('/api/account/license',{},env)).json();
+ assert.equal(overview.license.backup_available,false);
 });
 
 test('only desktop session can activate; ten slots enforced atomically and can be released',async()=>{
@@ -156,9 +184,6 @@ test('missing signing key cannot create an online registration',async()=>{
  assert.equal((await send('/api/account/license/activate',{method:'POST',
    data,bearer:true},env,desktop)).status,503);
  assert.equal(env.AUTH_DB.devices.length,0);
- const overview=await (await send('/api/account/license',{},env)).json();
- assert.equal(overview.license.backup_available,false);
- assert.equal((await send('/api/account/license/backup',{},env)).status,503);
 });
 
 test('parallel online registrations never create an eleventh slot and a released slot can be reused',async()=>{
@@ -204,26 +229,22 @@ test('another account cannot retrieve, deactivate or export an owner license',as
 
 test('versioned signing defaults to v1 and refuses v2 without a matching configured private key',async()=>{
  const {env}=await setup();
- const issued=await send('/api/account/license/backup',{},env);
+ const issued=await activate(env);
  assert.equal(issued.status,200);
- const token=(await issued.json()).license;
- const payload=JSON.parse(new TextDecoder().decode(decoded(token.split('.')[0])));
- assert.equal(payload.key_id,'humperdinck-pro-ed25519-v1');
+ assert.equal(payloadOf((await issued.json()).license).key_id,'humperdinck-pro-ed25519-v1');
+ env.AUTH_DB.devices.length=0;
  env.PRO_LICENSE_ACTIVE_KEY_ID='humperdinck-pro-ed25519-v2';
- assert.equal((await send('/api/account/license/backup',{},env)).status,503);
- assert.equal((await send('/api/account/license/activate',{method:'POST',bearer:true,
-   data:{installation_id:createId(554),label:'New Desktop'}},env,desktop)).status,503);
+ assert.equal((await activate(env,{installation_id:createId(554)})).status,503);
  assert.equal(env.AUTH_DB.devices.length,0);
  env.PRO_LICENSE_ACTIVE_KEY_ID='unknown-key-id';
- assert.equal((await send('/api/account/license/backup',{},env)).status,503);
+ assert.equal((await activate(env,{installation_id:createId(554)})).status,503);
  env.PRO_LICENSE_ACTIVE_KEY_ID='humperdinck-pro-ed25519-v1';
- assert.equal((await send('/api/account/license/backup',{},env)).status,200);
+ assert.equal((await activate(env,{installation_id:createId(554)})).status,200);
 });
 
 test('malformed private key rejects issuance BEFORE registering a device',async()=>{
  const {env}=await setup();
  env.PRO_LICENSE_ED25519_PRIVATE=Buffer.from('invalid-pkcs8').toString('base64');
- assert.equal((await send('/api/account/license/backup',{},env)).status,503);
  assert.equal((await send('/api/account/license/activate',{method:'POST',bearer:true,
    data:{installation_id:createId(555),label:'Wrong key'}},env,desktop)).status,503);
  assert.equal(env.AUTH_DB.devices.length,0);

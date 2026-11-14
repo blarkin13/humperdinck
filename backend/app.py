@@ -318,6 +318,12 @@ def _start_relay(port):
     net.save(path,data)
     studio_relay.relay.start(DATA,port,data['relay_computer_id'],studio_relay.computer_name())
 
+def upgrade_license_in_background():
+    """Replace an older unbound Pro certificate once, without delaying startup."""
+    import threading
+    threading.Thread(target=account_client.upgrade_license, args=(DATA,), daemon=True,
+                     name='pro-license-upgrade').start()
+
 def start_relay_if_enabled(port):
     """Called by the desktop launcher with its loopback port."""
     from backend import network_server as net
