@@ -874,6 +874,7 @@ button.active small,.primary small{color:#3a3122}
 .server-settings-modal h2{margin:0;font-size:23px}
 .server-settings-modal p{margin:0;line-height:1.55;color:var(--muted)}
 .server-settings-modal .server-local-address{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.server-settings-modal .server-local-address code{flex:1 1 260px;min-width:0;overflow-wrap:anywhere}
 .server-settings-modal code{flex:1;min-width:0;overflow-wrap:anywhere;padding:12px;border-radius:7px;background:rgba(0,0,0,.22)}
 .server-settings-modal .server-mode-options{display:grid;gap:10px}
 .server-settings-modal .server-mode{padding:13px;border:1px solid var(--line);border-radius:8px}
