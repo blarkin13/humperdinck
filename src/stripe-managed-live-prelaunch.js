@@ -5,7 +5,7 @@
 import {verifyStripeWebhook} from './stripe-managed-staging-webhook.js';
 
 const API='https://api.stripe.com/v1';
-const VERSION='2025-03-31.basil';
+const VERSION='2026-09-30.endive';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PRICE=/^price_[A-Za-z0-9]{8,}$/;
 const PRODUCT=/^prod_[A-Za-z0-9]{8,}$/;
@@ -17,7 +17,7 @@ const verifiedPayments=new WeakSet();
 const deny=reason=>({decision:'blocked',reason,granted:false});
 const hex=buf=>Array.from(new Uint8Array(buf),b=>b.toString(16).padStart(2,'0')).join('');
 const config=env=>env?.AUTH_DB&&env.STRIPE_LIVE_STAGING_ENABLED==='true'&&
- typeof env.STRIPE_LIVE_SECRET_KEY==='string'&&env.STRIPE_LIVE_SECRET_KEY.startsWith('sk_live_')&&
+ typeof env.STRIPE_LIVE_SECRET_KEY==='string'&&/^(?:sk|rk)_live_/.test(env.STRIPE_LIVE_SECRET_KEY)&&
  PRICE.test(env.STRIPE_LIVE_PRICE_ID||'')&&PRODUCT.test(env.STRIPE_LIVE_PRODUCT_ID||'');
 async function stripeApi(env,fetcher,path,method='GET',values=null,idempotency=null){
  const form=new URLSearchParams();
