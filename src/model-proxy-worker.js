@@ -6,6 +6,7 @@ import {handleLemonTest} from './lemon-test-commerce.js';
 import {runScheduledAuthRetention} from './account-retention-scheduled.js';
 import {handleSupportMail,receiveSupportMail} from './support-mail.js';
 import {isReservedProductionCommercePath,handleUnreleasedProductionCommerce} from './live-commerce-release-gate.js';
+import {handleStripeSandbox} from './stripe-managed-sandbox-routes.js';
 import {publicRelease} from './public-releases.js';
 import {WORKER_SOURCE_GIT_SHA} from './deployment-provenance.js';
 import {handleNativeModel,ROUTE as NATIVE_MODEL_ROUTE} from './native-model-mirror.js';
