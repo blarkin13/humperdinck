@@ -25,7 +25,12 @@ async function stripeFetch(fetcher,env,path,method='GET',body=null,idempotency=n
    ...(idempotency?{'Idempotency-Key':idempotency}:{})},
   ...(body?{body:form(body).toString()}:{})
  });
- if(!response.ok)throw new Error('Stripe API rejected the request');
+ if(!response.ok){
+  let apiError={};try{apiError=(await response.json())?.error||{}}catch{}
+  const code=typeof apiError.code==='string'&&/^[a-z0-9_]{1,70}$/.test(apiError.code)?apiError.code:'unknown';
+  const type=typeof apiError.type==='string'&&/^[a-z0-9_]{1,70}$/.test(apiError.type)?apiError.type:'unknown';
+  throw new Error('stripe_http_'+response.status+':'+type+':'+code);
+ }
  return response.json();
 }
 export async function stageManagedCheckout(env,user,{fetcher=fetch,clock=NOW,intentId=crypto.randomUUID()}={}){
@@ -33,6 +38,7 @@ export async function stageManagedCheckout(env,user,{fetcher=fetch,clock=NOW,int
   return failed('Staging checkout not configured for an authenticated web account');
  const now=clock();
  if(!Number.isSafeInteger(now)||now<=0)return failed('Invalid clock');
+ let stage='price_lookup';
  try{
   // Verifies the Dashboard price rather than trusting a displayed product name.
   const price=await stripeFetch(fetcher,env,'/prices/'+encodeURIComponent(env.STRIPE_PRICE_ID));
@@ -40,10 +46,12 @@ export async function stageManagedCheckout(env,user,{fetcher=fetch,clock=NOW,int
      price.unit_amount!==4900||price.recurring||price.type!=='one_time')
     return failed('Expected active $49.00 USD one-time test price');
   // Keep at least 30 minutes of Stripe-side validity after API/network latency.
+  stage='save_intent';
   const row=await env.AUTH_DB.prepare(
     "INSERT INTO commerce_stripe_intents (id,user_id,price_id,amount_cents,currency,mode,status,created_at,expires_at) SELECT ?,?, ?,4900,'USD','test','started',?,? WHERE EXISTS (SELECT 1 FROM auth_users WHERE id=?) AND NOT EXISTS (SELECT 1 FROM pro_licenses WHERE user_id=? AND status='active')"
   ).bind(intentId,user.id,env.STRIPE_PRICE_ID,now,now+2700,user.id,user.id).run();
   if(row.meta?.changes!==1)return failed('Account unavailable or already has Pro');
+  stage='create_session';
   const session=await stripeFetch(fetcher,env,'/checkout/sessions','POST',{
    mode:'payment','line_items[0][price]':env.STRIPE_PRICE_ID,
    'line_items[0][quantity]':1,'managed_payments[enabled]':'true',
@@ -53,16 +61,24 @@ export async function stageManagedCheckout(env,user,{fetcher=fetch,clock=NOW,int
    cancel_url:'https://humperdinck.studio/account/?stripe=cancel',
    expires_at:now+2700
   },'humperdinck-stripe-test-'+intentId);
+  stage='validate_session';
   const checkoutUrl=new URL(session.url||'https://invalid.invalid/');
   if(!SESSION.test(session.id||'')||session.livemode!==false||
      session.mode!=='payment'||session.managed_payments?.enabled!==true||
      checkoutUrl.protocol!=='https:'||checkoutUrl.hostname!=='checkout.stripe.com')
     return failed('Stripe returned an unexpected Checkout Session');
+  stage='bind_session';
   const updated=await env.AUTH_DB.prepare(
     "UPDATE commerce_stripe_intents SET stripe_session_id=? WHERE id=? AND user_id=? AND status='started' AND stripe_session_id IS NULL"
   ).bind(session.id,intentId,user.id).run();
   if(updated.meta?.changes!==1)return failed('Unable to bind checkout to account');
   return {decision:'prepared',checkoutUrl:checkoutUrl.toString(),intentId,sessionId:session.id};
- }catch{return failed('Checkout preparation failed; no Pro entitlement issued');}
+ }catch(error){
+  // Operator diagnostics expose only stage, Stripe's HTTP status/error code,
+  // never API keys, user metadata, Stripe's raw message, or request bodies.
+  const reason=error instanceof Error?error.message:'';
+  const safe=/^stripe_http_[0-9]{3}:(?:[a-z0-9_]{1,70}):(?:[a-z0-9_]{1,70})$/.test(reason)?reason:'network_or_runtime_error';
+  return failed('Checkout preparation failed ('+stage+': '+safe+'); no Pro entitlement issued');
+ }
 }
 export const stripeManagedStagingConfigValid=validConfig;
