@@ -31,11 +31,16 @@ async function overview(env,user){
   env.AUTH_DB.prepare('SELECT id,display_name,email,created_at FROM auth_users WHERE id=?').bind(user.id).first()
  ]);
  const status=purchase?.status||'none';
+ const checkoutReady=env.STRIPE_LIVE_STAGING_ENABLED==='true'&&env.STRIPE_LIVE_HTTP_ENABLED==='true'&&
+  /^(rk|sk)_live_/.test(env.STRIPE_LIVE_SECRET_KEY||'')&&
+  typeof env.STRIPE_LIVE_WEBHOOK_SECRET==='string'&&
+  /^price_[A-Za-z0-9]{8,}$/.test(env.STRIPE_LIVE_PRICE_ID||'')&&
+  /^prod_[A-Za-z0-9]{8,}$/.test(env.STRIPE_LIVE_PRODUCT_ID||'');
  return {account:{id:user.id,display_name:account?.display_name||null,email:account?.email||null,
       created_at:account?.created_at||null,providers:[...new Set((identities.results||[]).map(x=>x.provider))]},
   purchase:{status,edition:status==='active'?'pro':'free',lifetime:status==='active',
     issued_at:purchase?.issued_at||null,provider:purchase?.provider||null,
-    reference:purchase?.purchase_ref||null,checkout_available:false,
+    reference:purchase?.purchase_ref||null,checkout_available:checkoutReady&&status!=='active',
     receipt_available:false},
   connected_desktops:(desktops.results||[]).map(d=>({id:d.id,label:d.label,
     connected_at:d.connected_at,last_seen_at:d.last_seen_at,expires_at:d.expires_at})),
