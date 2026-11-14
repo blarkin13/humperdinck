@@ -12,7 +12,9 @@ import AudioEditor from './AudioEditor.jsx';
 import VoiceGrid,{ago} from './VoiceGrid.jsx';
 import Updates from './Updates.jsx';
 import ServerSettings from './ServerSettings.jsx';
+import {humperdinckVoiceLabel} from './voiceLabels.js';
 // Opened from another device through humperdinck.studio/connect: settings stay on the host computer.
+const HUMPERDINCK_ORIGINS=new Set(['builtin-humperdinck','humperdinck-catalog']);
 const REMOTE_STUDIO=typeof location!=='undefined'&&/^\/r\/[a-z0-9]{16,40}\//.test(location.pathname);
 import Recorder from './Recorder.jsx';
 import Models from './Models.jsx';
@@ -425,8 +427,8 @@ function App(){
   specs:[['fa-solid fa-code-branch',v.version_count,'Versions'],['fa-solid fa-compact-disc',v.sample_count,'Preview takes'],['fa-regular fa-calendar',ago(v.updated_at),'Last changed']],
   previewUrl:v.preview_sample_id&&'/api/designed-samples/'+v.preview_sample_id,onOpen:()=>openVoice(v.id),onDelete:()=>deleteDesigned(v.id,v.name)})),
   ...uploads.map(v=>({key:'u'+v.voice_id,voiceKey:'upload:'+v.voice_id,method:v.origin||'uploaded',name:v.filename,category:v.origin==='builtin-humperdinck'?'Built-In Humperdinck Voices':v.origin==='humperdinck-catalog'?'Voice Gallery':'My Voices',selected:uploadSel===v.voice_id,ready:hasPro||v.origin==='builtin-humperdinck'||v.origin==='recorded',status:hasPro||v.origin==='builtin-humperdinck'||v.origin==='recorded'?'Ready for narration':'Pro required',
-  summary:v.origin==='builtin-humperdinck'?'Official Humperdinck voice, prepared from an approved generated sample.':v.origin==='humperdinck-catalog'?'Humperdinck voice you downloaded from the voice gallery.':`${v.duration?v.duration+'-second ':''}${v.channels===2?'stereo':'mono'} reference clip used to clone this voice.${v.duration&&v.duration<10?' Longer clips (10–30 s) clone more reliably.':''}`,
-  traits:[v.sample_rate&&(v.sample_rate/1000).toFixed(1)+' kHz',v.size_kb&&Math.round(v.size_kb/102.4)/10+' MB'].filter(Boolean),
+  summary:HUMPERDINCK_ORIGINS.has(v.origin)?humperdinckVoiceLabel(v):`${v.duration?v.duration+'-second ':''}${v.channels===2?'stereo':'mono'} reference clip used to clone this voice.${v.duration&&v.duration<10?' Longer clips (10–30 s) clone more reliably.':''}`,
+  traits:HUMPERDINCK_ORIGINS.has(v.origin)?[humperdinckVoiceLabel(v)]:[v.sample_rate&&(v.sample_rate/1000).toFixed(1)+' kHz',v.size_kb&&Math.round(v.size_kb/102.4)/10+' MB'].filter(Boolean),
   specs:[v.duration&&['fa-regular fa-clock',v.duration+'s','Length'],['fa-regular fa-calendar',ago(v.added_at),'Added']],
   previewUrl:'/api/voices/'+v.voice_id+'/audio',onOpen:()=>openUpload(v.voice_id),onDelete:v.origin==='builtin-humperdinck'?undefined:()=>deleteUpload(v.voice_id,v.filename)}))]}/>
  </section>}

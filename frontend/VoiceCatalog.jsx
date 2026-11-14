@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {useNotifications} from './Notifications.jsx';
 import {useDialogFocus} from './useDialogFocus.js';
 import {SleeveArt} from './VoiceGrid.jsx';
+import {humperdinckVoiceLabel} from './voiceLabels.js';
 
 /** Humperdinck Voice Gallery: a card that opens every voice not downloaded yet. */
 export default function VoiceCatalog({api,onInstalled,canDownload=false}){
@@ -45,7 +46,7 @@ function GalleryDialog({voices,error,busy,canDownload,onDownload,onRetry,onClose
     {!error&&!voices.length&&<p className="hint">You have every gallery voice. Check back for new ones.</p>}
     {voices.map(v=><div className="voice-card gallery-voice" key={v.voice_id}>
      <div className="card-top"><div className="sleeve"><SleeveArt seed={'u'+v.voice_id+v.name}/></div>
-      <div className="card-title"><span className="voice-name">{v.name}</span><small>{v.category||'Voice'}</small></div>
+      <div className="card-title"><span className="voice-name">{v.name}</span><small>{humperdinckVoiceLabel(v)}</small></div>
       <button type="button" className="gallery-download" disabled={!!busy} onClick={()=>onDownload(v)}
        aria-label={(canDownload?'Download ':'Pro required to download ')+v.name} title={canDownload?'Download':'Pro required'}>
        <i className={'fa-solid '+(busy===v.voice_id?'fa-spinner fa-spin':canDownload?'fa-download':'fa-lock')} aria-hidden="true"/></button></div>
