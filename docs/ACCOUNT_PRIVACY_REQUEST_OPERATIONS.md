@@ -7,15 +7,15 @@ delete an account, revoke a Pro entitlement, or remove merchant records.
 ## Request intake and informed consequences
 
 - `GET /api/account/privacy/export` returns owner account metadata and
-  online Pro/device metadata, but not bearer tokens, recovery hashes or
+  online Pro/device metadata, including account-linked salted computer-ID hashes when implemented, but not raw machine identifiers, bearer tokens, recovery hashes or
   private signing keys.
 - `POST /api/account/privacy/requests` requires an authenticated web
   session, same-origin request, and `REQUEST PRIVACY REVIEW`.
 - A deletion *review* also requires explicit acknowledgement of potential
   loss of future online Pro activation, account-based recovery, and the fact
-  that previously downloaded perpetual offline certificates may keep working.
+  that already-activated bound computers and previously issued legacy portable certificates may keep working offline; a new or reinstalled computer needs account sign-in and cannot activate after deletion.
 - No automatic account deletion endpoint is implemented.
-- The retained offline signed certificate cannot necessarily be revoked;
+- A bound certificate already activated on its computer, or a legacy certificate already issued, cannot necessarily be revoked while offline;
   do not promise remote erasure of files stored on the customer's computer.
 
 ## Operator-only review and retention
@@ -68,7 +68,7 @@ Nothing in this runbook enables destructive requests.
 - Before any destructive attempt it demands a reviewed customer request ID, an independently verified final customer consent and 18+ policy/terms handling where relevant, explicit online Pro forfeiture and offline-certificate acknowledgments, an operator identity, approved retention policy version and confirmation that merchant evidence is preserved.
 - Read-only preflight also blocks active legal/privacy holds, unresolved chargebacks, unsettled checkout intents, and linked beta invitations/grants/reports. This is intentional: database deletion alone cannot remove beta screenshot objects from R2. Accounts with beta records require a separate audited R2 and D1 cleanup plan.
 - Staged migration 0009 creates an independent deletion audit and preservation-hold table, **not** a live deletion job. Both remain unapplied until change approval.
-- In the isolated operator executor, D1.batch deletes a user and inserts a minimal non-cascading audit in one transaction; a failed audit is designed to roll back deletion. The user’s online Pro license, sessions, connection and recovery records cascade; commerce orders, refunds, webhook evidence and dispute ledgers do not.
+- In the isolated operator executor, D1.batch deletes a user and inserts a minimal non-cascading audit in one transaction; a failed audit is designed to roll back deletion. The user’s online Pro license, activation-linked salted device hashes, sessions, connection and recovery records are intended to cascade after separately approved schema and deletion tests; commerce orders, refunds, webhook evidence and dispute ledgers do not.
 - Synthetic integration tests in `tests/account-deletion-operator.test.mjs` cover explicit fail-closed settings, valid consent, cross-account boundaries, duplicate attempts, beta/chargeback/checkout/hold blockers, merchant survival and audited rollback. CI and runtime results must be checked before treating these as passed.
 - **Retention values remain working targets** in `docs/RETENTION_SCHEDULE_IMPLEMENTATION_PROPOSAL_2026-11-12.md`, not a statutory determination or published policy.
 - Before activating: confirm a reproducible *independent* final customer consent mechanism (not merely an operator boolean), account and merchant/legal hold reconciliation, actual D1 migration backup and restore, support access, customer notifications, beta R2 cleanup, full live-site privacy verification, production rollout/rollback, counsel review and separate explicit owner approval. No automatic account deletion or expiration purge is enabled.
