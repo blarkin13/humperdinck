@@ -15,7 +15,7 @@ export async function inspectAccountDeletionForReview(env,userId,{
  try{
   const [user,license,pending,orders,disputes,inflight,betaInvites,betaGrants,betaReports,holds]=await Promise.all([
    env.AUTH_DB.prepare('SELECT id FROM auth_users WHERE id=?').bind(userId).first(),
-   env.AUTH_DB.prepare('SELECT id,status FROM pro_licenses WHERE user_id=?').bind(userId).first(),
+   env.AUTH_DB.prepare('SELECT id,status FROM pro_licenses WHERE user_id=? ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, issued_at DESC LIMIT 1').bind(userId).first(),
    env.AUTH_DB.prepare("SELECT id FROM auth_privacy_requests WHERE user_id=? AND kind='deletion' AND status='pending'").bind(userId).first(),
    env.AUTH_DB.prepare('SELECT COUNT(*) AS n FROM commerce_live_orders WHERE user_id=?').bind(userId).first(),
    env.AUTH_DB.prepare("SELECT COUNT(*) AS n FROM commerce_live_disputes WHERE provider_order_id IN (SELECT provider_order_id FROM commerce_live_orders WHERE user_id=?) AND status='open'").bind(userId).first(),
