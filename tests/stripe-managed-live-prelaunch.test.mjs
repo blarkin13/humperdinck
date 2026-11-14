@@ -68,6 +68,8 @@ test('real $49 one-time Managed Payments checkout is pinned to Stripe product an
  assert.match(api.requests[1].params.body,/managed_payments%5Benabled%5D=true/);
  assert.match(api.requests[1].params.body,/mode=payment/);
  assert.match(api.requests[1].params.body,/line_items%5B0%5D%5Bprice%5D=price_12345678/);
+ assert.equal(Number(new URLSearchParams(api.requests[1].params.body).get('expires_at')),now+2700);
+
  assert.equal(database.sqlite.prepare('SELECT stripe_session_id FROM commerce_stripe_live_intents').get().stripe_session_id,'cs_live_abcdef123');
  database.sqlite.close();
 });
