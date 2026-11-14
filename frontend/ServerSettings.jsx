@@ -27,10 +27,10 @@ export default function ServerSettings({onClose}){
   }catch(e){setError(e.message)}finally{setBusy(false)}
  }
 
- async function networkAction(path){
-  setNetBusy(true);setError('');
+ async function networkAction(path,group='network'){
+  setNetBusy(group==='remote'?'remote':true);setError('');
   try{
-   const r=await fetch('/api/server/network/'+path,{method:'POST'});
+   const r=await fetch('/api/server/'+group+'/'+path,{method:'POST'});
    const j=await r.json();
    if(!r.ok)throw Error(j.detail||'Network server request failed');
    setNetwork(j);setNetPort(String(j.port));
@@ -73,7 +73,12 @@ export default function ServerSettings({onClose}){
        <strong>On the same Wi-Fi or network</strong>
        {local.length?local.map(linkRow):<p>No network address found. Check that this computer is connected to Wi-Fi or Ethernet.</p>}
        <strong>From anywhere (remote)</strong>
-       {remote.length?remote.map(linkRow):<p>For safe remote access, install <a href="https://tailscale.com/download" target="_blank" rel="noopener noreferrer">Tailscale</a> on this computer and your other devices and sign in to the same account. A Tailscale address appears here automatically. Don't forward this port on your router: the connection isn't encrypted.</p>}
+       {network.remote?.url
+        ?<><div className="server-local-address"><code>{network.remote.url}</code><button type="button" onClick={()=>copy(network.remote.pair_url,'remote')}><i className="fa-regular fa-copy"/> {copied==='remote'?'Copied':'Copy pairing link'}</button><button type="button" disabled={!!netBusy} onClick={()=>networkAction('stop','remote')}>Stop remote access</button></div>
+          <p>Encrypted (HTTPS) through Cloudflare. The address changes each time remote access starts.</p></>
+        :<><button type="button" disabled={!!netBusy} onClick={()=>networkAction('start','remote')}><i className="fa-solid fa-globe"/> {netBusy==='remote'?'Opening remote access… (first time downloads a small Cloudflare tool)':'Turn on remote access'}</button>
+          <p>Gives you a private https link that works from anywhere, with no router setup. Anyone with the link still needs the access code.</p></>}
+       {remote.length>0&&<><strong>Tailscale</strong>{remote.map(linkRow)}</>}
        <p>Open a link on the other device, or type the address and enter the access code. If it can't connect, allow Humperdinck through this computer's firewall.</p>
       </>}
      </>}

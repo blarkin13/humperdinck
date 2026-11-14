@@ -14,6 +14,8 @@ from __future__ import annotations
 import hmac
 import html
 import ipaddress
+import os
+import re
 import json
 import secrets
 import socket
@@ -71,13 +73,24 @@ def new_token() -> str:
     return '-'.join(''.join(secrets.choice(alphabet) for _ in range(5)) for _ in range(4))
 
 
-def _addresses() -> list[str]:
+def _interface_addresses() -> set[str]:
+    """IPv4 addresses actually assigned to this computer's network interfaces."""
     found: set[str] = set()
-    try:
-        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            found.add(info[4][0])
-    except OSError:
-        pass
+    commands = [['ipconfig'] if os.name == 'nt' else ['ifconfig'], ['ip', '-4', 'addr']]
+    for command in commands:
+        try:
+            output = subprocess.run(command, capture_output=True, text=True, timeout=3).stdout
+        except (OSError, subprocess.SubprocessError):
+            continue
+        found.update(re.findall(r'(?:inet |IPv4 Address[ .]*: )(?:addr:)?(\d+\.\d+\.\d+\.\d+)', output))
+        if found:
+            break
+    return found
+
+
+def _addresses() -> list[str]:
+    # Hostname lookups can return stale DHCP leases, so trust interfaces first.
+    found = _interface_addresses()
     try:  # The interface used for the default route; no packet is sent.
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
             probe.connect(('192.0.2.1', 9))

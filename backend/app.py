@@ -212,7 +212,16 @@ def _network_state():
         link['pair_url']=link['url']+'?access='+token
     return {'enabled':config['network_enabled'],'running':running,'port':port,
             'access_code':token,'addresses':links,'error':net.server.error,
-            'tailscale':any(link['kind']=='remote' for link in links)}
+            'tailscale':any(link['kind']=='remote' for link in links),
+            'remote':_remote_state(config)}
+
+def _remote_state(config):
+    from backend import remote_tunnel
+    state=remote_tunnel.tunnel.status()
+    state['enabled']=config.get('remote_enabled') is True
+    if state['url']:
+        state['pair_url']=state['url']+'/?access='+config['network_token']
+    return state
 
 def _network_token():
     from backend import network_server as net
@@ -226,7 +235,17 @@ def start_network_server_if_enabled():
         try:
             net.server.start(app,config['network_port'],_network_token)
         except RuntimeError:
-            pass
+            return
+        if config.get('remote_enabled') is True:
+            from backend import remote_tunnel
+            Thread(target=lambda: _quiet(remote_tunnel.tunnel.start,DATA,config['network_port']),
+                   daemon=True,name='remote-autostart').start()
+
+def _quiet(function,*args):
+    try:
+        function(*args)
+    except RuntimeError:
+        pass
 
 @app.get('/api/server/settings')
 def get_server_settings():
@@ -280,8 +299,37 @@ def stop_network_server():
     from backend import network_server as net
     path=server_settings_path()
     data=net.network_config(path)
+    from backend import remote_tunnel
+    remote_tunnel.tunnel.stop()
     net.server.stop()
     data['network_enabled']=False
+    net.save(path,data)
+    return _network_state()
+
+@app.post('/api/server/remote/start')
+def start_remote_access():
+    """Open an encrypted Cloudflare tunnel to the network server (starting it if needed)."""
+    from backend import network_server as net, remote_tunnel
+    path=server_settings_path()
+    data=net.network_config(path)
+    try:
+        if not net.server.running:
+            net.server.start(app,data['network_port'],_network_token)
+            data['network_enabled']=True
+        remote_tunnel.tunnel.start(DATA,net.server.port)
+    except RuntimeError as error:
+        raise HTTPException(409,str(error))
+    data['remote_enabled']=True
+    net.save(path,data)
+    return _network_state()
+
+@app.post('/api/server/remote/stop')
+def stop_remote_access():
+    from backend import network_server as net, remote_tunnel
+    path=server_settings_path()
+    data=net.network_config(path)
+    remote_tunnel.tunnel.stop()
+    data['remote_enabled']=False
     net.save(path,data)
     return _network_state()
 
