@@ -39,9 +39,10 @@ export async function stageManagedCheckout(env,user,{fetcher=fetch,clock=NOW,int
   if(!price?.active||price.livemode!==false||price.currency!=='usd'||
      price.unit_amount!==4900||price.recurring||price.type!=='one_time')
     return failed('Expected active $49.00 USD one-time test price');
+  // Keep at least 30 minutes of Stripe-side validity after API/network latency.
   const row=await env.AUTH_DB.prepare(
     "INSERT INTO commerce_stripe_intents (id,user_id,price_id,amount_cents,currency,mode,status,created_at,expires_at) SELECT ?,?, ?,4900,'USD','test','started',?,? WHERE EXISTS (SELECT 1 FROM auth_users WHERE id=?) AND NOT EXISTS (SELECT 1 FROM pro_licenses WHERE user_id=? AND status='active')"
-  ).bind(intentId,user.id,env.STRIPE_PRICE_ID,now,now+1800,user.id,user.id).run();
+  ).bind(intentId,user.id,env.STRIPE_PRICE_ID,now,now+2700,user.id,user.id).run();
   if(row.meta?.changes!==1)return failed('Account unavailable or already has Pro');
   const session=await stripeFetch(fetcher,env,'/checkout/sessions','POST',{
    mode:'payment','line_items[0][price]':env.STRIPE_PRICE_ID,
@@ -50,7 +51,7 @@ export async function stageManagedCheckout(env,user,{fetcher=fetch,clock=NOW,int
    'metadata[intent_id]':intentId,
    success_url:'https://humperdinck.studio/account/?stripe=return',
    cancel_url:'https://humperdinck.studio/account/?stripe=cancel',
-   expires_at:now+1800
+   expires_at:now+2700
   },'humperdinck-stripe-test-'+intentId);
   const checkoutUrl=new URL(session.url||'https://invalid.invalid/');
   if(!SESSION.test(session.id||'')||session.livemode!==false||
