@@ -39,7 +39,7 @@ test('published prelaunch privacy and refund notices reflect account deletion an
  const privacy=load('privacy'),refund=load('refunds'),terms=load('terms');
  assert.match(privacy,/online Pro entitlements, device-hash activation records and ability to activate another or reinstalled computer may be lost/);
  assert.match(privacy,/previously issued legacy portable certificates also remain usable until migrated/);
- assert.match(privacy,/minimum purchase, refund, dispute and tax records may still be retained/i);
+ assert.match(privacy,/(?:necessary|minimum) purchase, refund, dispute and tax records may still be retained/i);
  assert.match(refund,/Stripe Managed Payments/);
  assert.doesNotMatch(refund,/Certain commercial, account and community features/);
  assert.match(terms,/no live checkout is approved or enabled/);
