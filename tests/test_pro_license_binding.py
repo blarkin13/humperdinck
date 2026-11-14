@@ -113,6 +113,8 @@ def test_startup_upgrade_swaps_older_license_for_bound_one(tmp_path, signer, mon
     monkeypatch.setattr(account_client, '_call', fake_call)
     assert account_client.upgrade_license(tmp_path)
     assert sent['device_hash'] == HERE and len(sent['installation_id']) == 36
+    assert sent['replaces_installation_id'] == pro_license.installation(tmp_path)['installation_id']
+    assert sent['label'] == pro_license.device_label(tmp_path) == pro_license.device_label(tmp_path / 'other')
     assert not pro_license.needs_upgrade(tmp_path)
     assert not account_client.upgrade_license(tmp_path)     # nothing left to do
 

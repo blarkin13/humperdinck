@@ -104,6 +104,12 @@ def device_installation_id(data: Path) -> str:
     return str(UUID(bytes=digest[:16], version=5))
 
 
+def device_label(data: Path) -> str:
+    """Account-page name for this computer, the same for every install on it."""
+    os_name = {'darwin': 'Mac', 'win32': 'Windows'}.get(sys.platform, 'Linux')
+    return f'{os_name} · {device_installation_id(data)[-6:]}'
+
+
 def signed_in_user(data: Path) -> str | None:
     try:
         state = json.loads((Path(data) / 'account-session.json').read_text(encoding='utf-8'))

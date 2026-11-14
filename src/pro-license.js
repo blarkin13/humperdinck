@@ -129,6 +129,8 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
       return err(400,'Invalid installation identifier or device label');
     if(data.device_hash!==undefined&&!deviceHash(data.device_hash))
       return err(400,'Invalid computer identifier');
+    if(data.replaces_installation_id!==undefined&&!uuid(data.replaces_installation_id))
+      return err(400,'Invalid previous installation identifier');
     const license=await licenseForUser(env,user.id);
     if(!license){
       const beta=await betaForUser(env,user.id);
@@ -147,6 +149,19 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
     // never consume a device slot without a portable certificate.
     let signedToken;
     try{signedToken=await signLicense(license,key,data.device_hash||null)}catch{return err(503,'License signing failed before device registration')}
+    // A computer moving to its per-computer slot releases the slot its older
+    // per-installation ID used, so the move never costs an extra device.
+    let released=null;
+    if(data.replaces_installation_id&&data.replaces_installation_id.toLowerCase()!==data.installation_id.toLowerCase()){
+      released=await env.AUTH_DB.prepare(
+        'SELECT id FROM pro_devices WHERE license_id=? AND installation_id=? AND deactivated_at IS NULL')
+        .bind(license.id,data.replaces_installation_id).first();
+      if(released)await env.AUTH_DB.prepare(
+        'UPDATE pro_devices SET deactivated_at=? WHERE id=? AND license_id=? AND deactivated_at IS NULL')
+        .bind(clock(),released.id,license.id).run();
+    }
+    const restore=async()=>{if(released)await env.AUTH_DB.prepare(
+      'UPDATE pro_devices SET deactivated_at=NULL WHERE id=? AND license_id=?').bind(released.id,license.id).run()};
     const existing=await env.AUTH_DB.prepare(
       'SELECT id,deactivated_at FROM pro_devices WHERE license_id=? AND installation_id=?')
       .bind(license.id,data.installation_id).first();
@@ -157,13 +172,13 @@ export async function handleProLicense(request,env,{session,sameOrigin}){
       const changed=await env.AUTH_DB.prepare(
         'UPDATE pro_devices SET deactivated_at=NULL,label=?,activated_at=?,last_seen_at=? WHERE id=? AND license_id=? AND deactivated_at IS NOT NULL AND (SELECT COUNT(*) FROM pro_devices WHERE license_id=? AND deactivated_at IS NULL) < ?')
         .bind(data.label.trim(),clock(),clock(),existing.id,license.id,license.id,license.max_devices).run();
-      if(changed.meta?.changes!==1)return err(409,'All ten Pro device slots are in use. Deactivate one in your account.');
+      if(changed.meta?.changes!==1){await restore();return err(409,'All ten Pro device slots are in use. Deactivate one in your account.');}
     }else{
       const deviceId=crypto.randomUUID();
       const added=await env.AUTH_DB.prepare(
         'INSERT INTO pro_devices(id,license_id,installation_id,label,activated_at,last_seen_at,deactivated_at) SELECT ?,?,?,?,?,?,NULL WHERE (SELECT COUNT(*) FROM pro_devices WHERE license_id=? AND deactivated_at IS NULL) < ?')
         .bind(deviceId,license.id,data.installation_id,data.label.trim(),clock(),clock(),license.id,license.max_devices).run();
-      if(added.meta?.changes!==1)return err(409,'All ten Pro device slots are in use. Deactivate one in your account.');
+      if(added.meta?.changes!==1){await restore();return err(409,'All ten Pro device slots are in use. Deactivate one in your account.');}
     }
     const status=await licenseOverview(env,user);
     return response({activated:true,license:signedToken,
