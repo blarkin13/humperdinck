@@ -55,13 +55,13 @@ test('unsigned reversal cannot alter purchase or license',async()=>{
  assert.equal(sqlite.prepare('SELECT status FROM commerce_stripe_live_orders').get().status,'paid');
  sqlite.close();
 });
-test('signed full refund updates ledger but cannot remotely revoke offline Pro',async()=>{
+test('signed full refund voids only online Pro; offline certificate cannot be remotely erased',async()=>{
  const {sqlite,env}=setup(),raw=msg();
  const first=await process(env,raw);
  assert.equal(first.decision,'recorded-for-review');
- assert.equal(first.entitlementChanged,false);
+ assert.equal(first.entitlementChanged,true);
  assert.equal(sqlite.prepare('SELECT status FROM commerce_stripe_live_orders').get().status,'refunded');
- assert.equal(sqlite.prepare('SELECT status FROM pro_licenses').get().status,'active');
+ assert.equal(sqlite.prepare('SELECT status FROM pro_licenses').get().status,'void');
  assert.equal((await process(env,raw)).decision,'already-recorded');
  sqlite.close();
 });
@@ -93,4 +93,20 @@ test('no forged event object can be submitted to reconciliation',async()=>{
  assert.equal((await reconcileStripeLiveReversal(env,{...verified},{clock:now})).decision,'rejected');
  assert.equal(sqlite.prepare('SELECT status FROM commerce_stripe_live_orders').get().status,'paid');
  sqlite.close();
+});
+
+test('partial refund leaves active Pro; signed dispute blocks future online Pro activation',async()=>{
+ const partial=setup();
+ const a=await process(partial.env,msg('charge.refunded','evt_partial_only',{amount_refunded:1000}));
+ assert.equal(a.entitlementChanged,false);
+ assert.equal(partial.sqlite.prepare('SELECT status FROM pro_licenses').get().status,'active');
+ partial.sqlite.close();
+ const disputed=setup();
+ const b=await process(disputed.env,msg('charge.dispute.created','evt_dispute_full'));
+ assert.equal(b.entitlementChanged,true);
+ assert.equal(disputed.sqlite.prepare('SELECT status FROM pro_licenses').get().status,'void');
+ assert.equal(disputed.sqlite.prepare('SELECT status FROM commerce_stripe_live_orders').get().status,'disputed');
+ assert.equal((await process(disputed.env,msg('charge.dispute.closed','evt_dispute_closed'))).decision,'recorded-for-review');
+ assert.equal(disputed.sqlite.prepare('SELECT status FROM pro_licenses').get().status,'void');
+ disputed.sqlite.close();
 });
