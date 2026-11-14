@@ -170,6 +170,8 @@ def main() -> None:
 
     # API routes are registered first. Mount static content last so /api works.
     app.mount("/", StaticFiles(directory=str(static), html=True), name="desktop-frontend")
+    from backend.app import start_network_server_if_enabled
+    start_network_server_if_enabled()
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning", access_log=False)
 
 
