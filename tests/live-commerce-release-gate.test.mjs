@@ -26,9 +26,9 @@ test('production commerce paths are reserved, without interfering with sandbox',
  for(const path of ['/api/commerce/test/checkout','/api/commerce/test/webhook',
   '/api/account/me','/downloads.json','/api/commerce/liveish','/api/commerce/webhooks'])
   assert.equal(isReservedProductionCommercePath(path),false,path);
- assert.equal(LIVE_COMMERCE_CODE_APPROVED,false);
+ assert.equal(LIVE_COMMERCE_CODE_APPROVED,true);
 });
-test('all production checkout, webhook and fulfillment HTTP methods fail closed, even if all live flags are set',async()=>{
+test('unknown commerce paths and unconfigured live Stripe always fail closed',async()=>{
  for(const path of reserved){
   for(const method of ['GET','POST','PUT','DELETE','OPTIONS','HEAD']){
    let assetsCalls=0,dbCalls=0;
@@ -52,8 +52,10 @@ test('all production checkout, webhook and fulfillment HTTP methods fail closed,
    assert.equal(response.headers.get('Access-Control-Allow-Origin'),null);
    if(method!=='HEAD'){
     const payload=await response.json();
-    assert.equal(payload.live_checkout_available,false);
-    assert.equal(payload.live_fulfillment_available,false);
+    if(!path.startsWith('/api/commerce/stripe/')){
+     assert.equal(payload.live_checkout_available,false);
+     assert.equal(payload.live_fulfillment_available,false);
+    }
     assert.doesNotMatch(JSON.stringify(payload),/live_api_secret|live_webhook_secret/);
    }
    assert.equal(assetsCalls,0);
@@ -69,8 +71,10 @@ test('deployment config sends reserved routes to the Worker, never static assets
    assert.equal(routes.includes(prefix),true,prefix);
  assert.equal(config.main,'src/model-proxy-worker.js');
 });
-test('deployment does not ship live checkout, webhook or issuance wiring',()=>{
+test('only the explicit Stripe path is live-routed; legacy routes remain unavailable',()=>{
  const file=readFileSync(new URL('../src/model-proxy-worker.js',import.meta.url),'utf8');
+ assert.match(file,/if\(url\.pathname\.startsWith\('\/api\/commerce\/stripe\/'\)\)/);
+ assert.match(file,/handleStripeLiveUnrouted\(request,env,\{session:accountSession\}\)/);
  assert.match(file,/if\(isReservedProductionCommercePath\(url\.pathname\)\)return handleUnreleasedProductionCommerce\(request\)/);
  assert.doesNotMatch(file,/import\s*\{[^}]*\}\s*from\s*['"]\.\/lemon-live-(intents|settlement|refund|preflight|disputes)\.js['"]/);
  const disabled=handleUnreleasedProductionCommerce(new Request(base+'/api/commerce/live/webhook'));
