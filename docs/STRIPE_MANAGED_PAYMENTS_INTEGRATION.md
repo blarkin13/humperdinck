@@ -40,3 +40,21 @@ https://docs.stripe.com/payments/managed-payments/set-up
 https://docs.stripe.com/payments/managed-payments/eligibility
 https://docs.stripe.com/webhooks
 https://docs.stripe.com/checkout/fulfillment
+
+
+## Production adapter prepared (not routed)
+The separate source module src/stripe-managed-live-prelaunch.js now prepares a Stripe LIVE one-time $49.00 Checkout Session and atomically records a verified paid webhook alongside the existing Humperdinck Pro entitlement. This remains unrouted and cannot take payments merely by adding secrets.
+
+Required future live settings (do not publish any secret values):
+- STRIPE_LIVE_STAGING_ENABLED=true, private trusted internal usage only; this is not a public release switch.
+- STRIPE_LIVE_SECRET_KEY: sk_live_ restricted secret.
+- STRIPE_LIVE_PRICE_ID: Price ID for the owner-selected $49.00 one-time USD product.
+- STRIPE_LIVE_PRODUCT_ID: exact corresponding Stripe Product ID, validated independently from the Price.
+- STRIPE_LIVE_WEBHOOK_SECRET: whsec_ for the chosen live webhook destination, distinct from test.
+- AUTH_DB with migrations/0013_stripe_managed_live_ledger.sql, only after controlled migration and rollback acceptance.
+
+The live adapter has no public route in model-proxy-worker.js and is still blocked by src/live-commerce-release-gate.js. Before any production route:
+- Implement same-origin web-account POST + throttle around Checkout creation, signed webhook listener using the untouched raw body, and a public account-only purchase-status view that never relies solely on redirect.
+- Validate live Stripe API calls and webhook behavior with an isolated environment; CI synthetic tests do not prove real Stripe API acceptance.
+- Handle signed refunds, chargebacks and disputes, preserve required purchase/tax evidence, and reconcile previously downloaded offline licenses without automatic remote revocation promises.
+- Require the owner to explicitly approve changing release interlock, deploying credentials and exposing Buy Pro. Do not auto-trigger this from code merges.
