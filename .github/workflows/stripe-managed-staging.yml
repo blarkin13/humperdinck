@@ -18,8 +18,10 @@ jobs:
           node --check tests/stripe-managed-staging.test.mjs
           node --check src/stripe-managed-live-prelaunch.js
           node --check tests/stripe-managed-live-prelaunch.test.mjs
+          node --check src/stripe-managed-reversals.js
+          node --check tests/stripe-managed-reversals.test.mjs
       - name: Run Stripe and release-gate tests
-        run: node --test tests/stripe-managed-staging.test.mjs tests/stripe-managed-live-prelaunch.test.mjs tests/live-commerce-release-gate.test.mjs
+        run: node --test tests/stripe-managed-staging.test.mjs tests/stripe-managed-live-prelaunch.test.mjs tests/stripe-managed-reversals.test.mjs tests/live-commerce-release-gate.test.mjs
       - name: Verify isolated Stripe ledger migration
         run: |
           python3 - <<'PY'
