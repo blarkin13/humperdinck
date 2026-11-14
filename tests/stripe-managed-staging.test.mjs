@@ -186,3 +186,23 @@ test('restricted Stripe test key can prepare an account-bound checkout',async()=
  assert.equal(result.decision,'prepared');
  assert.equal(api.calls.length,2);
 });
+
+test('failed Stripe API call reports a safe phase and code without leaking raw provider messages',async()=>{
+ const fetcher=async()=>({ok:false,status:403,json:async()=>({error:{
+  type:'invalid_request_error',code:'permission_denied',message:'SECRET SHOULD NEVER LEAK'}})});
+ const result=await stageManagedCheckout({...settings,AUTH_DB:db},account,
+  {fetcher,clock:()=>now,intentId:iid});
+ assert.equal(result.decision,'blocked');
+ assert.match(result.reason,/price_lookup: stripe_http_403:invalid_request_error:permission_denied/);
+ assert.doesNotMatch(result.reason,/SECRET/);
+});
+test('checkout API failure is distinct from price lookup failure',async()=>{
+ const fetcher=async(url)=>{
+  if(url.includes('/prices/'))return {ok:true,json:async()=>({
+   active:true,livemode:false,currency:'usd',unit_amount:4900,type:'one_time',recurring:null})};
+  return {ok:false,status:401,json:async()=>({error:{type:'invalid_request_error',code:'invalid_api_key'}})};
+ };
+ const result=await stageManagedCheckout({...settings,AUTH_DB:db},account,
+  {fetcher,clock:()=>now,intentId:iid});
+ assert.match(result.reason,/create_session: stripe_http_401:invalid_request_error:invalid_api_key/);
+});
