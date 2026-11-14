@@ -39,6 +39,10 @@ export default {
   if(url.pathname.startsWith('/api/beta/admin/invitations')||url.pathname.startsWith('/api/beta/invitations/')||url.pathname==='/api/beta/admin/test-license/revoke')return handleBetaInvitations(request,env,{session:accountSession});
   if(url.pathname.startsWith('/api/beta/'))return handleBetaFeedback(request,env,{session:accountSession});
   if(url.pathname.startsWith('/api/account/'))return handleAccount(request,env);
+  // Once Stripe sandbox QA is enabled, never allow a cached legacy Account
+  // script to open a Lemon Squeezy test checkout.
+  if(url.pathname==='/api/commerce/test/checkout'&&env.STRIPE_SANDBOX_HTTP_ENABLED==='true')
+   return new Response(JSON.stringify({error:'Legacy test checkout retired. Reload the Account page to use Stripe.'}),{status:410,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
   if(url.pathname.startsWith('/api/commerce/test/'))return handleLemonTest(request,env,{session:accountSession});
   if(url.pathname==='/analytics/event')return handleAnalyticsEvent(request,env);
   if(url.pathname.startsWith(NATIVE_MODEL_ROUTE))return handleNativeModel(request,env,ctx);
