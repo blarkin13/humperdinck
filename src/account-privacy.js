@@ -16,7 +16,7 @@ export async function handleAccountPrivacy(request,env,{user,sameOrigin}){
   const [account,identity,license]=await Promise.all([
    env.AUTH_DB.prepare('SELECT id,display_name,email,created_at FROM auth_users WHERE id=?').bind(user.id).first(),
    env.AUTH_DB.prepare('SELECT provider,created_at FROM auth_identities WHERE user_id=? ORDER BY provider').bind(user.id).all(),
-   env.AUTH_DB.prepare('SELECT id,status,issued_at,max_devices,provider,purchase_ref FROM pro_licenses WHERE user_id=? ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, issued_at DESC LIMIT 1').bind(user.id).first()
+   env.AUTH_DB.prepare("SELECT id,status,issued_at,max_devices,provider,purchase_ref FROM pro_licenses WHERE user_id=? ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, issued_at DESC LIMIT 1").bind(user.id).first()
   ]);
   if(!account)return error(404,'Account not found');
   const [devices,requests]=await Promise.all([
